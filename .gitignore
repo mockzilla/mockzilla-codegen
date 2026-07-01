@@ -1,0 +1,25 @@
+# ide
+.idea
+.air
+*.iml
+
+# build artifacts
+.build/
+
+# test coverage
+*.out
+coverage.html
+
+# local env: .env.dist (committed defaults) + .env (gitignored override slot).
+.env
+.env.*
+!.env.example
+!.env.dist
+.go-version
+.data
+
+# os
+.DS_Store
+
+.claude/settings.local.json
+.claude/*.lock
