@@ -23,3 +23,11 @@ coverage.html
 
 .claude/settings.local.json
 .claude/*.lock
+.go-version
+.claude/settings.local.json
+gosec-report*.json
+testdata/specs*/**/*
+.sandbox/
+examples/stash/**/*
+.integration-cache.json
+/bin/

@@ -1,0 +1,3 @@
+# Module-relative paths left out of the coverage gate. "dir/..." skips a whole tree.
+cmd/codegen/main.go
+scripts/covercheck/main.go
