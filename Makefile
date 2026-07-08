@@ -54,7 +54,7 @@ tidy-check: ## Fail when go.mod or go.sum are not tidy
 
 .PHONY: schema
 schema: ## Regenerate config.schema.json
-	@echo "schema: not available yet"
+	UPDATE=1 go test -count=1 -run TestSchemaUpToDate ./pkg/config
 
 .PHONY: generate
 generate: ## Run go generate
@@ -85,7 +85,7 @@ bench: ## Benchmarks on large specs
 	@echo "bench: not available yet"
 
 .PHONY: runtime-deps
-runtime-deps: ## Fail when ./runtime imports anything outside the standard library
+runtime-deps: ## Fail when ./pkg/runtime imports anything outside the standard library
 	@echo "runtime-deps: not available yet"
 
 .PHONY: check

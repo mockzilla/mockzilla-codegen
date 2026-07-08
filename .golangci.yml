@@ -10,6 +10,7 @@ linters:
     - exhaustive
     - forbidigo
     - gocritic
+    - goheader
     - gosec
     - misspell
     - nolintlint
@@ -19,6 +20,13 @@ linters:
     - unparam
     - wastedassign
   settings:
+    goheader:
+      values:
+        regexp:
+          copyright-year: 20[0-9]{2}
+      template: |-
+        Copyright {{ copyright-year }} Mockzilla
+        SPDX-License-Identifier: MIT
     exhaustive:
       default-signifies-exhaustive: true
     forbidigo:

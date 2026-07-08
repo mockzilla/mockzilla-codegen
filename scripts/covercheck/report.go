@@ -1,3 +1,6 @@
+// Copyright 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+
 package main
 
 import (
