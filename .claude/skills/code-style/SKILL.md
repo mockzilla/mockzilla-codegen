@@ -157,7 +157,7 @@ Never flag "missing doc comment". Doc comments are permitted, not required.
   `HasBody`). Config structs mirror their YAML keys instead.
 - **Don't shadow built-ins** (`min`, `max`, `len`, `new`, `copy`, `string`, ...).
 - **Default to unexported.** Export only what another package needs. Anything not in the public API
-  (`codegen`, `config`, `runtime`) lives under `internal/`.
+  (`pkg/codegen`, `pkg/config`, `pkg/runtime`) lives under `internal/`.
 
 ### 4. Errors
 
@@ -185,6 +185,12 @@ Don't glue independent `if` blocks together.
 
 ### 8. File structure
 
+- Every `.go` file starts with the license header, then a blank line:
+  ```go
+  // Copyright 2026 Mockzilla
+  // SPDX-License-Identifier: MIT
+  ```
+  The year is when the file was created. goheader enforces it in `make lint`.
 - One file per concern; split before a file mixes concerns.
 - `var`, `const`, `type` declarations at the top of the file, below imports.
 - Exported functions before unexported; caller before callee.
@@ -201,10 +207,13 @@ Library packages never log and never print (`fmt.Print*`, `println`, `log.*`, `s
 errors and diagnostics; the caller decides what to show. Only `cmd/` and `scripts/` print. forbidigo
 enforces the print half.
 
-### 11. Package naming
+### 11. Package naming and location
 
 Lowercase, single word, short, concrete: `naming`, `layout`, `oasdoc`. No underscores. Alias
 multi-word upstream packages at the import site.
+
+Public packages live under `pkg/`, private ones under `internal/`, binaries under `cmd/`. No `.go`
+files in the repo root.
 
 ### 12. Determinism
 

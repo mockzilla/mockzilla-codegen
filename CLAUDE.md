@@ -18,6 +18,8 @@ specs. Module `github.com/mockzilla/codegen`. Built on github.com/pb33f/libopena
 - Public repo: never name private repositories, internal services, accounts or deployment details in
   code, comments, docs, examples, commit messages or PR text.
 - Run the `code-style` skill before declaring work done and before opening a PR.
+- Every `.go` file starts with `// Copyright <year> Mockzilla` and `// SPDX-License-Identifier: MIT`,
+  then a blank line. MIT license, see `LICENSE`. The goheader linter enforces it.
 - Library code never logs or prints; it returns errors and diagnostics. Only `cmd/` prints.
 - Output must be deterministic: sort before ranging over maps, never use libopenapi hashes for names
   or ordering.
@@ -26,11 +28,13 @@ specs. Module `github.com/mockzilla/codegen`. Built on github.com/pb33f/libopena
 
 ## Layout
 
+Public packages live under `pkg/`, private ones under `internal/`. No Go files in the repo root.
+
 | Path | Role |
 |---|---|
-| `codegen` (root) | public API: `Generate`, `Prepare`, `Write`, `Version` |
-| `config` | config structs, loading, validation, JSON schema |
-| `runtime` | helpers imported by generated code, standard library only |
+| `pkg/codegen` | public API: `Generate`, `Prepare`, `Write`, `Version` |
+| `pkg/config` | config structs, loading, validation, JSON schema |
+| `pkg/runtime` | helpers imported by generated code, standard library only |
 | `cmd/codegen` | CLI |
 | `internal/...` | provider, spec IR, transforms, naming, Go model, rendering, layout |
 | `examples/` | separate module: golden examples and tests of generated code |

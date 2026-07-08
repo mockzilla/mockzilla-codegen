@@ -1,0 +1,422 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "client": {
+      "additionalProperties": false,
+      "description": "Client generation. Present means generate.",
+      "properties": {
+        "name": {
+          "description": "Name of the client type. Defaults to Client.",
+          "type": "string"
+        },
+        "streaming": {
+          "description": "Generate streaming methods for event-stream responses.",
+          "type": "boolean"
+        },
+        "timeout": {
+          "description": "Default request timeout. Defaults to 3s.",
+          "pattern": "^(0|([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+)$",
+          "type": "string"
+        },
+        "with-response": {
+          "description": "Also generate methods that return the raw HTTP response.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "header": {
+      "description": "Text put as a comment at the top of every generated file.",
+      "type": "string"
+    },
+    "imports": {
+      "description": "Extra imports added to every generated file.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "alias": {
+            "description": "Import alias. Empty means none.",
+            "type": "string"
+          },
+          "package": {
+            "description": "Import path.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "mcp": {
+      "additionalProperties": false,
+      "description": "MCP server generation. Present means generate. Needs client.",
+      "properties": {
+        "default-skip": {
+          "description": "Skip operations unless x-mcp turns them on.",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "models": {
+      "additionalProperties": false,
+      "description": "Models generation. Always on.",
+      "properties": {
+        "descriptions": {
+          "description": "Copy schema descriptions into comments. Defaults to true.",
+          "type": "boolean"
+        },
+        "error-mapping": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Error types, mapped to the path of their message field.",
+          "type": "object"
+        },
+        "extra-tags": {
+          "description": "Struct tags added next to json, such as yaml.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "int-type": {
+          "description": "Go type for integers without a format. Defaults to int.",
+          "enum": [
+            "int",
+            "int32",
+            "int64"
+          ],
+          "type": "string"
+        },
+        "validation": {
+          "additionalProperties": false,
+          "description": "Generated Validate methods.",
+          "properties": {
+            "response": {
+              "description": "Also validate response-only types.",
+              "type": "boolean"
+            },
+            "skip": {
+              "description": "Generate no Validate methods.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "naming": {
+      "additionalProperties": false,
+      "description": "How Go names are built.",
+      "properties": {
+        "enum-prefix": {
+          "description": "Prefix enum constants with their type name. Defaults to true.",
+          "type": "boolean"
+        },
+        "initialisms": {
+          "description": "Extra initialisms kept upper case, such as PSP.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "output": {
+      "additionalProperties": false,
+      "description": "Where generated files go.",
+      "properties": {
+        "file": {
+          "description": "Default file for every part. Defaults to ./gen.go.",
+          "type": "string"
+        },
+        "files": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Parts moved to other files, keyed by file path. The most specific selector wins.",
+          "type": "object"
+        },
+        "format": {
+          "description": "Format generated files with go/format. Defaults to true.",
+          "type": "boolean"
+        },
+        "module": {
+          "description": "Module path, only needed when no go.mod is found.",
+          "type": "string"
+        },
+        "packages": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Package names keyed by folder. Other folders use their own name.",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "package": {
+      "description": "Go package of the default output file. Defaults to its folder name.",
+      "type": "string"
+    },
+    "server": {
+      "additionalProperties": false,
+      "description": "Server generation. Present means generate.",
+      "properties": {
+        "framework": {
+          "description": "HTTP framework to generate for.",
+          "enum": [
+            "chi",
+            "std-http"
+          ],
+          "type": "string"
+        },
+        "multipart-max-memory": {
+          "description": "Memory for multipart forms before spilling to disk. Defaults to 32MB.",
+          "minimum": 0,
+          "pattern": "^[0-9]+(B|KB|MB|GB)?$",
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "name": {
+          "description": "Name of the service interface. Defaults to Service.",
+          "type": "string"
+        },
+        "scaffold": {
+          "additionalProperties": false,
+          "description": "Starter files, written once.",
+          "properties": {
+            "main": {
+              "description": "File for the main package that runs the server.",
+              "type": "string"
+            },
+            "middleware": {
+              "description": "File for the middleware stub.",
+              "type": "string"
+            },
+            "overwrite": {
+              "description": "Write scaffold files even when they exist.",
+              "type": "boolean"
+            },
+            "port": {
+              "description": "Port the scaffolded server listens on. Defaults to 8080.",
+              "type": "integer"
+            },
+            "service": {
+              "description": "File for the service implementation stub.",
+              "type": "string"
+            },
+            "timeout": {
+              "description": "Request timeout of the scaffolded server. Defaults to 30s.",
+              "pattern": "^(0|([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+)$",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "validation": {
+          "additionalProperties": false,
+          "description": "Checks the server runs on requests and responses.",
+          "properties": {
+            "request": {
+              "description": "Validate requests before calling the service.",
+              "type": "boolean"
+            },
+            "response": {
+              "description": "Validate responses before writing them.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "spec": {
+      "additionalProperties": false,
+      "description": "Input spec and how to prepare it before generation.",
+      "properties": {
+        "filter": {
+          "additionalProperties": false,
+          "description": "Parts of the spec to keep or drop.",
+          "properties": {
+            "exclude": {
+              "additionalProperties": false,
+              "description": "Drop what matches. Wins over include.",
+              "properties": {
+                "extensions": {
+                  "description": "Extension names, such as x-internal.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "operation-ids": {
+                  "description": "Operation IDs.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "paths": {
+                  "description": "Operation paths.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "schema-properties": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "description": "Properties per component schema name.",
+                  "type": "object"
+                },
+                "tags": {
+                  "description": "Operation tags.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "webhooks": {
+                  "description": "Webhook names.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            },
+            "include": {
+              "additionalProperties": false,
+              "description": "Keep only what matches.",
+              "properties": {
+                "extensions": {
+                  "description": "Extension names, such as x-internal.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "operation-ids": {
+                  "description": "Operation IDs.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "paths": {
+                  "description": "Operation paths.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "schema-properties": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "description": "Properties per component schema name.",
+                  "type": "object"
+                },
+                "tags": {
+                  "description": "Operation tags.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "webhooks": {
+                  "description": "Webhook names.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "overlays": {
+          "description": "Overlay files or URLs, applied in order.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "path": {
+          "description": "Path or URL of the OpenAPI spec. A CLI argument or in-memory spec overrides it.",
+          "type": "string"
+        },
+        "prune": {
+          "description": "Remove components nothing refers to. Defaults to true.",
+          "type": "boolean"
+        },
+        "simplify": {
+          "additionalProperties": false,
+          "description": "Rewrites that make the spec simpler to generate from.",
+          "properties": {
+            "optional-properties": {
+              "additionalProperties": false,
+              "description": "Cap the optional properties kept per schema.",
+              "properties": {
+                "max": {
+                  "description": "Most optional properties kept per schema.",
+                  "type": "integer"
+                },
+                "min": {
+                  "description": "Fewest optional properties kept per schema.",
+                  "type": "integer"
+                },
+                "seed": {
+                  "description": "Seed for picking a count between min and max.",
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "unions": {
+              "description": "Collapse each oneOf and anyOf to one variant.",
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "templates": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Template overrides, keyed by block name.",
+      "type": "object"
+    },
+    "user-context": {
+      "additionalProperties": {},
+      "description": "Free-form values passed to templates.",
+      "type": "object"
+    }
+  },
+  "title": "codegen config",
+  "type": "object"
+}
