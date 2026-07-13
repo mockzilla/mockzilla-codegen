@@ -18,8 +18,9 @@ specs. Module `github.com/mockzilla/codegen`. Built on github.com/pb33f/libopena
 - Public repo: never name private repositories, internal services, accounts or deployment details in
   code, comments, docs, examples, commit messages or PR text.
 - Run the `code-style` skill before declaring work done and before opening a PR.
-- Every `.go` file starts with `// Copyright <year> Mockzilla` and `// SPDX-License-Identifier: MIT`,
-  then a blank line. MIT license, see `LICENSE`. The goheader linter enforces it.
+- Every `.go` file starts with the MIT license header (copyright line, SPDX tag, and the MIT
+  condition that the notice stays in every copy), then a blank line. Copy it from any existing file;
+  the exact text is the goheader template in `.golangci.yml`, which enforces it.
 - Library code never logs or prints; it returns errors and diagnostics. Only `cmd/` prints.
 - Output must be deterministic: sort before ranging over maps, never use libopenapi hashes for names
   or ordering.
