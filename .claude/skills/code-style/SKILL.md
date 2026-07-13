@@ -187,8 +187,10 @@ Don't glue independent `if` blocks together.
 
 - Every `.go` file starts with the license header, then a blank line:
   ```go
-  // Copyright 2026 Mockzilla
+  // Copyright (c) 2026 Mockzilla
   // SPDX-License-Identifier: MIT
+  // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+  // permission notice shall be included in all copies or substantial portions of the Software.
   ```
   The year is when the file was created. goheader enforces it in `make lint`.
 - One file per concern; split before a file mixes concerns.
