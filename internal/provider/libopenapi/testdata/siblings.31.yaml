@@ -1,0 +1,11 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths: {}
+components:
+  schemas:
+    Pet: {type: object}
+    Owned: {$ref: '#/components/schemas/Pet', description: owned pet, readOnly: true}
+    Home:
+      type: object
+      properties:
+        owner: {$ref: '#/components/schemas/Pet', description: The owner}

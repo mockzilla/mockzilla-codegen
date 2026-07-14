@@ -1,0 +1,18 @@
+// Copyright (c) 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+// Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+// permission notice shall be included in all copies or substantial portions of the Software.
+
+package diag
+
+const (
+	CodeCircularRef         = "circular-ref"
+	CodeInfiniteCircularRef = "infinite-circular-ref"
+	CodeBuildIssue          = "build-issue"
+	CodeSchemaBuild         = "schema-build"
+	CodeUnknownType         = "unknown-type"
+	CodeInvalidStatus       = "invalid-status"
+	CodeUnresolvedMapping   = "unresolved-mapping"
+	CodeOptionalPathParam   = "optional-path-param"
+	CodeOverlayTarget       = "overlay-target"
+)

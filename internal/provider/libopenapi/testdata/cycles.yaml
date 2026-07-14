@@ -1,0 +1,35 @@
+openapi: 3.0.3
+info: {title: t, version: '1'}
+paths: {}
+components:
+  schemas:
+    Node:
+      type: object
+      properties:
+        next: {$ref: '#/components/schemas/Node'}
+    A:
+      type: object
+      properties:
+        b: {$ref: '#/components/schemas/B'}
+    B:
+      type: object
+      properties:
+        a: {$ref: '#/components/schemas/A'}
+    Tree:
+      type: object
+      properties:
+        children: {type: array, items: {$ref: '#/components/schemas/Tree'}}
+    Dict:
+      type: object
+      additionalProperties: {$ref: '#/components/schemas/Dict'}
+    Base:
+      allOf: [{$ref: '#/components/schemas/Derived'}]
+    Derived:
+      type: object
+      properties:
+        base: {$ref: '#/components/schemas/Base'}
+    Chain:
+      type: object
+      required: [next]
+      properties:
+        next: {$ref: '#/components/schemas/Chain'}

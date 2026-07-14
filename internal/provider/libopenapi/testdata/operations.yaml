@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info: {title: t, version: '1'}
+security:
+  - key: []
+paths:
+  /pets/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string}}
+      - {name: trace, in: header, schema: {type: string}}
+    post:
+      operationId: updatePet
+      summary: Update
+      description: Updates a pet
+      deprecated: true
+      tags: [pets, admin]
+      parameters:
+        - {name: trace, in: header, required: true, schema: {type: string}}
+        - {name: dry, in: query, schema: {type: boolean}}
+      security: []
+      servers: [{url: 'https://other.example.com'}]
+      x-internal: true
+      callbacks:
+        onDone:
+          '{$request.body#/url}':
+            post:
+              requestBody: {content: {application/json: {schema: {type: object}}}}
+              responses: {'200': {description: ok}}
+        shared: {$ref: '#/components/callbacks/Shared'}
+      responses: {'204': {description: done}}
+    get:
+      security: [{key: [], other: [s1]}]
+      responses: {'200': {description: ok}}
+  /pets:
+    delete:
+      callbacks:
+        again: {$ref: '#/components/callbacks/Shared'}
+      responses: {'204': {description: ok}}
+components:
+  callbacks:
+    Shared:
+      '{$url}':
+        put:
+          parameters: [{name: q, in: query, schema: {type: string}}]
+          requestBody: {content: {text/plain: {schema: {type: string}}}}
+          responses:
+            '200':
+              description: ok
+              headers: {X-Id: {schema: {type: string}}}
+              content: {application/json: {schema: {type: string}}}

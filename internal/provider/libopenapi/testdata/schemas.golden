@@ -1,0 +1,348 @@
+Version: 3.1
+Info:
+  Title: t
+  Version: 1
+Operations:
+  -
+    ID: getPets
+    IsIDDerived: true
+    Method: GET
+    Path: /pets
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Contents:
+          -
+            Name: application/json
+            Schema:
+              Types: array
+              Items:
+                Ref:
+                  Pointer: /components/schemas/Pet
+                  Name: Pet
+                Origin: schemas.yaml:13:24 /paths/~1pets/get/responses/200/content/application~1json/schema/items
+              Origin: schemas.yaml:16:15 /paths/~1pets/get/responses/200/content/application~1json/schema
+            Origin: schemas.yaml:11:15 /paths/~1pets/get/responses/200/content/application~1json
+        Origin: schemas.yaml:8:11 /paths/~1pets/get/responses/200
+    Origin: schemas.yaml:6:7 /paths/~1pets/get
+Components:
+  Schemas:
+    -
+      Name: FromPath
+      Value:
+        Ref:
+          Pointer: /paths/~1pets/get/responses/200/content/application~1json/schema
+        Origin: schemas.yaml:16:15 /components/schemas/FromPath
+    -
+      Name: Pet
+      Value:
+        Types: object
+        Title: Pet
+        Description: A pet
+        Required: [id, name, missingProp]
+        Properties:
+          -
+            Name: id
+            Schema:
+              Types: integer
+              Format: int64
+              Limits:
+                Minimum:
+                  Value: 1
+                Maximum:
+                  Value: 9007199254740993
+                MultipleOf: 1
+              ReadOnly: true
+              Origin: schemas.yaml:23:13 /components/schemas/Pet/properties/id
+            Required: true
+          -
+            Name: name
+            Schema:
+              Types: string
+              Pattern: ^[a-z]+$
+              Default: "rex"
+              Examples:
+                - "rex"
+                - "max"
+              Limits:
+                MinLength: 1
+                MaxLength: 64
+              WriteOnly: true
+              Deprecated: true
+              Origin: schemas.yaml:24:15 /components/schemas/Pet/properties/name
+            Required: true
+          -
+            Name: tags
+            Schema:
+              Types: array
+              Items:
+                Types: string
+                Origin: schemas.yaml:25:36 /components/schemas/Pet/properties/tags/items
+              Limits:
+                MinItems: 1
+                MaxItems: 5
+                UniqueItems: true
+              Origin: schemas.yaml:25:15 /components/schemas/Pet/properties/tags
+          -
+            Name: meta
+            Schema:
+              Types: object
+              AdditionalProperties:
+                Mode: 3
+                Schema:
+                  Types: string
+                  Origin: schemas.yaml:26:52 /components/schemas/Pet/properties/meta/additionalProperties
+              Limits:
+                MinProperties: 1
+                MaxProperties: 9
+              Origin: schemas.yaml:26:15 /components/schemas/Pet/properties/meta
+          -
+            Name: free
+            Schema:
+              Types: object
+              AdditionalProperties:
+                Mode: 1
+              Origin: schemas.yaml:27:15 /components/schemas/Pet/properties/free
+          -
+            Name: closed
+            Schema:
+              Types: object
+              AdditionalProperties:
+                Mode: 2
+              Origin: schemas.yaml:28:17 /components/schemas/Pet/properties/closed
+          -
+            Name: kind
+            Schema:
+              Types: string
+              Enum:
+                - "dog"
+                - "cat"
+                - null
+              Const: "dog"
+              Origin: schemas.yaml:29:15 /components/schemas/Pet/properties/kind
+          -
+            Name: blob
+            Schema:
+              Types: string
+              ContentEncoding: base64
+              ContentMediaType: image/png
+              Origin: schemas.yaml:30:15 /components/schemas/Pet/properties/blob
+          -
+            Name: tuple
+            Schema:
+              Types: array
+              PrefixItems:
+                -
+                  Types: string
+                  Origin: schemas.yaml:31:44 /components/schemas/Pet/properties/tuple/prefixItems/0
+                -
+                  Types: integer
+                  Origin: schemas.yaml:31:60 /components/schemas/Pet/properties/tuple/prefixItems/1
+              Origin: schemas.yaml:31:16 /components/schemas/Pet/properties/tuple
+          -
+            Name: anything
+            Schema:
+              Origin: schemas.yaml:32:19 /components/schemas/Pet/properties/anything
+          -
+            Name: either
+            Schema:
+              Types: string|integer
+              Origin: schemas.yaml:33:17 /components/schemas/Pet/properties/either
+          -
+            Name: onlyNull
+            Schema:
+              Types: null
+              Nullable: true
+              Origin: schemas.yaml:34:19 /components/schemas/Pet/properties/onlyNull
+          -
+            Name: legacyNull
+            Schema:
+              Types: string
+              Nullable: true
+              Origin: schemas.yaml:35:21 /components/schemas/Pet/properties/legacyNull
+          -
+            Name: weird
+            Schema:
+              Origin: schemas.yaml:36:16 /components/schemas/Pet/properties/weird
+        Extensions:
+          -
+            Name: x-go-type
+            Value: "pets.Pet"
+        Origin: schemas.yaml:18:7 /components/schemas/Pet
+    -
+      Name: Shape
+      Value:
+        OneOf:
+          -
+            Ref:
+              Pointer: /components/schemas/Circle
+              Name: Circle
+            Origin: schemas.yaml:39:15 /components/schemas/Shape/oneOf/0
+          -
+            Ref:
+              Pointer: /components/schemas/Square
+              Name: Square
+            Origin: schemas.yaml:39:54 /components/schemas/Shape/oneOf/1
+        Discriminator:
+          Property: kind
+          Mapping:
+            -
+              Value: circle
+              Ref:
+                Pointer: /components/schemas/Circle
+                Name: Circle
+            -
+              Value: square
+              Ref:
+                Pointer: /components/schemas/Square
+                Name: Square
+            -
+              Value: ext
+              Ref:
+                Pointer: shapes.yaml
+            -
+              Value: gone
+              Ref:
+                Pointer: /components/schemas/Gone
+                Name: Gone
+        Origin: schemas.yaml:39:7 /components/schemas/Shape
+    -
+      Name: Circle
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: r
+            Schema:
+              Types: number
+              Limits:
+                Minimum:
+                  Value: 0
+                  Exclusive: true
+              Origin: schemas.yaml:47:44 /components/schemas/Circle/properties/r
+        Origin: schemas.yaml:47:13 /components/schemas/Circle
+    -
+      Name: Square
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: side
+            Schema:
+              Types: number
+              Limits:
+                Maximum:
+                  Value: 5
+              Origin: schemas.yaml:48:47 /components/schemas/Square/properties/side
+        Origin: schemas.yaml:48:13 /components/schemas/Square
+    -
+      Name: Mixed
+      Value:
+        AllOf:
+          -
+            Ref:
+              Pointer: /components/schemas/Pet
+              Name: Pet
+            Origin: schemas.yaml:50:15 /components/schemas/Mixed/allOf/0
+          -
+            Properties:
+              -
+                Name: extra
+                Schema:
+                  Types: string
+                  Origin: schemas.yaml:50:72 /components/schemas/Mixed/allOf/1/properties/extra
+            Origin: schemas.yaml:50:51 /components/schemas/Mixed/allOf/1
+        AnyOf:
+          -
+            Required: [id]
+            Origin: schemas.yaml:51:15 /components/schemas/Mixed/anyOf/0
+        Not:
+          Types: null
+          Nullable: true
+          Origin: schemas.yaml:52:12 /components/schemas/Mixed/not
+        Origin: schemas.yaml:50:7 /components/schemas/Mixed
+    -
+      Name: Cond
+      Value:
+        If:
+          Properties:
+            -
+              Name: kind
+              Schema:
+                Const: "dog"
+                Origin: schemas.yaml:54:31 /components/schemas/Cond/if/properties/kind
+          Origin: schemas.yaml:54:11 /components/schemas/Cond/if
+        Then:
+          Required: [bark]
+          Origin: schemas.yaml:55:13 /components/schemas/Cond/then
+        Else:
+          Required: [meow]
+          Origin: schemas.yaml:56:13 /components/schemas/Cond/else
+        Origin: schemas.yaml:54:7 /components/schemas/Cond
+    -
+      Name: PetName
+      Value:
+        Ref:
+          Pointer: /components/schemas/Pet/properties/name
+        Origin: schemas.yaml:57:14 /components/schemas/PetName
+    -
+      Name: Early
+      Value:
+        Ref:
+          Pointer: /components/schemas/Late/properties/value
+        Origin: schemas.yaml:58:12 /components/schemas/Early
+    -
+      Name: Late
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: value
+            Schema:
+              Types: string
+              Origin: schemas.yaml:58:12 /components/schemas/Late/properties/value
+        Origin: schemas.yaml:59:11 /components/schemas/Late
+    -
+      Name: Described
+      Value:
+        Ref:
+          Pointer: /components/schemas/Pet
+          Name: Pet
+        Description: sibling
+        ReadOnly: true
+        Origin: schemas.yaml:0:0 /components/schemas/Described
+    -
+      Name: Broken
+      Value:
+        Origin: schemas.yaml:61:13 /components/schemas/Broken
+    -
+      Name: Numbers
+      Value:
+        Types: number
+        Enum:
+          - 31
+          - 1000
+          - 1.5
+          - ".inf"
+        Default: 10
+        Limits:
+          Minimum:
+            Value: 1e3
+          Maximum:
+            Value: 1.50
+          MultipleOf: 0.5
+        Origin: schemas.yaml:62:14 /components/schemas/Numbers
+    -
+      Name: BrokenSibling
+      Value:
+        Ref:
+          Pointer: /components/schemas/Pet
+          Name: Pet
+        Origin: schemas.yaml:63:20 /components/schemas/BrokenSibling
+Diagnostics:
+  - warning unknown-type schemas.yaml:36:16 /components/schemas/Pet/properties/weird: unknown type "file" is ignored
+  - warning unresolved-mapping schemas.yaml:45:16 /components/schemas/Shape/discriminator/mapping/ext: discriminator mapping "shapes.yaml" names no schema
+  - warning unresolved-mapping schemas.yaml:46:17 /components/schemas/Shape/discriminator/mapping/gone: discriminator mapping "#/components/schemas/Gone" names no schema
+  - error schema-build schemas.yaml:61:13 /components/schemas/Broken: schema cannot be built: failed to build schema: build schema failed: expected a single schema object for 'array', but found an array or scalar at line 61, col 34
+  - error schema-build schemas.yaml:63:20 /components/schemas/BrokenSibling: schema cannot be built: failed to build schema: build schema failed: expected a single schema object for 'array', but found an array or scalar at line 63, col 75

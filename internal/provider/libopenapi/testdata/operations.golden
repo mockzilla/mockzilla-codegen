@@ -1,0 +1,256 @@
+Version: 3.0
+Info:
+  Title: t
+  Version: 1
+Operations:
+  -
+    ID: getPetsId
+    IsIDDerived: true
+    Method: GET
+    Path: /pets/{id}
+    Params:
+      -
+        Name: id
+        In: path
+        Required: true
+        Style: simple
+        Schema:
+          Types: string
+          Origin: operations.yaml:8:54 /paths/~1pets~1{id}/parameters/0/schema
+        Origin: operations.yaml:8:9 /paths/~1pets~1{id}/parameters/0
+      -
+        Name: trace
+        In: header
+        Style: simple
+        Schema:
+          Types: string
+          Origin: operations.yaml:9:43 /paths/~1pets~1{id}/parameters/1/schema
+        Origin: operations.yaml:9:9 /paths/~1pets~1{id}/parameters/1
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Origin: operations.yaml:32:26 /paths/~1pets~1{id}/get/responses/200
+    Security:
+      -
+        Schemes:
+          -
+            Name: key
+          -
+            Name: other
+            Scopes: [s1]
+    Origin: operations.yaml:31:7 /paths/~1pets~1{id}/get
+  -
+    ID: updatePet
+    Method: POST
+    Path: /pets/{id}
+    Summary: Update
+    Description: Updates a pet
+    Deprecated: true
+    Tags: [pets, admin]
+    Params:
+      -
+        Name: id
+        In: path
+        Required: true
+        Style: simple
+        Schema:
+          Types: string
+          Origin: operations.yaml:8:54 /paths/~1pets~1{id}/parameters/0/schema
+        Origin: operations.yaml:8:9 /paths/~1pets~1{id}/parameters/0
+      -
+        Name: trace
+        In: header
+        Required: true
+        Style: simple
+        Schema:
+          Types: string
+          Origin: operations.yaml:17:61 /paths/~1pets~1{id}/post/parameters/0/schema
+        Origin: operations.yaml:17:11 /paths/~1pets~1{id}/post/parameters/0
+      -
+        Name: dry
+        In: query
+        Style: form
+        Explode: true
+        Schema:
+          Types: boolean
+          Origin: operations.yaml:18:42 /paths/~1pets~1{id}/post/parameters/1/schema
+        Origin: operations.yaml:18:11 /paths/~1pets~1{id}/post/parameters/1
+    Responses:
+      -
+        Status: 204
+        Description: done
+        Origin: operations.yaml:29:26 /paths/~1pets~1{id}/post/responses/204
+    Callbacks:
+      -
+        Name: onDone
+        Operations:
+          -
+            ID: postRequestBodyUrl
+            IsIDDerived: true
+            Method: POST
+            Path: {$request.body#/url}
+            Body:
+              Contents:
+                -
+                  Name: application/json
+                  Schema:
+                    Types: object
+                    Origin: operations.yaml:26:66 /paths/~1pets~1{id}/post/callbacks/onDone/{$request.body#~1url}/post/requestBody/content/application~1json/schema
+                  Origin: operations.yaml:26:57 /paths/~1pets~1{id}/post/callbacks/onDone/{$request.body#~1url}/post/requestBody/content/application~1json
+              Origin: operations.yaml:26:28 /paths/~1pets~1{id}/post/callbacks/onDone/{$request.body#~1url}/post/requestBody
+            Responses:
+              -
+                Status: 200
+                Description: ok
+                Origin: operations.yaml:27:34 /paths/~1pets~1{id}/post/callbacks/onDone/{$request.body#~1url}/post/responses/200
+            Security:
+              -
+                Schemes:
+                  -
+                    Name: key
+            Origin: operations.yaml:26:15 /paths/~1pets~1{id}/post/callbacks/onDone/{$request.body#~1url}/post
+      -
+        Name: shared
+        Operations:
+          -
+            ID: putUrl
+            IsIDDerived: true
+            Method: PUT
+            Path: {$url}
+            Params:
+              -
+                Name: q
+                In: query
+                Style: form
+                Explode: true
+                Schema:
+                  Types: string
+                  Origin: operations.yaml:43:53 /components/callbacks/Shared/{$url}/put/parameters/0/schema
+                Origin: operations.yaml:43:24 /components/callbacks/Shared/{$url}/put/parameters/0
+            Body:
+              Contents:
+                -
+                  Name: text/plain
+                  Schema:
+                    Types: string
+                    Origin: operations.yaml:44:56 /components/callbacks/Shared/{$url}/put/requestBody/content/text~1plain/schema
+                  Origin: operations.yaml:44:47 /components/callbacks/Shared/{$url}/put/requestBody/content/text~1plain
+              Origin: operations.yaml:44:24 /components/callbacks/Shared/{$url}/put/requestBody
+            Responses:
+              -
+                Status: 200
+                Description: ok
+                Headers:
+                  -
+                    Name: X-Id
+                    Style: simple
+                    Schema:
+                      Types: string
+                      Origin: operations.yaml:48:40 /components/callbacks/Shared/{$url}/put/responses/200/headers/X-Id/schema
+                    Origin: operations.yaml:48:31 /components/callbacks/Shared/{$url}/put/responses/200/headers/X-Id
+                Contents:
+                  -
+                    Name: application/json
+                    Schema:
+                      Types: string
+                      Origin: operations.yaml:49:52 /components/callbacks/Shared/{$url}/put/responses/200/content/application~1json/schema
+                    Origin: operations.yaml:49:43 /components/callbacks/Shared/{$url}/put/responses/200/content/application~1json
+                Origin: operations.yaml:47:15 /components/callbacks/Shared/{$url}/put/responses/200
+            Security:
+              -
+                Schemes:
+                  -
+                    Name: key
+            Origin: operations.yaml:43:11 /components/callbacks/Shared/{$url}/put
+        Ref:
+          Pointer: /components/callbacks/Shared
+          Name: Shared
+    Security:
+    Servers:
+      -
+        URL: https://other.example.com
+    Extensions:
+      -
+        Name: x-internal
+        Value: true
+    Origin: operations.yaml:11:7 /paths/~1pets~1{id}/post
+  -
+    ID: deletePets
+    IsIDDerived: true
+    Method: DELETE
+    Path: /pets
+    Responses:
+      -
+        Status: 204
+        Description: ok
+        Origin: operations.yaml:37:26 /paths/~1pets/delete/responses/204
+    Callbacks:
+      -
+        Name: again
+        Operations:
+          -
+            ID: putUrl
+            IsIDDerived: true
+            Method: PUT
+            Path: {$url}
+            Params:
+              -
+                Name: q
+                In: query
+                Style: form
+                Explode: true
+                Schema:
+                  Types: string
+                  Origin: operations.yaml:43:53 /components/callbacks/Shared/{$url}/put/parameters/0/schema
+                Origin: operations.yaml:43:24 /components/callbacks/Shared/{$url}/put/parameters/0
+            Body:
+              Contents:
+                -
+                  Name: text/plain
+                  Schema:
+                    Types: string
+                    Origin: operations.yaml:44:56 /components/callbacks/Shared/{$url}/put/requestBody/content/text~1plain/schema
+                  Origin: operations.yaml:44:47 /components/callbacks/Shared/{$url}/put/requestBody/content/text~1plain
+              Origin: operations.yaml:44:24 /components/callbacks/Shared/{$url}/put/requestBody
+            Responses:
+              -
+                Status: 200
+                Description: ok
+                Headers:
+                  -
+                    Name: X-Id
+                    Style: simple
+                    Schema:
+                      Types: string
+                      Origin: operations.yaml:48:40 /components/callbacks/Shared/{$url}/put/responses/200/headers/X-Id/schema
+                    Origin: operations.yaml:48:31 /components/callbacks/Shared/{$url}/put/responses/200/headers/X-Id
+                Contents:
+                  -
+                    Name: application/json
+                    Schema:
+                      Types: string
+                      Origin: operations.yaml:49:52 /components/callbacks/Shared/{$url}/put/responses/200/content/application~1json/schema
+                    Origin: operations.yaml:49:43 /components/callbacks/Shared/{$url}/put/responses/200/content/application~1json
+                Origin: operations.yaml:47:15 /components/callbacks/Shared/{$url}/put/responses/200
+            Security:
+              -
+                Schemes:
+                  -
+                    Name: key
+            Origin: operations.yaml:43:11 /components/callbacks/Shared/{$url}/put
+        Ref:
+          Pointer: /components/callbacks/Shared
+          Name: Shared
+    Security:
+      -
+        Schemes:
+          -
+            Name: key
+    Origin: operations.yaml:35:7 /paths/~1pets/delete
+Security:
+  -
+    Schemes:
+      -
+        Name: key
+Diagnostics:
