@@ -1,0 +1,63 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths:
+  /pets:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Pet'}
+components:
+  schemas:
+    FromPath: {$ref: '#/paths/~1pets/get/responses/200/content/application~1json/schema'}
+    Pet:
+      type: object
+      title: Pet
+      description: A pet
+      required: [id, name, missingProp]
+      properties:
+        id: {type: integer, format: int64, readOnly: true, minimum: 1, maximum: 9007199254740993, multipleOf: 1}
+        name: {type: string, pattern: '^[a-z]+$', minLength: 1, maxLength: 64, writeOnly: true, deprecated: true, default: rex, examples: [rex, max]}
+        tags: {type: array, items: {type: string}, minItems: 1, maxItems: 5, uniqueItems: true}
+        meta: {type: object, additionalProperties: {type: string}, minProperties: 1, maxProperties: 9}
+        free: {type: object, additionalProperties: true}
+        closed: {type: object, additionalProperties: false}
+        kind: {type: string, enum: [dog, cat, null], const: dog}
+        blob: {type: string, contentEncoding: base64, contentMediaType: image/png}
+        tuple: {type: array, prefixItems: [{type: string}, {type: integer}], items: false}
+        anything: {}
+        either: {type: [string, integer]}
+        onlyNull: {type: 'null'}
+        legacyNull: {type: string, nullable: true}
+        weird: {type: file}
+      x-go-type: pets.Pet
+    Shape:
+      oneOf: [{$ref: '#/components/schemas/Circle'}, {$ref: '#/components/schemas/Square'}]
+      discriminator:
+        propertyName: kind
+        mapping:
+          circle: '#/components/schemas/Circle'
+          square: Square
+          ext: shapes.yaml
+          gone: '#/components/schemas/Gone'
+    Circle: {type: object, properties: {r: {type: number, exclusiveMinimum: 0}}}
+    Square: {type: object, properties: {side: {type: number, exclusiveMaximum: 10, maximum: 5}}}
+    Mixed:
+      allOf: [{$ref: '#/components/schemas/Pet'}, {properties: {extra: {type: string}}}]
+      anyOf: [{required: [id]}]
+      not: {type: 'null'}
+    Cond:
+      if: {properties: {kind: {const: dog}}}
+      then: {required: [bark]}
+      else: {required: [meow]}
+    PetName: {$ref: '#/components/schemas/Pet/properties/name'}
+    Early: {$ref: '#/components/schemas/Late/properties/value'}
+    Late: {type: object, properties: {value: {type: string}}}
+    Described: {$ref: '#/components/schemas/Pet', description: sibling, readOnly: true}
+    Broken: {type: array, items: [{type: string}]}
+    Numbers: {type: number, minimum: 1e3, maximum: 1.50, multipleOf: 0.5, default: 10, enum: [0x1F, 1_000, +1.5, .inf]}
+    BrokenSibling: {$ref: '#/components/schemas/Pet', type: array, items: [{type: string}]}

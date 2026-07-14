@@ -1,0 +1,34 @@
+openapi: 3.0.3
+info: {title: t, version: '1'}
+paths:
+  /upload:
+    post:
+      requestBody:
+        description: File
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: {type: string, format: binary}
+                meta: {type: object}
+            encoding:
+              file: {contentType: image/png, headers: {X-Rate: {schema: {type: integer}}}}
+              meta: {contentType: application/json, style: form, explode: true, allowReserved: true}
+          application/octet-stream: {schema: {type: string, format: binary}}
+          text/plain: {x-note: plain}
+      responses: {'200': {description: ok}}
+  /pets:
+    post:
+      requestBody: {$ref: '#/components/requestBodies/Pet'}
+      responses: {'200': {description: ok}}
+    put:
+      requestBody: {$ref: '#/components/requestBodies/PetAlias'}
+      responses: {'200': {description: ok}}
+components:
+  requestBodies:
+    Pet:
+      content: {application/json: {schema: {type: object}}}
+      x-kind: pet
+    PetAlias: {$ref: '#/components/requestBodies/Pet'}

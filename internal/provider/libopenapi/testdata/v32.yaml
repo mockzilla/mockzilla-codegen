@@ -1,0 +1,31 @@
+openapi: 3.2.0
+info: {title: t, version: '1'}
+paths:
+  /search:
+    query:
+      parameters:
+        - {name: q, in: querystring, content: {application/json: {schema: {type: object}}}}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/jsonl:
+              itemSchema: {type: object}
+    additionalOperations:
+      COPY:
+        responses: {'204': {description: copied}}
+components:
+  schemas:
+    Shape:
+      oneOf: [{$ref: '#/components/schemas/Circle'}]
+      discriminator: {propertyName: kind, defaultMapping: '#/components/schemas/Circle'}
+    Circle: {type: object}
+  securitySchemes:
+    oauth:
+      type: oauth2
+      oauth2MetadataUrl: 'https://a.example.com/.well-known/oauth'
+      deprecated: true
+      flows:
+        password: {tokenUrl: 'https://a.example.com/token', scopes: {}}
+        authorizationCode: {authorizationUrl: 'https://a.example.com/auth', tokenUrl: 'https://a.example.com/token', scopes: {}}
+        device: {tokenUrl: 'https://a.example.com/token', scopes: {}}

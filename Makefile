@@ -69,8 +69,8 @@ examples-check: ## Fail when golden examples are stale or do not build
 	@echo "examples-check: not available yet"
 
 .PHONY: test-parse
-test-parse: ## Parse every spec in testdata/specs, no build
-	@echo "test-parse: not available yet"
+test-parse: ## Parse every spec in testdata/specs; SPEC=, SPECS= narrow it
+	SPEC='$(SPEC)' SPECS='$(SPECS)' go test -tags parse -count=1 -timeout 60m -v ./test/parse
 
 .PHONY: test-integration
 test-integration: ## Generate and build specs; SPEC=, SPECS=, FRAMEWORKS=
@@ -81,8 +81,8 @@ test-integration-clear: ## Integration run with the result cache cleared
 	@CLEAR_CACHE=1 $(MAKE) --no-print-directory test-integration
 
 .PHONY: bench
-bench: ## Benchmarks on large specs
-	@echo "bench: not available yet"
+bench: ## Benchmarks on large specs in testdata/specs
+	go test -run '^$$' -bench . -benchmem -benchtime 3x ./test/bench
 
 .PHONY: runtime-deps
 runtime-deps: ## Fail when ./pkg/runtime imports anything outside the standard library

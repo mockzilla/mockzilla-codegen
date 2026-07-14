@@ -1,0 +1,118 @@
+Version: 3.0
+Info:
+  Title: t
+  Version: 1
+Components:
+  Schemas:
+    -
+      Name: Node
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: next
+            Schema:
+              Ref:
+                Pointer: /components/schemas/Node
+                Name: Node
+              Origin: cycles.yaml:9:15 /components/schemas/Node/properties/next
+        Origin: cycles.yaml:7:7 /components/schemas/Node
+    -
+      Name: A
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: b
+            Schema:
+              Ref:
+                Pointer: /components/schemas/B
+                Name: B
+              Origin: cycles.yaml:13:12 /components/schemas/A/properties/b
+        Origin: cycles.yaml:11:7 /components/schemas/A
+    -
+      Name: B
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: a
+            Schema:
+              Ref:
+                Pointer: /components/schemas/A
+                Name: A
+              Origin: cycles.yaml:17:12 /components/schemas/B/properties/a
+        Origin: cycles.yaml:15:7 /components/schemas/B
+    -
+      Name: Tree
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: children
+            Schema:
+              Types: array
+              Items:
+                Ref:
+                  Pointer: /components/schemas/Tree
+                  Name: Tree
+                Origin: cycles.yaml:21:40 /components/schemas/Tree/properties/children/items
+              Origin: cycles.yaml:21:19 /components/schemas/Tree/properties/children
+        Origin: cycles.yaml:19:7 /components/schemas/Tree
+    -
+      Name: Dict
+      Value:
+        Types: object
+        AdditionalProperties:
+          Mode: 3
+          Schema:
+            Ref:
+              Pointer: /components/schemas/Dict
+              Name: Dict
+            Origin: cycles.yaml:24:29 /components/schemas/Dict/additionalProperties
+        Origin: cycles.yaml:23:7 /components/schemas/Dict
+    -
+      Name: Base
+      Value:
+        AllOf:
+          -
+            Ref:
+              Pointer: /components/schemas/Derived
+              Name: Derived
+            Origin: cycles.yaml:26:15 /components/schemas/Base/allOf/0
+        Origin: cycles.yaml:26:7 /components/schemas/Base
+    -
+      Name: Derived
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: base
+            Schema:
+              Ref:
+                Pointer: /components/schemas/Base
+                Name: Base
+              Origin: cycles.yaml:30:15 /components/schemas/Derived/properties/base
+        Origin: cycles.yaml:28:7 /components/schemas/Derived
+    -
+      Name: Chain
+      Value:
+        Types: object
+        Required: [next]
+        Properties:
+          -
+            Name: next
+            Schema:
+              Ref:
+                Pointer: /components/schemas/Chain
+                Name: Chain
+              Origin: cycles.yaml:35:15 /components/schemas/Chain/properties/next
+            Required: true
+        Origin: cycles.yaml:32:7 /components/schemas/Chain
+Diagnostics:
+  - info circular-ref cycles.yaml:7:7 /components/schemas/Node: circular reference: Node -> Node
+  - info circular-ref cycles.yaml:15:7 /components/schemas/B: circular reference: B -> A -> B
+  - info circular-ref cycles.yaml:19:7 /components/schemas/Tree: circular reference: Tree -> Tree
+  - info circular-ref cycles.yaml:23:7 /components/schemas/Dict: circular reference: Dict -> Dict
+  - info circular-ref cycles.yaml:26:7 /components/schemas/Base: circular reference: Base -> Derived -> Base
+  - warning infinite-circular-ref cycles.yaml:32:7 /components/schemas/Chain: circular reference with every step required: Chain -> Chain

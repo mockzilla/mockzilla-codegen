@@ -1,0 +1,8 @@
+openapi: 3.0.3
+info: {title: t, version: '1'}
+paths: {}
+components:
+  schemas:
+    Name: {type: string, nullable: true}
+    Count: {type: integer, nullable: true}
+    Plain: {type: boolean}

@@ -1,0 +1,194 @@
+Version: 3.0
+Info:
+  Title: t
+  Version: 1
+Operations:
+  -
+    ID: getA
+    IsIDDerived: true
+    Method: GET
+    Path: /a
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Headers:
+          -
+            Name: X-Rate
+            Description: rate
+            Required: true
+            Deprecated: true
+            Style: simple
+            Explode: true
+            Schema:
+              Types: integer
+              Origin: responses.yaml:13:113 /paths/~1a/get/responses/200/headers/X-Rate/schema
+            Origin: responses.yaml:13:21 /paths/~1a/get/responses/200/headers/X-Rate
+          -
+            Name: X-Limit
+            Style: simple
+            Schema:
+              Types: integer
+              Origin: responses.yaml:27:21 /components/headers/Limit/schema
+            Ref:
+              Pointer: /components/headers/Limit
+              Name: Limit
+            Origin: responses.yaml:27:12 /components/headers/Limit
+          -
+            Name: X-Json
+            Style: simple
+            Contents:
+              -
+                Name: application/json
+                Schema:
+                  Types: object
+                  Origin: responses.yaml:15:59 /paths/~1a/get/responses/200/headers/X-Json/content/application~1json/schema
+                Origin: responses.yaml:15:50 /paths/~1a/get/responses/200/headers/X-Json/content/application~1json
+            Origin: responses.yaml:15:21 /paths/~1a/get/responses/200/headers/X-Json
+        Contents:
+          -
+            Name: application/json
+            Schema:
+              Types: string
+              Origin: responses.yaml:16:48 /paths/~1a/get/responses/200/content/application~1json/schema
+            Origin: responses.yaml:16:39 /paths/~1a/get/responses/200/content/application~1json
+        Extensions:
+          -
+            Name: x-cache
+            Value: true
+        Origin: responses.yaml:11:11 /paths/~1a/get/responses/200
+      -
+        Status: 201
+        Description: created
+        Origin: responses.yaml:19:16 /paths/~1a/get/responses/201
+      -
+        Status: 404
+        Description: missing
+        Contents:
+          -
+            Name: application/json
+            Schema:
+              Ref:
+                Pointer: /components/schemas/Error
+                Name: Error
+              Origin: responses.yaml:31:44 /components/responses/NotFound/content/application~1json/schema
+            Origin: responses.yaml:31:35 /components/responses/NotFound/content/application~1json
+        Ref:
+          Pointer: /components/responses/NotFound
+          Name: NotFound
+        Origin: responses.yaml:30:7 /components/responses/NotFound
+      -
+        Status: 2XX
+        Description: range
+        Origin: responses.yaml:18:14 /paths/~1a/get/responses/2XX
+      -
+        Status: 5XX
+        Description: server
+        Origin: responses.yaml:9:14 /paths/~1a/get/responses/5XX
+      -
+        Status: weird
+        Description: not a status
+        Origin: responses.yaml:20:16 /paths/~1a/get/responses/weird
+      -
+        Status: default
+        Description: error
+        Origin: responses.yaml:7:18 /paths/~1a/get/responses/default
+    Origin: responses.yaml:6:7 /paths/~1a/get
+  -
+    ID: getB
+    IsIDDerived: true
+    Method: GET
+    Path: /b
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Headers:
+          -
+            Name: X-Rate
+            Description: rate
+            Required: true
+            Deprecated: true
+            Style: simple
+            Explode: true
+            Schema:
+              Types: integer
+              Origin: responses.yaml:13:113 /paths/~1a/get/responses/200/headers/X-Rate/schema
+            Origin: responses.yaml:13:21 /paths/~1a/get/responses/200/headers/X-Rate
+          -
+            Name: X-Limit
+            Style: simple
+            Schema:
+              Types: integer
+              Origin: responses.yaml:27:21 /components/headers/Limit/schema
+            Ref:
+              Pointer: /components/headers/Limit
+              Name: Limit
+            Origin: responses.yaml:27:12 /components/headers/Limit
+          -
+            Name: X-Json
+            Style: simple
+            Contents:
+              -
+                Name: application/json
+                Schema:
+                  Types: object
+                  Origin: responses.yaml:15:59 /paths/~1a/get/responses/200/headers/X-Json/content/application~1json/schema
+                Origin: responses.yaml:15:50 /paths/~1a/get/responses/200/headers/X-Json/content/application~1json
+            Origin: responses.yaml:15:21 /paths/~1a/get/responses/200/headers/X-Json
+        Contents:
+          -
+            Name: application/json
+            Schema:
+              Types: string
+              Origin: responses.yaml:16:48 /paths/~1a/get/responses/200/content/application~1json/schema
+            Origin: responses.yaml:16:39 /paths/~1a/get/responses/200/content/application~1json
+        Extensions:
+          -
+            Name: x-cache
+            Value: true
+        Ref:
+          Pointer: /paths/~1a/get/responses/200
+        Origin: responses.yaml:11:11 /paths/~1a/get/responses/200
+    Origin: responses.yaml:23:7 /paths/~1b/get
+Components:
+  Schemas:
+    -
+      Name: Error
+      Value:
+        Types: object
+        Origin: responses.yaml:34:12 /components/schemas/Error
+  Responses:
+    -
+      Name: NotFound
+      Value:
+        Description: missing
+        Contents:
+          -
+            Name: application/json
+            Schema:
+              Ref:
+                Pointer: /components/schemas/Error
+                Name: Error
+              Origin: responses.yaml:31:44 /components/responses/NotFound/content/application~1json/schema
+            Origin: responses.yaml:31:35 /components/responses/NotFound/content/application~1json
+        Origin: responses.yaml:30:7 /components/responses/NotFound
+    -
+      Name: Created
+      Value:
+        Description: created
+        Ref:
+          Pointer: /paths/~1a/get/responses/201
+        Origin: responses.yaml:19:16 /paths/~1a/get/responses/201
+  Headers:
+    -
+      Name: Limit
+      Value:
+        Name: Limit
+        Style: simple
+        Schema:
+          Types: integer
+          Origin: responses.yaml:27:21 /components/headers/Limit/schema
+        Origin: responses.yaml:27:12 /components/headers/Limit
+Diagnostics:
+  - warning invalid-status responses.yaml:20:16 /paths/~1a/get/responses/weird: response key "weird" is not a status code, a range or default

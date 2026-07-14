@@ -1,0 +1,87 @@
+Version: 3.2
+Info:
+  Title: t
+  Version: 1
+Operations:
+  -
+    ID: querySearch
+    IsIDDerived: true
+    Method: QUERY
+    Path: /search
+    Params:
+      -
+        Name: q
+        In: querystring
+        Contents:
+          -
+            Name: application/json
+            Schema:
+              Types: object
+              Origin: v32.yaml:7:75 /paths/~1search/query/parameters/0/content/application~1json/schema
+            Origin: v32.yaml:7:66 /paths/~1search/query/parameters/0/content/application~1json
+        Origin: v32.yaml:7:11 /paths/~1search/query/parameters/0
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Contents:
+          -
+            Name: application/jsonl
+            ItemSchema:
+              Types: object
+              Origin: v32.yaml:13:27 /paths/~1search/query/responses/200/content/application~1jsonl/itemSchema
+            Origin: v32.yaml:13:15 /paths/~1search/query/responses/200/content/application~1jsonl
+        Origin: v32.yaml:10:11 /paths/~1search/query/responses/200
+    Origin: v32.yaml:6:7 /paths/~1search/query
+  -
+    ID: copySearch
+    IsIDDerived: true
+    Method: COPY
+    Path: /search
+    Responses:
+      -
+        Status: 204
+        Description: copied
+        Origin: v32.yaml:16:28 /paths/~1search/additionalOperations/COPY/responses/204
+    Origin: v32.yaml:16:9 /paths/~1search/additionalOperations/COPY
+Components:
+  Schemas:
+    -
+      Name: Shape
+      Value:
+        OneOf:
+          -
+            Ref:
+              Pointer: /components/schemas/Circle
+              Name: Circle
+            Origin: v32.yaml:20:15 /components/schemas/Shape/oneOf/0
+        Discriminator:
+          Property: kind
+          Default:
+            Pointer: /components/schemas/Circle
+            Name: Circle
+        Origin: v32.yaml:20:7 /components/schemas/Shape
+    -
+      Name: Circle
+      Value:
+        Types: object
+        Origin: v32.yaml:22:13 /components/schemas/Circle
+  SecuritySchemes:
+    -
+      Name: oauth
+      Type: oauth2
+      OAuth2MetadataURL: https://a.example.com/.well-known/oauth
+      Flows:
+        -
+          Kind: password
+          TokenURL: https://a.example.com/token
+        -
+          Kind: authorizationCode
+          AuthorizationURL: https://a.example.com/auth
+          TokenURL: https://a.example.com/token
+        -
+          Kind: device
+          TokenURL: https://a.example.com/token
+      Deprecated: true
+      Origin: v32.yaml:25:7 /components/securitySchemes/oauth
+Diagnostics:

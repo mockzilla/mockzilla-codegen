@@ -1,0 +1,148 @@
+Version: 3.1
+Info:
+  Title: Pets
+  Summary: Pet store
+  Description: All about pets
+  Version: 1.0.0
+  Extensions:
+    -
+      Name: x-audience
+      Value: "public"
+Servers:
+  -
+    URL: https://{region}.example.com/v1
+    Description: Production
+    Variables:
+      -
+        Name: region
+        Default: eu
+        Description: Region
+        Enum: [eu, us]
+  -
+    URL: /v2
+Operations:
+  -
+    ID: getPets
+    IsIDDerived: true
+    Method: GET
+    Path: /pets
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Origin: document.yaml:26:16 /paths/~1pets/get/responses/200
+    Security:
+      -
+        Schemes:
+          -
+            Name: apiKey
+      -
+        Schemes:
+          -
+            Name: oauth
+            Scopes: [read, write]
+          -
+            Name: apiKey
+    Origin: document.yaml:25:7 /paths/~1pets/get
+Webhooks:
+  -
+    ID: postNewPet
+    IsIDDerived: true
+    Method: POST
+    Path: newPet
+    IsWebhook: true
+    Body:
+      Contents:
+        -
+          Name: application/json
+          Schema:
+            Ref:
+              Pointer: /components/schemas/Pet
+              Name: Pet
+            Origin: document.yaml:33:21 /webhooks/newPet/post/requestBody/content/application~1json/schema
+          Origin: document.yaml:33:13 /webhooks/newPet/post/requestBody/content/application~1json
+      Origin: document.yaml:31:9 /webhooks/newPet/post/requestBody
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Origin: document.yaml:35:16 /webhooks/newPet/post/responses/200
+    Security:
+      -
+        Schemes:
+          -
+            Name: apiKey
+      -
+        Schemes:
+          -
+            Name: oauth
+            Scopes: [read, write]
+          -
+            Name: apiKey
+    Origin: document.yaml:30:7 /webhooks/newPet/post
+Components:
+  Schemas:
+    -
+      Name: Pet
+      Value:
+        Types: object
+        Origin: document.yaml:38:10 /components/schemas/Pet
+  SecuritySchemes:
+    -
+      Name: apiKey
+      Type: apiKey
+      Description: Key
+      In: header
+      ParamName: X-Key
+      Extensions:
+        -
+          Name: x-rotate
+          Value: true
+      Origin: document.yaml:40:13 /components/securitySchemes/apiKey
+    -
+      Name: bearer
+      Type: http
+      Scheme: bearer
+      BearerFormat: JWT
+      Origin: document.yaml:41:13 /components/securitySchemes/bearer
+    -
+      Name: oauth
+      Type: oauth2
+      Flows:
+        -
+          Kind: implicit
+          AuthorizationURL: https://a.example.com/auth
+          Scopes:
+            -
+              Name: read
+              Description: Read
+            -
+              Name: write
+              Description: Write
+        -
+          Kind: clientCredentials
+          TokenURL: https://a.example.com/token
+          RefreshURL: https://a.example.com/refresh
+      Origin: document.yaml:43:7 /components/securitySchemes/oauth
+    -
+      Name: oidc
+      Type: openIdConnect
+      OpenIDConnectURL: https://a.example.com/.well-known
+      Origin: document.yaml:47:11 /components/securitySchemes/oidc
+Security:
+  -
+    Schemes:
+      -
+        Name: apiKey
+  -
+    Schemes:
+      -
+        Name: oauth
+        Scopes: [read, write]
+      -
+        Name: apiKey
+Extensions:
+  -
+    Name: x-logo
+    Value: {"url": "logo.png"}
+Diagnostics:

@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info:
+  title: Pets
+  summary: Pet store
+  description: All about pets
+  version: 1.0.0
+  x-audience: public
+servers:
+  - url: https://{region}.example.com/v1
+    description: Production
+    variables:
+      region:
+        default: eu
+        enum: [eu, us]
+        description: Region
+  - url: /v2
+security:
+  - apiKey: []
+  - oauth: [read, write]
+    apiKey: []
+x-logo: {url: logo.png}
+paths:
+  /pets:
+    get:
+      responses:
+        '200': {description: ok}
+webhooks:
+  newPet:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Pet'}
+      responses:
+        '200': {description: ok}
+components:
+  schemas:
+    Pet: {type: object}
+  securitySchemes:
+    apiKey: {type: apiKey, name: X-Key, in: header, description: Key, x-rotate: true}
+    bearer: {type: http, scheme: bearer, bearerFormat: JWT}
+    oauth:
+      type: oauth2
+      flows:
+        implicit: {authorizationUrl: 'https://a.example.com/auth', scopes: {read: Read, write: Write}}
+        clientCredentials: {tokenUrl: 'https://a.example.com/token', refreshUrl: 'https://a.example.com/refresh', scopes: {}}
+    oidc: {type: openIdConnect, openIdConnectUrl: 'https://a.example.com/.well-known'}

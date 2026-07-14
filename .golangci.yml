@@ -2,6 +2,8 @@ version: "2"
 
 run:
   timeout: 5m
+  build-tags:
+    - parse
 
 linters:
   default: standard

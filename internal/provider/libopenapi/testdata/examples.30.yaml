@@ -1,0 +1,7 @@
+openapi: 3.0.3
+info: {title: t, version: '1'}
+paths: {}
+components:
+  schemas:
+    Name: {type: string, example: rex}
+    Obj: {type: object, example: {a: 1, b: [true, null]}}

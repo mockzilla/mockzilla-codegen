@@ -1,0 +1,8 @@
+openapi: 3.0.3
+info: {title: t, version: '1'}
+paths: {}
+components:
+  schemas:
+    Age: {type: integer, minimum: 0, exclusiveMinimum: true, maximum: 150, exclusiveMaximum: true}
+    Score: {type: number, minimum: 1.5, maximum: 2.5}
+    Ratio: {type: number, minimum: 0, exclusiveMinimum: false}

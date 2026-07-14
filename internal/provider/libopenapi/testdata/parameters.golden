@@ -1,0 +1,193 @@
+Version: 3.0
+Info:
+  Title: t
+  Version: 1
+Operations:
+  -
+    ID: getItemsId
+    IsIDDerived: true
+    Method: GET
+    Path: /items/{id}
+    Params:
+      -
+        Name: id
+        In: path
+        Required: true
+        Style: simple
+        Schema:
+          Types: integer
+          Origin: parameters.yaml:7:40 /paths/~1items~1{id}/get/parameters/0/schema
+        Origin: parameters.yaml:7:11 /paths/~1items~1{id}/get/parameters/0
+      -
+        Name: q
+        In: query
+        Description: Search
+        Deprecated: true
+        AllowEmptyValue: true
+        Style: form
+        Explode: true
+        AllowReserved: true
+        Schema:
+          Types: string
+          Origin: parameters.yaml:8:123 /paths/~1items~1{id}/get/parameters/1/schema
+        Origin: parameters.yaml:8:11 /paths/~1items~1{id}/get/parameters/1
+      -
+        Name: tags
+        In: query
+        Style: pipeDelimited
+        Schema:
+          Types: array
+          Items:
+            Types: string
+            Origin: parameters.yaml:9:102 /paths/~1items~1{id}/get/parameters/2/schema/items
+          Origin: parameters.yaml:9:81 /paths/~1items~1{id}/get/parameters/2/schema
+        Origin: parameters.yaml:9:11 /paths/~1items~1{id}/get/parameters/2
+      -
+        Name: X-Id
+        In: header
+        Style: simple
+        Schema:
+          Types: string
+          Origin: parameters.yaml:10:44 /paths/~1items~1{id}/get/parameters/3/schema
+        Origin: parameters.yaml:10:11 /paths/~1items~1{id}/get/parameters/3
+      -
+        Name: session
+        In: cookie
+        Style: form
+        Schema:
+          Types: string
+          Origin: parameters.yaml:11:63 /paths/~1items~1{id}/get/parameters/4/schema
+        Origin: parameters.yaml:11:11 /paths/~1items~1{id}/get/parameters/4
+      -
+        Name: filter
+        In: query
+        Style: form
+        Explode: true
+        Contents:
+          -
+            Name: application/json
+            Schema:
+              Types: object
+              Origin: parameters.yaml:12:74 /paths/~1items~1{id}/get/parameters/5/content/application~1json/schema
+            Origin: parameters.yaml:12:65 /paths/~1items~1{id}/get/parameters/5/content/application~1json
+        Origin: parameters.yaml:12:11 /paths/~1items~1{id}/get/parameters/5
+      -
+        Name: page
+        In: query
+        Style: form
+        Explode: true
+        Schema:
+          Types: integer
+          Origin: parameters.yaml:13:59 /paths/~1items~1{id}/get/parameters/6/schema
+        Extensions:
+          -
+            Name: x-paging
+            Value: true
+        Origin: parameters.yaml:13:11 /paths/~1items~1{id}/get/parameters/6
+      -
+        Name: limit
+        In: query
+        Required: true
+        Style: form
+        Explode: true
+        Schema:
+          Types: integer
+          Limits:
+            Maximum:
+              Value: 100
+          Origin: parameters.yaml:25:61 /components/parameters/Limit/schema
+        Ref:
+          Pointer: /components/parameters/Limit
+          Name: Limit
+        Origin: parameters.yaml:25:12 /components/parameters/Limit
+      -
+        Name: limit
+        In: query
+        Required: true
+        Style: form
+        Explode: true
+        Schema:
+          Types: integer
+          Limits:
+            Maximum:
+              Value: 100
+          Origin: parameters.yaml:25:61 /components/parameters/Limit/schema
+        Ref:
+          Pointer: /components/parameters/Alias
+          Name: Alias
+        Origin: parameters.yaml:25:12 /components/parameters/Limit
+      -
+        Name: cursor
+        In: query
+        Style: form
+        Explode: true
+        Schema:
+          Types: string
+          Origin: parameters.yaml:21:45 /paths/~1later/get/parameters/0/schema
+        Ref:
+          Pointer: /paths/~1later/get/parameters/0
+        Origin: parameters.yaml:21:11 /paths/~1later/get/parameters/0
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Origin: parameters.yaml:17:26 /paths/~1items~1{id}/get/responses/200
+    Origin: parameters.yaml:6:7 /paths/~1items~1{id}/get
+  -
+    ID: getLater
+    IsIDDerived: true
+    Method: GET
+    Path: /later
+    Params:
+      -
+        Name: cursor
+        In: query
+        Style: form
+        Explode: true
+        Schema:
+          Types: string
+          Origin: parameters.yaml:21:45 /paths/~1later/get/parameters/0/schema
+        Origin: parameters.yaml:21:11 /paths/~1later/get/parameters/0
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Origin: parameters.yaml:22:26 /paths/~1later/get/responses/200
+    Origin: parameters.yaml:20:7 /paths/~1later/get
+Components:
+  Parameters:
+    -
+      Name: Limit
+      Value:
+        Name: limit
+        In: query
+        Required: true
+        Style: form
+        Explode: true
+        Schema:
+          Types: integer
+          Limits:
+            Maximum:
+              Value: 100
+          Origin: parameters.yaml:25:61 /components/parameters/Limit/schema
+        Origin: parameters.yaml:25:12 /components/parameters/Limit
+    -
+      Name: Alias
+      Value:
+        Name: limit
+        In: query
+        Required: true
+        Style: form
+        Explode: true
+        Schema:
+          Types: integer
+          Limits:
+            Maximum:
+              Value: 100
+          Origin: parameters.yaml:25:61 /components/parameters/Limit/schema
+        Ref:
+          Pointer: /components/parameters/Limit
+          Name: Limit
+        Origin: parameters.yaml:25:12 /components/parameters/Limit
+Diagnostics:
+  - warning optional-path-param parameters.yaml:7:11 /paths/~1items~1{id}/get/parameters/0: path parameter id is not marked required; treating it as required
