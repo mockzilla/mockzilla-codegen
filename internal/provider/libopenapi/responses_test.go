@@ -9,9 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/mockzilla/codegen/internal/provider"
-	"github.com/mockzilla/codegen/internal/spec"
 )
 
 func TestStatusRank(t *testing.T) {
@@ -35,11 +32,4 @@ func TestStatusRank(t *testing.T) {
 			assert.Equal(t, tt.want, statusRank(tt.status))
 		})
 	}
-}
-
-func TestResponsesMissing(t *testing.T) {
-	t.Parallel()
-
-	c := newConverter(spec.V31, provider.ParseOptions{})
-	assert.Nil(t, c.responses(nil, "/paths/~1a/get/responses"))
 }

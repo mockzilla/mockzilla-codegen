@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 
 	"go.yaml.in/yaml/v4"
 )
@@ -45,15 +44,6 @@ func Parse(data []byte, dir string) (*Config, error) {
 		return nil, err
 	}
 	return cfg, nil
-}
-
-// Resolve returns p joined with the directory of the config file. Absolute paths and URLs come
-// back unchanged.
-func (c *Config) Resolve(p string) string {
-	if filepath.IsAbs(p) || strings.Contains(p, "://") {
-		return p
-	}
-	return filepath.Join(c.dir, p)
 }
 
 func decode(data []byte, cfg *Config) error {
