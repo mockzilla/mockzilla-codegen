@@ -23,24 +23,6 @@ var (
 	selectorSegment = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
 )
 
-// Validate checks the config and returns a *ValidationError listing every problem, or nil.
-// A spec path is not required here: it can come from the command line or from memory.
-func (c *Config) Validate() error {
-	issues := slices.Concat(
-		checkPackage("package", c.Package),
-		checkImports(c.Imports),
-		checkSimplify(c.Spec.Simplify),
-		checkModels(c.Models),
-		checkServer(c.Server),
-		checkMCP(c.MCP, c.Client),
-		checkOutput(c.Output),
-	)
-	if len(issues) == 0 {
-		return nil
-	}
-	return &ValidationError{Issues: issues}
-}
-
 func checkPackage(key, name string) []Issue {
 	if token.IsIdentifier(name) {
 		return nil

@@ -7,6 +7,7 @@ package libopenapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"testing"
 
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+	"github.com/pb33f/libopenapi/index"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.yaml.in/yaml/v4"
@@ -191,6 +193,88 @@ func TestConverterDocumentWithoutParts(t *testing.T) {
 
 	c := newConverter(spec.V31, provider.ParseOptions{})
 	assert.Equal(t, &spec.Document{Version: spec.V31}, c.document(&v3.Document{}))
+}
+
+func TestBuildIssues(t *testing.T) {
+	t.Parallel()
+
+	circular := &index.ResolvingError{ErrorRef: errors.New("loop"), CircularReference: &index.CircularReferenceResult{}}
+	err := errors.Join(errors.New("odd thing"), errors.Join(circular, errors.New("other thing")))
+	cycles := []*index.CircularReferenceResult{
+		{Journey: []*index.Reference{{Name: "A"}, {Name: "B"}}},
+	}
+
+	c := newConverter(spec.V31, provider.ParseOptions{File: "spec.yaml"})
+	c.buildIssues(err, cycles)
+	file := diag.Origin{File: "spec.yaml"}
+	assert.Equal(t, []diag.Diagnostic{
+		{Severity: diag.Warning, Code: diag.CodeBuildIssue, Origin: file, Message: "odd thing"},
+		{Severity: diag.Warning, Code: diag.CodeBuildIssue, Origin: file, Message: "other thing"},
+		{Severity: diag.Info, Code: diag.CodeCircularRef, Origin: file, Message: "circular reference: A -> B"},
+	}, c.diags.List())
+}
+
+func TestRefsShareTargets(t *testing.T) {
+	t.Parallel()
+
+	doc, _ := parseFixture(t, "schemas.yaml")
+	schemas := map[string]*spec.Schema{}
+	for _, s := range doc.Components.Schemas {
+		schemas[s.Name] = s.Value
+	}
+	pathSchema := doc.Operations[0].Responses[0].Contents[0].Schema
+
+	tests := []struct {
+		name   string
+		target *spec.Schema
+		want   *spec.Schema
+	}{
+		{name: "Ref to a component", target: pathSchema.Items.Ref.Target, want: schemas["Pet"]},
+		{name: "Ref next to sibling keywords", target: schemas["Described"].Ref.Target, want: schemas["Pet"]},
+		{name: "Ref into a converted component", target: schemas["PetName"].Ref.Target, want: schemas["Pet"].Properties[1].Schema},
+		{name: "Ref into a component converted later", target: schemas["Early"].Ref.Target, want: schemas["Late"].Properties[0].Schema},
+		{name: "Ref into an operation", target: schemas["FromPath"].Ref.Target, want: pathSchema},
+		{name: "Discriminator mapping", target: schemas["Shape"].Discriminator.Mapping[1].Ref.Target, want: schemas["Square"]},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Same(t, tt.want, tt.target)
+		})
+	}
+}
+
+func TestComponentUsagesShareSchemas(t *testing.T) {
+	t.Parallel()
+
+	params, _ := parseFixture(t, "parameters.yaml")
+	responses, _ := parseFixture(t, "responses.yaml")
+	bodies, _ := parseFixture(t, "bodies.yaml")
+
+	tests := []struct {
+		name  string
+		usage *spec.Schema
+		want  *spec.Schema
+	}{
+		{name: "Parameter", usage: params.Operations[0].Params[7].Schema, want: params.Components.Parameters[0].Value.Schema},
+		{name: "Parameter through an alias component", usage: params.Operations[0].Params[8].Schema, want: params.Components.Parameters[0].Value.Schema},
+		{name: "Response", usage: responses.Operations[0].Responses[2].Contents[0].Schema, want: responses.Components.Responses[0].Value.Contents[0].Schema},
+		{name: "Header", usage: responses.Operations[0].Responses[0].Headers[1].Schema, want: responses.Components.Headers[0].Value.Schema},
+		{name: "Request body", usage: bodies.Operations[1].Body.Contents[0].Schema, want: bodies.Components.RequestBodies[0].Value.Contents[0].Schema},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Same(t, tt.want, tt.usage)
+		})
+	}
+}
+
+func TestResponsesMissing(t *testing.T) {
+	t.Parallel()
+
+	c := newConverter(spec.V31, provider.ParseOptions{})
+	assert.Nil(t, c.responses(nil, "/paths/~1a/get/responses"))
 }
 
 func parseFixture(t *testing.T, name string) (*spec.Document, []diag.Diagnostic) {

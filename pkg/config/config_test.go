@@ -7,9 +7,36 @@ package config
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestResolve(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		dir  string
+		path string
+		want string
+	}{
+		{name: "Relative path joins the config dir", dir: "/work/api", path: "./openapi.yml", want: "/work/api/openapi.yml"},
+		{name: "Parent path leaves the config dir", dir: "/work/api", path: "../specs/a.yml", want: "/work/specs/a.yml"},
+		{name: "Absolute path stays", dir: "/work/api", path: "/specs/a.yml", want: "/specs/a.yml"},
+		{name: "URL stays", dir: "/work/api", path: "https://example.com/a.yml", want: "https://example.com/a.yml"},
+		{name: "Empty dir leaves the path relative", dir: "", path: "./openapi.yml", want: "openapi.yml"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &Config{dir: tc.dir}
+			assert.Equal(t, tc.want, cfg.Resolve(tc.path))
+		})
+	}
+}
 
 func TestValidate(t *testing.T) {
 	t.Parallel()
@@ -180,6 +207,100 @@ func TestValidate(t *testing.T) {
 				return
 			}
 			assert.Equal(t, &ValidationError{Issues: tc.issues}, err)
+		})
+	}
+}
+
+func TestApplyDefaults(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		cfg  Config
+		want Config
+	}{
+		{
+			name: "Empty config gets every default",
+			cfg:  Config{dir: "/work/pets"},
+			want: Config{
+				Spec:    Spec{Prune: new(true)},
+				Package: "pets",
+				Naming:  Naming{EnumPrefix: new(true)},
+				Models:  &Models{IntType: "int", Descriptions: new(true)},
+				Output:  Output{File: "./gen.go", Format: new(true)},
+				dir:     "/work/pets",
+			},
+		},
+		{
+			name: "Package comes from the folder of the output file",
+			cfg:  Config{Output: Output{File: "./internal/api-v2/gen.go"}, dir: "/work"},
+			want: Config{
+				Spec:    Spec{Prune: new(true)},
+				Package: "apiv2",
+				Naming:  Naming{EnumPrefix: new(true)},
+				Models:  &Models{IntType: "int", Descriptions: new(true)},
+				Output:  Output{File: "./internal/api-v2/gen.go", Format: new(true)},
+				dir:     "/work",
+			},
+		},
+		{
+			name: "Server and client blocks get their defaults",
+			cfg:  Config{Server: &Server{Framework: "chi"}, Client: &Client{}, dir: "/work"},
+			want: Config{
+				Spec:    Spec{Prune: new(true)},
+				Package: "work",
+				Naming:  Naming{EnumPrefix: new(true)},
+				Models:  &Models{IntType: "int", Descriptions: new(true)},
+				Server: &Server{
+					Framework:          "chi",
+					Name:               "Service",
+					MultipartMaxMemory: 32 << 20,
+					Scaffold:           Scaffold{Port: 8080, Timeout: Duration(30 * time.Second)},
+				},
+				Client: &Client{Name: "Client", Timeout: Duration(3 * time.Second)},
+				Output: Output{File: "./gen.go", Format: new(true)},
+				dir:    "/work",
+			},
+		},
+		{
+			name: "Set values are kept",
+			cfg: Config{
+				Spec:    Spec{Prune: new(false)},
+				Package: "petstore",
+				Naming:  Naming{EnumPrefix: new(false)},
+				Models:  &Models{IntType: "int64", Descriptions: new(false)},
+				Server: &Server{
+					Name:               "Pets",
+					MultipartMaxMemory: 1024,
+					Scaffold:           Scaffold{Port: 9090, Timeout: Duration(time.Second)},
+				},
+				Client: &Client{Name: "PetClient", Timeout: Duration(time.Minute)},
+				Output: Output{File: "./api/pets.go", Format: new(false)},
+				dir:    "/work",
+			},
+			want: Config{
+				Spec:    Spec{Prune: new(false)},
+				Package: "petstore",
+				Naming:  Naming{EnumPrefix: new(false)},
+				Models:  &Models{IntType: "int64", Descriptions: new(false)},
+				Server: &Server{
+					Name:               "Pets",
+					MultipartMaxMemory: 1024,
+					Scaffold:           Scaffold{Port: 9090, Timeout: Duration(time.Second)},
+				},
+				Client: &Client{Name: "PetClient", Timeout: Duration(time.Minute)},
+				Output: Output{File: "./api/pets.go", Format: new(false)},
+				dir:    "/work",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			tc.cfg.applyDefaults()
+			assert.Equal(t, tc.want, tc.cfg)
 		})
 	}
 }

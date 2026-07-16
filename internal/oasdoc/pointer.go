@@ -8,7 +8,6 @@ package oasdoc
 import (
 	"fmt"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -55,101 +54,6 @@ func Split(ptr string) ([]string, error) {
 		tokens[i] = Unescape(t)
 	}
 	return tokens, nil
-}
-
-// Get returns the node at ptr, or nil when there is none or ptr is invalid.
-func (d *Doc) Get(ptr string) *yaml.Node {
-	tokens, err := Split(ptr)
-	if err != nil {
-		return nil
-	}
-	return d.lookup(tokens)
-}
-
-// Set puts value at ptr. A missing last key is added to its mapping; "-" appends to a sequence.
-func (d *Doc) Set(ptr string, value *yaml.Node) error {
-	tokens, err := Split(ptr)
-	if err != nil {
-		return err
-	}
-	if len(tokens) == 0 {
-		if value.Kind != yaml.MappingNode {
-			return fmt.Errorf("%w: root must be a mapping", ErrNotObject)
-		}
-		d.root.Content[0] = value
-		return nil
-	}
-
-	parent, last := d.lookup(tokens[:len(tokens)-1]), tokens[len(tokens)-1]
-	switch {
-	case parent == nil:
-	case parent.Kind == yaml.MappingNode:
-		if i := keyIndex(parent, last); i >= 0 {
-			parent.Content[i+1] = value
-			return nil
-		}
-		parent.Content = append(parent.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: strTag, Value: last}, value)
-		return nil
-	case parent.Kind == yaml.SequenceNode && last == "-":
-		parent.Content = append(parent.Content, value)
-		return nil
-	case parent.Kind == yaml.SequenceNode:
-		if i, ok := seqIndex(parent, last); ok {
-			parent.Content[i] = value
-			return nil
-		}
-	}
-	return fmt.Errorf("%w: %s", ErrNotFound, ptr)
-}
-
-// Delete removes the node at ptr and reports whether there was one. The root cannot be deleted.
-func (d *Doc) Delete(ptr string) bool {
-	tokens, err := Split(ptr)
-	if err != nil || len(tokens) == 0 {
-		return false
-	}
-
-	parent, last := d.lookup(tokens[:len(tokens)-1]), tokens[len(tokens)-1]
-	switch {
-	case parent == nil:
-	case parent.Kind == yaml.MappingNode:
-		if i := keyIndex(parent, last); i >= 0 {
-			parent.Content = slices.Delete(parent.Content, i, i+2)
-			return true
-		}
-	case parent.Kind == yaml.SequenceNode:
-		if i, ok := seqIndex(parent, last); ok {
-			parent.Content = slices.Delete(parent.Content, i, i+1)
-			return true
-		}
-	}
-	return false
-}
-
-func (d *Doc) lookup(tokens []string) *yaml.Node {
-	n := d.Root()
-	for _, t := range tokens {
-		switch n.Kind {
-		case yaml.MappingNode:
-			i := keyIndex(n, t)
-			if i < 0 {
-				return nil
-			}
-			n = n.Content[i+1]
-		case yaml.SequenceNode:
-			i, ok := seqIndex(n, t)
-			if !ok {
-				return nil
-			}
-			n = n.Content[i]
-		default:
-			return nil
-		}
-		if n.Kind == yaml.AliasNode {
-			n = n.Alias
-		}
-	}
-	return n
 }
 
 func keyIndex(n *yaml.Node, key string) int {

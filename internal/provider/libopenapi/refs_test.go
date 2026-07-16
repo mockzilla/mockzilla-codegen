@@ -6,35 +6,10 @@
 package libopenapi
 
 import (
-	"errors"
 	"testing"
 
-	"github.com/pb33f/libopenapi/index"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/provider"
-	"github.com/mockzilla/codegen/internal/spec"
 )
-
-func TestBuildIssues(t *testing.T) {
-	t.Parallel()
-
-	circular := &index.ResolvingError{ErrorRef: errors.New("loop"), CircularReference: &index.CircularReferenceResult{}}
-	err := errors.Join(errors.New("odd thing"), errors.Join(circular, errors.New("other thing")))
-	cycles := []*index.CircularReferenceResult{
-		{Journey: []*index.Reference{{Name: "A"}, {Name: "B"}}},
-	}
-
-	c := newConverter(spec.V31, provider.ParseOptions{File: "spec.yaml"})
-	c.buildIssues(err, cycles)
-	file := diag.Origin{File: "spec.yaml"}
-	assert.Equal(t, []diag.Diagnostic{
-		{Severity: diag.Warning, Code: diag.CodeBuildIssue, Origin: file, Message: "odd thing"},
-		{Severity: diag.Warning, Code: diag.CodeBuildIssue, Origin: file, Message: "other thing"},
-		{Severity: diag.Info, Code: diag.CodeCircularRef, Origin: file, Message: "circular reference: A -> B"},
-	}, c.diags.List())
-}
 
 func TestRefPointer(t *testing.T) {
 	t.Parallel()
