@@ -25,14 +25,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mockzilla/codegen/internal/diag"
+	"github.com/mockzilla/codegen/internal/prepare"
 	"github.com/mockzilla/codegen/internal/provider"
 	"github.com/mockzilla/codegen/internal/provider/libopenapi"
+	"github.com/mockzilla/codegen/pkg/config"
 )
 
 const (
 	specsDir          = "../../testdata/specs"
 	knownFailuresFile = "known-failures.txt"
 	slowestShown      = 10
+	preparedSample    = 20
 )
 
 type result struct {
@@ -49,7 +52,7 @@ func TestParse(t *testing.T) {
 
 	specs := collect(t)
 	known := loadKnown(t)
-	results := run(specs)
+	results := run(t, specs, "spec: {prune: false}")
 
 	failed, passed := 0, 0
 	codes := map[string]int{}
@@ -81,6 +84,33 @@ func TestParse(t *testing.T) {
 	}
 }
 
+// TestPrepared parses a sample of specs after the full Prepare, pruning on: what Prepare writes
+// must load again.
+func TestPrepared(t *testing.T) {
+	t.Parallel()
+
+	known := loadKnown(t)
+	var specs []string
+	for _, s := range collect(t) {
+		if _, isKnown := known[s]; !isKnown {
+			specs = append(specs, s)
+		}
+	}
+
+	step := max(len(specs)/preparedSample, 1)
+	var sample []string
+	for i := 0; i < len(specs) && len(sample) < preparedSample; i += step {
+		sample = append(sample, specs[i])
+	}
+
+	for _, r := range run(t, sample, "spec: {prune: true, simplify: {unions: true}}") {
+		if r.stage != "" {
+			t.Errorf("%s failed at %s: %s", r.spec, r.stage, r.err)
+		}
+	}
+	t.Logf("%d prepared specs parsed", len(sample))
+}
+
 func collect(t *testing.T) []string {
 	t.Helper()
 
@@ -108,6 +138,7 @@ func collect(t *testing.T) []string {
 		return nil
 	})
 	require.NoError(t, err)
+	slices.Sort(specs)
 	return specs
 }
 
@@ -132,7 +163,11 @@ func loadKnown(t *testing.T) map[string]string {
 	return known
 }
 
-func run(specs []string) []result {
+func run(t *testing.T, specs []string, cfgSrc string) []result {
+	t.Helper()
+
+	cfg, err := config.Parse([]byte(cfgSrc), "")
+	require.NoError(t, err)
 	p := libopenapi.New()
 	results := make([]result, len(specs))
 	sem := make(chan struct{}, runtime.GOMAXPROCS(0))
@@ -142,33 +177,24 @@ func run(specs []string) []result {
 		sem <- struct{}{}
 		wg.Go(func() {
 			defer func() { <-sem }()
-			results[i] = parseOne(p, s)
+			results[i] = parseOne(p, cfg, s)
 		})
 	}
 	wg.Wait()
 	return results
 }
 
-func parseOne(p *libopenapi.Provider, spec string) (r result) {
+func parseOne(p *libopenapi.Provider, cfg *config.Config, spec string) (r result) {
 	start := time.Now()
 	r.spec = spec
 	defer func() { r.elapsed = time.Since(start) }()
 
-	path, err := filepath.Abs(filepath.Join(specsDir, spec))
-	if err != nil {
-		return fail(r, "read", err)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fail(r, "read", err)
-	}
-
 	ctx := context.Background()
-	bundled, err := p.Bundle(ctx, provider.Source{Data: data, Path: path})
+	out, err := prepare.Run(ctx, p, prepare.Input{Path: filepath.Join(specsDir, spec), Config: cfg})
 	if err != nil {
-		return fail(r, "bundle", err)
+		return fail(r, "prepare", err)
 	}
-	_, diags, err := p.Parse(ctx, bundled.Data, provider.ParseOptions{File: spec})
+	_, diags, err := p.Parse(ctx, out.Bytes, provider.ParseOptions{File: spec, Positions: out.Positions})
 	if err != nil {
 		return fail(r, "parse", err)
 	}

@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths:
+  /pets:
+    get:
+      parameters:
+        - name: id
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: '#/components/schemas/Pet'}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [kind, shape]
+      properties:
+        kind:
+          type: [string, "null"]
+        shape:
+          type: object
+          required: [r]
+          properties: {r: {type: number}}
+        plain: {type: string}
+    Animal:
+      allOf: [{$ref: '#/components/schemas/Base'}, {$ref: '#/components/schemas/Cat'}]
+    Merged:
+      type: object
+      required: [a, b]
+      properties:
+        a: {type: string}
+        b: {type: string}
+      items: {type: string}
+    Nullable30:
+      type: string
+    Multi: {type: string}
+    OnlyNull:
+      type: 'null'
+    Base: {type: object}
+    Cat: {type: object}
+    Dog: {type: object}
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            allOf:
+              - {$ref: '#/components/schemas/Cat'}
+# changed: true

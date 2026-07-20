@@ -1,0 +1,161 @@
+openapi: 3.1.0
+info: {title: split, version: '1'}
+paths:
+  /pets:
+    get:
+      tags: [pets]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Pet'}
+      callbacks:
+        onAdopt:
+          '{$request.body#/url}':
+            post:
+              requestBody:
+                content:
+                  application/json:
+                    schema: {$ref: '#/components/schemas/Pet'}
+              responses:
+                '204': {description: seen}
+    summary: Pets from another file
+  /users/{id}:
+    get:
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+                description: A user, with a sibling next to the ref
+        default:
+          $ref: '#/components/responses/Error'
+  /shapes:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Shape'}
+  /nodes:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/node'}
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: {type: integer}
+    Choice:
+      oneOf: [{$ref: '#/components/schemas/Error'}, {$ref: '#/components/schemas/mouse'}]
+      discriminator:
+        propertyName: kind
+        mapping: {error: '#/components/schemas/Error', mouse: '#/components/schemas/mouse', bare: Error}
+    Pet:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+        owner: {$ref: '#/components/schemas/User'}
+        tag: {$ref: '#/components/schemas/Tag'}
+      $defs:
+        Tag:
+          type: object
+          properties:
+            label: {type: string}
+    User:
+      type: object
+      properties:
+        name: {type: string}
+        pets:
+          type: array
+          items: {$ref: '#/components/schemas/Pet'}
+    Tag:
+      type: object
+      properties:
+        label: {type: string}
+    ErrorCommon:
+      type: object
+      properties:
+        message: {type: string}
+        animal: {$ref: '#/components/schemas/Animal'}
+    Animal:
+      oneOf: [{$ref: '#/components/schemas/Cat'}]
+      discriminator:
+        propertyName: kind
+        mapping: {cat: '#/components/schemas/Cat', dog: Dog, mouse: '#/components/schemas/mouse', root: '#/components/schemas/Error'}
+    Cat:
+      type: object
+      properties:
+        kind: {type: string}
+    mouse:
+      type: object
+      properties:
+        squeak: {type: boolean}
+    Shape:
+      oneOf:
+        - $ref: '#/components/schemas/Circle'
+        - $ref: '#/components/schemas/Square'
+      discriminator:
+        propertyName: kind
+        mapping:
+          circle: '#/components/schemas/Circle'
+          square: '#/components/schemas/Square'
+    Circle:
+      type: object
+      properties:
+        kind:
+          type: string
+        r:
+          type: number
+    Square:
+      type: object
+      properties:
+        kind:
+          type: string
+        side:
+          type: number
+    node:
+      type: object
+      required: [next]
+      properties:
+        next: {$ref: '#/components/schemas/node'}
+  parameters:
+    Id: {name: id, in: path, required: true, schema: {type: string}}
+  responses:
+    Error:
+      description: err
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorCommon'}
+# grafted
+/components/parameters/Id common.yaml:6:9
+/components/responses/Error common.yaml:9:7
+/components/schemas/Animal common.yaml:20:7
+/components/schemas/Cat common.yaml:25:7
+/components/schemas/Circle shapes.json:6:13
+/components/schemas/ErrorCommon common.yaml:15:7
+/components/schemas/Pet schemas/Pet.yaml:1:1
+/components/schemas/Shape shapes.json:2:12
+/components/schemas/Square shapes.json:7:13
+/components/schemas/Tag schemas/Pet.yaml:9:5
+/components/schemas/User schemas/User.yaml:1:1
+/components/schemas/mouse mouse.yaml:1:1
+/components/schemas/node schemas/node.yaml:1:1
+/paths/~1pets paths/pets.yaml:1:1
+/paths/~1pets/get/callbacks/onAdopt/{$request.body#~1url} paths/hook.yaml:1:1
+# diagnostics
+info bundle-rename /components/schemas/ErrorCommon common.yaml:15:7 Error from common.yaml is named ErrorCommon: Error is taken

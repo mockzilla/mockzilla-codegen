@@ -1,0 +1,27 @@
+openapi: 3.2.0
+info: {title: t, version: '1'}
+paths:
+  /users/{id}:
+    get: {}
+    put: {operationId: replaceUser}
+    delete: {operationId: removeUser}
+  /shared:
+    $ref: '#/components/pathItems/Shared'
+    summary: kept next to the copy
+  /extra:
+    get: {operationId: getExtra}
+    additionalOperations:
+      COPY: {operationId: copyExtra}
+  /only-extra:
+    get: {operationId: dropMe}
+    additionalOperations:
+      COPY: {operationId: copyOnly}
+      MOVE: {operationId: moveOnly}
+webhooks:
+  ping:
+    post: {}
+components:
+  pathItems:
+    Shared:
+      get: {operationId: getShared}
+      post: {operationId: postShared}

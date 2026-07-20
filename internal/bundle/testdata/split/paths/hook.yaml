@@ -1,0 +1,7 @@
+post:
+  requestBody:
+    content:
+      application/json:
+        schema: {$ref: ../schemas/Pet.yaml}
+  responses:
+    '204': {description: seen}

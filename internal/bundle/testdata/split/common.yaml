@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info: {title: common, version: '1'}
+paths: {}
+components:
+  parameters:
+    Id: {name: id, in: path, required: true, schema: {type: string}}
+  responses:
+    Error:
+      description: err
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    Error:
+      type: object
+      properties:
+        message: {type: string}
+        animal: {$ref: '#/components/schemas/Animal'}
+    Animal:
+      oneOf: [{$ref: '#/components/schemas/Cat'}]
+      discriminator:
+        propertyName: kind
+        mapping: {cat: Cat, dog: Dog, mouse: mouse.yaml, root: ./openapi.yaml#/components/schemas/Error}
+    Cat:
+      type: object
+      properties:
+        kind: {type: string}

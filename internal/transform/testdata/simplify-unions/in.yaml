@@ -1,0 +1,67 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths:
+  /pets:
+    get:
+      parameters:
+        - name: id
+          in: query
+          schema:
+            anyOf: [{type: 'null'}, {type: integer, format: int64}]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                oneOf: [{type: string}, {$ref: '#/components/schemas/Pet'}]
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [kind, shape]
+      properties:
+        kind:
+          type: [string, integer, 'null']
+        shape:
+          oneOf:
+            - {type: object, required: [r], properties: {r: {type: number}}}
+            - {type: object, properties: {side: {type: number}}}
+        maybe:
+          anyOf: [{type: string}, {type: integer}]
+        plain: {type: string}
+        either: {type: [string, integer]}
+    Animal:
+      allOf: [{$ref: '#/components/schemas/Base'}]
+      oneOf:
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+      discriminator:
+        propertyName: kind
+        mapping: {cat: Cat, dog: Dog}
+    Merged:
+      type: object
+      required: [a]
+      properties:
+        a: {type: string}
+      anyOf:
+        - required: [b]
+          properties:
+            a: {type: integer}
+            b: {type: string}
+          items: {type: string}
+    Nullable30:
+      oneOf: [{type: string, nullable: true}, {type: integer}]
+    Multi: {type: [string, integer]}
+    OnlyNull:
+      oneOf: [{type: 'null'}]
+    Base: {type: object}
+    Cat: {type: object}
+    Dog: {type: object}
+  responses:
+    Error:
+      description: error
+      content:
+        application/json:
+          schema:
+            anyOf: [{$ref: '#/components/schemas/Cat'}]

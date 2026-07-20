@@ -1,0 +1,3 @@
+Target:
+  type: string
+  x-ext: {$ref: ./nowhere.yaml}

@@ -1,0 +1,21 @@
+// Copyright (c) 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+// Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+// permission notice shall be included in all copies or substantial portions of the Software.
+
+package codegen
+
+type Option func(*options)
+
+type options struct {
+	spec []byte
+}
+
+// WithSpec passes the spec in memory instead of reading spec.path. When spec.path is set it still
+// names the spec, so refs to other files resolve next to it; otherwise they resolve against the
+// config's folder.
+func WithSpec(data []byte) Option {
+	return func(o *options) {
+		o.spec = data
+	}
+}

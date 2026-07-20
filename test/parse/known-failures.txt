@@ -5,5 +5,5 @@
 3.0/misc/-sellsy.yml parse: $ref to a pointer that does not exist
 3.0/misc/-unit.yml parse: $ref to a pointer that does not exist
 3.0/misc/soundcloud.com.yml parse: libopenapi resolves a $ref inside an example value, which is literal data
-3.1/codat.io/-accounting.2.1.0.yml bundle: invalid YAML in a block scalar
+3.1/codat.io/-accounting.2.1.0.yml prepare: invalid YAML in a block scalar
 3.1/misc/meilisearch.yml parse: libopenapi resolves a $ref inside an example value, which is literal data

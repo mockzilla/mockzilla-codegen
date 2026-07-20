@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info: {title: clash, version: '1'}
+paths:
+  /pets:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  a: {$ref: '#/components/schemas/PetA'}
+                  b: {$ref: '#/components/schemas/PetB'}
+                  again: {$ref: '#/components/schemas/PetB'}
+                  deep: {$ref: '#/components/schemas/Pet2'}
+                  common: {$ref: '#/components/schemas/PetCommon'}
+                  err: {$ref: '#/components/schemas/ErrorCommon'}
+components:
+  schemas:
+    Pet: {type: string}
+    PetX: {type: string}
+    Error: {type: string}
+    PetA:
+      type: integer
+    PetB:
+      type: boolean
+    Pet2:
+      type: number
+    PetCommon: {type: array, items: {type: string}}
+    ErrorCommon: {type: object}
+# grafted
+/components/schemas/ErrorCommon common.yaml:2:8
+/components/schemas/Pet2 x/b/Pet.yaml:1:1
+/components/schemas/PetA a/Pet.yaml:1:1
+/components/schemas/PetB b/Pet.yaml:1:1
+/components/schemas/PetCommon common.yaml:1:6
+# diagnostics
+info bundle-rename /components/schemas/PetA a/Pet.yaml:1:1 Pet from a/Pet.yaml is named PetA: Pet is taken
+info bundle-rename /components/schemas/PetB b/Pet.yaml:1:1 Pet from b/Pet.yaml is named PetB: Pet is taken
+info bundle-rename /components/schemas/PetCommon common.yaml:1:6 Pet from common.yaml is named PetCommon: Pet is taken
+info bundle-rename /components/schemas/ErrorCommon common.yaml:2:8 Error from common.yaml is named ErrorCommon: Error is taken
+info bundle-rename /components/schemas/Pet2 x/b/Pet.yaml:1:1 Pet from x/b/Pet.yaml is named Pet2: Pet is taken

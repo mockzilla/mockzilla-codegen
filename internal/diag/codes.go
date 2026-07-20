@@ -15,4 +15,11 @@ const (
 	CodeUnresolvedMapping   = "unresolved-mapping"
 	CodeOptionalPathParam   = "optional-path-param"
 	CodeOverlayTarget       = "overlay-target"
+	CodeBundleRename        = "bundle-rename"
+	CodeUnbundledRef        = "unbundled-ref"
+	CodeFilterUnknown       = "filter-unknown"
+	CodeFilterRequired      = "filter-required"
+	CodeFilterEmpty         = "filter-empty"
+	CodePruneUnsupported    = "prune-unsupported"
+	CodePruneSkipped        = "prune-skipped"
 )

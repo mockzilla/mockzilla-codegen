@@ -1,0 +1,48 @@
+openapi: 3.1.0
+info: {title: homes, version: '1'}
+paths:
+  /pets:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pet'}
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /self:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Local'}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        local: {$ref: '#/components/schemas/Local'}
+    Animal:
+      $ref: '#/components/schemas/Pet'
+    Chain:
+      type: string
+      x-ext: {$ref: ./nowhere.yaml}
+    Local:
+      type: object
+      properties:
+        other: {$ref: '#/components/schemas/other'}
+    other:
+      type: string
+  responses:
+    NotFound:
+      description: not found
+# grafted
+/components/responses/NotFound responses.yaml:2:3
+/components/schemas/Chain link.yaml:2:3
+/components/schemas/Pet Pet.yaml:1:1
+/components/schemas/other other.yaml:1:1
+# diagnostics
+warning unbundled-ref /components/schemas/Chain/x-ext link.yaml:3:3 $ref ./nowhere.yaml is not in a place that is bundled, so it is left as is

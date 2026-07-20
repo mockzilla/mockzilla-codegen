@@ -1,0 +1,10 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths:
+  x-ext: {get: {tags: [other]}}
+  /pets:
+    get: {tags: [pets]}
+webhooks:
+  petAdded:
+    post: {tags: [pets]}
+# changed: true

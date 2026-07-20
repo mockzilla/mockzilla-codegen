@@ -1,0 +1,8 @@
+{
+  "Shape": {
+    "oneOf": [{"$ref": "#/Circle"}, {"$ref": "#/Square"}],
+    "discriminator": {"propertyName": "kind", "mapping": {"circle": "#/Circle", "square": "#/Square"}}
+  },
+  "Circle": {"type": "object", "properties": {"kind": {"type": "string"}, "r": {"type": "number"}}},
+  "Square": {"type": "object", "properties": {"kind": {"type": "string"}, "side": {"type": "number"}}}
+}

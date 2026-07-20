@@ -1,0 +1,11 @@
+type: object
+required: [name]
+properties:
+  name: {type: string}
+  owner: {$ref: ./User.yaml}
+  tag: {$ref: '#/$defs/Tag'}
+$defs:
+  Tag:
+    type: object
+    properties:
+      label: {type: string}

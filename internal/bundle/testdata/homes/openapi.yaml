@@ -1,0 +1,36 @@
+openapi: 3.1.0
+info: {title: homes, version: '1'}
+paths:
+  /pets:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: ./Pet.yaml}
+        '404':
+          $ref: ./responses.yaml#/NotFound
+  /self:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: ./openapi.yaml#/components/schemas/Local}
+components:
+  schemas:
+    Pet:
+      $ref: ./Pet.yaml
+    Animal:
+      $ref: ./Pet.yaml
+    Chain:
+      $ref: ./chain.yaml
+    Local:
+      type: object
+      properties:
+        other: {$ref: ./other.yaml}
+  responses:
+    NotFound:
+      $ref: ./responses.yaml#/NotFound

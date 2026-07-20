@@ -1,0 +1,2 @@
+Pet: {type: array, items: {type: string}}
+Error: {type: object}

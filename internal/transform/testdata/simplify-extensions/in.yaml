@@ -1,0 +1,17 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths: {}
+x-top: stays
+components:
+  schemas:
+    Pet:
+      type: object
+      x-go-type: Animal
+      example: {name: x}
+      properties:
+        x-prop:
+          type: string
+          x-go-name: Prop
+        items:
+          type: array
+          items: {type: string, x-order: 1}

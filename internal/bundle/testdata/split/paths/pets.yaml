@@ -1,0 +1,14 @@
+get:
+  tags: [pets]
+  responses:
+    '200':
+      description: ok
+      content:
+        application/json:
+          schema:
+            type: array
+            items: {$ref: ../schemas/Pet.yaml}
+  callbacks:
+    onAdopt:
+      '{$request.body#/url}':
+        $ref: ./hook.yaml

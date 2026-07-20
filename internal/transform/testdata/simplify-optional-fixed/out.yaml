@@ -1,0 +1,17 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [zeta]
+      properties:
+        zeta: {type: string}
+        alpha: {type: string}
+    Small:
+      type: object
+      properties:
+        only: {type: string}
+    NoProps: {type: string}
+# changed: true
