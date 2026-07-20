@@ -1,0 +1,16 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths: {}
+x-top: stays
+components:
+  schemas:
+    Pet:
+      type: object
+      example: {name: x}
+      properties:
+        x-prop:
+          type: string
+        items:
+          type: array
+          items: {type: string}
+# changed: true

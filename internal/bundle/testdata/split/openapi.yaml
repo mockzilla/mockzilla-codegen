@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info: {title: split, version: '1'}
+paths:
+  /pets:
+    $ref: ./paths/pets.yaml
+    summary: Pets from another file
+  /users/{id}:
+    get:
+      parameters:
+        - $ref: ./common.yaml#/components/parameters/Id
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: ./schemas/User.yaml
+                description: A user, with a sibling next to the ref
+        default:
+          $ref: ./common.yaml#/components/responses/Error
+  /shapes:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: ./shapes.json#/Shape}
+  /nodes:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: ./schemas/node.yaml}
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: {type: integer}
+    Choice:
+      oneOf: [{$ref: '#/components/schemas/Error'}, {$ref: ./mouse.yaml}]
+      discriminator:
+        propertyName: kind
+        mapping: {error: '#/components/schemas/Error', mouse: ./mouse.yaml, bare: Error}

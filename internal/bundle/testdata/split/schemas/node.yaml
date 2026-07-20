@@ -1,0 +1,4 @@
+type: object
+required: [next]
+properties:
+  next: {$ref: ./node.yaml}

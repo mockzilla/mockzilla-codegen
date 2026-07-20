@@ -1,0 +1,22 @@
+openapi: 3.2.0
+info: {title: t, version: '1'}
+paths:
+  /users/{id}:
+    get: {}
+  /shared:
+    get: {operationId: getShared}
+    summary: kept next to the copy
+  /extra:
+    get: {operationId: getExtra}
+  /only-extra:
+    additionalOperations:
+      COPY: {operationId: copyOnly}
+webhooks:
+  ping:
+    post: {}
+components:
+  pathItems:
+    Shared:
+      get: {operationId: getShared}
+      post: {operationId: postShared}
+# changed: true

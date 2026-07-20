@@ -1,0 +1,9 @@
+overlay: 1.0.0
+info: {title: names, version: '1'}
+actions:
+  - target: $.components.schemas.pet
+    update:
+      x-go-name: Animal
+  - target: $.paths['/pets'].get
+    update:
+      operationId: listPets

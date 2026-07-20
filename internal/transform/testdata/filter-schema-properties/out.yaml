@@ -1,0 +1,24 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string}
+        name: {type: string}
+    User:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string}
+        name: {type: string}
+    NoProps: {type: string}
+# changed: true
+# warning filter-required /components/schemas/Pet/properties/id: property id is required, so it stays
+# warning filter-required /components/schemas/User/properties/id: property id is required, so it stays
+# warning filter-unknown /components/schemas/NoProps/properties/a: property a in schema-properties does not exist
+# warning filter-unknown /components/schemas/Nope: schema Nope in schema-properties does not exist
+# warning filter-unknown /components/schemas/Pet/properties/missing: property missing in schema-properties does not exist

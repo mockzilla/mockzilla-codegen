@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      x-keep: 1
+      x-drop: 2
+      x-other: 3
+      properties:
+        x-prop: {type: string, x-nested: stays}
+    Flag: true

@@ -26,7 +26,7 @@ type FilterSet struct {
 	Tags             []string            `yaml:"tags" desc:"Operation tags."`
 	OperationIDs     []string            `yaml:"operation-ids" desc:"Operation IDs."`
 	Webhooks         []string            `yaml:"webhooks" desc:"Webhook names."`
-	Extensions       []string            `yaml:"extensions" desc:"Extension names, such as x-internal."`
+	Extensions       []string            `yaml:"extensions" desc:"x- keys on component schemas, such as x-internal: include keeps only these, exclude drops them."`
 	SchemaProperties map[string][]string `yaml:"schema-properties" desc:"Properties per component schema name."`
 }
 

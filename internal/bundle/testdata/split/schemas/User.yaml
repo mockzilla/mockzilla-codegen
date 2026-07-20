@@ -1,0 +1,6 @@
+type: object
+properties:
+  name: {type: string}
+  pets:
+    type: array
+    items: {$ref: ./Pet.yaml}

@@ -254,7 +254,7 @@
               "description": "Drop what matches. Wins over include.",
               "properties": {
                 "extensions": {
-                  "description": "Extension names, such as x-internal.",
+                  "description": "x- keys on component schemas, such as x-internal: include keeps only these, exclude drops them.",
                   "items": {
                     "type": "string"
                   },
@@ -306,7 +306,7 @@
               "description": "Keep only what matches.",
               "properties": {
                 "extensions": {
-                  "description": "Extension names, such as x-internal.",
+                  "description": "x- keys on component schemas, such as x-internal: include keeps only these, exclude drops them.",
                   "items": {
                     "type": "string"
                   },

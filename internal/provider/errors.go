@@ -11,6 +11,5 @@ var (
 	ErrProviderPanic      = errors.New("provider panic")
 	ErrParse              = errors.New("parse spec")
 	ErrUnsupportedVersion = errors.New("unsupported OpenAPI version")
-	ErrBundle             = errors.New("bundle spec")
 	ErrOverlay            = errors.New("apply overlay")
 )

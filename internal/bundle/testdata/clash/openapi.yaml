@@ -1,0 +1,24 @@
+openapi: 3.0.3
+info: {title: clash, version: '1'}
+paths:
+  /pets:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  a: {$ref: ./a/Pet.yaml}
+                  b: {$ref: ./b/Pet.yaml}
+                  again: {$ref: ./b/../b/Pet.yaml}
+                  deep: {$ref: ./x/b/Pet.yaml}
+                  common: {$ref: ./common.yaml#/Pet}
+                  err: {$ref: ./common.yaml#/Error}
+components:
+  schemas:
+    Pet: {type: string}
+    PetX: {type: string}
+    Error: {type: string}

@@ -390,3 +390,46 @@ func TestPositions(t *testing.T) {
 		"/tags/0/name":   {File: "spec.yaml", Line: 6, Col: 5},
 	}, d.Positions())
 }
+
+func TestPositionsOfGraftedNodes(t *testing.T) {
+	t.Parallel()
+
+	d, err := Parse([]byte("openapi: 3.1.0\ncomponents:\n  schemas: {}\n"), "spec.yaml")
+	require.NoError(t, err)
+	other, err := Parse([]byte("\ntype: object\nproperties:\n  a: {type: string}\n"), "pet.yaml")
+	require.NoError(t, err)
+
+	pet := other.Root()
+	d.SetFile(pet, "pet.yaml")
+	SetChild(d.Get("/components/schemas"), "Pet", pet)
+	SetChild(d.Root(), "x-made", NewString("in memory"))
+
+	assert.Equal(t, map[string]diag.Origin{
+		"":                                     {File: "spec.yaml", Line: 1, Col: 1},
+		"/openapi":                             {File: "spec.yaml", Line: 1, Col: 1},
+		"/components":                          {File: "spec.yaml", Line: 2, Col: 1},
+		"/components/schemas":                  {File: "spec.yaml", Line: 3, Col: 3},
+		"/components/schemas/Pet":              {File: "pet.yaml", Line: 2, Col: 1},
+		"/components/schemas/Pet/type":         {File: "pet.yaml", Line: 2, Col: 1},
+		"/components/schemas/Pet/properties":   {File: "pet.yaml", Line: 3, Col: 1},
+		"/components/schemas/Pet/properties/a": {File: "pet.yaml", Line: 4, Col: 3},
+		"/components/schemas/Pet/properties/a/type": {File: "pet.yaml", Line: 4, Col: 7},
+	}, d.Positions())
+}
+
+func TestCopyLayout(t *testing.T) {
+	t.Parallel()
+
+	from, err := Parse([]byte("a:\n    b: 1\nc:\n- 1\n"), "from.yaml")
+	require.NoError(t, err)
+	d, err := Parse([]byte("a:\n  b: 1\nc:\n  - 1\n"), "spec.yaml")
+	require.NoError(t, err)
+
+	d.CopyLayout(from)
+	want, err := from.Marshal()
+	require.NoError(t, err)
+	got, err := d.Marshal()
+	require.NoError(t, err)
+	assert.Equal(t, string(want), string(got))
+	assert.Contains(t, string(got), "a:\n    b: 1\n")
+}

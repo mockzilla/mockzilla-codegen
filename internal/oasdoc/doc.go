@@ -9,6 +9,7 @@ package oasdoc
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"go.yaml.in/yaml/v4"
@@ -20,14 +21,29 @@ import (
 const (
 	defaultIndent = 2
 	maxIndent     = 9
+	refKey        = "$ref"
 )
 
 // Doc is a parsed spec. JSON input is read as YAML and written back as block YAML.
 type Doc struct {
 	root      *yaml.Node
 	file      string
+	files     map[*yaml.Node]string
 	indent    int
 	isCompact bool
+}
+
+// Ref is one $ref in the document. Owner is the pointer of the object that holds it.
+type Ref struct {
+	Owner string
+	Value string
+}
+
+// cursor is where walk stands: the node's pointer, its mapping key and the file it came from.
+type cursor struct {
+	ptr  string
+	key  *yaml.Node
+	file string
 }
 
 // Parse reads a spec. file is only used in errors and positions.
@@ -116,11 +132,7 @@ func (d *Doc) Set(ptr string, value *yaml.Node) error {
 	switch {
 	case parent == nil:
 	case parent.Kind == yaml.MappingNode:
-		if i := keyIndex(parent, last); i >= 0 {
-			parent.Content[i+1] = value
-			return nil
-		}
-		parent.Content = append(parent.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: strTag, Value: last}, value)
+		SetChild(parent, last, value)
 		return nil
 	case parent.Kind == yaml.SequenceNode && last == "-":
 		parent.Content = append(parent.Content, value)
@@ -145,10 +157,7 @@ func (d *Doc) Delete(ptr string) bool {
 	switch {
 	case parent == nil:
 	case parent.Kind == yaml.MappingNode:
-		if i := keyIndex(parent, last); i >= 0 {
-			parent.Content = slices.Delete(parent.Content, i, i+2)
-			return true
-		}
+		return DeleteChild(parent, last)
 	case parent.Kind == yaml.SequenceNode:
 		if i, ok := seqIndex(parent, last); ok {
 			parent.Content = slices.Delete(parent.Content, i, i+1)
@@ -160,7 +169,7 @@ func (d *Doc) Delete(ptr string) bool {
 
 // Walk visits nodes depth-first with their pointers; false skips children, aliases are not followed.
 func (d *Doc) Walk(fn func(ptr string, n *yaml.Node) bool) {
-	walk(d.Root(), "", nil, func(ptr string, _, n *yaml.Node) bool { return fn(ptr, n) })
+	d.walk(d.Root(), cursor{file: d.file}, func(at cursor, n *yaml.Node) bool { return fn(at.ptr, n) })
 }
 
 // Refs lists every $ref with a string value, in document order.
@@ -178,18 +187,35 @@ func (d *Doc) Refs() []Ref {
 	return refs
 }
 
-// Positions maps the pointer of every node to where it starts. A mapping entry starts at its key.
+// Positions maps the pointer of every node to where it starts. A mapping entry starts at its key,
+// unless its value came from another file. Nodes made in memory have no line and are left out, so
+// lookups fall back to an ancestor.
 func (d *Doc) Positions() map[string]diag.Origin {
 	out := map[string]diag.Origin{}
-	walk(d.Root(), "", nil, func(ptr string, key, n *yaml.Node) bool {
-		at := n
-		if key != nil {
-			at = key
+	d.walk(d.Root(), cursor{file: d.file}, func(at cursor, n *yaml.Node) bool {
+		pos := n
+		if _, isGrafted := d.files[n]; !isGrafted && at.key != nil && at.key.Line > 0 {
+			pos = at.key
 		}
-		out[ptr] = diag.Origin{File: d.file, Line: at.Line, Col: at.Column}
+		if pos.Line > 0 {
+			out[at.ptr] = diag.Origin{File: at.file, Line: pos.Line, Col: pos.Column}
+		}
 		return true
 	})
 	return out
+}
+
+// CopyLayout makes d marshal with the indentation and sequence style of from.
+func (d *Doc) CopyLayout(from *Doc) {
+	d.indent, d.isCompact = from.indent, from.isCompact
+}
+
+// SetFile records that n and everything under it came from file, for Positions.
+func (d *Doc) SetFile(n *yaml.Node, file string) {
+	if d.files == nil {
+		d.files = map[*yaml.Node]string{}
+	}
+	d.files[n] = file
 }
 
 func (d *Doc) detectLayout(root *yaml.Node) {
@@ -209,6 +235,27 @@ func (d *Doc) detectLayout(root *yaml.Node) {
 			// A block item's column is after its "- ", so a compact item sits two columns right of its key.
 			d.isCompact, hasSeq = value.Content[0].Column-2 == key.Column, true
 		}
+	}
+}
+
+func (d *Doc) walk(n *yaml.Node, at cursor, fn func(at cursor, n *yaml.Node) bool) {
+	if file, ok := d.files[n]; ok {
+		at.file = file
+	}
+	if !fn(at, n) {
+		return
+	}
+
+	switch n.Kind {
+	case yaml.MappingNode:
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			d.walk(n.Content[i+1], cursor{ptr: at.ptr + "/" + Escape(n.Content[i].Value), key: n.Content[i], file: at.file}, fn)
+		}
+	case yaml.SequenceNode:
+		for i, c := range n.Content {
+			d.walk(c, cursor{ptr: at.ptr + "/" + strconv.Itoa(i), file: at.file}, fn)
+		}
+	default:
 	}
 }
 

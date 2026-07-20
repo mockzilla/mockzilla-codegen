@@ -1,0 +1,5 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths: {}
+# changed: true
+# warning filter-empty : the filter removed every operation

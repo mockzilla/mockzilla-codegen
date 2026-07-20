@@ -11,8 +11,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mockzilla/codegen/internal/prepare"
 	"github.com/mockzilla/codegen/internal/provider"
 	"github.com/mockzilla/codegen/internal/provider/libopenapi"
+	"github.com/mockzilla/codegen/pkg/config"
 )
 
 const specsDir = "../../testdata/specs"
@@ -23,14 +25,18 @@ var largeSpecs = []string{
 	"3.0/github.com/api.github.com.1.1.4.yml",
 }
 
-// BenchmarkBundle measures the check for external refs, which every spec pays even with none.
-func BenchmarkBundle(b *testing.B) {
+// BenchmarkPrepare runs Prepare with pruning on, as generation does.
+func BenchmarkPrepare(b *testing.B) {
 	p := libopenapi.New()
+	cfg, err := config.Parse([]byte("{}"), "")
+	if err != nil {
+		b.Fatal(err)
+	}
 	for _, name := range largeSpecs {
 		b.Run(name, func(b *testing.B) {
 			data := read(b, name)
 			for b.Loop() {
-				if _, err := p.Bundle(context.Background(), provider.Source{Data: data, Path: name}); err != nil {
+				if _, err := prepare.Run(context.Background(), p, prepare.Input{Spec: data, Path: name, Config: cfg}); err != nil {
 					b.Fatal(err)
 				}
 			}

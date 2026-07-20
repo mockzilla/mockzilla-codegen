@@ -1,0 +1,7 @@
+openapi: 3.1.0
+info: {title: models, version: '1'}
+components:
+  schemas:
+    A: {type: string}
+    B:
+      oneOf: [{type: string}, {type: integer}]

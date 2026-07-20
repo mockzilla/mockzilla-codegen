@@ -10,17 +10,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/url"
-	"path"
-	"path/filepath"
-	"strings"
 
 	"github.com/pb33f/libopenapi"
-	"github.com/pb33f/libopenapi/bundler"
 	"github.com/pb33f/libopenapi/datamodel"
 
 	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/oasdoc"
 	"github.com/mockzilla/codegen/internal/provider"
 	"github.com/mockzilla/codegen/internal/spec"
 )
@@ -62,33 +56,6 @@ func (p *Provider) ApplyOverlay(ctx context.Context, data, overlay []byte) (out 
 	return res.Bytes, c.List(), nil
 }
 
-// Bundle returns the input untouched when every $ref is local.
-func (p *Provider) Bundle(ctx context.Context, src provider.Source) (out *provider.Bundled, err error) {
-	defer recoverPanic(&err, src.Path)
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-
-	doc, err := oasdoc.Parse(src.Data, src.Path)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", provider.ErrBundle, err)
-	}
-	if !hasExternalRef(doc.Refs()) {
-		return &provider.Bundled{Data: src.Data}, nil
-	}
-
-	res, err := bundler.BundleBytesComposedWithOrigins(src.Data, p.bundleConfig(src), nil)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %w", provider.ErrBundle, src.Path, err)
-	}
-
-	origins := make(map[string]diag.Origin, len(res.Origins))
-	for ref, o := range res.Origins {
-		origins[strings.TrimPrefix(ref, "#")] = diag.Origin{File: o.OriginalFile, Line: o.Line, Col: o.Column}
-	}
-	return &provider.Bundled{Data: res.Bytes, Origins: origins}, nil
-}
-
 func (p *Provider) Parse(ctx context.Context, data []byte, opts provider.ParseOptions) (doc *spec.Document, diags []diag.Diagnostic, err error) {
 	defer recoverPanic(&err, opts.File)
 	if err := ctx.Err(); err != nil {
@@ -122,28 +89,6 @@ func (p *Provider) config() *datamodel.DocumentConfiguration {
 	}
 }
 
-// libopenapi's local file system reads only the files refs name, so no file filter is needed.
-func (p *Provider) bundleConfig(src provider.Source) *datamodel.DocumentConfiguration {
-	cfg := p.config()
-	cfg.AllowFileReferences = true
-	cfg.AllowRemoteReferences = src.AllowRemote
-	cfg.ExtractRefsSequentially = true
-
-	base, err := url.Parse(src.Path)
-	switch {
-	case err == nil && (base.Scheme == "http" || base.Scheme == "https"):
-		base.Path = path.Dir(base.Path)
-		cfg.BaseURL = base
-	case src.Path != "":
-		cfg.SpecFilePath = src.Path
-		cfg.BasePath = filepath.Dir(src.Path)
-	}
-	if src.BaseDir != "" {
-		cfg.BasePath = src.BaseDir
-	}
-	return cfg
-}
-
 func specVersion(info *datamodel.SpecInfo) (spec.Version, error) {
 	switch info.SpecFormat {
 	case datamodel.OAS3:
@@ -155,15 +100,6 @@ func specVersion(info *datamodel.SpecInfo) (spec.Version, error) {
 	default:
 		return 0, fmt.Errorf("%w: %s", provider.ErrUnsupportedVersion, info.Version)
 	}
-}
-
-func hasExternalRef(refs []oasdoc.Ref) bool {
-	for _, r := range refs {
-		if !strings.HasPrefix(r.Value, "#") {
-			return true
-		}
-	}
-	return false
 }
 
 func recoverPanic(err *error, file string) {

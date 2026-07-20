@@ -1,0 +1,102 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+security:
+  - global: []
+paths:
+  /pets/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      security:
+        - oauth: [read]
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pet'}
+          links:
+            owner: {operationRef: '#/components/pathItems/Owner/get'}
+      callbacks:
+        onEvent: {$ref: '#/components/callbacks/OnEvent'}
+  /shapes:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Shape'}
+  /defs:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Holder/$defs/Inner'}
+webhooks:
+  hook:
+    post:
+      requestBody: {$ref: '#/components/requestBodies/Hook'}
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        owner: {$ref: '#/components/schemas/Owner'}
+    Owner: {type: object}
+    Shape:
+      oneOf: [{$ref: '#/components/schemas/Circle'}]
+      discriminator:
+        propertyName: kind
+        mapping: {circle: Circle, square: '#/components/schemas/Square'}
+    Circle: {type: object}
+    Square: {type: object}
+    Holder:
+      $defs:
+        Inner: {type: string}
+    Identified:
+      $id: https://example.com/identified
+      type: object
+    Anchored:
+      properties:
+        a: {$anchor: a, type: string}
+    Unused: {type: string}
+    UnusedChain: {$ref: '#/components/schemas/Unused'}
+    Event: {type: object}
+    HookBody: {type: object}
+  parameters:
+    Id: {name: id, in: path, required: true, schema: {type: string}}
+    Unused: {name: x, in: query}
+  requestBodies:
+    Hook:
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/HookBody'}
+  callbacks:
+    OnEvent:
+      '{$request.body#/url}':
+        post:
+          security:
+            - apiKey: []
+          requestBody:
+            content:
+              application/json:
+                schema: {$ref: '#/components/schemas/Event'}
+          responses:
+            '204': {description: ok}
+  pathItems:
+    Owner:
+      get: {responses: {'200': {description: ok}}}
+  securitySchemes:
+    global: {type: http, scheme: bearer}
+    oauth: {type: oauth2, flows: {}}
+    apiKey: {type: apiKey, name: k, in: header}
+    unused: {type: apiKey, name: u, in: header}
+  examples:
+    Unused: {value: 1}
+  headers:
+    Unused: {schema: {type: string}}
+  links: {}
+  x-ext: {Keep: 1}

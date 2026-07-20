@@ -1,0 +1,71 @@
+openapi: 3.2.0
+x-top: {schema: {type: string}}
+paths:
+  x-ext: {get: {}}
+  /a:
+    summary: a
+    parameters:
+      - {name: p, in: query, schema: {type: string}}
+    get:
+      operationId: getA
+      parameters:
+        - name: q
+          in: query
+          content:
+            application/json: {schema: {type: string}, x-m: {schema: {}}}
+          examples:
+            one: {value: {schema: {type: string}}}
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: {type: object}
+            itemSchema: {type: string}
+            examples: {e: {value: 1}}
+            encoding:
+              f:
+                headers: {X-A: {schema: {type: string}}}
+                encoding: {g: {}}
+            prefixEncoding: [{}]
+            itemEncoding: {}
+      responses:
+        x-note: {description: skip}
+        '200':
+          description: ok
+          headers: {X-B: {$ref: '#/components/headers/H'}}
+          content:
+            application/json:
+              schema:
+                type: object
+                example: {properties: {a: {type: string}}}
+                properties:
+                  list: {type: array, items: {type: string}}
+                  tuple: {items: [{type: string}, {type: integer}]}
+                  map: {additionalProperties: true}
+                  typed: {additionalProperties: {type: string}}
+                  x-prop: {not: {type: string}}
+                allOf: [{$ref: '#/components/schemas/S'}]
+                $defs: {D: {type: string}}
+          links: {l: {operationId: x}}
+      callbacks:
+        cb:
+          x-ext: {}
+          '{$request.body#/url}':
+            post: {}
+    additionalOperations:
+      COPY: {}
+webhooks:
+  hook:
+    post: {}
+components:
+  schemas: {S: {type: string}}
+  responses: {R: {description: r}}
+  parameters: {P: {name: p, in: query}}
+  examples: {E: {value: 1}}
+  requestBodies: {B: {content: {}}}
+  headers: {H: {schema: {type: string}}}
+  securitySchemes: {K: {type: apiKey}}
+  links: {L: {}}
+  callbacks: {C: {}}
+  pathItems: {I: {}}
+  mediaTypes: {M: {}}
+  unknown: {U: {}}
