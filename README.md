@@ -7,7 +7,8 @@ Status: early development. The config format and the generated API may still cha
 ## Goals
 
 - Every file's location is written in the config. One file or many, one package or several.
-- Consistent, deterministic names, with clashes resolved the same way on every run.
+- Consistent, deterministic names, with clashes resolved the same way on every run
+  ([naming rules](docs/naming.md)).
 - One shape for `oneOf`/`anyOf` unions, whatever the number of variants.
 - Plain Go validation code, no reflection.
 - Filters, overlays, pruning and spec simplification before generation.

@@ -22,4 +22,5 @@ const (
 	CodeFilterEmpty         = "filter-empty"
 	CodePruneUnsupported    = "prune-unsupported"
 	CodePruneSkipped        = "prune-skipped"
+	CodeNameClash           = "name-clash"
 )
