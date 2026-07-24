@@ -103,10 +103,11 @@ func (fl *filter) item(n *yaml.Node, path string) bool {
 			oasdoc.DeleteChild(item, op.method)
 			continue
 		}
-		extra := oasdoc.Child(item, additionalOperations)
-		oasdoc.DeleteChild(extra, op.method)
-		if len(extra.Content) == 0 {
-			oasdoc.DeleteChild(item, additionalOperations)
+		if extra := oasdoc.Child(item, additionalOperations); extra != nil {
+			oasdoc.DeleteChild(extra, op.method)
+			if len(extra.Content) == 0 {
+				oasdoc.DeleteChild(item, additionalOperations)
+			}
 		}
 	}
 	fl.isChanged = true
