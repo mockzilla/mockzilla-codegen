@@ -156,6 +156,13 @@ Never flag "missing doc comment". Doc comments are permitted, not required.
 - **New bool fields and vars take an `Is`/`Has` prefix** where it reads naturally (`IsNullable`,
   `HasBody`). Config structs mirror their YAML keys instead.
 - **Don't shadow built-ins** (`min`, `max`, `len`, `new`, `copy`, `string`, ...).
+- **Don't shadow anything else either.** A local variable or parameter never reuses the name of a
+  type, function, var or const of its own package (`part := at.part` next to `type part struct`),
+  an imported package (`spec := ...` in a file that imports `spec`), or a variable of an outer
+  scope, named results included (`if err := f()` in a function returning `err error`). Rename the
+  local. Lint catches imports and outer variables (govet `shadow`, gocritic `importShadow`, revive
+  `import-shadowing`); names from the own package are a manual check: for every new local and
+  parameter, grep the package for a declaration with the same name.
 - **Default to unexported.** Export only what another package needs. Anything not in the public API
   (`pkg/codegen`, `pkg/config`, `pkg/runtime`) lives under `internal/`.
 

@@ -36,7 +36,7 @@ func New(opts ...Option) *Provider {
 
 func (p *Provider) ApplyOverlay(ctx context.Context, data, overlay []byte) (out []byte, diags []diag.Diagnostic, err error) {
 	defer recoverPanic(&err, "overlay")
-	if err := ctx.Err(); err != nil {
+	if err = ctx.Err(); err != nil {
 		return nil, nil, err
 	}
 
@@ -58,7 +58,7 @@ func (p *Provider) ApplyOverlay(ctx context.Context, data, overlay []byte) (out 
 
 func (p *Provider) Parse(ctx context.Context, data []byte, opts provider.ParseOptions) (doc *spec.Document, diags []diag.Diagnostic, err error) {
 	defer recoverPanic(&err, opts.File)
-	if err := ctx.Err(); err != nil {
+	if err = ctx.Err(); err != nil {
 		return nil, nil, err
 	}
 
