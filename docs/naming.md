@@ -51,6 +51,7 @@ Schemas under `components` keep their own name. Everything else is named after w
 | Request body | operation + `RequestBody` | `CreatePetRequestBody` |
 | Request body, one of several media types | operation + media type + `RequestBody` | `CreatePetJSONRequestBody` |
 | Response | operation + `Response` + status | `GetPetResponse200`, `GetPetResponse4XX`, `GetPetResponseDefault` |
+| Response, one of several media types | operation + media type + `Response` + status | `GetPetJSONResponse200` |
 | Path parameters | operation + `PathParams` | `GetPetPathParams` |
 | Query parameters | operation + `Query` | `GetPetQuery` |
 | Header parameters | operation + `Headers` | `GetPetHeaders` |
@@ -82,9 +83,14 @@ Within one group the spec order decides. The others try a name that says where t
 as `PetResponse` for a response called `Pet`. When that is taken too, they get the first free
 number from 2: `PetResponse2`, `PetResponse3`.
 
-Struct fields clash with the struct's own methods (`Validate`, `MarshalJSON`, `UnmarshalJSON`,
-`Error`, `String`, `Masked`, `LogValue`), and enum constants clash with every other name in the
-package.
+Struct fields clash with the methods the generator puts on the struct: `Validate`, `MarshalJSON`
+and `UnmarshalJSON` on every struct, plus `Get`, `Set` and the `AdditionalProperties` field on a
+struct with additional properties. A property called `validate` gives the field `Validate2`. Enum
+constants clash with every other name in the package.
+
+Names are given in rounds: first every type named directly (components, operation types), then the
+types inside them, one level at a time. An inline type is named after the final name of its parent,
+so when `Client` is renamed to `ClientSchema`, its inline `address` becomes `ClientSchemaAddress`.
 
 Every rename is reported as a `name-clash` diagnostic with the spec location of the renamed item.
 Losing an `x-go-name` is a warning. Set `x-go-name` to choose a name yourself.

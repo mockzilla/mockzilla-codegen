@@ -90,6 +90,11 @@ linters:
       - path: _test\.go
         linters:
           - gosec
+      # Generated code imports it as runtime, like other OpenAPI generators do.
+      - path: ^pkg/runtime/
+        linters:
+          - revive
+        text: "var-naming: avoid package names that conflict with Go standard library package names"
 
 formatters:
   enable:

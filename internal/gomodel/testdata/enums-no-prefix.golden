@@ -1,0 +1,52 @@
+Status enum string models.enums
+  Active "active"
+  InProgress "in_progress"
+  UserID "user_id"
+  Empty ""
+StatusActive alias string models.types
+Level enum int32 models.enums
+  Minus1 -1
+  N0 0
+  N1Dot0 1.0
+Ratio enum float32 models.enums
+  N0Dot5 0.5
+  N1 1
+Flag enum bool models.enums
+  True true
+Guess enum float64 models.enums
+  Guess1 1
+  N2Dot5 2.5
+GuessInt enum int models.enums
+  GuessInt1 1
+  N2 2
+GuessText enum string models.enums
+  A "a"
+  B "b"
+GuessBool enum bool models.enums
+  False false
+Mixed alias any models.types
+Bad alias any models.types
+OnObject defined map[string]any models.types
+OnlyNull alias string models.types
+NoneFit alias int models.types
+Stamp enum string models.enums
+  N20260101T000000Z "2026-01-01T00:00:00Z"
+Numbers enum string models.enums
+  Numbers1 "1"
+  NumbersTrue "true"
+Holder struct models.types
+  Status *Status json=status nullable omitempty
+  Inline *HolderInline json=inline omitempty
+HolderInline enum string models.enums
+  X "x"
+---
+warning enum-value 8:12 /components/schemas/Level: enum value 2.5 does not fit type integer; it is left out
+warning enum-value 8:12 /components/schemas/Level: enum value 3 does not fit type integer; it is left out
+info name-clash 11:12 /components/schemas/Guess/enum/0: "N1" is used by /components/schemas/Ratio/enum/1, renamed to "Guess1"
+info name-clash 12:15 /components/schemas/GuessInt/enum/0: "N1" is used by /components/schemas/Ratio/enum/1, renamed to "GuessInt1"
+warning enum-ignored 15:12 /components/schemas/Mixed: enum values have no common constant type; the enum is left out
+warning enum-ignored 16:10 /components/schemas/Bad: enum values have no common constant type; the enum is left out
+warning enum-ignored 17:15 /components/schemas/OnObject: enum values do not fit type object; the enum is left out
+warning enum-ignored 19:14 /components/schemas/NoneFit: enum values do not fit type integer; the enum is left out
+info name-clash 21:14 /components/schemas/Numbers/enum/0: "N1" is used by /components/schemas/Ratio/enum/1, renamed to "Numbers1"
+info name-clash 21:14 /components/schemas/Numbers/enum/1: "True" is used by /components/schemas/Flag/enum/0, renamed to "NumbersTrue"

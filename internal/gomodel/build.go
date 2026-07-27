@@ -1,0 +1,320 @@
+// Copyright (c) 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+// Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+// permission notice shall be included in all copies or substantial portions of the Software.
+
+package gomodel
+
+import (
+	"fmt"
+	"slices"
+
+	"github.com/mockzilla/codegen/internal/diag"
+	"github.com/mockzilla/codegen/internal/spec"
+)
+
+// fieldPlan keeps what a field's final type needs until recursion is known.
+type fieldPlan struct {
+	owner    *Decl
+	field    *Field
+	base     Type
+	presence presence
+}
+
+// builder fills named declarations with their types.
+type builder struct {
+	opts  Options
+	flat  *flattener
+	diags *diag.Collector
+	decls map[*spec.Schema]*Decl
+	plans []*fieldPlan
+	tags  []string
+}
+
+func newBuilder(opts Options, flat *flattener, diags *diag.Collector) *builder {
+	var tags []string
+	for _, t := range opts.ExtraTags {
+		if t != "json" && !slices.Contains(tags, t) {
+			tags = append(tags, t)
+		}
+	}
+	slices.Sort(tags)
+	return &builder{opts: opts, flat: flat, diags: diags, decls: map[*spec.Schema]*Decl{}, tags: tags}
+}
+
+// build fills every declaration, then settles pointers, which need every type known first.
+func (b *builder) build(list []*pending, ops []*Operation) []*Decl {
+	decls := make([]*Decl, len(list))
+	for i, p := range list {
+		decls[i] = p.decl
+		if p.schema != nil {
+			b.decls[p.schema] = p.decl
+		}
+	}
+
+	for _, p := range list {
+		if p.params != nil {
+			b.fillParams(p.decl, p.params)
+			continue
+		}
+		b.declare(p.decl, p.schema, p.shape)
+	}
+	breakAliasCycles(decls, b.diags)
+	b.settleFields(decls)
+
+	for _, op := range ops {
+		if op.Spec.Body != nil {
+			op.Bodies = b.contents(op.Spec.Body.Contents)
+		}
+		for _, r := range op.Spec.Responses {
+			op.Responses = append(op.Responses, Response{Status: r.Status, Contents: b.contents(r.Contents)})
+		}
+	}
+	return decls
+}
+
+func (b *builder) declare(d *Decl, s *spec.Schema, sh shape) {
+	f := b.flat.flatten(s)
+	if b.opts.Descriptions {
+		d.Doc = description(f)
+	}
+	d.Deprecated = slices.ContainsFunc(siblings(f), func(x *spec.Schema) bool { return x.Deprecated })
+
+	if r := refOf(s); r != nil {
+		d.Kind, d.Target = KindAlias, b.typeOf(r.Target)
+		return
+	}
+	switch sh {
+	case shapeStruct:
+		d.Kind = KindStruct
+		b.fillStruct(d, f)
+	case shapeEnum:
+		d.Kind, d.Enum = KindEnum, b.enumOf(d, f)
+	case shapeUnion:
+		d.Kind, d.Target = KindAlias, rawJSON
+	case shapeMap, shapeArray:
+		d.Kind, d.Target = KindDefined, b.inline(f, sh)
+	default:
+		d.Kind, d.Target = KindAlias, b.inline(f, sh)
+	}
+}
+
+func (b *builder) fillStruct(d *Decl, f *spec.Schema) {
+	st := &Struct{}
+	for _, p := range f.Properties {
+		fd := &Field{
+			JSONName:   p.Name,
+			Required:   p.Required,
+			Nullable:   b.nullable(p.Schema),
+			ReadOnly:   b.inChain(p.Schema, func(x *spec.Schema) bool { return x.ReadOnly }),
+			WriteOnly:  b.inChain(p.Schema, func(x *spec.Schema) bool { return x.WriteOnly }),
+			Deprecated: slices.ContainsFunc(siblings(p.Schema), func(x *spec.Schema) bool { return x.Deprecated }),
+			Origin:     origin(p.Schema.Origin),
+		}
+		if b.opts.Descriptions {
+			fd.Doc = description(p.Schema)
+		}
+		fd.OmitEmpty = !fd.Required || fd.ReadOnly || fd.WriteOnly
+		fd.Tags = b.fieldTags(fd.JSONName, fd.OmitEmpty)
+		b.plan(d, fd, b.typeOf(p.Schema))
+		st.Fields = append(st.Fields, fd)
+	}
+
+	if m := f.AdditionalProperties.Mode; m == spec.AdditionalSchema || m == spec.AdditionalAllowed {
+		st.AdditionalProperties = &Field{
+			Name:     "AdditionalProperties",
+			JSONName: "-",
+			Type:     Map{Key: stringType, Elem: b.valueType(f)},
+			Tags:     b.fieldTags("-", false),
+		}
+	}
+	d.Struct = st
+	resolveFields(d, b.opts.Namer, b.diags)
+}
+
+// fillParams makes one field per parameter of a location. A parameter without a schema is a string.
+func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
+	d.Struct = &Struct{}
+	for _, p := range params {
+		s := paramSchema(p)
+		fd := &Field{
+			JSONName:   p.Name,
+			Required:   p.Required,
+			Nullable:   b.nullable(s),
+			OmitEmpty:  !p.Required,
+			Deprecated: p.Deprecated,
+			Origin:     origin(p.Origin),
+		}
+		if b.opts.Descriptions {
+			fd.Doc = p.Description
+		}
+		fd.Tags = b.fieldTags(fd.JSONName, fd.OmitEmpty)
+
+		t := Type(stringType)
+		if s != nil {
+			t = b.typeOf(s)
+		}
+		b.plan(d, fd, t)
+		d.Struct.Fields = append(d.Struct.Fields, fd)
+	}
+	resolveFields(d, b.opts.Namer, b.diags)
+}
+
+func (b *builder) enumOf(d *Decl, f *spec.Schema) *Enum {
+	kind := enumKindOf(f)
+	for _, v := range misfits(kind, f.Enum) {
+		b.diags.Append(diag.Diagnostic{
+			Severity: diag.Warning,
+			Code:     diag.CodeEnumValue,
+			Pointer:  d.ID,
+			Origin:   d.Origin,
+			Message:  fmt.Sprintf("enum value %s does not fit type %s; it is left out", valueText(v), typeSetText(f.Types&^spec.TypeNull)),
+		})
+	}
+
+	e := &Enum{Base: enumBase(kind, f.Format, b.opts.IntType)}
+	for _, v := range enumValues(kind, f.Enum) {
+		e.Values = append(e.Values, EnumValue{Value: v})
+	}
+	return e
+}
+
+// typeOf is the type a schema has where it is used: its declaration, or an inline type.
+func (b *builder) typeOf(s *spec.Schema) Type {
+	if s == nil {
+		return anyType
+	}
+	if d, ok := b.decls[s]; ok {
+		return DeclRef{Decl: d}
+	}
+	if r := refOf(s); r != nil {
+		return b.typeOf(r.Target)
+	}
+	f := b.flat.flatten(s)
+	return b.inline(f, classify(f))
+}
+
+// inline is the type of a shape that needs no name. Named shapes never get here.
+func (b *builder) inline(f *spec.Schema, sh shape) Type {
+	switch sh {
+	case shapeMap:
+		return Map{Key: stringType, Elem: b.valueType(f)}
+	case shapeArray:
+		return Slice{Elem: b.elem(f.Items)}
+	case shapePrimitive:
+		return primitive(f, b.opts.IntType)
+	default:
+		return anyType
+	}
+}
+
+func (b *builder) valueType(f *spec.Schema) Type {
+	if f.AdditionalProperties.Mode == spec.AdditionalSchema {
+		return b.elem(f.AdditionalProperties.Schema)
+	}
+	return anyType
+}
+
+func (b *builder) elem(s *spec.Schema) Type {
+	return elemType(b.typeOf(s), b.nullable(s))
+}
+
+func (b *builder) nullable(s *spec.Schema) bool {
+	return b.inChain(s, func(f *spec.Schema) bool {
+		return f.Nullable || slices.ContainsFunc(f.Enum, func(v spec.Value) bool { return v.Kind == spec.KindNull })
+	})
+}
+
+// inChain checks s, its siblings and every schema its plain $refs lead to, flattened.
+func (b *builder) inChain(s *spec.Schema, fn func(*spec.Schema) bool) bool {
+	var seen []*spec.Schema
+	for s != nil && !slices.Contains(seen, s) {
+		if fn(b.flat.flatten(s)) || slices.ContainsFunc(siblings(s), fn) {
+			return true
+		}
+		seen = append(seen, s)
+
+		r := refOf(s)
+		if r == nil {
+			return false
+		}
+		s = r.Target
+	}
+	return false
+}
+
+func (b *builder) plan(d *Decl, f *Field, base Type) {
+	b.plans = append(b.plans, &fieldPlan{
+		owner:    d,
+		field:    f,
+		base:     base,
+		presence: presence{isRequired: f.Required, isNullable: f.Nullable},
+	})
+}
+
+// settleFields gives every field its final type. A field that holds a type from its own strongly
+// connected component by value becomes a pointer, or the struct would contain itself.
+func (b *builder) settleFields(decls []*Decl) {
+	index := make(map[*Decl]int, len(decls))
+	for i, d := range decls {
+		index[d] = i
+	}
+
+	adj := make([][]int, len(decls))
+	for _, p := range b.plans {
+		if e := byValue(p); e != nil {
+			adj[index[p.owner]] = append(adj[index[p.owner]], index[e])
+		}
+	}
+	for i, d := range decls {
+		if r, ok := d.Target.(DeclRef); ok {
+			adj[i] = append(adj[i], index[r.Decl])
+		}
+	}
+
+	comp := components(adj)
+	for _, p := range b.plans {
+		pr := p.presence
+		if e := byValue(p); e != nil && comp[index[p.owner]] == comp[index[e]] {
+			pr.isInCycle = true
+		}
+		p.field.Type = fieldType(p.base, pr)
+	}
+}
+
+func (b *builder) contents(list []*spec.MediaType) []Content {
+	var out []Content
+	for _, mt := range list {
+		c := Content{MediaType: mt.Name}
+		if mt.Schema != nil {
+			c.Type = b.typeOf(mt.Schema)
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+func (b *builder) fieldTags(jsonName string, isOmitEmpty bool) []Tag {
+	value := jsonName
+	if isOmitEmpty {
+		value += ",omitempty"
+	}
+
+	var out []Tag
+	for _, key := range b.tags {
+		out = append(out, Tag{Key: key, Value: value})
+	}
+	return out
+}
+
+// byValue returns the declaration a field holds by value, or nil.
+func byValue(p *fieldPlan) *Decl {
+	r, ok := p.base.(DeclRef)
+	if !ok {
+		return nil
+	}
+	if _, isPointer := fieldType(p.base, p.presence).(Pointer); isPointer {
+		return nil
+	}
+	return r.Decl
+}

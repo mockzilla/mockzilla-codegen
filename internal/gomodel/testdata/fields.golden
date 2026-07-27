@@ -1,0 +1,40 @@
+Only defined map[string]string models.types
+AnyValues defined map[string]any models.types
+Empty defined map[string]any models.types
+Closed struct models.types
+Mixed struct models.types
+  Name *string json=name omitempty
+  AdditionalProperties2 *string json=additionalProperties omitempty
+  Get2 *string json=get omitempty
+  AdditionalProperties map[string]*int json=-
+MixedTrue struct models.types
+  Name *string json=name omitempty
+  AdditionalProperties map[string]any json=-
+MixedFalse struct models.types
+  Name *string json=name omitempty
+Nested struct models.types
+  Deep map[string]map[string]Mixed json=deep omitempty
+Access struct models.types doc="Read and write rules"
+  ID string json=id required omitempty readOnly
+  Secret string json=secret required omitempty writeOnly doc="Never returned"
+  Name string json=name required deprecated
+  Owner *ReadOnlyID json=owner omitempty readOnly
+ReadOnlyID alias string models.types
+Consts struct models.types
+  Kind string json=kind required
+  Count int json=count required
+  Ratio float64 json=ratio required
+  Flag bool json=flag required
+  Loose any json=loose required
+  List []any json=list required
+Clash struct models.types
+  UserID *string json=user_id omitempty
+  UserID2 *string json=userId omitempty
+  Validate2 *bool json=validate omitempty
+Old struct models.types deprecated
+  X *string json=x omitempty
+---
+info name-clash 16:31 /components/schemas/Mixed/properties/additionalProperties: "AdditionalProperties" is reserved, renamed to "AdditionalProperties2"
+info name-clash 17:14 /components/schemas/Mixed/properties/get: "Get" is reserved, renamed to "Get2"
+info name-clash 59:17 /components/schemas/Clash/properties/userId: "UserID" is used by /components/schemas/Clash/properties/user_id, renamed to "UserID2"
+info name-clash 60:19 /components/schemas/Clash/properties/validate: "Validate" is reserved, renamed to "Validate2"

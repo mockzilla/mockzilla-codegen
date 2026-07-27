@@ -81,11 +81,15 @@ func (n *Namer) RequestBody(op, contentType string, multiple bool) string {
 	if !multiple {
 		return op + "RequestBody"
 	}
-	return op + n.mediaTag(contentType) + "RequestBody"
+	return op + n.MediaTag(contentType) + "RequestBody"
 }
 
 // Response names an inline response: GetPetResponse200, GetPetResponse4XX, GetPetResponseDefault.
-func (n *Namer) Response(op, status string) string {
+// The media type is added only when the response has more than one: GetPetJSONResponse200.
+func (n *Namer) Response(op, status, contentType string, multiple bool) string {
+	if multiple {
+		op += n.MediaTag(contentType)
+	}
 	if strings.EqualFold(status, "default") {
 		return op + "ResponseDefault"
 	}
@@ -120,6 +124,30 @@ func (n *Namer) ResponseData(op string) string {
 // EnumConst names an enum constant prefixed with its type: StatusActive.
 func (n *Namer) EnumConst(typ, value string) string {
 	return typ + n.camel(value)
+}
+
+// MediaTag shortens a media type: application/problem+json gives ProblemJSON.
+func (n *Namer) MediaTag(contentType string) string {
+	mt, _, _ := strings.Cut(contentType, ";")
+	mt = strings.ToLower(strings.TrimSpace(mt))
+	switch mt {
+	case "application/x-www-form-urlencoded":
+		return "Form"
+	case "multipart/form-data":
+		return "Multipart"
+	case "text/plain":
+		return "Text"
+	}
+
+	typ, sub, _ := strings.Cut(mt, "/")
+	sub = strings.TrimPrefix(sub, "x-")
+	switch {
+	case sub != "" && sub != "*":
+		return n.camel(strings.ReplaceAll(sub, "+", "."))
+	case typ != "" && typ != "*":
+		return n.camel(typ)
+	}
+	return "Any"
 }
 
 // words converts parts into cased words; the first word never starts with a digit.
@@ -166,28 +194,4 @@ func (n *Namer) caseWord(w string) string {
 		}
 	}
 	return strings.ToUpper(lw[:1]) + lw[1:]
-}
-
-// mediaTag shortens a media type: application/problem+json gives ProblemJSON.
-func (n *Namer) mediaTag(contentType string) string {
-	mt, _, _ := strings.Cut(contentType, ";")
-	mt = strings.ToLower(strings.TrimSpace(mt))
-	switch mt {
-	case "application/x-www-form-urlencoded":
-		return "Form"
-	case "multipart/form-data":
-		return "Multipart"
-	case "text/plain":
-		return "Text"
-	}
-
-	typ, sub, _ := strings.Cut(mt, "/")
-	sub = strings.TrimPrefix(sub, "x-")
-	switch {
-	case sub != "" && sub != "*":
-		return n.camel(strings.ReplaceAll(sub, "+", "."))
-	case typ != "" && typ != "*":
-		return n.camel(typ)
-	}
-	return "Any"
 }

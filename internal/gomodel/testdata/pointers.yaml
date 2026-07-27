@@ -1,0 +1,32 @@
+openapi: 3.1.0
+info: {title: pointers, version: "1"}
+paths: {}
+components:
+  schemas:
+    Fields:
+      type: object
+      required: [req, reqNull, reqList, reqRef, reqNullRef, reqAny]
+      properties:
+        req: {type: string}
+        opt: {type: string}
+        reqNull: {type: [string, "null"]}
+        optNull: {type: [string, "null"]}
+        reqList: {type: array, items: {type: string}}
+        optList: {type: array, items: {type: [integer, "null"]}}
+        optMap: {type: object, additionalProperties: {type: [boolean, "null"]}}
+        reqAny: {}
+        optJSON: {type: string, format: json}
+        optBytes: {type: string, format: byte}
+        reqRef: {$ref: '#/components/schemas/Item'}
+        reqNullRef: {$ref: '#/components/schemas/NullableItem'}
+        optList2: {$ref: '#/components/schemas/Items'}
+        optAnything: {$ref: '#/components/schemas/Anything'}
+        optNullSibling: {$ref: '#/components/schemas/Item', type: [object, "null"]}
+        optNullWrapped:
+          allOf: [{$ref: '#/components/schemas/Item'}]
+          type: [object, "null"]
+        optNullEnum: {enum: [a, null]}
+    Item: {type: object, properties: {id: {type: string}}}
+    NullableItem: {type: [object, "null"], properties: {id: {type: string}}}
+    Items: {type: array, items: {$ref: '#/components/schemas/Item'}}
+    Anything: {}

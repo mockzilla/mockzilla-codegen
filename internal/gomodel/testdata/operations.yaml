@@ -1,0 +1,83 @@
+openapi: 3.1.0
+info: {title: operations, version: "1"}
+paths:
+  /pets/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: getPet
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [sold, kept]}}
+        - {name: filter, in: query, content: {application/json: {schema: {type: object, properties: {q: {type: string}}}}}}
+        - {name: X-Trace-ID, in: header, required: true, description: Trace, schema: {type: string}}
+        - {name: session, in: cookie, schema: {type: string}}
+        - $ref: '#/components/parameters/order'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+        "404":
+          description: missing
+          content:
+            application/json: {schema: {type: object, properties: {message: {type: string}}}}
+            application/xml: {schema: {type: object, properties: {msg: {type: string}}}}
+        4XX:
+          $ref: '#/components/responses/Pet'
+        default:
+          description: raw
+          content:
+            application/octet-stream: {}
+    put:
+      operationId: get-pet
+      requestBody:
+        $ref: '#/components/requestBodies/Pet'
+      responses:
+        "204": {description: done}
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema: {type: array, items: {$ref: '#/components/schemas/Pet'}}
+          text/plain:
+            schema: {type: string}
+          application/xml:
+            schema: {$ref: '#/components/schemas/Pet'}
+      responses:
+        "201":
+          description: created
+          content:
+            application/json: {schema: {type: string, format: binary}}
+webhooks:
+  petAdded:
+    post:
+      requestBody:
+        content:
+          application/json: {schema: {type: object, properties: {id: {type: string}}}}
+      responses:
+        "200": {description: ok}
+components:
+  parameters:
+    order: {name: order, in: query, schema: {type: string, enum: [asc, desc]}}
+    limit: {name: limit, in: query, schema: {type: integer, format: int32}}
+    Pet: {name: pet, in: query, schema: {type: object, properties: {name: {type: string}}}}
+  requestBodies:
+    Pet:
+      content:
+        application/json: {schema: {type: object, properties: {name: {type: string}}}}
+        application/yaml: {schema: {type: object, properties: {name: {type: string}}}}
+    Plain:
+      content:
+        application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+  responses:
+    Pet:
+      description: pet
+      content:
+        application/json: {schema: {type: object, properties: {pet: {$ref: '#/components/schemas/Pet'}}}}
+  schemas:
+    Pet:
+      type: object
+      properties:
+        name: {type: string}
+    GetPetResponseData: {type: string}

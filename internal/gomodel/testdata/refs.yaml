@@ -1,0 +1,57 @@
+openapi: 3.1.0
+info: {title: refs, version: "1"}
+paths:
+  /tree:
+    get:
+      operationId: getTree
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  node: {type: object, properties: {id: {type: string}}}
+components:
+  schemas:
+    Early:
+      type: object
+      properties:
+        node: {$ref: '#/paths/~1tree/get/responses/200/content/application~1json/schema/properties/node'}
+        later: {$ref: '#/components/schemas/Late/properties/inner'}
+    Late:
+      type: object
+      properties:
+        inner: {type: object, properties: {v: {type: string}}}
+        same: {$ref: '#/components/schemas/Late/properties/inner'}
+    Tree:
+      type: object
+      properties:
+        kids:
+          type: array
+          items: {$ref: '#/components/schemas/Tree/properties/kids'}
+    Pair:
+      type: object
+      properties:
+        p: {$ref: '#/components/schemas/Pair/properties/q'}
+        q: {$ref: '#/components/schemas/Pair/properties/p'}
+    Choice:
+      oneOf:
+        - type: object
+          properties:
+            inline: {type: object, properties: {a: {type: string}}}
+        - $ref: '#/components/schemas/Late'
+    Multi: {type: [string, integer]}
+    Holder:
+      type: object
+      properties:
+        choice: {anyOf: [{type: string}, {type: integer}]}
+        list: {type: array, items: {oneOf: [{type: string}, {type: boolean}]}}
+    Node:
+      type: object
+      properties:
+        child:
+          type: object
+          properties:
+            parent: {$ref: '#/components/schemas/Node/properties/child'}
