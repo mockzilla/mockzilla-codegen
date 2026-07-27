@@ -23,4 +23,10 @@ const (
 	CodePruneUnsupported    = "prune-unsupported"
 	CodePruneSkipped        = "prune-skipped"
 	CodeNameClash           = "name-clash"
+	CodeUnionPlaceholder    = "union-placeholder"
+	CodeEnumIgnored         = "enum-ignored"
+	CodeEnumValue           = "enum-value"
+	CodeAllOfConflict       = "allof-conflict"
+	CodeAllOfCycle          = "allof-cycle"
+	CodeAliasCycle          = "alias-cycle"
 )

@@ -1,0 +1,38 @@
+openapi: 3.1.0
+info: {title: recursion, version: "1"}
+paths: {}
+components:
+  schemas:
+    Self:
+      type: object
+      required: [next, list, map, union]
+      properties:
+        next: {$ref: '#/components/schemas/Self'}
+        list: {type: array, items: {$ref: '#/components/schemas/Self'}}
+        map: {type: object, additionalProperties: {$ref: '#/components/schemas/Self'}}
+        union: {oneOf: [{$ref: '#/components/schemas/Self'}, {type: string}]}
+    A:
+      type: object
+      required: [b, leaf]
+      properties:
+        b: {$ref: '#/components/schemas/B'}
+        leaf: {$ref: '#/components/schemas/Leaf'}
+    B:
+      type: object
+      required: [a]
+      properties:
+        a: {$ref: '#/components/schemas/AliasOfA'}
+    AliasOfA: {$ref: '#/components/schemas/A'}
+    Leaf: {type: object, properties: {x: {type: string}}}
+    Holder:
+      type: object
+      required: [self]
+      properties:
+        self: {$ref: '#/components/schemas/Self'}
+    LoopX: {$ref: '#/components/schemas/LoopY'}
+    LoopY: {$ref: '#/components/schemas/LoopX'}
+    UsesLoop:
+      type: object
+      required: [x]
+      properties:
+        x: {$ref: '#/components/schemas/LoopX'}

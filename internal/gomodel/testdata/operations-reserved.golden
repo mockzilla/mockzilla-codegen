@@ -1,0 +1,70 @@
+Pet struct models.types
+  Name *string json=name omitempty
+GetPetResponseDataSchema alias string models.types
+Order enum string models.enums
+  OrderAsc "asc"
+  OrderDesc "desc"
+PetParameter struct models.params
+  Name *string json=name omitempty
+PetJSON struct models.bodies
+  Name *string json=name omitempty
+PetYaml struct models.bodies
+  Name *string json=name omitempty
+PetResponse struct models.responses
+  Pet *Pet json=pet omitempty
+GetPetPathParams struct models.params
+  ID string json=id required
+GetPetQuery struct models.params
+  Status *GetPetQueryStatus json=status omitempty
+  Filter *GetPetQueryFilter json=filter omitempty
+  Order *Order json=order omitempty
+  Limit *int32 json=limit omitempty
+GetPetQueryStatus enum string models.enums
+  GetPetQueryStatusSold "sold"
+  GetPetQueryStatusKept "kept"
+GetPetQueryFilter struct models.params
+  Q *string json=q omitempty
+GetPetHeaders struct models.params
+  XTraceID string json=X-Trace-ID required doc="Trace"
+GetPetCookies struct models.params
+  Session *string json=session omitempty
+GetPetJSONResponse404 struct models.responses
+  Message *string json=message omitempty
+GetPetXMLResponse404 struct models.responses
+  Msg *string json=msg omitempty
+GetPet2PathParams struct models.params
+  ID string json=id required
+PostPetsIDPathParams struct models.params
+  ID string json=id required
+PostPetsIDJSONRequestBody defined []Pet models.bodies
+PostPetsIDTextRequestBody alias string models.bodies
+PostPetsIDResponse201 alias runtime.File models.responses
+PostPetAddedRequestBody struct models.bodies
+  ID *string json=id omitempty
+op GetPet GET /pets/{id}
+  params path GetPetPathParams
+  params query GetPetQuery
+  params header GetPetHeaders
+  params cookie GetPetCookies
+  response 200 application/json Pet
+  response 404 application/json GetPetJSONResponse404
+  response 404 application/xml GetPetXMLResponse404
+  response 4XX application/json PetResponse
+  response default application/octet-stream -
+op GetPet2 PUT /pets/{id}
+  params path GetPet2PathParams
+  body application/json PetJSON
+  body application/yaml PetYaml
+op PostPetsID POST /pets/{id}
+  params path PostPetsIDPathParams
+  body application/json PostPetsIDJSONRequestBody
+  body text/plain PostPetsIDTextRequestBody
+  body application/xml Pet
+  response 201 application/json PostPetsIDResponse201
+op PostPetAdded POST petAdded
+  body application/json PostPetAddedRequestBody
+---
+info name-clash 33:7 /paths/~1pets~1{id}/put: "GetPet" is used by /paths/~1pets~1{id}/get, renamed to "GetPet2"
+info name-clash 64:41 /components/parameters/Pet/schema: "Pet" is used by /components/schemas/Pet, renamed to "PetParameter"
+info name-clash 77:36 /components/responses/Pet/content/application~1json/schema: "Pet" is used by /components/schemas/Pet, renamed to "PetResponse"
+info name-clash 83:25 /components/schemas/GetPetResponseData: "GetPetResponseData" is reserved, renamed to "GetPetResponseDataSchema"

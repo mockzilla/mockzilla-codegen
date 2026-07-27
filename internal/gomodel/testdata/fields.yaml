@@ -1,0 +1,64 @@
+openapi: 3.1.0
+info: {title: fields, version: "1"}
+paths: {}
+components:
+  schemas:
+    Only:
+      type: object
+      additionalProperties: {type: string}
+    AnyValues: {type: object, additionalProperties: true}
+    Empty: {type: object}
+    Closed: {type: object, additionalProperties: false}
+    Mixed:
+      type: object
+      properties:
+        name: {type: string}
+        additionalProperties: {type: string}
+        get: {type: string}
+      additionalProperties: {type: [integer, "null"]}
+    MixedTrue:
+      type: object
+      properties: {name: {type: string}}
+      additionalProperties: true
+    MixedFalse:
+      type: object
+      properties: {name: {type: string}}
+      additionalProperties: false
+    Nested:
+      type: object
+      properties:
+        deep:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: {$ref: '#/components/schemas/Mixed'}
+    Access:
+      type: object
+      description: Read and write rules
+      required: [id, secret, name]
+      properties:
+        id: {type: string, readOnly: true}
+        secret: {type: string, writeOnly: true, description: Never returned}
+        name: {type: string, deprecated: true}
+        owner: {$ref: '#/components/schemas/ReadOnlyID'}
+    ReadOnlyID: {type: string, readOnly: true}
+    Consts:
+      type: object
+      required: [kind, count, ratio, flag, loose, list]
+      properties:
+        kind: {type: string, const: pet}
+        count: {const: 3}
+        ratio: {const: 1.5}
+        flag: {const: true}
+        loose: {const: [1]}
+        list: {type: array}
+    Clash:
+      type: object
+      properties:
+        user_id: {type: string}
+        userId: {type: string}
+        validate: {type: boolean}
+    Old:
+      type: object
+      deprecated: true
+      properties: {x: {type: string}}

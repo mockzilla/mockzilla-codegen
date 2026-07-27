@@ -1,0 +1,80 @@
+Animal struct models.types doc="An animal"
+  Name string json=name required
+  Address *AnimalAddress json=address omitempty
+AnimalAddress struct models.types
+  Geo *AnimalAddressGeo json=geo omitempty
+AnimalAddressGeo struct models.types
+  Lat *float64 json=lat omitempty
+Dog struct models.types doc="A dog"
+  Name string json=name required
+  Address *DogAddress json=address omitempty
+  Bark DogBark json=bark required
+DogAddress struct models.types
+  Geo *AnimalAddressGeo json=geo omitempty
+  Zip *string json=zip omitempty
+DogBark struct models.types
+  Loud *bool json=loud omitempty
+Puppy struct models.types
+  Name string json=name required
+  Address *DogAddress json=address omitempty
+  Bark DogBark json=bark required
+  Age int json=age required
+Conflict alias string models.types
+Numbers alias int64 models.types
+NullableRef alias Animal models.types doc="Just an animal"
+Loop1 struct models.types
+  Two *string json=two omitempty
+  One *string json=one omitempty
+Loop2 struct models.types
+  Two *string json=two omitempty
+Diamond struct models.types
+  Name string json=name required
+  Address *AnimalAddress json=address omitempty
+Maps defined map[string]MapsValue models.types
+MapsValue struct models.types
+  A *string json=a omitempty
+  B *string json=b omitempty
+MapThenFalse defined map[string]string models.types
+FalseThenTrue struct models.types
+  A *string json=a omitempty
+Lists defined []ListsItem models.types
+ListsItem struct models.types
+  A *string json=a omitempty
+  B *string json=b omitempty
+Sibling struct models.types
+  Name string json=name required
+  Address *AnimalAddress json=address omitempty
+  Extra *string json=extra omitempty
+SameRef struct models.types
+  Pet *Animal json=pet omitempty
+Holder struct models.types
+  Animal *Animal json=animal omitempty doc="Plain ref"
+  Text *string json=text omitempty
+  WithUnion HolderWithUnion json=withUnion omitempty
+HolderWithUnion alias json.RawMessage models.unions
+Limits alias runtime.Email models.types deprecated
+DoubleDog struct models.types
+  Name string json=name required
+  Address *DogAddress json=address omitempty
+  Bark DogBark json=bark required
+ChainA alias any models.types
+ChainB alias ChainA models.types
+WithChain struct models.types
+  X *string json=x omitempty
+Aws struct models.types
+  Kind *Animal json=kind nullable omitempty deprecated doc="The kind, next to the ref."
+  Both *AwsBoth json=both omitempty
+AwsBoth struct models.types
+  Name string json=name required
+  Address *AwsBothAddress json=address omitempty
+  Bark DogBark json=bark required
+AwsBothAddress struct models.types
+  Geo *AnimalAddressGeo json=geo omitempty
+  Zip *string json=zip omitempty
+AwsAlias alias Animal models.types deprecated doc="Alias doc"
+---
+warning allof-conflict 37:7 /components/schemas/Conflict: allOf members disagree on the type (string, integer); keeping string
+error allof-cycle 52:7 /components/schemas/Loop2: allOf includes itself through /components/schemas/Loop1; the loop is left out
+info union-placeholder 93:11 /components/schemas/Holder/properties/withUnion: union types are not generated yet; this one is json.RawMessage
+warning alias-cycle 104:13 /components/schemas/ChainA: types refer to each other in a loop (ChainA = ChainB = ChainA); ChainA becomes any
+error allof-cycle 107:7 /components/schemas/WithChain: allOf includes itself through /components/schemas/ChainA; the loop is left out

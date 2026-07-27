@@ -1,0 +1,28 @@
+ClientSchema struct models.types
+  Address *ClientSchemaAddress json=address omitempty
+ClientSchemaAddress struct models.types
+  Geo *ClientSchemaAddressGeo json=geo omitempty
+ClientSchemaAddressGeo struct models.types
+  Lat *float64 json=lat omitempty
+Pet struct models.types
+  Tags []PetTagsItem json=tags omitempty
+PetTagsItem struct models.types
+  Label *string json=label omitempty
+PetSchema struct models.types
+  Address *PetSchemaAddress json=address omitempty
+PetSchemaAddress struct models.types
+  Street *string json=street omitempty
+PetAddress struct models.types
+  Zip *string json=zip omitempty
+Labels defined map[string]LabelsValue models.types
+LabelsValue struct models.types
+  Value *string json=value omitempty
+Order struct models.types
+  Status *OrderStatus2 json=status omitempty
+OrderStatus2 enum string models.enums
+  OrderStatus2Open "open"
+OrderStatus alias string models.types
+---
+info name-clash 7:7 /components/schemas/Client: "Client" is reserved, renamed to "ClientSchema"
+info name-clash 20:7 /components/schemas/Pet: "Pet" is used by /components/schemas/pet, renamed to "PetSchema"
+info name-clash 33:17 /components/schemas/Order/properties/status: "OrderStatus" is used by /components/schemas/OrderStatus, renamed to "OrderStatus2"

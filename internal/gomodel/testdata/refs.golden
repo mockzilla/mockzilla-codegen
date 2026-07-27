@@ -1,0 +1,36 @@
+Early struct models.types
+  Node *EarlyNode json=node omitempty
+  Later *EarlyLater json=later omitempty
+EarlyNode struct models.types
+  ID *string json=id omitempty
+EarlyLater struct models.types
+  V *string json=v omitempty
+Late struct models.types
+  Inner *EarlyLater json=inner omitempty
+  Same *EarlyLater json=same omitempty
+Tree struct models.types
+  Kids TreeKids json=kids omitempty
+TreeKids defined []TreeKids models.types
+Pair struct models.types
+  P any json=p omitempty
+  Q any json=q omitempty
+Choice alias json.RawMessage models.unions
+Multi alias json.RawMessage models.unions
+Holder struct models.types
+  Choice HolderChoice json=choice omitempty
+  List []HolderListItem json=list omitempty
+HolderChoice alias json.RawMessage models.unions
+HolderListItem alias json.RawMessage models.unions
+Node struct models.types
+  Child *NodeChild json=child omitempty
+NodeChild struct models.types
+  Parent *NodeChild json=parent omitempty
+GetTreeResponse200 struct models.responses
+  Node *EarlyNode json=node omitempty
+op GetTree GET /tree
+  response 200 application/json GetTreeResponse200
+---
+info union-placeholder 40:7 /components/schemas/Choice: union types are not generated yet; this one is json.RawMessage
+info union-placeholder 45:12 /components/schemas/Multi: union types are not generated yet; this one is json.RawMessage
+info union-placeholder 49:17 /components/schemas/Holder/properties/choice: union types are not generated yet; this one is json.RawMessage
+info union-placeholder 50:36 /components/schemas/Holder/properties/list/items: union types are not generated yet; this one is json.RawMessage

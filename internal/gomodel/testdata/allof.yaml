@@ -1,0 +1,126 @@
+openapi: 3.1.0
+info: {title: allof, version: "1"}
+paths: {}
+components:
+  schemas:
+    Animal:
+      type: object
+      description: An animal
+      required: [name]
+      properties:
+        name: {type: string}
+        address:
+          type: object
+          properties:
+            geo: {type: object, properties: {lat: {type: number}}}
+    Dog:
+      description: A dog
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required: [bark]
+          properties:
+            bark: {type: object, properties: {loud: {type: boolean}}}
+            address:
+              type: object
+              properties:
+                zip: {type: string}
+            name: {description: The dog's name}
+    Puppy:
+      allOf:
+        - $ref: '#/components/schemas/Dog'
+        - allOf:
+            - properties:
+                age: {type: integer}
+            - required: [age]
+    Conflict:
+      allOf:
+        - {type: string}
+        - {type: integer}
+    Numbers:
+      allOf:
+        - {type: number}
+        - {type: integer, format: int64}
+    NullableRef:
+      allOf: [{$ref: '#/components/schemas/Animal'}]
+      description: Just an animal
+    Loop1:
+      allOf:
+        - $ref: '#/components/schemas/Loop2'
+        - properties: {one: {type: string}}
+    Loop2:
+      allOf:
+        - $ref: '#/components/schemas/Loop1'
+        - properties: {two: {type: string}}
+    Diamond:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - $ref: '#/components/schemas/Animal'
+    Maps:
+      allOf:
+        - {additionalProperties: {type: object, properties: {a: {type: string}}}}
+        - {additionalProperties: {type: object, properties: {b: {type: string}}}}
+    MapThenFalse:
+      allOf:
+        - {additionalProperties: {type: string}}
+        - {additionalProperties: false}
+    FalseThenTrue:
+      allOf:
+        - {properties: {a: {type: string}}, additionalProperties: false}
+        - {additionalProperties: true}
+    Lists:
+      allOf:
+        - {type: array, items: {properties: {a: {type: string}}}}
+        - {type: array, items: {properties: {b: {type: string}}}, minItems: 1}
+        - {items: {description: doc only}}
+    Sibling:
+      $ref: '#/components/schemas/Animal'
+      properties:
+        extra: {type: string}
+    SameRef:
+      allOf:
+        - properties: {pet: {$ref: '#/components/schemas/Animal'}}
+        - properties: {pet: {$ref: '#/components/schemas/Animal', description: again}}
+    Holder:
+      type: object
+      properties:
+        animal:
+          allOf: [{$ref: '#/components/schemas/Animal'}]
+          description: Plain ref
+        text:
+          allOf: [{type: string}, {maxLength: 5}]
+        withUnion:
+          allOf:
+            - $ref: '#/components/schemas/Animal'
+            - oneOf: [{type: object}, {type: string}]
+    Limits:
+      allOf:
+        - {type: string, minLength: 1, maxLength: 5, format: email}
+        - {type: string, maxLength: 9, pattern: "^a", readOnly: true, deprecated: true}
+    DoubleDog:
+      allOf:
+        - $ref: '#/components/schemas/Dog'
+        - $ref: '#/components/schemas/Dog'
+    ChainA: {$ref: '#/components/schemas/ChainB'}
+    ChainB: {$ref: '#/components/schemas/ChainA'}
+    WithChain:
+      allOf:
+        - $ref: '#/components/schemas/ChainA'
+        - properties: {x: {type: string}}
+    Aws:
+      type: object
+      properties:
+        kind:
+          allOf:
+            - $ref: '#/components/schemas/Animal'
+            - description: The kind, next to the ref.
+              nullable: true
+              deprecated: true
+        both:
+          allOf:
+            - $ref: '#/components/schemas/Animal'
+            - $ref: '#/components/schemas/Dog'
+    AwsAlias:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - {description: Alias doc, deprecated: true}

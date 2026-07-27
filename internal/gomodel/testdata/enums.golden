@@ -1,0 +1,49 @@
+Status enum string models.enums
+  StatusActive2 "active"
+  StatusInProgress "in_progress"
+  StatusUserID "user_id"
+  StatusEmpty ""
+StatusActive alias string models.types
+Level enum int32 models.enums
+  LevelMinus1 -1
+  Level0 0
+  Level1Dot0 1.0
+Ratio enum float32 models.enums
+  Ratio0Dot5 0.5
+  Ratio1 1
+Flag enum bool models.enums
+  FlagTrue true
+Guess enum float64 models.enums
+  Guess1 1
+  Guess2Dot5 2.5
+GuessInt enum int models.enums
+  GuessInt1 1
+  GuessInt2 2
+GuessText enum string models.enums
+  GuessTextA "a"
+  GuessTextB "b"
+GuessBool enum bool models.enums
+  GuessBoolFalse false
+Mixed alias any models.types
+Bad alias any models.types
+OnObject defined map[string]any models.types
+OnlyNull alias string models.types
+NoneFit alias int models.types
+Stamp enum string models.enums
+  Stamp20260101T000000Z "2026-01-01T00:00:00Z"
+Numbers enum string models.enums
+  Numbers1 "1"
+  NumbersTrue "true"
+Holder struct models.types
+  Status *Status json=status nullable omitempty
+  Inline *HolderInline json=inline omitempty
+HolderInline enum string models.enums
+  HolderInlineX "x"
+---
+info name-clash 6:13 /components/schemas/Status/enum/0: "StatusActive" is reserved, renamed to "StatusActive2"
+warning enum-value 8:12 /components/schemas/Level: enum value 2.5 does not fit type integer; it is left out
+warning enum-value 8:12 /components/schemas/Level: enum value 3 does not fit type integer; it is left out
+warning enum-ignored 15:12 /components/schemas/Mixed: enum values have no common constant type; the enum is left out
+warning enum-ignored 16:10 /components/schemas/Bad: enum values have no common constant type; the enum is left out
+warning enum-ignored 17:15 /components/schemas/OnObject: enum values do not fit type object; the enum is left out
+warning enum-ignored 19:14 /components/schemas/NoneFit: enum values do not fit type integer; the enum is left out
