@@ -1,0 +1,34 @@
+openapi: 3.1.0
+info: {title: Recursion, version: "1.0"}
+paths: {}
+components:
+  schemas:
+    Node:
+      type: object
+      description: A tree node. Children hold nodes by value, so no pointer is needed there.
+      required: [name, children]
+      properties:
+        name: {type: string}
+        parent: {$ref: '#/components/schemas/Node'}
+        children:
+          type: array
+          items: {$ref: '#/components/schemas/Node'}
+    Item:
+      type: object
+      description: A linked list. A required self reference still needs a pointer.
+      required: [value, next]
+      properties:
+        value: {type: string}
+        next: {$ref: '#/components/schemas/Item'}
+    Author:
+      type: object
+      required: [name, book]
+      properties:
+        name: {type: string}
+        book: {$ref: '#/components/schemas/Book'}
+    Book:
+      type: object
+      required: [title, author]
+      properties:
+        title: {type: string}
+        author: {$ref: '#/components/schemas/Author'}

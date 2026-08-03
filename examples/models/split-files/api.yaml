@@ -1,0 +1,33 @@
+openapi: 3.1.0
+info: {title: Split files, version: "1.0"}
+paths:
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+        - {name: expand, in: query, schema: {type: string, enum: [items, customer]}}
+      responses:
+        "200":
+          description: The order
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Order'}
+components:
+  schemas:
+    Order:
+      type: object
+      required: [id, status]
+      properties:
+        id: {type: string}
+        status: {$ref: '#/components/schemas/Status'}
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              sku: {type: string}
+              quantity: {type: integer}
+    Status:
+      type: string
+      enum: [open, paid, shipped]

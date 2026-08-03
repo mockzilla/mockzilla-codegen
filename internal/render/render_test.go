@@ -1,0 +1,237 @@
+// Copyright (c) 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+// Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+// permission notice shall be included in all copies or substantial portions of the Software.
+
+package render
+
+import (
+	"io/fs"
+	"testing"
+	"testing/fstest"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/codegen/internal/gocode"
+	"github.com/mockzilla/codegen/internal/layout"
+	"github.com/mockzilla/codegen/pkg/config"
+)
+
+type failFS struct{}
+
+func (failFS) Open(string) (fs.File, error) {
+	return nil, fs.ErrPermission
+}
+
+func fakeSet() Set {
+	return Set{
+		Name: "fake",
+		FS: fstest.MapFS{
+			"part.tmpl":  {Data: []byte(`{{range .}}type {{.}} struct{}{{block "fake.extra" .}}{{end}}` + "\n" + `{{end}}`)},
+			"other.tmpl": {Data: []byte(`{{.Missing}}`)},
+			"README.md":  {Data: []byte("not a template {{")},
+		},
+		Parts:  map[layout.PartID]string{"fake.types": "part.tmpl", "fake.broken": "other.tmpl"},
+		Blocks: []string{"fake.extra", "fake.header"},
+	}
+}
+
+func TestRenderPart(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		templates map[string]string
+		want      string
+	}{
+		{
+			name: "Default block",
+			want: "type Pet struct{}\ntype Tag struct{}\n",
+		},
+		{
+			name:      "Overridden block",
+			templates: map[string]string{"fake.extra": "\nfunc ({{lower .}}) Kind() string { return {{quote .}} }"},
+			want:      "type Pet struct{}\nfunc (pet) Kind() string { return \"Pet\" }\ntype Tag struct{}\nfunc (tag) Kind() string { return \"Tag\" }\n",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			e, err := New([]Set{fakeSet()}, Options{Templates: tc.templates})
+			require.NoError(t, err)
+
+			got, err := e.RenderPart("fake.types", []string{"Pet", "Tag"})
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, string(got))
+		})
+	}
+}
+
+func TestRenderPartErrors(t *testing.T) {
+	t.Parallel()
+
+	e, err := New([]Set{fakeSet()}, Options{})
+	require.NoError(t, err)
+
+	_, err = e.RenderPart("fake.enums", nil)
+	require.ErrorIs(t, err, ErrUnknownPart)
+	require.EqualError(t, err, "no template for part: fake.enums")
+
+	_, err = e.RenderPart("fake.broken", []string{})
+	require.ErrorIs(t, err, ErrExecute)
+	assert.ErrorContains(t, err, `fake/other.tmpl:1:2: executing "fake/other.tmpl" at <.Missing>`)
+}
+
+func TestNewOverrideErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		sets      []Set
+		templates map[string]string
+		want      []config.Issue
+	}{
+		{
+			name:      "Unknown blocks list the known ones",
+			sets:      []Set{fakeSet()},
+			templates: map[string]string{"models.struct": "x", "fake.extra": "ok"},
+			want:      []config.Issue{{Key: "templates.models.struct", Message: "unknown block; the blocks are fake.extra, fake.header"}},
+		},
+		{
+			name:      "Unknown block when none can be overridden",
+			templates: map[string]string{"fake.extra": "x"},
+			want:      []config.Issue{{Key: "templates.fake.extra", Message: "unknown block; no block can be overridden yet"}},
+		},
+		{
+			name:      "Override that does not parse",
+			sets:      []Set{fakeSet()},
+			templates: map[string]string{"fake.extra": "{{.Name"},
+			want:      []config.Issue{{Key: "templates.fake.extra", Message: "template: fake.extra:1: unclosed action"}},
+		},
+		{
+			name:      "Override that defines another template",
+			sets:      []Set{fakeSet()},
+			templates: map[string]string{"fake.extra": `{{define "fake/part.tmpl"}}{{end}}`},
+			want:      []config.Issue{{Key: "templates.fake.extra", Message: `defines "fake/part.tmpl"; an override replaces its own block only`}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := New(tc.sets, Options{Templates: tc.templates})
+
+			require.ErrorIs(t, err, config.ErrInvalid)
+			assert.Equal(t, &config.ValidationError{Issues: tc.want}, err)
+		})
+	}
+}
+
+func TestNewLoadErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		set     Set
+		wantMsg string
+	}{
+		{
+			name:    "Unreadable folder",
+			set:     Set{Name: "fake", FS: failFS{}},
+			wantMsg: "load templates: fake: permission denied",
+		},
+		{
+			name:    "Unreadable template",
+			set:     Set{Name: "fake", FS: fstest.MapFS{"dir.tmpl/x": {}}},
+			wantMsg: "load templates: fake/dir.tmpl: read dir.tmpl: invalid argument",
+		},
+		{
+			name:    "Template that does not parse",
+			set:     Set{Name: "fake", FS: fstest.MapFS{"bad.tmpl": {Data: []byte("{{if}}")}}},
+			wantMsg: "load templates: fake/bad.tmpl: template: fake/bad.tmpl:1: missing value for if",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := New([]Set{tc.set}, Options{})
+
+			require.ErrorIs(t, err, ErrTemplate)
+			assert.EqualError(t, err, tc.wantMsg)
+		})
+	}
+}
+
+func TestRenderFile(t *testing.T) {
+	t.Parallel()
+
+	full := FileData{
+		Header:  "Code generated by test. DO NOT EDIT.",
+		Package: "api",
+		Imports: "import \"github.com/mockzilla/codegen/pkg/runtime\"",
+		Guard:   "runtime.SupportsGeneratorV1",
+		Parts:   []string{"\ntype Day = runtime.Date\n", "", "\ntype Pet struct {\nName string\n}\n"},
+	}
+	tests := []struct {
+		name     string
+		data     FileData
+		isFormat bool
+		want     string
+	}{
+		{
+			name:     "Everything, formatted",
+			data:     full,
+			isFormat: true,
+			want: "// Code generated by test. DO NOT EDIT.\n\npackage api\n\n" +
+				"import \"github.com/mockzilla/codegen/pkg/runtime\"\n\n" +
+				"// Fails to compile when the runtime package does not match the codegen version that wrote this file.\n" +
+				"const _ = runtime.SupportsGeneratorV1\n\n" +
+				"type Day = runtime.Date\n\ntype Pet struct {\n\tName string\n}\n",
+		},
+		{
+			name: "Everything, not formatted",
+			data: full,
+			want: "// Code generated by test. DO NOT EDIT.\n\npackage api\n\n" +
+				"import \"github.com/mockzilla/codegen/pkg/runtime\"\n\n" +
+				"// Fails to compile when the runtime package does not match the codegen version that wrote this file.\n" +
+				"const _ = runtime.SupportsGeneratorV1\n\n" +
+				"type Day = runtime.Date\n\ntype Pet struct {\nName string\n}\n",
+		},
+		{
+			name:     "Package clause only",
+			data:     FileData{Package: "api"},
+			isFormat: true,
+			want:     "package api\n",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			e, err := New(nil, Options{Format: tc.isFormat})
+			require.NoError(t, err)
+
+			got, err := e.RenderFile(tc.data)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, string(got))
+		})
+	}
+}
+
+func TestRenderFileFormatError(t *testing.T) {
+	t.Parallel()
+
+	e, err := New(nil, Options{Format: true})
+	require.NoError(t, err)
+
+	_, err = e.RenderFile(FileData{Package: "api", Parts: []string{"type Pet struct {"}})
+
+	require.ErrorIs(t, err, gocode.ErrFormat)
+}

@@ -1,0 +1,25 @@
+openapi: 3.1.0
+info: {title: Additional properties, version: "1.0"}
+paths: {}
+components:
+  schemas:
+    Labels:
+      type: object
+      description: Only additional properties, so a plain map.
+      additionalProperties: {type: string}
+    Anything:
+      type: object
+      additionalProperties: true
+    Closed:
+      type: object
+      additionalProperties: false
+      properties:
+        id: {type: string}
+    Metrics:
+      type: object
+      description: Named properties and typed extra ones.
+      required: [host]
+      properties:
+        host: {type: string}
+        at: {type: string, format: date-time}
+      additionalProperties: {type: number}

@@ -3,7 +3,7 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-package config
+package naming
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPackageName(t *testing.T) {
+func TestPackage(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -34,7 +34,7 @@ func TestPackageName(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, tc.want, packageName(tc.dir))
+			assert.Equal(t, tc.want, Package(tc.dir))
 		})
 	}
 }

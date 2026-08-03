@@ -15,8 +15,8 @@ build: ## Build every package
 	go build ./...
 
 .PHONY: install
-install: ## Install the codegen CLI
-	@echo "install: not available yet"
+install: ## Install the mockzilla-codegen CLI
+	go install ./cmd/mockzilla-codegen
 
 .PHONY: test
 test: ## Run unit tests; narrow with PKG=./internal/naming RUN=TestIdent
@@ -44,13 +44,14 @@ fmt: ## Format code (gofumpt, goimports)
 	$(GOLANGCI) fmt ./...
 
 .PHONY: tidy
-tidy: ## Tidy go.mod and go.sum
+tidy: ## Tidy go.mod and go.sum, also of the examples module
 	go mod tidy
+	cd examples && go mod tidy
 
 .PHONY: tidy-check
-tidy-check: ## Fail when go.mod or go.sum are not tidy
-	go mod tidy
-	git diff --exit-code -- go.mod go.sum
+tidy-check: ## Fail when go.mod or go.sum are not tidy, also of the examples module
+	$(MAKE) --no-print-directory tidy
+	git diff --exit-code -- go.mod go.sum examples/go.mod examples/go.sum
 
 .PHONY: schema
 schema: ## Regenerate config.schema.json
@@ -61,12 +62,13 @@ generate: ## Run go generate
 	go generate ./...
 
 .PHONY: examples
-examples: ## Regenerate golden examples
-	@echo "examples: not available yet"
+examples: ## Regenerate the golden examples
+	UPDATE=1 go test -count=1 -run '^TestExamples$$' ./pkg/codegen
 
 .PHONY: examples-check
-examples-check: ## Fail when golden examples are stale or do not build
-	@echo "examples-check: not available yet"
+examples-check: ## Fail when the golden examples are stale, do not build or fail their tests
+	go test -count=1 -run '^TestExamples' ./pkg/codegen
+	cd examples && go build ./... && go vet ./... && go test -count=1 ./...
 
 .PHONY: test-parse
 test-parse: ## Parse every spec in testdata/specs; SPEC=, SPECS= narrow it

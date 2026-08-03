@@ -73,7 +73,8 @@ A schema is nullable with `nullable: true` (3.0), `null` in its type list (3.1),
 enum values. A `$ref` to a nullable schema is nullable too.
 
 Optional fields get `omitempty` in their JSON tag. Required fields do not, apart from `readOnly` and
-`writeOnly` ones.
+`writeOnly` ones. A field with `omitempty` that holds a struct or a type from another package by
+value, such as `time.Time`, also gets `omitzero`: `omitempty` alone never leaves out a struct.
 
 ## Recursion
 
@@ -166,6 +167,8 @@ const (
 
 The `AdditionalProperties` field has the JSON name `-`: generated `MarshalJSON` and `UnmarshalJSON`
 methods write its keys next to the properties, and `Get` and `Set` read and write single keys.
+`MarshalJSON` writes the properties first, then the additional keys sorted; a key that has the
+name of a property is left out. The helpers live in the runtime package.
 
 ## readOnly and writeOnly
 

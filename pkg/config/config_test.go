@@ -225,6 +225,7 @@ func TestApplyDefaults(t *testing.T) {
 			want: Config{
 				Spec:    Spec{Prune: new(true)},
 				Package: "pets",
+				Header:  defaultHeader,
 				Naming:  Naming{EnumPrefix: new(true)},
 				Models:  &Models{IntType: "int", Descriptions: new(true)},
 				Output:  Output{File: "./gen.go", Format: new(true)},
@@ -237,6 +238,7 @@ func TestApplyDefaults(t *testing.T) {
 			want: Config{
 				Spec:    Spec{Prune: new(true)},
 				Package: "apiv2",
+				Header:  defaultHeader,
 				Naming:  Naming{EnumPrefix: new(true)},
 				Models:  &Models{IntType: "int", Descriptions: new(true)},
 				Output:  Output{File: "./internal/api-v2/gen.go", Format: new(true)},
@@ -249,6 +251,7 @@ func TestApplyDefaults(t *testing.T) {
 			want: Config{
 				Spec:    Spec{Prune: new(true)},
 				Package: "work",
+				Header:  defaultHeader,
 				Naming:  Naming{EnumPrefix: new(true)},
 				Models:  &Models{IntType: "int", Descriptions: new(true)},
 				Server: &Server{
@@ -267,6 +270,7 @@ func TestApplyDefaults(t *testing.T) {
 			cfg: Config{
 				Spec:    Spec{Prune: new(false)},
 				Package: "petstore",
+				Header:  "Copyright 2026 Acme.",
 				Naming:  Naming{EnumPrefix: new(false)},
 				Models:  &Models{IntType: "int64", Descriptions: new(false)},
 				Server: &Server{
@@ -281,6 +285,7 @@ func TestApplyDefaults(t *testing.T) {
 			want: Config{
 				Spec:    Spec{Prune: new(false)},
 				Package: "petstore",
+				Header:  "Copyright 2026 Acme.",
 				Naming:  Naming{EnumPrefix: new(false)},
 				Models:  &Models{IntType: "int64", Descriptions: new(false)},
 				Server: &Server{

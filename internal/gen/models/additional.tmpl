@@ -1,0 +1,27 @@
+{{- with .Additional}}
+// Get returns the additional property name and whether it is set.
+func ({{.Receiver}} {{$.Name}}) Get(name string) (value {{.Value}}, found bool) {
+	value, found = {{.Receiver}}.{{.Field}}[name]
+	return value, found
+}
+
+// Set stores value as the additional property name.
+func ({{.Receiver}} *{{$.Name}}) Set(name string, value {{.Value}}) {
+	if {{.Receiver}}.{{.Field}} == nil {
+		{{.Receiver}}.{{.Field}} = make({{.Map}})
+	}
+	{{.Receiver}}.{{.Field}}[name] = value
+}
+
+// MarshalJSON writes the properties, then the additional properties in key order.
+func ({{.Receiver}} {{$.Name}}) MarshalJSON() ([]byte, error) {
+	type plain {{$.Name}}
+	return {{.Runtime}}.MarshalAdditional(plain({{.Receiver}}), {{.Receiver}}.{{.Field}}{{range .Known}}, {{.}}{{end}})
+}
+
+// UnmarshalJSON reads the properties, and every other key into {{.Field}}.
+func ({{.Receiver}} *{{$.Name}}) UnmarshalJSON(data []byte) error {
+	type plain {{$.Name}}
+	return {{.Runtime}}.UnmarshalAdditional(data, (*plain)({{.Receiver}}), &{{.Receiver}}.{{.Field}}{{range .Known}}, {{.}}{{end}})
+}
+{{- end}}

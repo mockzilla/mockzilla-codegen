@@ -1,0 +1,9 @@
+type {{.Name}} {{.Target}}
+{{- if .Values}}
+
+const (
+{{- range .Values}}
+	{{.Name}} {{$.Name}} = {{.Value}}
+{{- end}}
+)
+{{- end}}
