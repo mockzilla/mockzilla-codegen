@@ -1,0 +1,9 @@
+{{with .Header}}{{comment .}}
+
+{{end}}package {{.Package}}
+{{with .Imports}}
+{{.}}
+{{end}}{{with .Guard}}
+// Fails to compile when the runtime package does not match the codegen version that wrote this file.
+const _ = {{.}}
+{{end}}{{range .Parts}}{{.}}{{end}}

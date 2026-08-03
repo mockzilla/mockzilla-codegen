@@ -31,3 +31,4 @@ testdata/specs*/**/*
 examples/stash/**/*
 .integration-cache.json
 /bin/
+/mockzilla-codegen

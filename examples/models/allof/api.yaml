@@ -1,0 +1,38 @@
+openapi: 3.1.0
+info: {title: allOf, version: "1.0"}
+paths: {}
+components:
+  schemas:
+    Animal:
+      type: object
+      description: An animal.
+      required: [name]
+      properties:
+        name: {type: string}
+        address:
+          type: object
+          properties:
+            city: {type: string}
+    Dog:
+      description: A dog is an animal that barks.
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required: [bark]
+          properties:
+            bark: {type: boolean}
+            address:
+              type: object
+              properties:
+                zip: {type: string}
+    Puppy:
+      allOf:
+        - $ref: '#/components/schemas/Dog'
+        - properties:
+            age: {type: integer}
+          required: [age]
+    Pet:
+      description: A ref with a doc next to it stays the same type.
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - description: Any animal kept as a pet.

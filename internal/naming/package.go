@@ -3,7 +3,7 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-package config
+package naming
 
 import (
 	"go/token"
@@ -13,7 +13,9 @@ import (
 
 const fallbackPackage = "api"
 
-func packageName(dir string) string {
+// Package returns the Go package name for a folder: its name in lower case, letters and digits
+// only, no leading digits. It is "api" when nothing is left or the name is a keyword.
+func Package(dir string) string {
 	name := strings.Map(func(r rune) rune {
 		if 'a' <= r && r <= 'z' || '0' <= r && r <= '9' {
 			return r

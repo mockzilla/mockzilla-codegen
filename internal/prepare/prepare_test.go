@@ -34,6 +34,7 @@ func TestRunSplitSpecWithOverlay(t *testing.T) {
 	require.NoError(t, err)
 
 	golden(t, filepath.Join("testdata", "split", "out.golden"), string(out.Bytes))
+	assert.Equal(t, filepath.Join("testdata", "split", "openapi.yaml"), out.File)
 	assert.Empty(t, out.Diagnostics)
 	assert.Equal(t, diag.Origin{File: filepath.Join("testdata", "split", "pet.yaml"), Line: 1, Col: 1}, out.Positions["/components/schemas/pet"])
 }
@@ -47,6 +48,7 @@ func TestRunPassesUnchangedBytesThrough(t *testing.T) {
 	out, err := Run(context.Background(), libopenapi.New(), Input{Path: filepath.Join("testdata", "used.json"), Config: parseConfig(t, "{}", "")})
 	require.NoError(t, err)
 	assert.Equal(t, data, out.Bytes)
+	assert.Equal(t, filepath.Join("testdata", "used.json"), out.File)
 	assert.Empty(t, out.Diagnostics)
 }
 
@@ -116,8 +118,8 @@ func TestRunInMemorySpec(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			out, err := Run(context.Background(), libopenapi.New(), tt.input)
-			require.NoError(t, err)
+			out, runErr := Run(context.Background(), libopenapi.New(), tt.input)
+			require.NoError(t, runErr)
 			assert.Equal(t, tt.want, out.Positions["/components/schemas/pet"])
 		})
 	}

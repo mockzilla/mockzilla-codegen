@@ -28,8 +28,10 @@ type Input struct {
 	Config *config.Config
 }
 
-// Output is the prepared spec. Positions, taken after bundling, map pointers to source files.
+// Output is the prepared spec. File names the spec, empty for one in memory without a path.
+// Positions, taken after bundling, map pointers to source files.
 type Output struct {
+	File        string
 	Bytes       []byte
 	Positions   map[string]diag.Origin
 	Diagnostics []diag.Diagnostic
@@ -56,12 +58,12 @@ func Run(ctx context.Context, p provider.Provider, in Input) (*Output, error) {
 		return nil, err
 	}
 
-	if err := j.bundle(ctx); err != nil {
+	if err = j.bundle(ctx); err != nil {
 		return nil, err
 	}
 	positions := j.doc.Positions()
 
-	if err := j.overlays(ctx); err != nil {
+	if err = j.overlays(ctx); err != nil {
 		return nil, err
 	}
 
@@ -89,7 +91,7 @@ func (j *job) parse(data []byte) error {
 	if err != nil {
 		return err
 	}
-	if _, err := doc.Version(); err != nil {
+	if _, err = doc.Version(); err != nil {
 		return fmt.Errorf("%s: %w", j.loc, err)
 	}
 	if j.doc != nil {
@@ -125,20 +127,27 @@ func (j *job) overlays(ctx context.Context) error {
 		return err
 	}
 	for _, o := range j.cfg.Spec.Overlays {
-		overlay, err := read(ctx, j.cfg.Resolve(o))
-		if err != nil {
+		if data, err = j.applyOverlay(ctx, data, o); err != nil {
 			return err
 		}
-		out, diags, err := j.p.ApplyOverlay(ctx, data, overlay)
-		if err != nil {
-			return fmt.Errorf("%s: %w", o, err)
-		}
-		j.diags.Append(diags...)
-		data = out
 	}
 
 	j.isChanged = true
 	return j.parse(data)
+}
+
+func (j *job) applyOverlay(ctx context.Context, data []byte, path string) ([]byte, error) {
+	overlay, err := read(ctx, j.cfg.Resolve(path))
+	if err != nil {
+		return nil, err
+	}
+
+	out, diags, err := j.p.ApplyOverlay(ctx, data, overlay)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	j.diags.Append(diags...)
+	return out, nil
 }
 
 // transform filters, simplifies and prunes. A spec with no operations is models only, so it is
@@ -171,7 +180,7 @@ func (j *job) transform() {
 
 // result is data when nothing changed, else the document written out.
 func (j *job) result(data []byte, positions map[string]diag.Origin) (*Output, error) {
-	out := &Output{Bytes: data, Positions: positions, Diagnostics: withOrigins(j.diags.List(), positions)}
+	out := &Output{File: j.loc, Bytes: data, Positions: positions, Diagnostics: withOrigins(j.diags.List(), positions)}
 	if !j.isChanged {
 		return out, nil
 	}

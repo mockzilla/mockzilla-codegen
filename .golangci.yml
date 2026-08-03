@@ -45,8 +45,10 @@ linters:
         - pattern: ^(fmt\.Print.*|print|println)$
           msg: library code returns errors and diagnostics; only cmd/ prints
     gosec:
-      # A code generator reads user-given paths (G304) and writes source files as 0644 (G306).
+      # A code generator reads user-given paths (G304) and writes source folders as 0755 (G301)
+      # and files as 0644 (G306).
       excludes:
+        - G301
         - G304
         - G306
     misspell:

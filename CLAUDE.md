@@ -9,6 +9,8 @@ specs. Module `github.com/mockzilla/codegen`. Built on github.com/pb33f/libopena
 - `make help` lists every target.
 - One test while developing: `make test PKG=./internal/naming RUN=TestIdent`.
 - Before calling a change done: `make check` (lint, 100% coverage gate, tidy, examples).
+- Golden examples: `make examples` regenerates `examples/`, `make examples-check` compares and
+  builds them.
 - One integration spec: `make test-integration SPEC=3.0/misc/<spec>.yml`. Never run the full
   integration or parse sweep unless asked; they cover 2,000+ specs.
 - Coverage gate exclusions live in `.covignore`.
@@ -36,7 +38,7 @@ Public packages live under `pkg/`, private ones under `internal/`. No Go files i
 | `pkg/codegen` | public API: `Generate`, `Prepare`, `Write`, `Version` |
 | `pkg/config` | config structs, loading, validation, JSON schema |
 | `pkg/runtime` | helpers imported by generated code, standard library only |
-| `cmd/codegen` | CLI |
+| `cmd/mockzilla-codegen` | CLI, installed as `mockzilla-codegen` |
 | `internal/...` | provider, spec IR, transforms, naming, Go model, rendering, layout |
 | `examples/` | separate module: golden examples and tests of generated code |
 | `test/` | parse sweep, integration test, benchmarks (build tags) |
