@@ -5,7 +5,7 @@ package basic
 import (
 	"time"
 
-	"github.com/mockzilla/codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // Fails to compile when the runtime package does not match the codegen version that wrote this file.

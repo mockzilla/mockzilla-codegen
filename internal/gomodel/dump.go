@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 var kindWords = map[DeclKind]string{KindStruct: "struct", KindAlias: "alias", KindDefined: "defined", KindEnum: "enum"}

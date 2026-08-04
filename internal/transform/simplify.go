@@ -13,8 +13,8 @@ import (
 
 	"go.yaml.in/yaml/v4"
 
-	"github.com/mockzilla/codegen/internal/oasdoc"
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/internal/oasdoc"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 const nullType = "null"

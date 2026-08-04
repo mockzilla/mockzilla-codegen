@@ -8,7 +8,7 @@ package gomodel
 import (
 	"strings"
 
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 var (

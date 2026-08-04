@@ -12,7 +12,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/mockzilla/codegen/internal/cli"
+	"github.com/mockzilla/mockzilla-codegen/internal/cli"
 )
 
 func main() {

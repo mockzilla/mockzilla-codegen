@@ -8,7 +8,7 @@ package gomodel
 import (
 	"math/bits"
 
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 // shape is the kind of Go type a schema becomes. Enums, structs and unions always get a name.

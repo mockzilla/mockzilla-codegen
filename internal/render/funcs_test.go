@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mockzilla/codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
 
 func TestFuncs(t *testing.T) {

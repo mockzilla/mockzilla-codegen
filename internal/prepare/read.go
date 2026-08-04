@@ -13,7 +13,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/mockzilla/codegen/internal/bundle"
+	"github.com/mockzilla/mockzilla-codegen/internal/bundle"
 )
 
 const fetchTimeout = 30 * time.Second

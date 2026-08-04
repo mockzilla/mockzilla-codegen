@@ -8,7 +8,7 @@ package codegen
 import "runtime/debug"
 
 const (
-	modulePath = "github.com/mockzilla/codegen"
+	modulePath = "github.com/mockzilla/mockzilla-codegen"
 	devVersion = "dev"
 )
 

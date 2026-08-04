@@ -18,7 +18,7 @@ Status: early development. The config format and the generated API may still cha
 ## Getting started
 
 ```sh
-go get -tool github.com/mockzilla/codegen/cmd/mockzilla-codegen
+go get -tool github.com/mockzilla/mockzilla-codegen/cmd/mockzilla-codegen
 go tool mockzilla-codegen generate -c codegen.yml
 ```
 
@@ -35,7 +35,7 @@ describes every key; the first line of the example points editors at it.
 Every key, with example values:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/codegen/main/config.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla-codegen/main/config.schema.json
 spec:
   path: ./openapi.yml
   overlays: [./overlays/go-names.yml]

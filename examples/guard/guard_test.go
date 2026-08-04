@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const runtimePath = "github.com/mockzilla/codegen/pkg/runtime"
+const runtimePath = "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 
 type importerFunc func(path string) (*types.Package, error)
 

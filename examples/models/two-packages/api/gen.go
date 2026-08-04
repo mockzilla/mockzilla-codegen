@@ -2,7 +2,7 @@
 
 package api
 
-import "github.com/mockzilla/codegen/examples/models/two-packages/models"
+import "github.com/mockzilla/mockzilla-codegen/examples/models/two-packages/models"
 
 type GetOrderPathParams struct {
 	ID string `json:"id"`

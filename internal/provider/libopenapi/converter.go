@@ -19,10 +19,10 @@ import (
 	"github.com/pb33f/libopenapi/orderedmap"
 	"go.yaml.in/yaml/v4"
 
-	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/oasdoc"
-	"github.com/mockzilla/codegen/internal/provider"
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/oasdoc"
+	"github.com/mockzilla/mockzilla-codegen/internal/provider"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 var lowerMethods = []string{"get", "put", "post", "delete", "options", "head", "patch", "trace", "query"}

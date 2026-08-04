@@ -11,10 +11,10 @@ import (
 	"cmp"
 	"slices"
 
-	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/naming"
-	"github.com/mockzilla/codegen/internal/spec"
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/naming"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 // Model is the Go side of a spec. Decls come in walk order: components first, each followed by

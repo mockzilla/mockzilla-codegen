@@ -9,10 +9,10 @@ package models
 import (
 	"embed"
 
-	"github.com/mockzilla/codegen/internal/gocode"
-	"github.com/mockzilla/codegen/internal/gomodel"
-	"github.com/mockzilla/codegen/internal/layout"
-	"github.com/mockzilla/codegen/internal/render"
+	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/layout"
+	"github.com/mockzilla/mockzilla-codegen/internal/render"
 )
 
 //go:embed *.tmpl

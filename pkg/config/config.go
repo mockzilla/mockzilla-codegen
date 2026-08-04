@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mockzilla/codegen/internal/naming"
+	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 )
 
 // defaultHeader is the line Go tools look for to treat a file as generated.

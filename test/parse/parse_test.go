@@ -24,11 +24,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/prepare"
-	"github.com/mockzilla/codegen/internal/provider"
-	"github.com/mockzilla/codegen/internal/provider/libopenapi"
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/prepare"
+	"github.com/mockzilla/mockzilla-codegen/internal/provider"
+	"github.com/mockzilla/mockzilla-codegen/internal/provider/libopenapi"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 const (

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 const splitOut = `openapi: 3.1.0

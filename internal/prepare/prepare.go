@@ -12,12 +12,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mockzilla/codegen/internal/bundle"
-	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/oasdoc"
-	"github.com/mockzilla/codegen/internal/provider"
-	"github.com/mockzilla/codegen/internal/transform"
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/internal/bundle"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/oasdoc"
+	"github.com/mockzilla/mockzilla-codegen/internal/provider"
+	"github.com/mockzilla/mockzilla-codegen/internal/transform"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 // Input is the spec to prepare. Spec, when set, is used instead of reading the file; Path, when

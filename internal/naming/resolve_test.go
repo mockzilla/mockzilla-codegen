@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/mockzilla/codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 )
 
 func TestRenameDiagnostic(t *testing.T) {

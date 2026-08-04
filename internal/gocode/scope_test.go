@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mockzilla/codegen/internal/gomodel"
-	"github.com/mockzilla/codegen/internal/layout"
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/layout"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 func twoPackages(t *testing.T) *layout.Layout {
@@ -54,7 +54,7 @@ func TestScopeExpr(t *testing.T) {
 			name:        "Qualified type imports its package",
 			typ:         gomodel.Pointer{Elem: date},
 			want:        "*runtime.Date",
-			wantImports: `import "github.com/mockzilla/codegen/pkg/runtime"`,
+			wantImports: `import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"`,
 		},
 		{
 			name:        "Qualified type with an alias",

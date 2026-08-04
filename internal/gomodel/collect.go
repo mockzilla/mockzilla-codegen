@@ -8,9 +8,9 @@ package gomodel
 import (
 	"slices"
 
-	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/naming"
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/naming"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 // declRule says when a schema met at the start of a walk gets a declaration of its own.

@@ -8,8 +8,8 @@ package codegen
 import (
 	"context"
 
-	"github.com/mockzilla/codegen/internal/prepare"
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/internal/prepare"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 // Prepare returns the spec the generator reads: refs to other files bundled in, overlays applied,

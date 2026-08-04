@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mockzilla/codegen/internal/gomodel"
-	"github.com/mockzilla/codegen/internal/render"
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/render"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 const viewWant = `package api
@@ -22,7 +22,7 @@ const viewWant = `package api
 import (
 	"time"
 
-	"github.com/mockzilla/codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // A pet.

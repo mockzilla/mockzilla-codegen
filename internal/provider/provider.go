@@ -9,8 +9,8 @@ package provider
 import (
 	"context"
 
-	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 // Provider reads specs. Implementations never print; problems come back as diagnostics or errors.

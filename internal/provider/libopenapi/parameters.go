@@ -8,7 +8,7 @@ package libopenapi
 import (
 	"slices"
 
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 func mergeParameters(shared, own []*spec.Parameter) []*spec.Parameter {

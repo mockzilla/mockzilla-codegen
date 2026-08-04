@@ -8,8 +8,8 @@ package libopenapi
 import (
 	"strings"
 
-	"github.com/mockzilla/codegen/internal/oasdoc"
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/oasdoc"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 // reference is what libopenapi's low-level objects tell about a $ref they were loaded from.
