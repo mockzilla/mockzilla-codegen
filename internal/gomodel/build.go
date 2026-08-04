@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 // fieldPlan keeps what a field's final type needs until recursion is known.

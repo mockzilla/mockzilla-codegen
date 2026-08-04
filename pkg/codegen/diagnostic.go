@@ -5,7 +5,7 @@
 
 package codegen
 
-import "github.com/mockzilla/codegen/internal/diag"
+import "github.com/mockzilla/mockzilla-codegen/internal/diag"
 
 // Diagnostic is a problem found in the spec. Pointer is a JSON pointer into the prepared spec;
 // File, Line and Col say where it is in the source, Line and Col 0 when unknown.

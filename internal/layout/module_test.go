@@ -67,7 +67,7 @@ func TestFindModuleRelativeDir(t *testing.T) {
 	require.NoError(t, err)
 	wd, err := os.Getwd()
 	require.NoError(t, err)
-	assert.Equal(t, Module{Path: "github.com/mockzilla/codegen", Dir: filepath.Dir(filepath.Dir(wd))}, mod)
+	assert.Equal(t, Module{Path: "github.com/mockzilla/mockzilla-codegen", Dir: filepath.Dir(filepath.Dir(wd))}, mod)
 }
 
 func TestFindModuleErrors(t *testing.T) {

@@ -6,8 +6,8 @@
 package codegen
 
 import (
-	"github.com/mockzilla/codegen/internal/provider"
-	"github.com/mockzilla/codegen/internal/provider/libopenapi"
+	"github.com/mockzilla/mockzilla-codegen/internal/provider"
+	"github.com/mockzilla/mockzilla-codegen/internal/provider/libopenapi"
 )
 
 type Option func(*options)

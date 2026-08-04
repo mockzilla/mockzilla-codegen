@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mockzilla/codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 )
 
 // Rank orders requests for the same name: the higher rank keeps it.

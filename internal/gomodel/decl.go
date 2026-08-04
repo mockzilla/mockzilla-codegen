@@ -6,8 +6,8 @@
 package gomodel
 
 import (
-	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 type DeclKind int

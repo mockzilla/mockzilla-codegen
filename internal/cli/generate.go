@@ -19,8 +19,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/mockzilla/codegen/pkg/codegen"
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/pkg/codegen"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 // generateFlags are the flags of the generate command.

@@ -11,7 +11,7 @@ import (
 
 	"go.yaml.in/yaml/v4"
 
-	"github.com/mockzilla/codegen/internal/oasdoc"
+	"github.com/mockzilla/mockzilla-codegen/internal/oasdoc"
 )
 
 func hasExternalRef(d *oasdoc.Doc) bool {

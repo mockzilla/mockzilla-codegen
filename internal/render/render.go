@@ -16,9 +16,9 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/mockzilla/codegen/internal/gocode"
-	"github.com/mockzilla/codegen/internal/layout"
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
+	"github.com/mockzilla/mockzilla-codegen/internal/layout"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 const fileTemplate = "render/file.tmpl"

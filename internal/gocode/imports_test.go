@@ -90,12 +90,12 @@ func TestImportSetDecl(t *testing.T) {
 		{
 			name: "Standard library first, each group sorted, names only where needed",
 			adds: [][2]string{
-				{"github.com/mockzilla/codegen/pkg/runtime", ""},
+				{"github.com/mockzilla/mockzilla-codegen/pkg/runtime", ""},
 				{"time", ""},
 				{"github.com/go-chi/chi/v5", ""},
 				{"encoding/json", ""},
 			},
-			want: "import (\n\t\"encoding/json\"\n\t\"time\"\n\n\tchi \"github.com/go-chi/chi/v5\"\n\t\"github.com/mockzilla/codegen/pkg/runtime\"\n)",
+			want: "import (\n\t\"encoding/json\"\n\t\"time\"\n\n\tchi \"github.com/go-chi/chi/v5\"\n\t\"github.com/mockzilla/mockzilla-codegen/pkg/runtime\"\n)",
 		},
 		{
 			name: "Only other imports",

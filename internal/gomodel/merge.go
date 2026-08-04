@@ -11,9 +11,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/oasdoc"
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/oasdoc"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 var typeWords = []struct {

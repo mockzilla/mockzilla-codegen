@@ -11,7 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/mockzilla/codegen/internal/gocode"
+	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 )
 
 // funcs is the func map of every template. toGoComment and escapeGoString keep the names template

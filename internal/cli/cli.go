@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/mockzilla/codegen/pkg/codegen"
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/pkg/codegen"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 // program is the name of the executable, the folder of its main package.

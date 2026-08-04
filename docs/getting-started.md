@@ -10,7 +10,7 @@ this module, so your module requires it and gets the same floor.
 Add the CLI as a tool of your module:
 
 ```sh
-go get -tool github.com/mockzilla/codegen/cmd/mockzilla-codegen
+go get -tool github.com/mockzilla/mockzilla-codegen/cmd/mockzilla-codegen
 ```
 
 This adds a `tool` line and a `require` line to your `go.mod`. `go tool mockzilla-codegen` then
@@ -20,7 +20,7 @@ imports. The two always match.
 You can also install the binary on your `PATH`:
 
 ```sh
-go install github.com/mockzilla/codegen/cmd/mockzilla-codegen@latest
+go install github.com/mockzilla/mockzilla-codegen/cmd/mockzilla-codegen@latest
 ```
 
 Then keep it at the version your `go.mod` requires. When they differ, the generated code fails to

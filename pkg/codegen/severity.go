@@ -5,7 +5,7 @@
 
 package codegen
 
-import "github.com/mockzilla/codegen/internal/diag"
+import "github.com/mockzilla/mockzilla-codegen/internal/diag"
 
 type Severity int
 

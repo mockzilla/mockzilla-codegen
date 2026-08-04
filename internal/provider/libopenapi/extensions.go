@@ -9,7 +9,7 @@ import (
 	"github.com/pb33f/libopenapi/orderedmap"
 	"go.yaml.in/yaml/v4"
 
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 func extensions(m *orderedmap.Map[string, *yaml.Node]) []spec.Extension {

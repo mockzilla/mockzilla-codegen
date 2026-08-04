@@ -10,8 +10,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/mockzilla/codegen/internal/gocode"
-	"github.com/mockzilla/codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
 
 const deprecatedNote = "Deprecated: the spec marks it deprecated."

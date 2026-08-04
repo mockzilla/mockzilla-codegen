@@ -1,4 +1,4 @@
-module github.com/mockzilla/codegen
+module github.com/mockzilla/mockzilla-codegen
 
 go 1.26.0
 

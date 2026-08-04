@@ -52,7 +52,7 @@ A schema without `type` is read from its other keywords: `properties` or `additi
 make an object, `items` makes an array, a known format picks the type the table gives it
 (`format: binary` gives `runtime.File`), and a `const` picks the type of its value.
 
-`runtime` is `github.com/mockzilla/codegen/pkg/runtime`. It uses the standard library only.
+`runtime` is `github.com/mockzilla/mockzilla-codegen/pkg/runtime`. It uses the standard library only.
 
 - `runtime.Date` holds a calendar date and reads and writes `2006-01-02`.
 - `runtime.Email` is a string. Decoding accepts any string; `Validate` checks the address.

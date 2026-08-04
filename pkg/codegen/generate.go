@@ -9,15 +9,15 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mockzilla/codegen/internal/diag"
-	"github.com/mockzilla/codegen/internal/gen/models"
-	"github.com/mockzilla/codegen/internal/gocode"
-	"github.com/mockzilla/codegen/internal/gomodel"
-	"github.com/mockzilla/codegen/internal/layout"
-	"github.com/mockzilla/codegen/internal/prepare"
-	"github.com/mockzilla/codegen/internal/provider"
-	"github.com/mockzilla/codegen/internal/render"
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/models"
+	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/layout"
+	"github.com/mockzilla/mockzilla-codegen/internal/prepare"
+	"github.com/mockzilla/mockzilla-codegen/internal/provider"
+	"github.com/mockzilla/mockzilla-codegen/internal/render"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 type FileKind int

@@ -105,7 +105,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/mockzilla/codegen
+        - github.com/mockzilla/mockzilla-codegen
   exclusions:
     generated: strict
     paths:

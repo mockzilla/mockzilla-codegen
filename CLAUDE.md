@@ -1,7 +1,7 @@
 # codegen
 
 Generates Go models and HTTP servers (later clients and MCP servers) from OpenAPI 3.0, 3.1 and 3.2
-specs. Module `github.com/mockzilla/codegen`. Built on github.com/pb33f/libopenapi, which only
+specs. Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33f/libopenapi, which only
 `internal/provider/libopenapi` may import.
 
 ## Commands

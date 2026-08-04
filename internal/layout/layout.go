@@ -16,8 +16,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mockzilla/codegen/internal/naming"
-	"github.com/mockzilla/codegen/pkg/config"
+	"github.com/mockzilla/mockzilla-codegen/internal/naming"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 // PartID names one piece of generated code, such as models.types.

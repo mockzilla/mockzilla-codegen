@@ -13,7 +13,7 @@ import (
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	"go.yaml.in/yaml/v4"
 
-	"github.com/mockzilla/codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 // boundSource is one side of a numeric range, with the nodes holding the numbers as written.

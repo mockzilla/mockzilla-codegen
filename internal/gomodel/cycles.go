@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mockzilla/codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 )
 
 // tarjan finds strongly connected components in one depth-first pass.
