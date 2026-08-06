@@ -160,9 +160,9 @@ Never flag "missing doc comment". Doc comments are permitted, not required.
   type, function, var or const of its own package (`part := at.part` next to `type part struct`),
   an imported package (`spec := ...` in a file that imports `spec`), or a variable of an outer
   scope, named results included (`if err := f()` in a function returning `err error`). Rename the
-  local. Lint catches imports and outer variables (govet `shadow`, gocritic `importShadow`, revive
-  `import-shadowing`); names from the own package are a manual check: for every new local and
-  parameter, grep the package for a declaration with the same name.
+  local. Lint catches imports and outer variables (govet `shadow` in strict mode, gocritic
+  `importShadow`, revive `import-shadowing`); names from the own package are a manual check: for
+  every new local and parameter, grep the package for a declaration with the same name.
 - **Default to unexported.** Export only what another package needs. Anything not in the public API
   (`pkg/codegen`, `pkg/config`, `pkg/runtime`) lives under `internal/`.
 

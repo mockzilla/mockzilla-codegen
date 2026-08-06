@@ -28,9 +28,9 @@ var largeSpecs = []string{
 // BenchmarkPrepare runs Prepare with pruning on, as generation does.
 func BenchmarkPrepare(b *testing.B) {
 	p := libopenapi.New()
-	cfg, err := config.Parse([]byte("{}"), "")
-	if err != nil {
-		b.Fatal(err)
+	cfg, parseErr := config.Parse([]byte("{}"), "")
+	if parseErr != nil {
+		b.Fatal(parseErr)
 	}
 	for _, name := range largeSpecs {
 		b.Run(name, func(b *testing.B) {

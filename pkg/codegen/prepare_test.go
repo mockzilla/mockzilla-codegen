@@ -40,8 +40,8 @@ func TestPrepare(t *testing.T) {
 	t.Parallel()
 
 	dir := filepath.Join("testdata", "split")
-	data, err := os.ReadFile(filepath.Join(dir, "openapi.yaml"))
-	require.NoError(t, err)
+	data, readErr := os.ReadFile(filepath.Join(dir, "openapi.yaml"))
+	require.NoError(t, readErr)
 
 	tests := []struct {
 		name string

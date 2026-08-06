@@ -34,7 +34,7 @@ func loadIgnore(file string) ([]string, error) {
 			continue
 		}
 
-		if _, err := path.Match(line, ""); err != nil {
+		if _, err = path.Match(line, ""); err != nil {
 			return nil, fmt.Errorf("%w %q: %w", errBadPattern, line, err)
 		}
 		patterns = append(patterns, line)

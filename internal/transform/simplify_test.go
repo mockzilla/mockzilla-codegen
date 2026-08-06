@@ -50,8 +50,8 @@ func TestSimplify(t *testing.T) {
 func TestSimplifySeedIsStable(t *testing.T) {
 	t.Parallel()
 
-	data, err := os.ReadFile("testdata/simplify-optional-seeded/in.yaml")
-	require.NoError(t, err)
+	data, readErr := os.ReadFile("testdata/simplify-optional-seeded/in.yaml")
+	require.NoError(t, readErr)
 	s := config.Simplify{OptionalProperties: &config.OptionalProperties{Min: 0, Max: 3, Seed: 7}}
 
 	var outs []string
