@@ -60,7 +60,7 @@ func decode(data []byte, cfg *Config) error {
 		return &UnknownKeyError{Keys: keys}
 	}
 
-	if err := doc.Load(cfg, yaml.WithKnownFields()); err != nil {
+	if err = doc.Load(cfg, yaml.WithKnownFields()); err != nil {
 		return fmt.Errorf("%w: %w", ErrDecode, err)
 	}
 	return nil

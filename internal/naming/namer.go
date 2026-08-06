@@ -189,7 +189,7 @@ func (n *Namer) caseWord(w string) string {
 		return c + digits
 	}
 	if base, ok := strings.CutSuffix(letters, "s"); ok {
-		if c, ok := n.initialisms[base]; ok {
+		if c, found := n.initialisms[base]; found {
 			return c + "s" + digits
 		}
 	}
