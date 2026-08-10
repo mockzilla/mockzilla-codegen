@@ -148,6 +148,16 @@ func TestMarshal(t *testing.T) {
 			src:  "{\n    \"openapi\": \"3.1.0\",\n    \"info\": {\n        \"title\": \"123\"\n    },\n    \"tags\": [\"a\"]\n}\n",
 			want: "openapi: 3.1.0\ninfo:\n    title: \"123\"\ntags:\n    - a\n",
 		},
+		{
+			name: "Block scalar with an indented line after empty lines is quoted",
+			src:  "info:\n  description: |2-\n\n     a\n    b\n  summary: >2\n\n     c\n",
+			want: "info:\n  description: \"\\n a\\nb\"\n  summary: \"\\n c\\n\"\n",
+		},
+		{
+			name: "JSON string with an indented line after a line break is quoted",
+			src:  "{\"info\": {\"description\": \"\\r\\n a\", \"summary\": \"\\na\"}}\n",
+			want: "info:\n  description: \"\\r\\n a\"\n  summary: |-\n\n    a\n",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

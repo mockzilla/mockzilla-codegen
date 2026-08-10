@@ -64,6 +64,7 @@ op PostPetsID POST /pets/{id}
 op PostPetAdded POST petAdded
   body application/json PostPetAddedRequestBody
 ---
-info name-clash 33:7 /paths/~1pets~1{id}/put: "GetPet" is used by /paths/~1pets~1{id}/get, renamed to "GetPet2"
-info name-clash 64:41 /components/parameters/Pet/schema: "Pet" is used by /components/schemas/Pet, renamed to "PetParameter"
-info name-clash 77:36 /components/responses/Pet/content/application~1json/schema: "Pet" is used by /components/schemas/Pet, renamed to "PetResponse"
+warning duplicate-param 11:11 /paths/~1pets~1{id}/get/parameters/1: query parameter "status" is listed again; only the first one is used
+info name-clash 34:7 /paths/~1pets~1{id}/put: "GetPet" is used by /paths/~1pets~1{id}/get, renamed to "GetPet2"
+info name-clash 65:41 /components/parameters/Pet/schema: "Pet" is used by /components/schemas/Pet, renamed to "PetParameter"
+info name-clash 78:36 /components/responses/Pet/content/application~1json/schema: "Pet" is used by /components/schemas/Pet, renamed to "PetResponse"

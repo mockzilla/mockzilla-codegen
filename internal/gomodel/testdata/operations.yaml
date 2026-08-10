@@ -8,6 +8,7 @@ paths:
       operationId: getPet
       parameters:
         - {name: status, in: query, schema: {type: string, enum: [sold, kept]}}
+        - {name: status, in: query, schema: {type: integer}}
         - {name: filter, in: query, content: {application/json: {schema: {type: object, properties: {q: {type: string}}}}}}
         - {name: X-Trace-ID, in: header, required: true, description: Trace, schema: {type: string}}
         - {name: session, in: cookie, schema: {type: string}}

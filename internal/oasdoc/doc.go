@@ -93,6 +93,7 @@ func (d *Doc) Version() (spec.Version, error) {
 
 // Marshal keeps the source indentation; the encoder rewrites scalar tags and quotes in place.
 func (d *Doc) Marshal() ([]byte, error) {
+	quoteUnsafeBlocks(d.root)
 	out, err := yaml.Dump(d.root,
 		yaml.WithV3Defaults(),
 		yaml.WithIndent(d.indent),
@@ -289,5 +290,19 @@ func blockStyle(n *yaml.Node) {
 	n.Style = 0
 	for _, c := range n.Content {
 		blockStyle(c)
+	}
+}
+
+// quoteUnsafeBlocks double-quotes strings the emitter would write as a block scalar without the
+// indentation indicator they need: yaml.v4 rc.6 leaves it out when line breaks come first.
+func quoteUnsafeBlocks(n *yaml.Node) {
+	if n.Kind == yaml.ScalarNode && n.Style&(yaml.DoubleQuotedStyle|yaml.SingleQuotedStyle) == 0 {
+		rest := strings.TrimLeft(n.Value, "\r\n")
+		if len(rest) < len(n.Value) && strings.HasPrefix(rest, " ") {
+			n.Style = n.Style&^(yaml.LiteralStyle|yaml.FoldedStyle) | yaml.DoubleQuotedStyle
+		}
+	}
+	for _, c := range n.Content {
+		quoteUnsafeBlocks(c)
 	}
 }

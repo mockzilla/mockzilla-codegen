@@ -4,6 +4,7 @@ run:
   timeout: 5m
   build-tags:
     - parse
+    - integration
 
 linters:
   default: standard

@@ -54,6 +54,14 @@ func TestPruneEdgeCases(t *testing.T) {
 			want:        "paths:\n  /a:\n    get:\n      parameters: [{$ref: '#/components/parameters'}, {$ref: '#/components/%zz/x'}, {$ref: '#/paths/~1b'}]\n",
 			wantChanged: true,
 		},
+		{
+			name: "Refs under keys the spec does not define keep their targets",
+			src: "paths: {}\nresponses:\n  bad: {schema: {$ref: '#/components/schemas/A'}}\nx-extra: {$ref: '#/components/schemas/B'}\n" +
+				"components:\n  x-more: {$ref: '#/components/schemas/C'}\n  schemas:\n    A: {type: string}\n    B: {type: string}\n    C: {type: string}\n    D: {type: string}\n",
+			want: "paths: {}\nresponses:\n  bad: {schema: {$ref: '#/components/schemas/A'}}\nx-extra: {$ref: '#/components/schemas/B'}\n" +
+				"components:\n  x-more: {$ref: '#/components/schemas/C'}\n  schemas:\n    A: {type: string}\n    B: {type: string}\n    C: {type: string}\n",
+			wantChanged: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

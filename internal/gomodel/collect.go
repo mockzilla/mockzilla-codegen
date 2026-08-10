@@ -6,6 +6,7 @@
 package gomodel
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
@@ -146,10 +147,23 @@ func (c *collector) contents(name string, contents []*spec.MediaType, kind, part
 func (c *collector) params(op *Operation) {
 	for _, in := range paramOrder {
 		var list []*spec.Parameter
+		seen := map[string]bool{}
 		for _, p := range op.Spec.Params {
-			if p.In == in {
-				list = append(list, p)
+			switch {
+			case p.In != in:
+				continue
+			case seen[p.Name]:
+				c.diags.Append(diag.Diagnostic{
+					Severity: diag.Warning,
+					Code:     diag.CodeDuplicateParam,
+					Pointer:  p.Origin.Pointer,
+					Origin:   origin(p.Origin),
+					Message:  fmt.Sprintf("%s parameter %q is listed again; only the first one is used", in, p.Name),
+				})
+				continue
 			}
+			seen[p.Name] = true
+			list = append(list, p)
 		}
 		if len(list) == 0 {
 			continue
