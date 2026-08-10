@@ -14,6 +14,7 @@ const (
 	CodeInvalidStatus       = "invalid-status"
 	CodeUnresolvedMapping   = "unresolved-mapping"
 	CodeOptionalPathParam   = "optional-path-param"
+	CodeDuplicateParam      = "duplicate-param"
 	CodeOverlayTarget       = "overlay-target"
 	CodeBundleRename        = "bundle-rename"
 	CodeUnbundledRef        = "unbundled-ref"

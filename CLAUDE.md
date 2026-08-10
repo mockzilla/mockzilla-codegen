@@ -13,6 +13,9 @@ specs. Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33
   builds them.
 - One integration spec: `make test-integration SPEC=3.0/misc/<spec>.yml`. Never run the full
   integration or parse sweep unless asked; they cover 2,000+ specs.
+- The integration run skips jobs that passed with the same spec and tool build
+  (`.integration-cache.json`); `make test-integration-clear` runs all. Expected failures are listed
+  in `test/integration/known-failures.txt`.
 - Coverage gate exclusions live in `.covignore`.
 
 ## Rules

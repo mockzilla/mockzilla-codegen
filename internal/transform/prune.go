@@ -51,6 +51,7 @@ func Prune(doc *oasdoc.Doc) (bool, []diag.Diagnostic) {
 		}
 	}
 	p.requirements(doc.Get("/security"))
+	p.looseRefs()
 
 	for len(p.queue) > 0 {
 		c := p.queue[0]
@@ -108,6 +109,23 @@ func (p *pruner) scan(n *yaml.Node, k oasdoc.Kind) {
 		}
 		return true
 	})
+}
+
+// looseRefs reaches what refs outside the spec grammar point at: under top-level keys and
+// component sections the spec does not define. The parser resolves every $ref in the file, so
+// their targets must stay.
+func (p *pruner) looseRefs() {
+	root := p.doc.Root()
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if key := root.Content[i].Value; key != "paths" && key != "webhooks" && key != "components" {
+			eachRef(root.Content[i+1], p.reach)
+		}
+	}
+	for i := 0; i+1 < len(p.comps.Content); i += 2 {
+		if oasdoc.SectionKind(p.comps.Content[i].Value) == oasdoc.KindNone {
+			eachRef(p.comps.Content[i+1], p.reach)
+		}
+	}
 }
 
 func (p *pruner) reach(ref string) {
