@@ -98,6 +98,11 @@ func declRefs(d *gomodel.Decl) []*gomodel.Decl {
 			types = append(types, ap.Type)
 		}
 	}
+	if d.Union != nil {
+		for _, v := range d.Union.Variants {
+			types = append(types, v.FieldType)
+		}
+	}
 
 	var out []*gomodel.Decl
 	for _, t := range types {

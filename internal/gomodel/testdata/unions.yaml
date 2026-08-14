@@ -1,0 +1,187 @@
+openapi: 3.1.0
+info: {title: unions, version: "1"}
+paths: {}
+components:
+  schemas:
+    Cat:
+      type: object
+      required: [kind, meow]
+      properties:
+        kind: {type: string, const: cat}
+        meow: {type: boolean}
+    Dog:
+      type: object
+      required: [kind]
+      properties:
+        kind: {type: string, enum: [dog]}
+        bark: {type: boolean}
+      additionalProperties: false
+    Fish:
+      type: object
+      properties:
+        kind: {type: string}
+        fins: {type: integer}
+    Pet:
+      oneOf:
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+        - $ref: '#/components/schemas/Fish'
+      discriminator:
+        propertyName: kind
+        mapping:
+          kitty: '#/components/schemas/Cat'
+          cat: '#/components/schemas/Cat'
+    WithDefault:
+      oneOf:
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Fish'
+      discriminator:
+        propertyName: kind
+        defaultMapping: '#/components/schemas/Fish'
+    NullableRef:
+      oneOf:
+        - $ref: '#/components/schemas/Cat'
+        - type: 'null'
+    NullableInline:
+      anyOf:
+        - {type: string, format: date-time}
+        - {type: 'null'}
+    Primitives:
+      oneOf:
+        - {type: string}
+        - {type: integer, format: int64}
+        - {type: number}
+        - {type: boolean}
+        - {type: array, items: {type: string}}
+        - {type: string, format: date}
+        - {type: string, format: byte}
+        - {type: object, additionalProperties: {type: string}}
+        - {type: 'null'}
+    Duplicates:
+      oneOf:
+        - {type: string, maxLength: 3}
+        - {type: string, pattern: '^a'}
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Cat'
+    Inline:
+      anyOf:
+        - title: Card
+          type: object
+          properties: {number: {type: string}}
+        - type: object
+          properties: {iban: {type: string}}
+        - type: string
+          enum: [cash, check]
+    InlineDisc:
+      oneOf:
+        - type: object
+          properties: {type: {const: card}, number: {type: string}}
+        - type: object
+          properties: {type: {const: 2fa}, code: {type: string}}
+      discriminator: {propertyName: type}
+    WithShared:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string}
+      oneOf:
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+    AllOfUnion:
+      allOf:
+        - $ref: '#/components/schemas/Fish'
+        - oneOf:
+            - {type: object, properties: {a: {type: string}}}
+            - {type: object, properties: {b: {type: string}}}
+    TypeList:
+      type: [string, integer, object, array, 'null']
+      format: int32
+      properties: {x: {type: string}}
+      items: {type: integer}
+      enum: [a, b, 1, 2.5]
+    IfThenElse:
+      type: object
+      properties: {kind: {type: string}}
+      if: {properties: {kind: {const: a}}}
+      then: {properties: {a: {type: string}}}
+      else: {$ref: '#/components/schemas/Fish'}
+    IfThenElseByShape:
+      if: {required: [a]}
+      then: {type: object, properties: {a: {type: string}}}
+      else: {type: object, properties: {b: {type: string}}}
+    IfThen:
+      type: object
+      required: [kind]
+      properties: {kind: {type: string}}
+      if: {properties: {kind: {const: a}}}
+      then: {required: [a], properties: {a: {type: string}}}
+    Nested:
+      oneOf:
+        - $ref: '#/components/schemas/Pet'
+        - oneOf:
+            - {type: string}
+            - {type: integer}
+    Holder:
+      type: object
+      required: [pet, maybe]
+      properties:
+        list: {type: array, items: {oneOf: [{type: string}, {type: integer}]}}
+        map: {type: object, additionalProperties: {anyOf: [{type: string}, {type: boolean}]}}
+        pet: {$ref: '#/components/schemas/Pet'}
+        maybe: {oneOf: [{$ref: '#/components/schemas/Dog'}, {type: 'null'}]}
+        text: {anyOf: [{type: string}, {type: 'null'}]}
+    OnlyNull:
+      oneOf: [{type: 'null'}]
+    Anything:
+      oneOf: [{}, {type: string, format: json}, {type: string}]
+    Self:
+      oneOf:
+        - $ref: '#/components/schemas/Self'
+        - {type: string}
+        - {type: integer}
+    NoIf:
+      then: {type: object, properties: {a: {type: string}}}
+      else: {type: object, properties: {b: {type: string}}}
+    IfWithoutConst:
+      if: {properties: {kind: {type: string}}}
+      then: {type: object, properties: {a: {type: string}}}
+      else: {type: object, properties: {b: {type: string}}}
+    IfThenElseAllOf:
+      allOf:
+        - $ref: '#/components/schemas/Fish'
+      if: {properties: {kind: {const: a}}}
+      then: {type: object, properties: {a: {type: string}}}
+      else: {type: object, properties: {b: {type: string}}}
+    Bird:
+      type: object
+      properties:
+        wings: {type: integer}
+    Flyer:
+      oneOf:
+        - $ref: '#/components/schemas/Bird'
+        - $ref: '#/components/schemas/Cat'
+      discriminator: {propertyName: kind}
+    Vehicle:
+      type: object
+      required: [kind]
+      properties: {kind: {type: string}}
+      discriminator: {propertyName: kind}
+      oneOf:
+        - $ref: '#/components/schemas/Car'
+        - $ref: '#/components/schemas/Bike'
+    Car:
+      allOf:
+        - $ref: '#/components/schemas/Vehicle'
+        - type: object
+          properties: {doors: {type: integer}}
+    Bike:
+      allOf:
+        - $ref: '#/components/schemas/Vehicle'
+        - type: object
+          properties: {gears: {type: integer}}
+    Only:
+      oneOf: [{$ref: '#/components/schemas/OnlyChild'}]
+    OnlyChild:
+      allOf:
+        - $ref: '#/components/schemas/Only'
+        - {type: object, properties: {x: {type: string}}}

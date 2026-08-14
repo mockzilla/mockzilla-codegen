@@ -7,6 +7,7 @@ package gomodel
 
 import (
 	"math/bits"
+	"slices"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
@@ -24,12 +25,12 @@ const (
 	shapeUnion
 )
 
-// classify reads a flattened schema. A 3.1 type list with several types is a union.
+// classify reads a flattened schema.
 func classify(s *spec.Schema) shape {
 	t := s.Types &^ spec.TypeNull
 	isObject := t == spec.TypeObject || t == 0 && (len(s.Properties) > 0 || s.AdditionalProperties.Mode != spec.AdditionalUnset)
 	switch {
-	case len(s.OneOf) > 0 || len(s.AnyOf) > 0 || bits.OnesCount8(uint8(t)) > 1:
+	case isUnion(s):
 		return shapeUnion
 	case len(enumValues(enumKindOf(s), s.Enum)) > 0:
 		return shapeEnum
@@ -45,10 +46,59 @@ func classify(s *spec.Schema) shape {
 	return shapeAny
 }
 
-// hasShape reports keywords that change the Go type. allOf is left to the caller.
+// isUnion reports a oneOf or anyOf with more than one member that is not null, if with both then
+// and else, or a 3.1 type list with several types.
+func isUnion(s *spec.Schema) bool {
+	return len(nonNull(s.OneOf))+len(nonNull(s.AnyOf)) > 1 || s.Then != nil && s.Else != nil ||
+		bits.OnesCount8(uint8(s.Types&^spec.TypeNull)) > 1
+}
+
+// hasShape reports keywords that change the Go type. allOf and a union's sole member are left to
+// the caller.
 func hasShape(s *spec.Schema) bool {
 	return len(s.Properties) > 0 || s.AdditionalProperties.Mode != spec.AdditionalUnset || s.Items != nil ||
-		len(s.PrefixItems) > 0 || len(s.Enum) > 0 || len(s.OneOf) > 0 || len(s.AnyOf) > 0
+		len(s.PrefixItems) > 0 || len(s.Enum) > 0 || isUnion(s) || s.Then != nil || s.Else != nil
+}
+
+// members are the schemas a schema is made of besides its own keywords: its allOf members and
+// the sole member of a oneOf or anyOf whose other members are null.
+func members(s *spec.Schema) []*spec.Schema {
+	if m := soleMember(s); m != nil {
+		return append(slices.Clip(s.AllOf), m)
+	}
+	return s.AllOf
+}
+
+// soleMember returns the one member of a oneOf or anyOf that is not null, as in
+// oneOf: [$ref, {type: null}]. The schema is then that member, nullable.
+func soleMember(s *spec.Schema) *spec.Schema {
+	list := slices.Concat(nonNull(s.OneOf), nonNull(s.AnyOf))
+	if len(list) != 1 {
+		return nil
+	}
+	return list[0]
+}
+
+func nonNull(list []*spec.Schema) []*spec.Schema {
+	var out []*spec.Schema
+	for _, s := range list {
+		if !isNull(s) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// hasNullMember reports a oneOf or anyOf member that allows only null.
+func hasNullMember(s *spec.Schema) bool {
+	return slices.ContainsFunc(s.OneOf, isNull) || slices.ContainsFunc(s.AnyOf, isNull)
+}
+
+// isNull reports a schema that allows only null: type null, or a null const or enum.
+func isNull(s *spec.Schema) bool {
+	isNullValue := func(v spec.Value) bool { return v.Kind == spec.KindNull }
+	return s.Ref == nil && (s.Types == spec.TypeNull || s.Const != nil && isNullValue(*s.Const) ||
+		len(s.Enum) > 0 && !slices.ContainsFunc(s.Enum, func(v spec.Value) bool { return !isNullValue(v) }))
 }
 
 // refOf returns the ref a schema stands for: a $ref with only docs and flags next to it, or an
@@ -58,14 +108,14 @@ func refOf(s *spec.Schema) *spec.Ref {
 	case hasShape(s):
 		return nil
 	case s.Ref != nil:
-		if len(s.AllOf) == 0 {
+		if len(members(s)) == 0 {
 			return s.Ref
 		}
 		return nil
 	}
 
 	var ref *spec.Ref
-	for _, m := range s.AllOf {
+	for _, m := range members(s) {
 		switch r := refOf(m); {
 		case isDocOnly(m):
 		case r != nil && ref == nil:
@@ -99,5 +149,5 @@ func description(s *spec.Schema) string {
 
 // isDocOnly reports a schema that adds nothing to a type: a description, flags or limits.
 func isDocOnly(s *spec.Schema) bool {
-	return s.Ref == nil && len(s.AllOf) == 0 && !hasShape(s) && s.Types == 0 && s.Format == "" && s.Const == nil
+	return s.Ref == nil && len(members(s)) == 0 && !hasShape(s) && s.Types == 0 && s.Format == "" && s.Const == nil
 }

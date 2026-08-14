@@ -1,0 +1,186 @@
+Cat struct models.types
+  Kind string json=kind required
+  Meow bool json=meow required
+Dog struct models.types
+  Kind DogKind json=kind required
+  Bark *bool json=bark omitempty
+DogKind enum string models.enums
+  DogKindDog "dog"
+Fish struct models.types
+  Kind *string json=kind omitempty
+  Fins *int json=fins omitempty
+Pet union models.unions
+  | oneOf discriminator=kind
+  | Cat *Cat kinds=object values=kitty,cat required=kind,meow known=kind,meow
+  | Dog *Dog kinds=object values=dog required=kind known=kind,bark closed
+  | Fish *Fish kinds=object values=Fish known=kind,fins
+WithDefault union models.unions
+  | oneOf discriminator=kind
+  | Cat *Cat kinds=object values=cat required=kind,meow known=kind,meow
+  | Fish *Fish kinds=object values=Fish default known=kind,fins
+NullableRef alias Cat models.types
+NullableInline alias time.Time models.types
+Primitives union models.unions
+  | oneOf nullable
+  | String *string kinds=string
+  | Int64 *int64 kinds=integer
+  | Float64 *float64 kinds=integer|number
+  | Bool *bool kinds=boolean
+  | Strings []string kinds=array
+  | Date *runtime.Date kinds=string
+  | Bytes []byte kinds=string
+  | StringMap map[string]string kinds=object
+Duplicates union models.unions
+  | oneOf
+  | String *string kinds=string
+  | Cat *Cat kinds=object required=kind,meow known=kind,meow
+Inline union models.unions
+  | anyOf
+  | Card *InlineCard kinds=object known=number
+  | Option2 *InlineOption2 kinds=object known=iban
+  | Option3 *InlineOption3 kinds=string
+InlineCard struct models.types
+  Number *string json=number omitempty
+InlineOption2 struct models.types
+  Iban *string json=iban omitempty
+InlineOption3 enum string models.enums
+  InlineOption3Cash "cash"
+  InlineOption3Check "check"
+InlineDisc union models.unions
+  | oneOf discriminator=type
+  | Card *InlineDiscCard kinds=object values=card known=type,number
+  | N2fa *InlineDisc2fa kinds=object values=2fa known=type,code
+InlineDiscCard struct models.types
+  Type *string json=type omitempty
+  Number *string json=number omitempty
+InlineDisc2fa struct models.types
+  Type *string json=type omitempty
+  Code *string json=code omitempty
+WithShared union models.unions
+  ID string json=id required
+  | oneOf
+  | Cat *Cat kinds=object required=kind,meow known=kind,meow
+  | Dog *Dog kinds=object required=kind known=kind,bark closed
+AllOfUnion union models.unions
+  Kind *string json=kind omitempty
+  Fins *int json=fins omitempty
+  | oneOf
+  | Option1 *AllOfUnionOption1 kinds=object known=a
+  | Option2 *AllOfUnionOption2 kinds=object known=b
+AllOfUnionOption1 struct models.types
+  A *string json=a omitempty
+AllOfUnionOption2 struct models.types
+  B *string json=b omitempty
+TypeList union models.unions
+  | oneOf nullable
+  | String *TypeListString kinds=string
+  | Integer *TypeListInteger kinds=integer
+  | Object *TypeListObject kinds=object known=x
+  | Ints []int kinds=array
+TypeListString enum string models.enums
+  TypeListStringA "a"
+  TypeListStringB "b"
+TypeListInteger enum int32 models.enums
+  TypeListInteger1 1
+TypeListObject struct models.types
+  X *string json=x omitempty
+IfThenElse union models.unions
+  Kind *string json=kind omitempty
+  | oneOf discriminator=kind
+  | Then *IfThenElseThen kinds=object values=a known=a
+  | Fish *Fish kinds=object default known=kind,fins
+IfThenElseThen struct models.types
+  A *string json=a omitempty
+IfThenElseByShape union models.unions
+  | oneOf
+  | Then *IfThenElseByShapeThen kinds=object known=a
+  | Else *IfThenElseByShapeElse kinds=object known=b
+IfThenElseByShapeThen struct models.types
+  A *string json=a omitempty
+IfThenElseByShapeElse struct models.types
+  B *string json=b omitempty
+IfThen struct models.types
+  Kind string json=kind required
+  A *string json=a omitempty
+Nested union models.unions
+  | oneOf
+  | Pet *Pet kinds=object
+  | Option2 *NestedOption2 kinds=integer|string
+NestedOption2 union models.unions
+  | oneOf
+  | String *string kinds=string
+  | Int *int kinds=integer
+Holder struct models.types
+  List []HolderListItem json=list omitempty
+  Map map[string]HolderMapValue json=map omitempty
+  Pet Pet json=pet required
+  Maybe *Dog json=maybe required nullable
+  Text *string json=text nullable omitempty
+HolderListItem union models.unions
+  | oneOf
+  | String *string kinds=string
+  | Int *int kinds=integer
+HolderMapValue union models.unions
+  | anyOf
+  | String *string kinds=string
+  | Bool *bool kinds=boolean
+OnlyNull alias any models.types
+Anything union models.unions
+  | oneOf
+  | Any any kinds=any
+  | RawMessage json.RawMessage kinds=any
+  | String *string kinds=string
+Self union models.unions
+  | oneOf
+  | String *string kinds=string
+  | Int *int kinds=integer
+NoIf union models.unions
+  | oneOf
+  | Then *NoIfThen kinds=object known=a
+  | Else *NoIfElse kinds=object known=b
+NoIfThen struct models.types
+  A *string json=a omitempty
+NoIfElse struct models.types
+  B *string json=b omitempty
+IfWithoutConst union models.unions
+  | oneOf
+  | Then *IfWithoutConstThen kinds=object known=a
+  | Else *IfWithoutConstElse kinds=object known=b
+IfWithoutConstThen struct models.types
+  A *string json=a omitempty
+IfWithoutConstElse struct models.types
+  B *string json=b omitempty
+IfThenElseAllOf union models.unions
+  Kind *string json=kind omitempty
+  Fins *int json=fins omitempty
+  | oneOf discriminator=kind
+  | Then *IfThenElseAllOfThen kinds=object values=a known=a
+  | Else *IfThenElseAllOfElse kinds=object default known=b
+IfThenElseAllOfThen struct models.types
+  A *string json=a omitempty
+IfThenElseAllOfElse struct models.types
+  B *string json=b omitempty
+Bird struct models.types
+  Wings *int json=wings omitempty
+Flyer union models.unions
+  | oneOf discriminator=kind
+  | Bird *Bird kinds=object values=Bird known=wings
+  | Cat *Cat kinds=object values=cat required=kind,meow known=kind,meow
+Vehicle union models.unions
+  Kind string json=kind required
+  | oneOf discriminator=kind
+  | Car *Car kinds=object values=Car required=kind known=kind,doors
+  | Bike *Bike kinds=object values=Bike required=kind known=kind,gears
+Car struct models.types
+  Kind string json=kind required
+  Doors *int json=doors omitempty
+Bike struct models.types
+  Kind string json=kind required
+  Gears *int json=gears omitempty
+Only alias OnlyChild models.types
+OnlyChild struct models.types
+  X *string json=x omitempty
+---
+info union-duplicate 63:11 /components/schemas/Duplicates/oneOf/1: member 2 has the same Go type (string) as variant String; they share its field
+info union-duplicate 65:11 /components/schemas/Duplicates/oneOf/3: member 4 has the same Go type (Cat) as variant Cat; they share its field
+warning union-self 139:11 /components/schemas/Self/oneOf/0: member 1 is the union itself; it is left out

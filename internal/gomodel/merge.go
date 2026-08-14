@@ -82,7 +82,7 @@ func (f *flattener) flatten(s *spec.Schema) *spec.Schema {
 
 // merged returns the merge of s, or nil when s needs none.
 func (f *flattener) merged(s *spec.Schema) *merged {
-	if refOf(s) != nil || len(s.AllOf) == 0 && s.Ref == nil {
+	if refOf(s) != nil || len(members(s)) == 0 && s.Ref == nil && branch(s) == nil {
 		return nil
 	}
 	if m, ok := f.memo[s]; ok {
@@ -121,14 +121,30 @@ func (f *flattener) collect(s *spec.Schema, isForeign bool, w *partWalk) {
 		f.collectRef(s.Ref.Target, w)
 	}
 	w.parts = append(w.parts, mergePart{schema: s, isForeign: isForeign})
-	for _, m := range s.AllOf {
+	for _, m := range members(s) {
 		f.collect(m, isForeign, w)
+	}
+	if b := branch(s); b != nil {
+		f.collect(f.optional(b), isForeign, w)
 	}
 }
 
+// optional returns a schema with the properties of s, merged, none of them required: an if with a
+// single branch adds that branch's properties, which apply only when the if holds.
+func (f *flattener) optional(s *spec.Schema) *spec.Schema {
+	return &spec.Schema{Properties: f.flatten(s).Properties, Origin: s.Origin}
+}
+
 // collectRef takes a target that is merged itself as one part, so its merged children keep
-// the names they have there.
+// the names they have there. A target whose oneOf or anyOf lists the root is a parent the root
+// extends: the root is one of its variants, so the parent comes in without that union.
 func (f *flattener) collectRef(t *spec.Schema, w *partWalk) {
+	if listsSchema(t, w.root) {
+		c := *t
+		c.OneOf, c.AnyOf = nil, nil
+		f.collect(&c, true, w)
+		return
+	}
 	if f.inProgress[t] {
 		f.diags.Append(allOfCycle(w.root, t))
 		return
@@ -149,7 +165,8 @@ func (f *flattener) collectRef(t *spec.Schema, w *partWalk) {
 func (f *flattener) merge(m *merged, p mergePart) {
 	dst, s := m.schema, p.schema
 	f.mergeTypes(dst, s)
-	dst.Nullable = dst.Nullable || s.Nullable || s.Types == spec.TypeNull
+	isSole := soleMember(s) != nil
+	dst.Nullable = dst.Nullable || s.Nullable || s.Types == spec.TypeNull || isSole && hasNullMember(s)
 	dst.ReadOnly = dst.ReadOnly || s.ReadOnly
 	dst.WriteOnly = dst.WriteOnly || s.WriteOnly
 	dst.Deprecated = dst.Deprecated || s.Deprecated
@@ -179,13 +196,15 @@ func (f *flattener) merge(m *merged, p mergePart) {
 	if len(dst.PrefixItems) == 0 {
 		dst.PrefixItems = s.PrefixItems
 	}
-	dst.OneOf = append(dst.OneOf, s.OneOf...)
-	dst.AnyOf = append(dst.AnyOf, s.AnyOf...)
+	if !isSole {
+		dst.OneOf = append(dst.OneOf, s.OneOf...)
+		dst.AnyOf = append(dst.AnyOf, s.AnyOf...)
+	}
+	if s.Then != nil && s.Else != nil && dst.Then == nil {
+		dst.If, dst.Then, dst.Else = s.If, s.Then, s.Else
+	}
 
 	dst.Not = cmp.Or(dst.Not, s.Not)
-	dst.If = cmp.Or(dst.If, s.If)
-	dst.Then = cmp.Or(dst.Then, s.Then)
-	dst.Else = cmp.Or(dst.Else, s.Else)
 	dst.Discriminator = cmp.Or(dst.Discriminator, s.Discriminator)
 	if len(dst.Enum) == 0 {
 		dst.Enum = s.Enum
@@ -316,4 +335,21 @@ func typeSetText(t spec.TypeSet) string {
 		}
 	}
 	return strings.Join(words, " or ")
+}
+
+// listsSchema reports a oneOf or anyOf member of s that is a $ref to root.
+func listsSchema(s, root *spec.Schema) bool {
+	isRoot := func(m *spec.Schema) bool {
+		r := refOf(m)
+		return r != nil && r.Target == root
+	}
+	return slices.ContainsFunc(s.OneOf, isRoot) || slices.ContainsFunc(s.AnyOf, isRoot)
+}
+
+// branch returns the then or else of an if that has only one of them.
+func branch(s *spec.Schema) *spec.Schema {
+	if s.Then != nil && s.Else != nil {
+		return nil
+	}
+	return cmp.Or(s.Then, s.Else)
 }

@@ -50,8 +50,13 @@ SameRef struct models.types
 Holder struct models.types
   Animal *Animal json=animal omitempty doc="Plain ref"
   Text *string json=text omitempty
-  WithUnion HolderWithUnion json=withUnion omitempty
-HolderWithUnion alias json.RawMessage models.unions
+  WithUnion *HolderWithUnion json=withUnion omitempty
+HolderWithUnion union models.unions
+  Name string json=name required
+  Address *AnimalAddress json=address omitempty
+  | oneOf
+  | AnyMap map[string]any kinds=object
+  | String *string kinds=string
 Limits alias runtime.Email models.types deprecated
 DoubleDog struct models.types
   Name string json=name required
@@ -75,6 +80,5 @@ AwsAlias alias Animal models.types deprecated doc="Alias doc"
 ---
 warning allof-conflict 37:7 /components/schemas/Conflict: allOf members disagree on the type (string, integer); keeping string
 error allof-cycle 52:7 /components/schemas/Loop2: allOf includes itself through /components/schemas/Loop1; the loop is left out
-info union-placeholder 93:11 /components/schemas/Holder/properties/withUnion: union types are not generated yet; this one is json.RawMessage
 warning alias-cycle 104:13 /components/schemas/ChainA: types refer to each other in a loop (ChainA = ChainB = ChainA); ChainA becomes any
 error allof-cycle 107:7 /components/schemas/WithChain: allOf includes itself through /components/schemas/ChainA; the loop is left out

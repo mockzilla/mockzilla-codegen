@@ -1,0 +1,32 @@
+openapi: 3.1.0
+info: {title: if then else, version: "1"}
+paths: {}
+components:
+  schemas:
+    Shipping:
+      description: Then applies when kind is post, else for anything else.
+      type: object
+      required: [kind]
+      properties:
+        kind: {type: string}
+      if:
+        properties:
+          kind: {const: post}
+      then:
+        properties:
+          address: {type: string}
+      else:
+        properties:
+          store: {type: string}
+    Discount:
+      description: A single branch adds its properties as optional fields.
+      type: object
+      properties:
+        percent: {type: integer}
+      if:
+        properties:
+          percent: {const: 100}
+      then:
+        required: [reason]
+        properties:
+          reason: {type: string}

@@ -33,7 +33,7 @@ func TestParts(t *testing.T) {
 	t.Parallel()
 
 	status := &gomodel.Decl{Name: "Status", Part: gomodel.PartEnums, Kind: gomodel.KindEnum, Enum: &gomodel.Enum{Base: gomodel.Builtin{Name: "string"}}}
-	payment := &gomodel.Decl{Name: "Payment", Part: gomodel.PartUnions, Kind: gomodel.KindAlias}
+	payment := &gomodel.Decl{Name: "Payment", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}}
 	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{
 			{Name: "Status", Type: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: status}}},
@@ -41,7 +41,7 @@ func TestParts(t *testing.T) {
 		},
 		AdditionalProperties: &gomodel.Field{Type: gomodel.Map{Key: gomodel.Builtin{Name: "string"}, Elem: gomodel.DeclRef{Decl: status}}},
 	}}
-	payment.Target = gomodel.DeclRef{Decl: pet}
+	payment.Union = &gomodel.Union{Variants: []*gomodel.Variant{{Name: "Pet", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: pet}}}}}
 	query := &gomodel.Decl{Name: "ListQuery", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "Pets", Type: gomodel.Map{Key: gomodel.Builtin{Name: "string"}, Elem: gomodel.DeclRef{Decl: pet}}}},
 	}}

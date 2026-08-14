@@ -44,7 +44,7 @@ everything else. A component that is only a `$ref` is an alias of the referenced
 | `object` without properties | `map[string]any` |
 | `array` | `[]T`, `[]any` without `items` |
 | no `type` and no format | `any` |
-| union (`oneOf`, `anyOf`, type list) | `json.RawMessage` for now |
+| union (`oneOf`, `anyOf`, type list, `if` with `then` and `else`) | a union struct, see [Unions](#unions) |
 
 Formats are matched in any case. A string format not in the table gives `string`.
 
@@ -132,6 +132,99 @@ type Dog struct {
 - An `allOf` of one `$ref` plus members that only add a description or flags is that `$ref`: no new
   type is made. `allOf: [{$ref: Pet}, {description: The owner's pet}]` is a `Pet`, and
   `nullable: true` in such a member makes the field nullable.
+
+## Unions
+
+`oneOf`, `anyOf`, a 3.1 type list with several types, and `if` with both `then` and `else` become a
+struct with one field per variant. The field holds a pointer, or the type itself when it can be nil.
+
+```yaml
+PaymentMethod:
+  oneOf:
+    - $ref: '#/components/schemas/Card'
+    - $ref: '#/components/schemas/BankAccount'
+    - {type: string}
+```
+
+```go
+type PaymentMethod struct {
+	Card        *Card        `json:"-"`
+	BankAccount *BankAccount `json:"-"`
+	String      *string      `json:"-"`
+}
+
+func (p PaymentMethod) MarshalJSON() ([]byte, error)
+func (p *PaymentMethod) UnmarshalJSON(data []byte) error
+func (p PaymentMethod) Validate() error
+```
+
+Variant fields:
+
+| Member | Field name | Field type |
+|---|---|---|
+| `$ref` | the referenced type | `*Card` |
+| inline object, enum or union | title, else discriminator value, else `Option` + position from 1 | `*PaymentMethodOption2` |
+| inline primitive, array or map | its Go type | `String *string`, `Int64 *int64`, `Time *time.Time`, `Strings []string`, `StringMap map[string]string` |
+| type list member | its Go type; an object or enum takes the type name | `Object *TagObject` |
+
+- A `null` member makes the union nullable and gets no field.
+- One member plus `null` is no union: `oneOf: [{$ref: Pet}, {type: 'null'}]` is a nullable `Pet`.
+- Members with the same Go type share one field, with an info diagnostic.
+- A member that is the union itself is left out, with a warning.
+
+Decoding, in `UnmarshalJSON`:
+
+1. With a discriminator, its value picks the variant: the values the mapping lists for it, else the
+   `const` or single-value `enum` of its discriminator property, else its component name. A 3.2
+   `defaultMapping` takes any other value; without one, an unknown value is an error that lists the
+   allowed ones. A missing property falls back to step 2.
+2. Only variants that take the JSON kind are tried (object, array, string, number, boolean). An
+   integer goes to integer variants before float ones.
+3. Objects are ranked by required properties present less unknown keys. A variant with
+   `additionalProperties: false` is ruled out by an unknown key. For `oneOf`, two variants that
+   match exactly with the same rank are an error.
+4. The first variant in that order that decodes is set. For `anyOf`, every variant whose required
+   properties are present and that decodes is set.
+
+`null` sets nothing. Decoding resets the union first.
+
+`MarshalJSON` writes the variant that is set. When several are set, objects are merged, a later key
+replacing an earlier one; otherwise the first set variant is written. Nothing set writes `null`.
+
+`Validate` checks the count: exactly one for `oneOf`, at most one when nullable, at least one for
+`anyOf`, anything for a nullable `anyOf`.
+
+### Shared properties
+
+Properties next to a `oneOf` or `anyOf`, or merged in by `allOf`, are fields of the union struct
+next to the variants. `MarshalJSON` merges them with the variant; `UnmarshalJSON` fills both.
+
+```yaml
+Contact:
+  allOf:
+    - $ref: '#/components/schemas/Base'
+    - oneOf:
+        - $ref: '#/components/schemas/Email'
+        - $ref: '#/components/schemas/Phone'
+```
+
+```go
+type Contact struct {
+	ID    string `json:"id"`
+	Email *Email `json:"-"`
+	Phone *Phone `json:"-"`
+}
+```
+
+A type that extends a parent through `allOf`, where the parent lists it in its `oneOf` or `anyOf`,
+is one of the parent's variants: it gets the parent's properties, not its union.
+
+### if, then, else
+
+With both branches, `then` and `else` are the variants, named after their `$ref` type, else `Then`
+and `Else`. When `if` tests one property against a `const` or a single-value `enum`, that value
+picks `then` and any other picks `else`; otherwise the branches are matched by shape. With one
+branch, its properties join the type as optional fields.
 
 ## Enums
 

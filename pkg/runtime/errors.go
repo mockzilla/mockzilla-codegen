@@ -11,4 +11,9 @@ var (
 	ErrInvalidDate        = errors.New("invalid date")
 	ErrInvalidEmail       = errors.New("invalid email address")
 	ErrAdditionalProperty = errors.New("invalid additional property")
+
+	ErrNoVariant            = errors.New("no union variant matches")
+	ErrAmbiguous            = errors.New("more than one union variant matches")
+	ErrUnknownDiscriminator = errors.New("unknown discriminator value")
+	ErrNotObject            = errors.New("not a JSON object")
 )

@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info: {title: allOf with oneOf, version: "1"}
+paths: {}
+components:
+  schemas:
+    Base:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string}
+        created: {type: string, format: date-time}
+    Email:
+      type: object
+      required: [address]
+      properties:
+        address: {type: string}
+    Phone:
+      type: object
+      required: [number]
+      properties:
+        number: {type: string}
+    Contact:
+      allOf:
+        - $ref: '#/components/schemas/Base'
+        - oneOf:
+            - $ref: '#/components/schemas/Email'
+            - $ref: '#/components/schemas/Phone'

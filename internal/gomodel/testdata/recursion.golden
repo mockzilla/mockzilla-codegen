@@ -3,7 +3,10 @@ Self struct models.types
   List []Self json=list required
   Map map[string]Self json=map required
   Union SelfUnion json=union required
-SelfUnion alias json.RawMessage models.unions
+SelfUnion union models.unions
+  | oneOf
+  | Self *Self kinds=object required=next,list,map,union known=next,list,map,union
+  | String *string kinds=string
 A struct models.types
   B *B json=b required
   Leaf Leaf json=leaf required
@@ -19,5 +22,4 @@ LoopY alias LoopX models.types
 UsesLoop struct models.types
   X LoopX json=x required
 ---
-info union-placeholder 13:16 /components/schemas/Self/properties/union: union types are not generated yet; this one is json.RawMessage
 warning alias-cycle 32:12 /components/schemas/LoopX: types refer to each other in a loop (LoopX = LoopY = LoopX); LoopX becomes any

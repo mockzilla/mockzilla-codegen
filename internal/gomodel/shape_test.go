@@ -24,8 +24,11 @@ func TestClassify(t *testing.T) {
 	}{
 		{name: "Nothing", want: shapeAny},
 		{name: "Null alone", schema: spec.Schema{Types: spec.TypeNull}, want: shapeAny},
-		{name: "oneOf", schema: spec.Schema{OneOf: []*spec.Schema{{}}}, want: shapeUnion},
-		{name: "anyOf", schema: spec.Schema{AnyOf: []*spec.Schema{{}}}, want: shapeUnion},
+		{name: "oneOf", schema: spec.Schema{OneOf: []*spec.Schema{{}, {Types: spec.TypeString}}}, want: shapeUnion},
+		{name: "anyOf", schema: spec.Schema{AnyOf: []*spec.Schema{{}, {Types: spec.TypeString}}}, want: shapeUnion},
+		{name: "oneOf of one member is no union", schema: spec.Schema{OneOf: []*spec.Schema{{Types: spec.TypeString}}}, want: shapeAny},
+		{name: "oneOf of a member and null is no union", schema: spec.Schema{OneOf: []*spec.Schema{{}, {Types: spec.TypeNull}}}, want: shapeAny},
+		{name: "if with then and else", schema: spec.Schema{Then: &spec.Schema{}, Else: &spec.Schema{}}, want: shapeUnion},
 		{name: "Type list", schema: spec.Schema{Types: spec.TypeString | spec.TypeInteger}, want: shapeUnion},
 		{name: "Nullable string is no union", schema: spec.Schema{Types: spec.TypeString | spec.TypeNull}, want: shapePrimitive},
 		{name: "Enum", schema: spec.Schema{Types: spec.TypeString, Enum: []spec.Value{strVal("a")}}, want: shapeEnum},
@@ -68,6 +71,10 @@ func TestRefOf(t *testing.T) {
 		{name: "allOf of a ref and docs", schema: spec.Schema{AllOf: []*spec.Schema{{Description: "d"}, {Ref: ref}, {Nullable: true}}}, want: ref},
 		{name: "allOf of docs only", schema: spec.Schema{AllOf: []*spec.Schema{{Description: "d"}}}},
 		{name: "No ref", schema: spec.Schema{Types: spec.TypeString}},
+		{name: "oneOf of a ref and null", schema: spec.Schema{OneOf: []*spec.Schema{{Ref: ref}, {Types: spec.TypeNull}}}, want: ref},
+		{name: "anyOf of a ref and a null enum", schema: spec.Schema{AnyOf: []*spec.Schema{{Enum: []spec.Value{nullVal()}}, {Ref: ref}}}, want: ref},
+		{name: "oneOf of a ref and a null const", schema: spec.Schema{OneOf: []*spec.Schema{{Ref: ref}, {Const: new(nullVal())}}}, want: ref},
+		{name: "Ref next to a oneOf of one member", schema: spec.Schema{Ref: ref, OneOf: []*spec.Schema{{Ref: ref}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

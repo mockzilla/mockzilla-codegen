@@ -23,15 +23,16 @@ type fieldPlan struct {
 
 // builder fills named declarations with their types.
 type builder struct {
-	opts  Options
-	flat  *flattener
-	diags *diag.Collector
-	decls map[*spec.Schema]*Decl
-	plans []*fieldPlan
-	tags  []string
+	opts   Options
+	flat   *flattener
+	unions *unionReader
+	diags  *diag.Collector
+	decls  map[*spec.Schema]*Decl
+	plans  []*fieldPlan
+	tags   []string
 }
 
-func newBuilder(opts Options, flat *flattener, diags *diag.Collector) *builder {
+func newBuilder(opts Options, flat *flattener, unions *unionReader, diags *diag.Collector) *builder {
 	var tags []string
 	for _, t := range opts.ExtraTags {
 		if t != "json" && !slices.Contains(tags, t) {
@@ -39,7 +40,7 @@ func newBuilder(opts Options, flat *flattener, diags *diag.Collector) *builder {
 		}
 	}
 	slices.Sort(tags)
-	return &builder{opts: opts, flat: flat, diags: diags, decls: map[*spec.Schema]*Decl{}, tags: tags}
+	return &builder{opts: opts, flat: flat, unions: unions, diags: diags, decls: map[*spec.Schema]*Decl{}, tags: tags}
 }
 
 // build fills every declaration, then settles pointers, which need every type known first.
@@ -61,6 +62,7 @@ func (b *builder) build(list []*pending, ops []*Operation) []*Decl {
 	}
 	breakAliasCycles(decls, b.diags)
 	b.settleFields(decls)
+	settleUnions(decls)
 
 	for _, op := range ops {
 		if op.Spec.Body != nil {
@@ -91,7 +93,8 @@ func (b *builder) declare(d *Decl, s *spec.Schema, sh shape) {
 	case shapeEnum:
 		d.Kind, d.Enum = KindEnum, b.enumOf(d, f)
 	case shapeUnion:
-		d.Kind, d.Target = KindAlias, rawJSON
+		d.Kind = KindUnion
+		b.fillUnion(d, f)
 	case shapeMap, shapeArray:
 		d.Kind, d.Target = KindDefined, b.inline(f, sh)
 	default:
@@ -100,7 +103,69 @@ func (b *builder) declare(d *Decl, s *spec.Schema, sh shape) {
 }
 
 func (b *builder) fillStruct(d *Decl, f *spec.Schema) {
+	st := &Struct{Fields: b.fields(d, f), IsClosed: f.AdditionalProperties.Mode == spec.AdditionalDenied}
+	if m := f.AdditionalProperties.Mode; m == spec.AdditionalSchema || m == spec.AdditionalAllowed {
+		st.AdditionalProperties = &Field{
+			Name:     "AdditionalProperties",
+			JSONName: "-",
+			Type:     Map{Key: stringType, Elem: b.valueType(f)},
+			Tags:     b.fieldTags("-", false),
+		}
+	}
+	d.Struct = st
+	resolveFields(d, b.opts.Namer, b.diags)
+}
+
+// fillUnion makes one variant per member, next to the properties every member shares. Members of
+// the same Go type share one variant.
+func (b *builder) fillUnion(d *Decl, f *spec.Schema) {
+	us := b.unions.read(f)
+	u := &Union{IsAnyOf: us.isAnyOf, IsNullable: us.isNullable, Discriminator: us.discriminator}
 	st := &Struct{}
+	if !us.isTypeList {
+		st.Fields = b.fields(d, f)
+	}
+
+	for _, m := range us.members {
+		t := b.typeOf(m.schema)
+		if t == (DeclRef{Decl: d}) {
+			b.diags.Append(diag.Diagnostic{
+				Severity: diag.Warning,
+				Code:     diag.CodeUnionSelf,
+				Pointer:  m.schema.Origin.Pointer,
+				Origin:   origin(m.schema.Origin),
+				Message:  fmt.Sprintf("member %d is the union itself; it is left out", m.index+1),
+			})
+			continue
+		}
+		if i := slices.IndexFunc(u.Variants, func(v *Variant) bool { return v.Type == t }); i >= 0 {
+			v := u.Variants[i]
+			v.Values = append(v.Values, m.values...)
+			v.IsDefault = v.IsDefault || m.isDefault
+			b.diags.Append(diag.Diagnostic{
+				Severity: diag.Info,
+				Code:     diag.CodeUnionDuplicate,
+				Pointer:  m.schema.Origin.Pointer,
+				Origin:   origin(m.schema.Origin),
+				Message:  fmt.Sprintf("member %d has the same Go type (%s) as variant %s; they share its field", m.index+1, typeText(t), v.Name),
+			})
+			continue
+		}
+
+		name := typeName(t, b.opts.Namer)
+		if _, isInline := b.decls[m.schema]; isInline {
+			name = b.opts.Namer.Exported(m.suffix)
+		}
+		u.Variants = append(u.Variants, &Variant{Name: name, Type: t, Values: m.values, IsDefault: m.isDefault, Origin: origin(m.schema.Origin)})
+	}
+	d.Struct, d.Union = st, u
+	resolveFields(d, b.opts.Namer, b.diags)
+	resolveVariants(d, b.diags)
+}
+
+// fields makes one field per property of f.
+func (b *builder) fields(d *Decl, f *spec.Schema) []*Field {
+	out := make([]*Field, 0, len(f.Properties))
 	for _, p := range f.Properties {
 		fd := &Field{
 			JSONName:   p.Name,
@@ -117,19 +182,9 @@ func (b *builder) fillStruct(d *Decl, f *spec.Schema) {
 		fd.OmitEmpty = !fd.Required || fd.ReadOnly || fd.WriteOnly
 		fd.Tags = b.fieldTags(fd.JSONName, fd.OmitEmpty)
 		b.plan(d, fd, b.typeOf(p.Schema))
-		st.Fields = append(st.Fields, fd)
+		out = append(out, fd)
 	}
-
-	if m := f.AdditionalProperties.Mode; m == spec.AdditionalSchema || m == spec.AdditionalAllowed {
-		st.AdditionalProperties = &Field{
-			Name:     "AdditionalProperties",
-			JSONName: "-",
-			Type:     Map{Key: stringType, Elem: b.valueType(f)},
-			Tags:     b.fieldTags("-", false),
-		}
-	}
-	d.Struct = st
-	resolveFields(d, b.opts.Namer, b.diags)
+	return out
 }
 
 // fillParams makes one field per parameter of a location. A parameter without a schema is a string.
@@ -221,7 +276,7 @@ func (b *builder) elem(s *spec.Schema) Type {
 
 func (b *builder) nullable(s *spec.Schema) bool {
 	return b.inChain(s, func(f *spec.Schema) bool {
-		return f.Nullable || slices.ContainsFunc(f.Enum, func(v spec.Value) bool { return v.Kind == spec.KindNull })
+		return f.Nullable || hasNullMember(f) || slices.ContainsFunc(f.Enum, func(v spec.Value) bool { return v.Kind == spec.KindNull })
 	})
 }
 
