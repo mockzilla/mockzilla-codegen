@@ -99,11 +99,12 @@ func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 	}
 
 	flat := newFlattener(&diags)
-	c := newCollector(doc, opts.Namer, flat, &diags)
+	unions := newUnionReader(opts.Namer, flat)
+	c := newCollector(doc, flat, unions, &diags)
 	c.run(ops)
 	types := resolveTypes(c.pending, reserved, &diags)
 
-	b := newBuilder(opts, flat, &diags)
+	b := newBuilder(opts, flat, unions, &diags)
 	decls := b.build(c.pending, ops)
 	resolveConstants(decls, slices.Concat(reserved, types), opts, &diags)
 	return &Model{Decls: decls, Operations: ops}, diags.List()

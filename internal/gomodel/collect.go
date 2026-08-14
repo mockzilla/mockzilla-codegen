@@ -68,6 +68,7 @@ type collector struct {
 	doc         *spec.Document
 	namer       *naming.Namer
 	flat        *flattener
+	unions      *unionReader
 	diags       *diag.Collector
 	pending     []*pending
 	bySchema    map[*spec.Schema]*pending
@@ -76,11 +77,12 @@ type collector struct {
 	isComponent map[*spec.Schema]bool
 }
 
-func newCollector(doc *spec.Document, namer *naming.Namer, flat *flattener, diags *diag.Collector) *collector {
+func newCollector(doc *spec.Document, flat *flattener, unions *unionReader, diags *diag.Collector) *collector {
 	c := &collector{
 		doc:         doc,
-		namer:       namer,
+		namer:       unions.namer,
 		flat:        flat,
+		unions:      unions,
 		diags:       diags,
 		bySchema:    map[*spec.Schema]*pending{},
 		visited:     map[*spec.Schema]bool{},
@@ -183,7 +185,7 @@ func (c *collector) params(op *Operation) {
 // walk visits a schema once and names the children its type is built from. In a merged schema,
 // children that came from a type reached through a $ref are left to that type. A schema met
 // again while it is still being walked closes a loop of refs: it gets a declaration, so its type
-// stays finite. Union members are not walked.
+// stays finite.
 func (c *collector) walk(s *spec.Schema, at place, rule declRule) {
 	if s == nil {
 		return
@@ -202,9 +204,6 @@ func (c *collector) walk(s *spec.Schema, at place, rule declRule) {
 		at = c.add(s, at, sh)
 	}
 	c.checkEnum(f, sh)
-	if sh == shapeUnion {
-		return
-	}
 
 	refs, foreign := []*spec.Ref{s.Ref}, map[*spec.Schema]bool(nil)
 	if m := c.flat.merged(s); m != nil {
@@ -213,7 +212,11 @@ func (c *collector) walk(s *spec.Schema, at place, rule declRule) {
 	for _, r := range refs {
 		c.follow(r, at)
 	}
-	for _, ch := range c.children(f) {
+	children := c.children(f)
+	if sh == shapeUnion {
+		children = c.unionChildren(f)
+	}
+	for _, ch := range children {
 		if !foreign[ch.schema] {
 			c.walk(ch.schema, at.child(ch.suffix), ruleIfNeeded)
 		}
@@ -234,16 +237,6 @@ func (c *collector) needsDecl(s *spec.Schema, sh shape, rule declRule) bool {
 
 // add registers a declaration for s and returns the place its children are named from.
 func (c *collector) add(s *spec.Schema, at place, sh shape) place {
-	if sh == shapeUnion {
-		c.diags.Append(diag.Diagnostic{
-			Severity: diag.Info,
-			Code:     diag.CodeUnionPlaceholder,
-			Pointer:  s.Origin.Pointer,
-			Origin:   origin(s.Origin),
-			Message:  "union types are not generated yet; this one is json.RawMessage",
-		})
-	}
-
 	d := &Decl{ID: s.Origin.Pointer, Part: partOf(sh, at.part), Origin: origin(s.Origin)}
 	p := c.push(&pending{decl: d, schema: s, shape: sh, base: at.base, name: at.name, fallback: at.fallback, rank: at.rank})
 	c.bySchema[s] = p
@@ -285,6 +278,22 @@ func (c *collector) children(s *spec.Schema) []childSchema {
 	}
 	if s.AdditionalProperties.Mode == spec.AdditionalSchema {
 		out = append(out, childSchema{schema: s.AdditionalProperties.Schema, suffix: c.namer.MapValue("")})
+	}
+	return out
+}
+
+// unionChildren are the members of a union, then the properties they share.
+func (c *collector) unionChildren(f *spec.Schema) []childSchema {
+	u := c.unions.read(f)
+	out := make([]childSchema, 0, len(u.members)+len(f.Properties))
+	for _, m := range u.members {
+		out = append(out, childSchema{schema: m.schema, suffix: m.suffix})
+	}
+	if u.isTypeList {
+		return out
+	}
+	for _, p := range f.Properties {
+		out = append(out, childSchema{schema: p.Schema, suffix: c.namer.InlineProperty("", p.Name)})
 	}
 	return out
 }

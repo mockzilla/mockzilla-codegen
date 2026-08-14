@@ -1,0 +1,43 @@
+openapi: 3.1.0
+info: {title: unions, version: "1"}
+paths: {}
+components:
+  schemas:
+    Cat:
+      type: object
+      required: [meow]
+      properties:
+        name: {type: string}
+        meow: {type: boolean}
+    Dog:
+      type: object
+      required: [bark]
+      properties:
+        name: {type: string}
+        bark: {type: boolean}
+    Pet:
+      oneOf:
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+    Value:
+      oneOf:
+        - {type: string, format: date-time}
+        - {type: string}
+        - {type: integer, format: int64}
+        - {type: number}
+        - {type: boolean}
+        - {type: array, items: {type: string}}
+    Shape:
+      oneOf:
+        - $ref: '#/components/schemas/Pet'
+        - oneOf: [{type: string}, {type: integer}]
+    Owner:
+      type: object
+      required: [pet]
+      properties:
+        pet: {$ref: '#/components/schemas/Pet'}
+        pets: {type: array, items: {$ref: '#/components/schemas/Pet'}}
+        tags:
+          type: object
+          additionalProperties: {oneOf: [{type: string}, {type: integer}]}
+        best: {oneOf: [{$ref: '#/components/schemas/Dog'}, {type: 'null'}]}

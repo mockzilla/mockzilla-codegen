@@ -2,6 +2,7 @@
 {{with .Doc}}{{comment .}}
 {{end}}
 {{- if .IsStruct}}{{template "models/struct.tmpl" .}}
+{{- else if .IsUnion}}{{template "models/union.tmpl" .}}
 {{- else if .IsEnum}}{{template "models/enum.tmpl" .}}
 {{- else if .IsAlias}}{{template "models/alias.tmpl" .}}
 {{- else}}{{template "models/defined.tmpl" .}}

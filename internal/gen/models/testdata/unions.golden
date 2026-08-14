@@ -1,0 +1,199 @@
+package api
+
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+)
+
+type Cat struct{}
+
+type Pet struct {
+	Cat   *Cat     `json:"-"`
+	Float *float64 `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set.
+func (p Pet) MarshalJSON() ([]byte, error) {
+	var set []any
+	if p.Cat != nil {
+		set = append(set, p.Cat)
+	}
+	if p.Float != nil {
+		set = append(set, p.Float)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets the variants data matches.
+func (p *Pet) UnmarshalJSON(data []byte) error {
+	*p = Pet{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name:     "Cat",
+				Kind:     runtime.KindObject,
+				Required: []string{"meow"},
+				Known:    []string{"meow", "name"},
+				Into:     runtime.Into(&p.Cat),
+			},
+			{
+				Name: "Float",
+				Kind: runtime.KindInteger | runtime.KindNumber,
+				Into: runtime.Into(&p.Float),
+			},
+		},
+	})
+}
+
+// Validate checks that exactly one variant is set.
+func (p Pet) Validate() error {
+	return runtime.ExactlyOne(p.Cat != nil, p.Float != nil)
+}
+
+type Stamp struct {
+	Time *time.Time `json:"-"`
+	Any  any        `json:"-"`
+	Loop *string    `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set.
+func (s Stamp) MarshalJSON() ([]byte, error) {
+	var set []any
+	if s.Time != nil {
+		set = append(set, s.Time)
+	}
+	if s.Any != nil {
+		set = append(set, s.Any)
+	}
+	if s.Loop != nil {
+		set = append(set, s.Loop)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets the variants data matches.
+func (s *Stamp) UnmarshalJSON(data []byte) error {
+	*s = Stamp{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		IsAnyOf: true,
+		Variants: []runtime.Variant{
+			{
+				Name: "Time",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&s.Time),
+			},
+			{
+				Name: "Any",
+				Kind: runtime.KindAny,
+				Into: runtime.Into(&s.Any),
+			},
+			{
+				Name: "Loop",
+				Kind: runtime.KindAny,
+				Into: runtime.Into(&s.Loop),
+			},
+		},
+	})
+}
+
+// Validate accepts any number of variants; none set is null.
+func (s Stamp) Validate() error {
+	return nil
+}
+
+// A contact.
+type Contact struct {
+	ID    string  `json:"id"`
+	Email *string `json:"-"`
+	Other *string `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged with the shared properties.
+func (c Contact) MarshalJSON() ([]byte, error) {
+	var set []any
+	if c.Email != nil {
+		set = append(set, c.Email)
+	}
+	if c.Other != nil {
+		set = append(set, c.Other)
+	}
+	type plain Contact
+	return runtime.MarshalUnion(plain(c), set...)
+}
+
+// UnmarshalJSON sets the variants data matches, and the shared properties.
+func (c *Contact) UnmarshalJSON(data []byte) error {
+	*c = Contact{}
+	type plain Contact
+	if err := json.Unmarshal(data, (*plain)(c)); err != nil {
+		return err
+	}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		Discriminator: "kind",
+		Shared:        []string{"id", "kind"},
+		Variants: []runtime.Variant{
+			{
+				Name:     "Email",
+				Kind:     runtime.KindObject,
+				Values:   []string{"email", "mail"},
+				Known:    []string{},
+				IsClosed: true,
+				Into:     runtime.Into(&c.Email),
+			},
+			{
+				Name:      "Other",
+				Kind:      runtime.KindObject,
+				IsDefault: true,
+				Into:      runtime.Into(&c.Other),
+			},
+		},
+	})
+}
+
+// Validate checks that at most one variant is set; none set is null.
+func (c Contact) Validate() error {
+	return runtime.AtMostOne(c.Email != nil, c.Other != nil)
+}
+
+type Person struct {
+	Kind string  `json:"kind"`
+	Name *string `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged with the shared properties.
+func (p Person) MarshalJSON() ([]byte, error) {
+	var set []any
+	if p.Name != nil {
+		set = append(set, p.Name)
+	}
+	type plain Person
+	return runtime.MarshalUnion(plain(p), set...)
+}
+
+// UnmarshalJSON sets the variants data matches, and the shared properties.
+func (p *Person) UnmarshalJSON(data []byte) error {
+	*p = Person{}
+	type plain Person
+	if err := json.Unmarshal(data, (*plain)(p)); err != nil {
+		return err
+	}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		IsAnyOf:       true,
+		Discriminator: "kind",
+		Shared:        []string{"kind"},
+		Variants: []runtime.Variant{
+			{
+				Name: "Name",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&p.Name),
+			},
+		},
+	})
+}
+
+// Validate checks that at least one variant is set.
+func (p Person) Validate() error {
+	return runtime.AtLeastOne(p.Name != nil)
+}

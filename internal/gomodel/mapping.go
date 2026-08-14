@@ -19,6 +19,7 @@ var (
 	anyType    = Builtin{Name: "any"}
 	stringType = Builtin{Name: "string"}
 	boolType   = Builtin{Name: "bool"}
+	byteType   = Builtin{Name: "byte"}
 	rawJSON    = Qualified{Import: importJSON, Name: "RawMessage"}
 )
 
@@ -28,7 +29,7 @@ var (
 		"date":      Qualified{Import: importRuntime, Name: "Date"},
 		"date-time": Qualified{Import: importTime, Name: "Time"},
 		"email":     Qualified{Import: importRuntime, Name: "Email"},
-		"byte":      Slice{Elem: Builtin{Name: "byte"}},
+		"byte":      Slice{Elem: byteType},
 		"binary":    Qualified{Import: importRuntime, Name: "File"},
 		"json":      rawJSON,
 	}

@@ -6,6 +6,7 @@
 package models
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -15,6 +16,9 @@ import (
 )
 
 const deprecatedNote = "Deprecated: the spec marks it deprecated."
+
+// kindNames are the runtime.Kind constants, one per gomodel.JSONKind bit.
+var kindNames = []string{"KindNull", "KindBool", "KindInteger", "KindNumber", "KindString", "KindArray", "KindObject"}
 
 // PartView is the data of one part: its declarations in model order.
 type PartView struct {
@@ -26,6 +30,7 @@ type DeclView struct {
 	Doc        string
 	Name       string
 	IsStruct   bool
+	IsUnion    bool
 	IsEnum     bool
 	IsAlias    bool
 	IsDefined  bool
@@ -33,6 +38,7 @@ type DeclView struct {
 	Fields     []FieldView
 	Values     []ConstView
 	Additional *AdditionalView
+	Union      *UnionView
 }
 
 // FieldView is one struct field; Tag is the whole tag literal.
@@ -47,6 +53,36 @@ type FieldView struct {
 type ConstView struct {
 	Name  string
 	Value string
+}
+
+// UnionView is what a union's variant fields and methods need. Runtime and JSON are the names
+// the packages are imported under, JSON only when shared fields are decoded. Discriminator and
+// Shared are quoted. Check is the runtime function Validate calls, empty for none, and CheckDoc
+// ends the sentence that documents Validate.
+type UnionView struct {
+	Receiver      string
+	Runtime       string
+	JSON          string
+	IsAnyOf       bool
+	Discriminator string
+	Shared        []string
+	Check         string
+	CheckDoc      string
+	Variants      []VariantView
+}
+
+// VariantView is one variant field and what decoding needs to know of it. Kinds are runtime.Kind
+// constant names; Values, Required and Known are quoted. HasKnown writes Known even when empty.
+type VariantView struct {
+	Name      string
+	Type      string
+	Kinds     []string
+	Values    []string
+	IsDefault bool
+	Required  []string
+	Known     []string
+	HasKnown  bool
+	IsClosed  bool
 }
 
 // AdditionalView is what the methods of a struct with additional properties need. Field is the
@@ -64,6 +100,10 @@ type AdditionalView struct {
 func declView(d *gomodel.Decl, s *gocode.Scope) DeclView {
 	v := DeclView{Doc: withDeprecated(d.Doc, d.Deprecated), Name: d.Name}
 	switch {
+	case d.Union != nil:
+		v.IsUnion = true
+		v.Fields, _ = structView(d, s)
+		v.Union = unionView(d, s)
 	case d.Struct != nil:
 		v.IsStruct = true
 		v.Fields, v.Additional = structView(d, s)
@@ -101,15 +141,91 @@ func structView(d *gomodel.Decl, s *gocode.Scope) ([]FieldView, *AdditionalView)
 		return fields, nil
 	}
 
-	first, _ := utf8.DecodeRuneInString(d.Name)
 	return fields, &AdditionalView{
-		Receiver: string(unicode.ToLower(first)),
+		Receiver: receiver(d.Name),
 		Field:    ap.Name,
 		Map:      s.Expr(m),
 		Value:    s.Expr(m.Elem),
 		Known:    known,
 		Runtime:  s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
 	}
+}
+
+func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
+	u := d.Union
+	v := &UnionView{
+		Receiver: receiver(d.Name),
+		Runtime:  s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
+		IsAnyOf:  u.IsAnyOf,
+		Variants: make([]VariantView, len(u.Variants)),
+	}
+	if len(d.Struct.Fields) > 0 {
+		v.JSON = s.Import(gomodel.Import{Path: "encoding/json"})
+	}
+	for _, f := range d.Struct.Fields {
+		v.Shared = append(v.Shared, gocode.Quote(f.JSONName))
+	}
+	if u.Discriminator != "" {
+		v.Discriminator = gocode.Quote(u.Discriminator)
+		if !slices.ContainsFunc(d.Struct.Fields, func(f *gomodel.Field) bool { return f.JSONName == u.Discriminator }) {
+			v.Shared = append(v.Shared, v.Discriminator)
+		}
+	}
+
+	switch {
+	case u.IsAnyOf && u.IsNullable:
+		v.CheckDoc = "accepts any number of variants; none set is null."
+	case u.IsAnyOf:
+		v.Check, v.CheckDoc = "AtLeastOne", "checks that at least one variant is set."
+	case u.IsNullable:
+		v.Check, v.CheckDoc = "AtMostOne", "checks that at most one variant is set; none set is null."
+	default:
+		v.Check, v.CheckDoc = "ExactlyOne", "checks that exactly one variant is set."
+	}
+
+	for i, vr := range u.Variants {
+		v.Variants[i] = VariantView{
+			Name:      vr.Name,
+			Type:      s.Expr(vr.FieldType),
+			Kinds:     kinds(vr.Kinds),
+			Values:    quoteAll(vr.Values),
+			IsDefault: vr.IsDefault,
+			Required:  quoteAll(vr.Required),
+			Known:     quoteAll(vr.Known),
+			HasKnown:  vr.Known != nil,
+			IsClosed:  vr.IsClosed,
+		}
+	}
+	return v
+}
+
+// kinds names the runtime constants of k: KindAny, or one per kind. A variant whose kinds are not
+// known, such as one that loops back to its union, takes any.
+func kinds(k gomodel.JSONKind) []string {
+	if k == gomodel.JSONAny || k == 0 {
+		return []string{"KindAny"}
+	}
+	var out []string
+	for i, name := range kindNames {
+		if k&(1<<i) != 0 {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+func quoteAll(values []string) []string {
+	var out []string
+	for _, v := range values {
+		out = append(out, gocode.Quote(v))
+	}
+	return out
+}
+
+// receiver is the receiver name of the methods of a type: its first letter in lower case.
+func receiver(name string) string {
+	first, _ := utf8.DecodeRuneInString(name)
+	return string(unicode.ToLower(first))
 }
 
 func fieldView(f *gomodel.Field, jsonTag string, s *gocode.Scope) FieldView {
@@ -150,7 +266,7 @@ func isStructValue(t gomodel.Type) bool {
 		if t.Decl.Kind == gomodel.KindAlias {
 			return isStructValue(t.Decl.Target)
 		}
-		return t.Decl.Kind == gomodel.KindStruct
+		return t.Decl.Kind == gomodel.KindStruct || t.Decl.Kind == gomodel.KindUnion
 	}
 	return false
 }

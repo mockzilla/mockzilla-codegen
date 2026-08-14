@@ -1,0 +1,84 @@
+type {{.Name}} struct {
+{{- range .Fields}}
+{{- with .Doc}}
+{{comment .}}
+{{- end}}
+	{{.Name}} {{.Type}} {{.Tag}}
+{{- end}}
+{{- range .Union.Variants}}
+	{{.Name}} {{.Type}} `json:"-"`
+{{- end}}
+}
+{{- with .Union}}
+
+// MarshalJSON writes the variants that are set{{if .JSON}}, merged with the shared properties{{end}}.
+func ({{.Receiver}} {{$.Name}}) MarshalJSON() ([]byte, error) {
+	var set []any
+{{- range .Variants}}
+	if {{$.Union.Receiver}}.{{.Name}} != nil {
+		set = append(set, {{$.Union.Receiver}}.{{.Name}})
+	}
+{{- end}}
+{{- if .JSON}}
+	type plain {{$.Name}}
+	return {{.Runtime}}.MarshalUnion(plain({{.Receiver}}), set...)
+{{- else}}
+	return {{.Runtime}}.MarshalUnion(nil, set...)
+{{- end}}
+}
+
+// UnmarshalJSON sets the variants data matches{{if .JSON}}, and the shared properties{{end}}.
+func ({{.Receiver}} *{{$.Name}}) UnmarshalJSON(data []byte) error {
+	*{{.Receiver}} = {{$.Name}}{}
+{{- if .JSON}}
+	type plain {{$.Name}}
+	if err := {{.JSON}}.Unmarshal(data, (*plain)({{.Receiver}})); err != nil {
+		return err
+	}
+{{- end}}
+	return {{.Runtime}}.UnmarshalUnion(data, {{.Runtime}}.Union{
+{{- if .IsAnyOf}}
+		IsAnyOf: true,
+{{- end}}
+{{- with .Discriminator}}
+		Discriminator: {{.}},
+{{- end}}
+{{- with .Shared}}
+		Shared: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },
+{{- end}}
+		Variants: []{{.Runtime}}.Variant{
+{{- range .Variants}}
+			{
+				Name: {{quote .Name}},
+				Kind: {{range $i, $k := .Kinds}}{{if $i}} | {{end}}{{$.Union.Runtime}}.{{$k}}{{end}},
+{{- with .Values}}
+				Values: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },
+{{- end}}
+{{- if .IsDefault}}
+				IsDefault: true,
+{{- end}}
+{{- with .Required}}
+				Required: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },
+{{- end}}
+{{- if .HasKnown}}
+				Known: []string{ {{- range $i, $v := .Known}}{{if $i}}, {{end}}{{$v}}{{end -}} },
+{{- end}}
+{{- if .IsClosed}}
+				IsClosed: true,
+{{- end}}
+				Into: {{$.Union.Runtime}}.Into(&{{$.Union.Receiver}}.{{.Name}}),
+			},
+{{- end}}
+		},
+	})
+}
+
+// Validate {{.CheckDoc}}
+func ({{.Receiver}} {{$.Name}}) Validate() error {
+{{- if .Check}}
+	return {{.Runtime}}.{{.Check}}({{range $i, $v := .Variants}}{{if $i}}, {{end}}{{$.Union.Receiver}}.{{$v.Name}} != nil{{end}})
+{{- else}}
+	return nil
+{{- end}}
+}
+{{- end}}

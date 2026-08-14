@@ -1,0 +1,59 @@
+openapi: 3.1.0
+info: {title: discriminators, version: "1"}
+paths: {}
+components:
+  schemas:
+    Card:
+      type: object
+      required: [type, number]
+      properties:
+        type: {type: string}
+        number: {type: string}
+    Bank:
+      type: object
+      required: [type, iban]
+      properties:
+        type: {type: string}
+        iban: {type: string}
+    Wallet:
+      type: object
+      required: [type]
+      properties:
+        type: {type: string, const: wallet}
+        provider: {type: string}
+    Unknown:
+      type: object
+      properties:
+        type: {type: string}
+    Payment:
+      description: Explicit mapping for card, the implicit component name for Bank, a const for Wallet.
+      oneOf:
+        - $ref: '#/components/schemas/Card'
+        - $ref: '#/components/schemas/Bank'
+        - $ref: '#/components/schemas/Wallet'
+      discriminator:
+        propertyName: type
+        mapping:
+          card: '#/components/schemas/Card'
+          credit_card: '#/components/schemas/Card'
+    Tolerant:
+      description: Any other type value falls back to Unknown.
+      oneOf:
+        - $ref: '#/components/schemas/Card'
+        - $ref: '#/components/schemas/Unknown'
+      discriminator:
+        propertyName: type
+        mapping:
+          card: '#/components/schemas/Card'
+        defaultMapping: '#/components/schemas/Unknown'
+    Inline:
+      oneOf:
+        - type: object
+          properties:
+            kind: {const: circle}
+            radius: {type: number}
+        - type: object
+          properties:
+            kind: {const: square}
+            side: {type: number}
+      discriminator: {propertyName: kind}

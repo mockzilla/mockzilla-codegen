@@ -13,7 +13,9 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
-var kindWords = map[DeclKind]string{KindStruct: "struct", KindAlias: "alias", KindDefined: "defined", KindEnum: "enum"}
+var kindWords = map[DeclKind]string{KindStruct: "struct", KindAlias: "alias", KindDefined: "defined", KindEnum: "enum", KindUnion: "union"}
+
+var jsonWords = []string{"null", "boolean", "integer", "number", "string", "array", "object"}
 
 // Dump writes a model as plain text for tests and debugging. It is not Go source.
 func Dump(m *Model) string {
@@ -49,15 +51,68 @@ func dumpDecl(b *strings.Builder, d *Decl) {
 			b.WriteString("  " + v.Name + " " + valueLiteral(v.Value) + "\n")
 		}
 	}
-	if d.Struct == nil {
-		return
+	if d.Struct != nil {
+		for _, f := range d.Struct.Fields {
+			dumpField(b, f)
+		}
+		if f := d.Struct.AdditionalProperties; f != nil {
+			dumpField(b, f)
+		}
 	}
-	for _, f := range d.Struct.Fields {
-		dumpField(b, f)
+	if d.Union != nil {
+		dumpUnion(b, d.Union)
 	}
-	if f := d.Struct.AdditionalProperties; f != nil {
-		dumpField(b, f)
+}
+
+func dumpUnion(b *strings.Builder, u *Union) {
+	b.WriteString("  |")
+	for _, flag := range []struct {
+		isSet bool
+		word  string
+	}{
+		{!u.IsAnyOf, "oneOf"},
+		{u.IsAnyOf, "anyOf"},
+		{u.IsNullable, "nullable"},
+		{u.Discriminator != "", "discriminator=" + u.Discriminator},
+	} {
+		if flag.isSet {
+			b.WriteString(" " + flag.word)
+		}
 	}
+	b.WriteString("\n")
+
+	for _, v := range u.Variants {
+		b.WriteString("  | " + v.Name + " " + typeText(v.FieldType) + " kinds=" + kindsText(v.Kinds))
+		if len(v.Values) > 0 {
+			b.WriteString(" values=" + strings.Join(v.Values, ","))
+		}
+		if v.IsDefault {
+			b.WriteString(" default")
+		}
+		if len(v.Required) > 0 {
+			b.WriteString(" required=" + strings.Join(v.Required, ","))
+		}
+		if v.Known != nil {
+			b.WriteString(" known=" + strings.Join(v.Known, ","))
+		}
+		if v.IsClosed {
+			b.WriteString(" closed")
+		}
+		b.WriteString("\n")
+	}
+}
+
+func kindsText(k JSONKind) string {
+	if k == JSONAny {
+		return "any"
+	}
+	var words []string
+	for i, w := range jsonWords {
+		if k&(1<<i) != 0 {
+			words = append(words, w)
+		}
+	}
+	return strings.Join(words, "|")
 }
 
 func dumpField(b *strings.Builder, f *Field) {

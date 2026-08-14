@@ -7,6 +7,8 @@ package models
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -169,4 +171,69 @@ func TestJSONValue(t *testing.T) {
 			assert.Equal(t, tc.want, jsonValue(&tc.field))
 		})
 	}
+}
+
+// TestViewRendersUnions compares with testdata/unions.golden. UPDATE=1 writes it instead.
+func TestViewRendersUnions(t *testing.T) {
+	t.Parallel()
+
+	str := gomodel.Builtin{Name: "string"}
+	at := gomodel.Qualified{Import: gomodel.Import{Path: "time"}, Name: "Time"}
+	cat := &gomodel.Decl{Name: "Cat", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}
+	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
+		Variants: []*gomodel.Variant{
+			{Name: "Cat", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: cat}}, Kinds: gomodel.JSONObject, Required: []string{"meow"}, Known: []string{"meow", "name"}},
+			{Name: "Float", FieldType: gomodel.Pointer{Elem: gomodel.Builtin{Name: "float64"}}, Kinds: gomodel.JSONInteger | gomodel.JSONNumber},
+		},
+	}}
+	stamp := &gomodel.Decl{Name: "Stamp", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
+		IsAnyOf:    true,
+		IsNullable: true,
+		Variants: []*gomodel.Variant{
+			{Name: "Time", FieldType: gomodel.Pointer{Elem: at}, Kinds: gomodel.JSONString},
+			{Name: "Any", FieldType: gomodel.Builtin{Name: "any"}, Kinds: gomodel.JSONAny},
+			{Name: "Loop", FieldType: gomodel.Pointer{Elem: str}},
+		},
+	}}
+	contact := &gomodel.Decl{Name: "Contact", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Doc: "A contact.", Struct: &gomodel.Struct{
+		Fields: []*gomodel.Field{{Name: "ID", JSONName: "id", Type: str}},
+	}, Union: &gomodel.Union{
+		IsNullable:    true,
+		Discriminator: "kind",
+		Variants: []*gomodel.Variant{
+			{Name: "Email", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONObject, Values: []string{"email", "mail"}, Known: []string{}, IsClosed: true},
+			{Name: "Other", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONObject, IsDefault: true},
+		},
+	}}
+	person := &gomodel.Decl{Name: "Person", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{
+		Fields: []*gomodel.Field{{Name: "Kind", JSONName: "kind", Type: str}},
+	}, Union: &gomodel.Union{
+		IsAnyOf:       true,
+		Discriminator: "kind",
+		Variants:      []*gomodel.Variant{{Name: "Name", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}},
+	}}
+	g := New(&gomodel.Model{Decls: []*gomodel.Decl{cat, pet, stamp, contact, person}})
+	s := scope(t, g)
+	e, err := render.New([]render.Set{Templates()}, render.Options{Format: true})
+	require.NoError(t, err)
+
+	data := render.FileData{Package: "api"}
+	for _, part := range s.File.Parts {
+		out, partErr := e.RenderPart(part, g.View(part, s))
+		require.NoError(t, partErr)
+		data.Parts = append(data.Parts, string(out))
+	}
+	data.Imports = s.Imports.Decl()
+	got, err := e.RenderFile(data)
+	require.NoError(t, err)
+
+	path := filepath.Join("testdata", "unions.golden")
+	if os.Getenv("UPDATE") != "" {
+		require.NoError(t, os.MkdirAll("testdata", 0o755))
+		require.NoError(t, os.WriteFile(path, got, 0o644))
+		return
+	}
+	want, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, string(want), string(got))
 }

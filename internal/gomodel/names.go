@@ -98,6 +98,23 @@ func resolveFields(d *Decl, n *naming.Namer, c *diag.Collector) {
 	}
 }
 
+// resolveVariants names the fields of union variants after the shared fields, which keep theirs.
+func resolveVariants(d *Decl, c *diag.Collector) {
+	reserved := slices.Clone(structMethods)
+	for _, f := range d.Struct.Fields {
+		reserved = append(reserved, f.Name)
+	}
+
+	reqs := make([]naming.Request, len(d.Union.Variants))
+	for i, v := range d.Union.Variants {
+		reqs[i] = naming.Request{ID: variantID(d, i), Want: v.Name, Rank: naming.RankInline, Order: i, Origin: v.Origin}
+	}
+	res := resolve(reserved, reqs, c)
+	for i, v := range d.Union.Variants {
+		v.Name = res.Names[variantID(d, i)]
+	}
+}
+
 // resolveConstants names enum constants once every type has its name: a constant is named after
 // its type and must not take a type's name.
 func resolveConstants(decls []*Decl, reserved []string, opts Options, c *diag.Collector) {
@@ -136,6 +153,10 @@ func resolve(reserved []string, reqs []naming.Request, c *diag.Collector) naming
 
 func fieldID(d *Decl, f *Field) string {
 	return d.ID + "/properties/" + oasdoc.Escape(f.JSONName)
+}
+
+func variantID(d *Decl, i int) string {
+	return d.ID + "/variants/" + strconv.Itoa(i)
 }
 
 func constID(d *Decl, i int) string {
