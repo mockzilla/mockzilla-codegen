@@ -1,0 +1,89 @@
+openapi: 3.1.0
+info: {title: validation, version: "1"}
+paths: {}
+components:
+  schemas:
+    Name:
+      type: string
+      minLength: 1
+      maxLength: 20
+      pattern: '^[A-Z]'
+    Pet:
+      type: object
+      required: [id, name, tags, kind]
+      properties:
+        id: {type: string, format: uuid, readOnly: true}
+        name: {$ref: '#/components/schemas/Name'}
+        nick:
+          allOf:
+            - $ref: '#/components/schemas/Name'
+            - maxLength: 10
+        age: {type: integer, minimum: 0, exclusiveMaximum: 30, multipleOf: 1}
+        weight: {type: number, minimum: 0.5}
+        tags:
+          type: array
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+          items: {type: string, pattern: '^[a-z]+$'}
+        owners: {type: array, uniqueItems: true, items: {$ref: '#/components/schemas/Owner'}}
+        labels:
+          type: object
+          minProperties: 1
+          maxProperties: 3
+          additionalProperties: {type: string, maxLength: 5}
+        kind: {type: string, const: pet}
+        count: {type: integer, const: 2}
+        ratio: {type: integer, const: 2.5}
+        flag: {type: boolean, const: true}
+        email: {type: string, format: email}
+        site: {type: string, format: uri}
+        born: {type: string, format: date-time}
+        secret: {type: string, writeOnly: true, minLength: 8}
+        grid: {type: array, items: {type: array, items: {type: integer, maximum: 9}}}
+        spots: {type: array, items: {type: [string, 'null'], minLength: 2}}
+        ahead: {type: string, pattern: '^(?=a)'}
+        accent: {type: string, pattern: '^\u00e9'}
+        again: {type: string, pattern: '^[a-z]+$'}
+        status: {$ref: '#/components/schemas/Status'}
+        pets: {$ref: '#/components/schemas/Pets'}
+        blob: {type: string, format: byte, minLength: 1}
+        loose: {type: array, minItems: 1}
+        bag: {type: object, minProperties: 1}
+        whatever: {minLength: 1}
+        dates: {type: array, uniqueItems: true, items: {type: string, format: date-time}}
+    Status: {type: string, enum: [a, b]}
+    Pets:
+      type: array
+      maxItems: 3
+      items: {$ref: '#/components/schemas/Pet'}
+    Owner:
+      type: object
+      required: [contacts]
+      properties:
+        contacts: {type: array, readOnly: true, items: {type: string}}
+        pet: {$ref: '#/components/schemas/Pet'}
+      additionalProperties: {$ref: '#/components/schemas/Pet'}
+    Labels:
+      type: object
+      maxProperties: 2
+      additionalProperties: {type: integer, minimum: 1}
+    Choice:
+      oneOf:
+        - {type: string, maxLength: 3}
+        - {type: array, minItems: 1, items: {type: string}}
+        - $ref: '#/components/schemas/Owner'
+    MaybeChoice:
+      anyOf: [{type: string}, {type: integer}, {type: 'null'}]
+    SomeChoice:
+      anyOf: [{type: string}, {type: integer}]
+    NullableChoice:
+      oneOf: [{type: string}, {type: integer}, {type: 'null'}]
+    Inner:
+      type: object
+      properties:
+        a: {type: string}
+    Wrapper:
+      type: object
+      properties:
+        inner: {$ref: '#/components/schemas/Inner'}

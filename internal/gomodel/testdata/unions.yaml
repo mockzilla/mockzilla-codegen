@@ -185,3 +185,5 @@ components:
       allOf:
         - $ref: '#/components/schemas/Only'
         - {type: object, properties: {x: {type: string}}}
+    Flag:
+      type: [boolean, string]

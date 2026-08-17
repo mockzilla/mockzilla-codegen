@@ -48,6 +48,7 @@ func (b *builder) build(list []*pending, ops []*Operation) []*Decl {
 	decls := make([]*Decl, len(list))
 	for i, p := range list {
 		decls[i] = p.decl
+		p.decl.schema = p.schema
 		if p.schema != nil {
 			b.decls[p.schema] = p.decl
 		}
@@ -113,7 +114,7 @@ func (b *builder) fillStruct(d *Decl, f *spec.Schema) {
 		}
 	}
 	d.Struct = st
-	resolveFields(d, b.opts.Namer, b.diags)
+	resolveFields(d, b.opts.Namer, b.methods(d), b.diags)
 }
 
 // fillUnion makes one variant per member, next to the properties every member shares. Members of
@@ -156,11 +157,23 @@ func (b *builder) fillUnion(d *Decl, f *spec.Schema) {
 		if _, isInline := b.decls[m.schema]; isInline {
 			name = b.opts.Namer.Exported(m.suffix)
 		}
-		u.Variants = append(u.Variants, &Variant{Name: name, Type: t, Values: m.values, IsDefault: m.isDefault, Origin: origin(m.schema.Origin)})
+		u.Variants = append(u.Variants, &Variant{Name: name, Type: t, Values: m.values, IsDefault: m.isDefault, Origin: origin(m.schema.Origin), schema: m.schema})
 	}
 	d.Struct, d.Union = st, u
-	resolveFields(d, b.opts.Namer, b.diags)
-	resolveVariants(d, b.diags)
+	resolveFields(d, b.opts.Namer, b.methods(d), b.diags)
+	resolveVariants(d, b.methods(d), b.diags)
+}
+
+// methods are the methods generated on d, which its fields cannot be named after.
+func (b *builder) methods(d *Decl) []string {
+	out := slices.Clone(structMethods)
+	if b.opts.ValidateResponse {
+		out = append(out, "ValidateResponse")
+	}
+	if _, isError := b.opts.ErrorMapping[d.Name]; isError {
+		out = append(out, "Error")
+	}
+	return out
 }
 
 // fields makes one field per property of f.
@@ -175,6 +188,7 @@ func (b *builder) fields(d *Decl, f *spec.Schema) []*Field {
 			WriteOnly:  b.inChain(p.Schema, func(x *spec.Schema) bool { return x.WriteOnly }),
 			Deprecated: slices.ContainsFunc(siblings(p.Schema), func(x *spec.Schema) bool { return x.Deprecated }),
 			Origin:     origin(p.Schema.Origin),
+			schema:     p.Schema,
 		}
 		if b.opts.Descriptions {
 			fd.Doc = description(p.Schema)
@@ -199,6 +213,7 @@ func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
 			OmitEmpty:  !p.Required,
 			Deprecated: p.Deprecated,
 			Origin:     origin(p.Origin),
+			schema:     s,
 		}
 		if b.opts.Descriptions {
 			fd.Doc = p.Description
@@ -212,7 +227,7 @@ func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
 		b.plan(d, fd, t)
 		d.Struct.Fields = append(d.Struct.Fields, fd)
 	}
-	resolveFields(d, b.opts.Namer, b.diags)
+	resolveFields(d, b.opts.Namer, b.methods(d), b.diags)
 }
 
 func (b *builder) enumOf(d *Decl, f *spec.Schema) *Enum {

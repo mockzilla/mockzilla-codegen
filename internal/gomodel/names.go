@@ -81,11 +81,11 @@ func resolveTypes(list []*pending, reserved []string, c *diag.Collector) []strin
 	return taken[len(reserved):]
 }
 
-// resolveFields names struct fields against the methods the struct gets.
-func resolveFields(d *Decl, n *naming.Namer, c *diag.Collector) {
-	reserved := structMethods
+// resolveFields names struct fields against methods, the methods the struct gets.
+func resolveFields(d *Decl, n *naming.Namer, methods []string, c *diag.Collector) {
+	reserved := methods
 	if d.Struct.AdditionalProperties != nil {
-		reserved = slices.Concat(structMethods, additionalMethods)
+		reserved = slices.Concat(methods, additionalMethods)
 	}
 
 	reqs := make([]naming.Request, len(d.Struct.Fields))
@@ -99,8 +99,8 @@ func resolveFields(d *Decl, n *naming.Namer, c *diag.Collector) {
 }
 
 // resolveVariants names the fields of union variants after the shared fields, which keep theirs.
-func resolveVariants(d *Decl, c *diag.Collector) {
-	reserved := slices.Clone(structMethods)
+func resolveVariants(d *Decl, methods []string, c *diag.Collector) {
+	reserved := slices.Clone(methods)
 	for _, f := range d.Struct.Fields {
 		reserved = append(reserved, f.Name)
 	}

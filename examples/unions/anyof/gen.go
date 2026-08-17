@@ -60,9 +60,11 @@ func (p *Person) UnmarshalJSON(data []byte) error {
 	})
 }
 
-// Validate checks that at least one variant is set.
+// Validate checks the value against the constraints of the spec.
 func (p Person) Validate() error {
-	return runtime.AtLeastOne(p.Named != nil, p.Aged != nil)
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.AtLeastOne(p.Named != nil, p.Aged != nil))
+	return errs.Err()
 }
 
 type Stamp struct {
@@ -100,9 +102,4 @@ func (s *Stamp) UnmarshalJSON(data []byte) error {
 			},
 		},
 	})
-}
-
-// Validate accepts any number of variants; none set is null.
-func (s Stamp) Validate() error {
-	return nil
 }

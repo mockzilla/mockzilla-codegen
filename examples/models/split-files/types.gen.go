@@ -2,10 +2,22 @@
 
 package orders
 
+import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+
+// Fails to compile when the runtime package does not match the codegen version that wrote this file.
+const _ = runtime.SupportsGeneratorV1
+
 type Order struct {
 	ID     string           `json:"id"`
 	Status Status           `json:"status"`
 	Items  []OrderItemsItem `json:"items,omitempty"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (o Order) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("status", o.Status.Validate())
+	return errs.Err()
 }
 
 type OrderItemsItem struct {

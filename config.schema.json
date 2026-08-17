@@ -95,7 +95,7 @@
           "description": "Generated Validate methods.",
           "properties": {
             "response": {
-              "description": "Also validate response-only types.",
+              "description": "Also generate ValidateResponse where readOnly and writeOnly fields make a response check other things than a request.",
               "type": "boolean"
             },
             "skip": {

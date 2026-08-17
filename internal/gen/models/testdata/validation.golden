@@ -1,0 +1,231 @@
+package api
+
+import (
+	"regexp"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+)
+
+var (
+	patternPetCode = regexp.MustCompile(`^[A-Z]+$`)
+)
+
+type Owner struct {
+	ID string `json:"id"`
+}
+
+// Validate checks the value against the constraints of the spec, as a request carries it.
+func (o Owner) Validate() error {
+	return nil
+}
+
+// ValidateResponse checks the value against the constraints of the spec, as a response carries it.
+func (o Owner) ValidateResponse() error {
+	var errs runtime.ValidationErrors
+	errs.Append("id", runtime.Format(o.ID, "uuid"))
+	return errs.Err()
+}
+
+type Empty struct{}
+
+// Validate checks the value against the constraints of the spec.
+func (e Empty) Validate() error {
+	return nil
+}
+
+type Pet struct {
+	Name   string            `json:"name"`
+	Code   *string           `json:"code"`
+	Weight float64           `json:"weight"`
+	Tags   []string          `json:"tags"`
+	Grid   [][]float64       `json:"grid"`
+	Labels map[string]string `json:"labels"`
+	Owner  *Owner            `json:"owner"`
+	Secret string            `json:"secret"`
+}
+
+// Validate checks the value against the constraints of the spec, as a request carries it.
+func (p Pet) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("name", runtime.MinLength(p.Name, 1))
+	errs.Append("name", runtime.MaxLength(p.Name, 9))
+	errs.Append("name", runtime.Const(p.Name, "Rex"))
+	if p.Code != nil {
+		errs.Append("code", runtime.Pattern(*p.Code, patternPetCode))
+	}
+	errs.Append("weight", runtime.Minimum(p.Weight, 0, true))
+	errs.Append("weight", runtime.Maximum(p.Weight, 9.5, false))
+	errs.Append("weight", runtime.MultipleOf(p.Weight, 0.5))
+	if p.Tags == nil {
+		errs.Add("tags", "is required")
+	}
+	if p.Tags != nil {
+		errs.Append("tags", runtime.MinItems(p.Tags, 1))
+		errs.Append("tags", runtime.MaxItems(p.Tags, 3))
+		errs.Append("tags", runtime.Unique(p.Tags))
+	}
+	if p.Grid != nil {
+		errs.Append("grid", runtime.UniqueJSON(p.Grid))
+		for idx, item := range p.Grid {
+			for idx2, item2 := range item {
+				errs.Append(runtime.Index(runtime.Index("grid", idx), idx2), runtime.Minimum(item2, 0, false))
+			}
+		}
+	}
+	if p.Labels != nil {
+		errs.Append("labels", runtime.MinProperties(p.Labels, 1))
+		errs.Append("labels", runtime.MaxProperties(p.Labels, 2))
+		for _, key := range runtime.SortedKeys(p.Labels) {
+			item := p.Labels[key]
+			errs.Append(runtime.Key("labels", key), runtime.MinLength(item, 1))
+		}
+	}
+	if p.Owner != nil {
+		errs.Append("owner", p.Owner.Validate())
+	}
+	errs.Append("secret", runtime.MinLength(p.Secret, 8))
+	return errs.Err()
+}
+
+// ValidateResponse checks the value against the constraints of the spec, as a response carries it.
+func (p Pet) ValidateResponse() error {
+	var errs runtime.ValidationErrors
+	errs.Append("name", runtime.MinLength(p.Name, 1))
+	errs.Append("name", runtime.MaxLength(p.Name, 9))
+	errs.Append("name", runtime.Const(p.Name, "Rex"))
+	if p.Code != nil {
+		errs.Append("code", runtime.Pattern(*p.Code, patternPetCode))
+	}
+	errs.Append("weight", runtime.Minimum(p.Weight, 0, true))
+	errs.Append("weight", runtime.Maximum(p.Weight, 9.5, false))
+	errs.Append("weight", runtime.MultipleOf(p.Weight, 0.5))
+	if p.Tags == nil {
+		errs.Add("tags", "is required")
+	}
+	if p.Tags != nil {
+		errs.Append("tags", runtime.MinItems(p.Tags, 1))
+		errs.Append("tags", runtime.MaxItems(p.Tags, 3))
+		errs.Append("tags", runtime.Unique(p.Tags))
+	}
+	if p.Grid != nil {
+		errs.Append("grid", runtime.UniqueJSON(p.Grid))
+		for idx, item := range p.Grid {
+			for idx2, item2 := range item {
+				errs.Append(runtime.Index(runtime.Index("grid", idx), idx2), runtime.Minimum(item2, 0, false))
+			}
+		}
+	}
+	if p.Labels != nil {
+		errs.Append("labels", runtime.MinProperties(p.Labels, 1))
+		errs.Append("labels", runtime.MaxProperties(p.Labels, 2))
+		for _, key := range runtime.SortedKeys(p.Labels) {
+			item := p.Labels[key]
+			errs.Append(runtime.Key("labels", key), runtime.MinLength(item, 1))
+		}
+	}
+	if p.Owner != nil {
+		errs.Append("owner", p.Owner.ValidateResponse())
+	}
+	return errs.Err()
+}
+
+type Pets []Pet
+
+// Validate checks the value against the constraints of the spec, as a request carries it.
+func (p Pets) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.MaxItems(p, 2))
+	for idx, item := range p {
+		errs.Append(runtime.Index("", idx), item.Validate())
+	}
+	return errs.Err()
+}
+
+// ValidateResponse checks the value against the constraints of the spec, as a response carries it.
+func (p Pets) ValidateResponse() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.MaxItems(p, 2))
+	for idx, item := range p {
+		errs.Append(runtime.Index("", idx), item.ValidateResponse())
+	}
+	return errs.Err()
+}
+
+type Problem struct {
+	Message string `json:"message"`
+}
+
+// Error returns the message at message.
+func (p Problem) Error() string {
+	return runtime.ErrorMessage(p, "message", "Problem")
+}
+
+// NewProblem returns a Problem with message at message.
+func NewProblem(message string) Problem {
+	var p Problem
+	_ = runtime.SetErrorMessage(&p, "message", message)
+	return p
+}
+
+type Status string
+
+const (
+	StatusOn  Status = "on"
+	StatusOff Status = "off"
+)
+
+// Validate checks the value against the constraints of the spec.
+func (s Status) Validate() error {
+	return runtime.OneOf(s, StatusOn, StatusOff)
+}
+
+type Choice struct {
+	Status *Status  `json:"-"`
+	Number *float64 `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set.
+func (c Choice) MarshalJSON() ([]byte, error) {
+	var set []any
+	if c.Status != nil {
+		set = append(set, c.Status)
+	}
+	if c.Number != nil {
+		set = append(set, c.Number)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets the variants data matches.
+func (c *Choice) UnmarshalJSON(data []byte) error {
+	*c = Choice{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name: "Status",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&c.Status),
+			},
+			{
+				Name: "Number",
+				Kind: runtime.KindNumber,
+				Into: runtime.Into(&c.Number),
+			},
+		},
+	})
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c Choice) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(c.Status != nil, c.Number != nil))
+	if c.Status != nil {
+		errs.Append("", c.Status.Validate())
+	}
+	return errs.Err()
+}
+
+// Error returns the message at detail.
+func (c Choice) Error() string {
+	return runtime.ErrorMessage(c, "detail", "Choice")
+}

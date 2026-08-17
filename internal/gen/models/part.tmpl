@@ -1,3 +1,10 @@
+{{- with .Patterns}}
+var (
+{{- range .}}
+	{{.Name}} = {{.Regexp}}.MustCompile({{.Source}})
+{{- end}}
+)
+{{end}}
 {{- range .Decls}}
 {{with .Doc}}{{comment .}}
 {{end}}
@@ -8,5 +15,9 @@
 {{- else}}{{template "models/defined.tmpl" .}}
 {{- end}}
 {{if .Additional}}{{template "models/additional.tmpl" .}}
+{{end}}
+{{- if .Validate}}{{template "models/validate.tmpl" .}}
+{{end}}
+{{- if .Error}}{{template "models/error.tmpl" .}}
 {{end}}
 {{- end}}

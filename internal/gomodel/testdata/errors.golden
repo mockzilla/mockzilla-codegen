@@ -1,0 +1,40 @@
+ErrorResponse struct models.types
+  Error2 *ErrorResponseError json=error omitempty
+  ! error error.message constructor
+ErrorResponseError struct models.types
+  Message *string json=message omitempty
+  Code *int json=code omitempty
+  ! error code
+DetailError struct models.types
+  Details []DetailErrorDetailsItem json=details omitempty
+  ! error details[].text constructor
+DetailErrorDetailsItem struct models.types
+  Text *string json=text omitempty
+Problem union models.unions
+  | oneOf
+  | Option1 *ProblemOption1 kinds=object known=message
+  | Option2 *ProblemOption2 kinds=object known=detail
+  ! error detail
+ProblemOption1 struct models.types
+  Message *string json=message omitempty
+ProblemOption2 struct models.types
+  Detail *string json=detail omitempty
+Plain struct models.types
+  Error2 *string json=error omitempty
+  ! error error constructor
+Problems defined []ProblemsItem models.types
+ProblemsItem struct models.types
+  Text *string json=text omitempty
+ListedError struct models.types
+  Problems Problems json=problems omitempty
+  ! error problems[].text constructor
+Status enum string models.enums
+  StatusA "a"
+  StatusB "b"
+---
+warning error-mapping 0:0 : models.error-mapping names Missing, which is no generated struct or union
+warning error-mapping 0:0 : models.error-mapping names Status, which is no generated struct or union
+info name-clash 10:11 /components/schemas/ErrorResponse/properties/error: "Error" is reserved, renamed to "Error2"
+warning error-mapping 19:18 /components/schemas/DetailError/properties/details/items: DetailErrorDetailsItem has no property at text[]; it gets no Error method
+warning error-mapping 23:11 /components/schemas/Problem/oneOf/1: ProblemOption2 has no property at nope; it gets no Error method
+info name-clash 27:16 /components/schemas/Plain/properties/error: "Error" is reserved, renamed to "Error2"

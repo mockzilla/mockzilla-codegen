@@ -73,7 +73,9 @@ func (c *Contact) UnmarshalJSON(data []byte) error {
 	})
 }
 
-// Validate checks that exactly one variant is set.
+// Validate checks the value against the constraints of the spec.
 func (c Contact) Validate() error {
-	return runtime.ExactlyOne(c.Email != nil, c.Phone != nil)
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(c.Email != nil, c.Phone != nil))
+	return errs.Err()
 }

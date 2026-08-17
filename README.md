@@ -11,8 +11,10 @@ Status: early development. The config format and the generated API may still cha
   ([naming rules](docs/naming.md)).
 - Pointers only where a value can be missing or null, and `allOf` merged into one struct
   ([type rules](docs/types.md)).
-- One shape for `oneOf`/`anyOf` unions, whatever the number of variants.
-- Plain Go validation code, no reflection.
+- One shape for `oneOf`/`anyOf` unions, whatever the number of variants
+  ([unions](docs/types.md#unions)).
+- Plain Go validation code, no reflection ([validation](docs/validation.md)).
+- Response types that are Go errors, with a message path you choose ([error types](docs/errors.md)).
 - Filters, overlays, pruning and spec simplification before generation.
 
 ## Getting started

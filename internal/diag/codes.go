@@ -26,6 +26,8 @@ const (
 	CodeNameClash           = "name-clash"
 	CodeUnionDuplicate      = "union-duplicate"
 	CodeUnionSelf           = "union-self"
+	CodePatternUnsupported  = "pattern-unsupported"
+	CodeErrorMapping        = "error-mapping"
 	CodeEnumIgnored         = "enum-ignored"
 	CodeEnumValue           = "enum-value"
 	CodeAllOfConflict       = "allof-conflict"

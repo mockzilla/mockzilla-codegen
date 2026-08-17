@@ -1,0 +1,17 @@
+{{- with .Validate}}
+// Validate checks the value against the constraints of the spec{{if .Response}}, as a request carries it{{end}}.
+func ({{.Receiver}} {{$.Name}}) Validate() error {
+{{- if .Enum}}
+	return {{.Runtime}}.OneOf({{.Receiver}}{{range .Enum}}, {{.}}{{end}})
+{{- else}}
+{{- template "models/checks.tmpl" .Request}}
+{{- end}}
+}
+{{- with .Response}}
+
+// ValidateResponse checks the value against the constraints of the spec, as a response carries it.
+func ({{$.Validate.Receiver}} {{$.Name}}) ValidateResponse() error {
+{{- template "models/checks.tmpl" .}}
+}
+{{- end}}
+{{- end}}

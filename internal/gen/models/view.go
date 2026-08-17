@@ -20,9 +20,11 @@ const deprecatedNote = "Deprecated: the spec marks it deprecated."
 // kindNames are the runtime.Kind constants, one per gomodel.JSONKind bit.
 var kindNames = []string{"KindNull", "KindBool", "KindInteger", "KindNumber", "KindString", "KindArray", "KindObject"}
 
-// PartView is the data of one part: its declarations in model order.
+// PartView is the data of one part: the patterns its checks use and its declarations in model
+// order.
 type PartView struct {
-	Decls []DeclView
+	Patterns []PatternView
+	Decls    []DeclView
 }
 
 // DeclView is one declaration. Target is the aliased or underlying type, or the base of an enum.
@@ -39,6 +41,8 @@ type DeclView struct {
 	Values     []ConstView
 	Additional *AdditionalView
 	Union      *UnionView
+	Validate   *ValidateView
+	Error      *ErrorView
 }
 
 // FieldView is one struct field; Tag is the whole tag literal.
@@ -57,8 +61,7 @@ type ConstView struct {
 
 // UnionView is what a union's variant fields and methods need. Runtime and JSON are the names
 // the packages are imported under, JSON only when shared fields are decoded. Discriminator and
-// Shared are quoted. Check is the runtime function Validate calls, empty for none, and CheckDoc
-// ends the sentence that documents Validate.
+// Shared are quoted.
 type UnionView struct {
 	Receiver      string
 	Runtime       string
@@ -66,8 +69,6 @@ type UnionView struct {
 	IsAnyOf       bool
 	Discriminator string
 	Shared        []string
-	Check         string
-	CheckDoc      string
 	Variants      []VariantView
 }
 
@@ -120,6 +121,13 @@ func declView(d *gomodel.Decl, s *gocode.Scope) DeclView {
 		v.IsDefined = true
 		v.Target = s.Expr(d.Target)
 	}
+
+	if d.Validation != nil {
+		v.Validate = validateView(d, s)
+	}
+	if d.Error != nil {
+		v.Error = errorView(d, s)
+	}
 	return v
 }
 
@@ -170,17 +178,6 @@ func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
 		if !slices.ContainsFunc(d.Struct.Fields, func(f *gomodel.Field) bool { return f.JSONName == u.Discriminator }) {
 			v.Shared = append(v.Shared, v.Discriminator)
 		}
-	}
-
-	switch {
-	case u.IsAnyOf && u.IsNullable:
-		v.CheckDoc = "accepts any number of variants; none set is null."
-	case u.IsAnyOf:
-		v.Check, v.CheckDoc = "AtLeastOne", "checks that at least one variant is set."
-	case u.IsNullable:
-		v.Check, v.CheckDoc = "AtMostOne", "checks that at most one variant is set; none set is null."
-	default:
-		v.Check, v.CheckDoc = "ExactlyOne", "checks that exactly one variant is set."
 	}
 
 	for i, vr := range u.Variants {

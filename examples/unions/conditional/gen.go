@@ -74,7 +74,9 @@ func (s *Shipping) UnmarshalJSON(data []byte) error {
 	})
 }
 
-// Validate checks that exactly one variant is set.
+// Validate checks the value against the constraints of the spec.
 func (s Shipping) Validate() error {
-	return runtime.ExactlyOne(s.Then != nil, s.Else != nil)
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(s.Then != nil, s.Else != nil))
+	return errs.Err()
 }

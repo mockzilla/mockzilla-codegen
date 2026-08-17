@@ -1,0 +1,12 @@
+{{- if or .Count .Checks}}
+	var errs {{.Runtime}}.ValidationErrors
+{{- with .Count}}
+	errs.Append("", {{.}})
+{{- end}}
+{{- range .Checks}}
+{{- template "models/check.tmpl" .}}
+{{- end}}
+	return errs.Err()
+{{- else}}
+	return nil
+{{- end}}

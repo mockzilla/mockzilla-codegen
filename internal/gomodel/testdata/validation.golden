@@ -1,0 +1,113 @@
+Name alias string models.types
+Pet struct models.types
+  ID string json=id required omitempty readOnly
+  Name Name json=name required
+  Nick *Name json=nick omitempty
+  Age *int json=age omitempty
+  Weight *float64 json=weight omitempty
+  Tags []string json=tags required
+  Owners []Owner json=owners omitempty
+  Labels map[string]string json=labels omitempty
+  Kind string json=kind required
+  Count *int json=count omitempty
+  Ratio *int json=ratio omitempty
+  Flag *bool json=flag omitempty
+  Email *runtime.Email json=email omitempty
+  Site *string json=site omitempty
+  Born *time.Time json=born omitempty
+  Secret *string json=secret omitempty writeOnly
+  Grid [][]int json=grid omitempty
+  Spots []*string json=spots omitempty
+  Ahead *string json=ahead omitempty
+  Accent *string json=accent omitempty
+  Again *string json=again omitempty
+  Status *Status json=status omitempty
+  Pets Pets json=pets omitempty
+  Blob []byte json=blob omitempty
+  Loose []any json=loose omitempty
+  Bag map[string]any json=bag omitempty
+  Whatever any json=whatever omitempty
+  Dates []time.Time json=dates omitempty
+  ? validate response
+  ? ID path=id response-only format(uuid)
+  ? Name path=name minLength(1) maxLength(20) pattern(patternPetName)
+  ? Nick path=nick pointer guarded minLength(1) maxLength(10) pattern(patternPetName)
+  ? Age path=age pointer guarded minimum(0) maximum(30 exclusive) multipleOf(1)
+  ? Weight path=weight pointer guarded minimum(0.5)
+  ? Tags path=tags guarded required minItems(1) maxItems(5) unique()
+  ?   items - path= pattern(patternPetTagsItem)
+  ? Owners path=owners guarded uniqueJSON()
+  ?   items - path= nested
+  ? Labels path=labels guarded minProperties(1) maxProperties(3)
+  ?   values - path= maxLength(5)
+  ? Kind path=kind const("pet")
+  ? Count path=count pointer guarded const(2)
+  ? Flag path=flag pointer guarded const(true)
+  ? Email path=email pointer guarded nested
+  ? Site path=site pointer guarded format(uri)
+  ? Secret path=secret request-only pointer guarded minLength(8)
+  ? Grid path=grid guarded
+  ?   items - path= guarded
+  ?   items   items - path= maximum(9)
+  ? Spots path=spots guarded
+  ?   items - path= pointer guarded minLength(2)
+  ? Accent path=accent pointer guarded pattern(patternPetAccent)
+  ? Again path=again pointer guarded pattern(patternPetTagsItem)
+  ? Status path=status pointer guarded nested
+  ? Pets path=pets guarded nested
+  ? Loose path=loose guarded minItems(1)
+  ? Bag path=bag guarded minProperties(1)
+  ? Dates path=dates guarded uniqueJSON()
+Status enum string models.enums
+  StatusA "a"
+  StatusB "b"
+  ? validate
+Pets defined []Pet models.types
+  ? validate response
+  ? - path= guarded maxItems(3)
+  ?   items - path= nested
+Owner struct models.types
+  Contacts []string json=contacts required omitempty readOnly
+  Pet *Pet json=pet omitempty
+  AdditionalProperties map[string]Pet json=-
+  ? validate response
+  ? Contacts path=contacts response-only guarded required
+  ? Pet path=pet pointer guarded nested
+  ? AdditionalProperties path= guarded
+  ?   values - path= nested
+Labels defined map[string]int models.types
+  ? validate
+  ? - path= guarded maxProperties(2)
+  ?   values - path= minimum(1)
+Choice union models.unions
+  | oneOf
+  | String *string kinds=string
+  | Strings []string kinds=array
+  | Owner *Owner kinds=object required=contacts
+  ? validate count=ExactlyOne response
+  ? String path= pointer guarded maxLength(3)
+  ? Strings path= guarded minItems(1)
+  ? Owner path= pointer guarded nested
+MaybeChoice union models.unions
+  | anyOf nullable
+  | String *string kinds=string
+  | Int *int kinds=integer
+SomeChoice union models.unions
+  | anyOf
+  | String *string kinds=string
+  | Int *int kinds=integer
+  ? validate count=AtLeastOne
+NullableChoice union models.unions
+  | oneOf nullable
+  | String *string kinds=string
+  | Int *int kinds=integer
+  ? validate count=AtMostOne
+Inner struct models.types
+  A *string json=a omitempty
+Wrapper struct models.types
+  Inner *Inner json=inner omitempty
+pattern patternPetName models.types "^[A-Z]"
+pattern patternPetTagsItem models.types "^[a-z]+$"
+pattern patternPetAccent models.types "^\\x{00e9}"
+---
+warning pattern-unsupported 45:16 /components/schemas/Pet/properties/ahead: pattern "^(?=a)" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?=`); it is not checked

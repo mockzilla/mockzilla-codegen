@@ -2,10 +2,24 @@
 
 package orders
 
+import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+
+// Fails to compile when the runtime package does not match the codegen version that wrote this file.
+const _ = runtime.SupportsGeneratorV1
+
 type GetOrderPathParams struct {
 	ID string `json:"id"`
 }
 
 type GetOrderQuery struct {
 	Expand *GetOrderQueryExpand `json:"expand,omitempty"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (g GetOrderQuery) Validate() error {
+	var errs runtime.ValidationErrors
+	if g.Expand != nil {
+		errs.Append("expand", g.Expand.Validate())
+	}
+	return errs.Err()
 }

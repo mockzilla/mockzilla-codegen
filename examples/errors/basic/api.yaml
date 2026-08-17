@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info: {title: error types, version: "1"}
+paths: {}
+components:
+  schemas:
+    SimpleError:
+      type: object
+      required: [message]
+      properties:
+        message: {type: string}
+        code: {type: integer}
+    NestedError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message: {type: string}
+    ListError:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              detail: {type: string}
+    EitherError:
+      oneOf:
+        - type: object
+          required: [title]
+          properties: {title: {type: string}}
+        - type: object
+          required: [reason]
+          properties: {reason: {type: string}}
