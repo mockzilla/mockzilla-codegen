@@ -28,6 +28,20 @@ type Owner struct {
 	Best *Dog                      `json:"best,omitempty"`
 }
 
+// Validate checks the value against the constraints of the spec.
+func (o Owner) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("pet", o.Pet.Validate())
+	for idx, item := range o.Pets {
+		errs.Append(runtime.Index("pets", idx), item.Validate())
+	}
+	for _, key := range runtime.SortedKeys(o.Tags) {
+		item := o.Tags[key]
+		errs.Append(runtime.Key("tags", key), item.Validate())
+	}
+	return errs.Err()
+}
+
 type Pet struct {
 	Cat *Cat `json:"-"`
 	Dog *Dog `json:"-"`
@@ -68,9 +82,11 @@ func (p *Pet) UnmarshalJSON(data []byte) error {
 	})
 }
 
-// Validate checks that exactly one variant is set.
+// Validate checks the value against the constraints of the spec.
 func (p Pet) Validate() error {
-	return runtime.ExactlyOne(p.Cat != nil, p.Dog != nil)
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(p.Cat != nil, p.Dog != nil))
+	return errs.Err()
 }
 
 type Value struct {
@@ -145,9 +161,11 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 	})
 }
 
-// Validate checks that exactly one variant is set.
+// Validate checks the value against the constraints of the spec.
 func (v Value) Validate() error {
-	return runtime.ExactlyOne(v.Time != nil, v.String != nil, v.Int64 != nil, v.Float64 != nil, v.Bool != nil, v.Strings != nil)
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(v.Time != nil, v.String != nil, v.Int64 != nil, v.Float64 != nil, v.Bool != nil, v.Strings != nil))
+	return errs.Err()
 }
 
 type Shape struct {
@@ -186,9 +204,17 @@ func (s *Shape) UnmarshalJSON(data []byte) error {
 	})
 }
 
-// Validate checks that exactly one variant is set.
+// Validate checks the value against the constraints of the spec.
 func (s Shape) Validate() error {
-	return runtime.ExactlyOne(s.Pet != nil, s.Option2 != nil)
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(s.Pet != nil, s.Option2 != nil))
+	if s.Pet != nil {
+		errs.Append("", s.Pet.Validate())
+	}
+	if s.Option2 != nil {
+		errs.Append("", s.Option2.Validate())
+	}
+	return errs.Err()
 }
 
 type ShapeOption2 struct {
@@ -227,9 +253,11 @@ func (s *ShapeOption2) UnmarshalJSON(data []byte) error {
 	})
 }
 
-// Validate checks that exactly one variant is set.
+// Validate checks the value against the constraints of the spec.
 func (s ShapeOption2) Validate() error {
-	return runtime.ExactlyOne(s.String != nil, s.Int != nil)
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(s.String != nil, s.Int != nil))
+	return errs.Err()
 }
 
 type OwnerTagsValue struct {
@@ -268,7 +296,9 @@ func (o *OwnerTagsValue) UnmarshalJSON(data []byte) error {
 	})
 }
 
-// Validate checks that exactly one variant is set.
+// Validate checks the value against the constraints of the spec.
 func (o OwnerTagsValue) Validate() error {
-	return runtime.ExactlyOne(o.String != nil, o.Int != nil)
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(o.String != nil, o.Int != nil))
+	return errs.Err()
 }

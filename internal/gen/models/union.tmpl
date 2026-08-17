@@ -72,13 +72,4 @@ func ({{.Receiver}} *{{$.Name}}) UnmarshalJSON(data []byte) error {
 		},
 	})
 }
-
-// Validate {{.CheckDoc}}
-func ({{.Receiver}} {{$.Name}}) Validate() error {
-{{- if .Check}}
-	return {{.Runtime}}.{{.Check}}({{range $i, $v := .Variants}}{{if $i}}, {{end}}{{$.Union.Receiver}}.{{$v.Name}} != nil{{end}})
-{{- else}}
-	return nil
-{{- end}}
-}
 {{- end}}

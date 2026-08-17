@@ -1,0 +1,26 @@
+openapi: 3.1.0
+info: {title: nested validation, version: "1"}
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, minLength: 1}
+    Owner:
+      type: object
+      required: [pets]
+      properties:
+        pets: {type: array, items: {$ref: '#/components/schemas/Pet'}}
+        best: {$ref: '#/components/schemas/Pet'}
+        byName: {type: object, additionalProperties: {$ref: '#/components/schemas/Pet'}}
+        grid: {type: array, items: {type: array, items: {type: integer, minimum: 0}}}
+        contact:
+          oneOf:
+            - {type: string, format: email}
+            - {type: string, pattern: '^\+[0-9]+$'}
+    Pets:
+      type: array
+      maxItems: 2
+      items: {$ref: '#/components/schemas/Pet'}

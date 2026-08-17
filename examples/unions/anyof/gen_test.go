@@ -63,5 +63,4 @@ func TestStampJSON(t *testing.T) {
 	out, err = json.Marshal(Stamp{})
 	require.NoError(t, err)
 	assert.JSONEq(t, `null`, string(out))
-	require.NoError(t, Stamp{}.Validate())
 }

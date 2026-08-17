@@ -9,6 +9,7 @@ package gomodel
 
 import (
 	"cmp"
+	"maps"
 	"slices"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
@@ -21,6 +22,7 @@ import (
 // the types inside it, then what operations declare.
 type Model struct {
 	Decls      []*Decl
+	Patterns   []*Pattern
 	Operations []*Operation
 }
 
@@ -52,6 +54,8 @@ type Response struct {
 
 // Options are the settings Build uses. Reserved names are declared by the generator elsewhere in
 // the package; each operation also declares its name plus every OperationSuffixes entry.
+// IsValidated adds Validate methods, ValidateResponse where responses differ. ErrorMapping maps
+// error type names to the path of their message.
 type Options struct {
 	IntType           string
 	Descriptions      bool
@@ -60,6 +64,9 @@ type Options struct {
 	Namer             *naming.Namer
 	Reserved          []string
 	OperationSuffixes []string
+	IsValidated       bool
+	ValidateResponse  bool
+	ErrorMapping      map[string]string
 }
 
 // OptionsFrom reads Options from a config. Blocks left out get their defaults.
@@ -67,11 +74,17 @@ func OptionsFrom(cfg *config.Config) Options {
 	n := naming.New(cfg.Naming.Initialisms)
 	models := cmp.Or(cfg.Models, &config.Models{})
 	opts := Options{
-		IntType:      cmp.Or(models.IntType, "int"),
-		Descriptions: models.Descriptions == nil || *models.Descriptions,
-		ExtraTags:    models.ExtraTags,
-		EnumPrefix:   cfg.Naming.EnumPrefix == nil || *cfg.Naming.EnumPrefix,
-		Namer:        n,
+		IntType:          cmp.Or(models.IntType, "int"),
+		Descriptions:     models.Descriptions == nil || *models.Descriptions,
+		ExtraTags:        models.ExtraTags,
+		EnumPrefix:       cfg.Naming.EnumPrefix == nil || *cfg.Naming.EnumPrefix,
+		Namer:            n,
+		IsValidated:      !models.Validation.Skip,
+		ValidateResponse: !models.Validation.Skip && models.Validation.Response,
+		ErrorMapping:     models.ErrorMapping,
+	}
+	for _, name := range slices.Sorted(maps.Keys(models.ErrorMapping)) {
+		opts.Reserved = append(opts.Reserved, "New"+name)
 	}
 
 	if s := cfg.Server; s != nil {
@@ -107,5 +120,11 @@ func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 	b := newBuilder(opts, flat, unions, &diags)
 	decls := b.build(c.pending, ops)
 	resolveConstants(decls, slices.Concat(reserved, types), opts, &diags)
-	return &Model{Decls: decls, Operations: ops}, diags.List()
+
+	var patterns []*Pattern
+	if opts.IsValidated {
+		patterns = newValidator(opts, flat, b.decls, &diags).plan(decls)
+	}
+	resolveErrors(decls, opts.ErrorMapping, &diags)
+	return &Model{Decls: decls, Patterns: patterns, Operations: ops}, diags.List()
 }

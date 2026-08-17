@@ -213,6 +213,14 @@ func TestViewRendersUnions(t *testing.T) {
 		Variants:      []*gomodel.Variant{{Name: "Name", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}},
 	}}
 	g := New(&gomodel.Model{Decls: []*gomodel.Decl{cat, pet, stamp, contact, person}})
+	checkRender(t, g, "unions")
+}
+
+// checkRender renders every part of g into one file and compares it with testdata/<name>.golden.
+// UPDATE=1 writes the file instead.
+func checkRender(t *testing.T, g *Generator, name string) {
+	t.Helper()
+
 	s := scope(t, g)
 	e, err := render.New([]render.Set{Templates()}, render.Options{Format: true})
 	require.NoError(t, err)
@@ -227,9 +235,8 @@ func TestViewRendersUnions(t *testing.T) {
 	got, err := e.RenderFile(data)
 	require.NoError(t, err)
 
-	path := filepath.Join("testdata", "unions.golden")
+	path := filepath.Join("testdata", name+".golden")
 	if os.Getenv("UPDATE") != "" {
-		require.NoError(t, os.MkdirAll("testdata", 0o755))
 		require.NoError(t, os.WriteFile(path, got, 0o644))
 		return
 	}

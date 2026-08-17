@@ -65,15 +65,37 @@ func TestOptionsFrom(t *testing.T) {
 		{
 			name: "Nothing set gives the defaults",
 			cfg:  &config.Config{Naming: config.Naming{Initialisms: []string{"PSP"}}},
-			want: Options{IntType: "int", Descriptions: true, EnumPrefix: true, Namer: n},
+			want: Options{IntType: "int", Descriptions: true, EnumPrefix: true, Namer: n, IsValidated: true},
 		},
 		{
 			name: "Models and naming settings",
 			cfg: &config.Config{
 				Naming: config.Naming{Initialisms: []string{"PSP"}, EnumPrefix: new(false)},
-				Models: &config.Models{IntType: "int64", Descriptions: new(false), ExtraTags: []string{"yaml"}},
+				Models: &config.Models{
+					IntType:      "int64",
+					Descriptions: new(false),
+					ExtraTags:    []string{"yaml"},
+					Validation:   config.ModelValidation{Response: true},
+					ErrorMapping: map[string]string{"Problem": "detail", "Error": "message"},
+				},
 			},
-			want: Options{IntType: "int64", ExtraTags: []string{"yaml"}, Namer: n},
+			want: Options{
+				IntType:          "int64",
+				ExtraTags:        []string{"yaml"},
+				Namer:            n,
+				IsValidated:      true,
+				ValidateResponse: true,
+				ErrorMapping:     map[string]string{"Problem": "detail", "Error": "message"},
+				Reserved:         []string{"NewError", "NewProblem"},
+			},
+		},
+		{
+			name: "Validation skipped",
+			cfg: &config.Config{
+				Naming: config.Naming{Initialisms: []string{"PSP"}},
+				Models: &config.Models{Validation: config.ModelValidation{Skip: true, Response: true}},
+			},
+			want: Options{IntType: "int", Descriptions: true, EnumPrefix: true, Namer: n},
 		},
 		{
 			name: "Server and client names are reserved",
@@ -87,6 +109,7 @@ func TestOptionsFrom(t *testing.T) {
 				Descriptions: true,
 				EnumPrefix:   true,
 				Namer:        n,
+				IsValidated:  true,
 				Reserved: []string{
 					"PetServiceInterface", "NewRouter", "ErrorKind", "HandlerError", "ErrorHandler", "DefaultErrorHandler",
 					"Client", "NewClient", "ClientOption", "ClientInterface", "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithRequestEditor",

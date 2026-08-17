@@ -2,11 +2,31 @@
 
 package recursion
 
+import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+
+// Fails to compile when the runtime package does not match the codegen version that wrote this file.
+const _ = runtime.SupportsGeneratorV1
+
 // A tree node. Children hold nodes by value, so no pointer is needed there.
 type Node struct {
 	Name     string `json:"name"`
 	Parent   *Node  `json:"parent,omitempty"`
 	Children []Node `json:"children"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (n Node) Validate() error {
+	var errs runtime.ValidationErrors
+	if n.Parent != nil {
+		errs.Append("parent", n.Parent.Validate())
+	}
+	if n.Children == nil {
+		errs.Add("children", "is required")
+	}
+	for idx, item := range n.Children {
+		errs.Append(runtime.Index("children", idx), item.Validate())
+	}
+	return errs.Err()
 }
 
 // A linked list. A required self reference still needs a pointer.
@@ -15,12 +35,48 @@ type Item struct {
 	Next  *Item  `json:"next"`
 }
 
+// Validate checks the value against the constraints of the spec.
+func (i Item) Validate() error {
+	var errs runtime.ValidationErrors
+	if i.Next == nil {
+		errs.Add("next", "is required")
+	}
+	if i.Next != nil {
+		errs.Append("next", i.Next.Validate())
+	}
+	return errs.Err()
+}
+
 type Author struct {
 	Name string `json:"name"`
 	Book *Book  `json:"book"`
 }
 
+// Validate checks the value against the constraints of the spec.
+func (a Author) Validate() error {
+	var errs runtime.ValidationErrors
+	if a.Book == nil {
+		errs.Add("book", "is required")
+	}
+	if a.Book != nil {
+		errs.Append("book", a.Book.Validate())
+	}
+	return errs.Err()
+}
+
 type Book struct {
 	Title  string  `json:"title"`
 	Author *Author `json:"author"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (b Book) Validate() error {
+	var errs runtime.ValidationErrors
+	if b.Author == nil {
+		errs.Add("author", "is required")
+	}
+	if b.Author != nil {
+		errs.Append("author", b.Author.Validate())
+	}
+	return errs.Err()
 }

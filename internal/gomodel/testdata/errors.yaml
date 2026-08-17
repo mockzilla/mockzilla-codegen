@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info: {title: error mapping, version: "1"}
+paths: {}
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message: {type: string}
+            code: {type: integer}
+    DetailError:
+      type: object
+      properties:
+        details:
+          type: array
+          items: {type: object, properties: {text: {type: string}}}
+    Problem:
+      oneOf:
+        - {type: object, properties: {message: {type: string}}}
+        - {type: object, properties: {detail: {type: string}}}
+    Plain:
+      type: object
+      properties:
+        error: {type: string}
+    Problems:
+      type: array
+      items: {type: object, properties: {text: {type: string}}}
+    ListedError:
+      type: object
+      properties:
+        problems: {$ref: '#/components/schemas/Problems'}
+    Status: {type: string, enum: [a, b]}

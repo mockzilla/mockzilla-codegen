@@ -1,0 +1,15 @@
+{{- with .Error}}
+// Error returns the message at {{.Path}}.
+func ({{.Receiver}} {{$.Name}}) Error() string {
+	return {{.Runtime}}.ErrorMessage({{.Receiver}}, {{.PathLiteral}}, {{.Fallback}})
+}
+{{- if .HasConstructor}}
+
+// New{{$.Name}} returns a {{$.Name}} with message at {{.Path}}.
+func New{{$.Name}}(message string) {{$.Name}} {
+	var {{.Receiver}} {{$.Name}}
+	_ = {{.Runtime}}.SetErrorMessage(&{{.Receiver}}, {{.PathLiteral}}, message)
+	return {{.Receiver}}
+}
+{{- end}}
+{{- end}}

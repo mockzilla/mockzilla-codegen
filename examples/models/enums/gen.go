@@ -2,10 +2,28 @@
 
 package enums
 
+import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+
+// Fails to compile when the runtime package does not match the codegen version that wrote this file.
+const _ = runtime.SupportsGeneratorV1
+
 type Order struct {
 	Status   Status        `json:"status"`
 	Priority *Priority     `json:"priority,omitempty"`
 	Channel  *OrderChannel `json:"channel,omitempty"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (o Order) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("status", o.Status.Validate())
+	if o.Priority != nil {
+		errs.Append("priority", o.Priority.Validate())
+	}
+	if o.Channel != nil {
+		errs.Append("channel", o.Channel.Validate())
+	}
+	return errs.Err()
 }
 
 // Where an order is.
@@ -17,6 +35,11 @@ const (
 	StatusDelivered Status = "delivered"
 )
 
+// Validate checks the value against the constraints of the spec.
+func (s Status) Validate() error {
+	return runtime.OneOf(s, StatusPlaced, StatusInTransit, StatusDelivered)
+}
+
 type Priority int
 
 const (
@@ -25,6 +48,11 @@ const (
 	Priority3 Priority = 3
 )
 
+// Validate checks the value against the constraints of the spec.
+func (p Priority) Validate() error {
+	return runtime.OneOf(p, Priority1, Priority2, Priority3)
+}
+
 type Ratio float32
 
 const (
@@ -32,9 +60,19 @@ const (
 	Ratio1Dot5 Ratio = 1.5
 )
 
+// Validate checks the value against the constraints of the spec.
+func (r Ratio) Validate() error {
+	return runtime.OneOf(r, Ratio0Dot5, Ratio1Dot5)
+}
+
 type OrderChannel string
 
 const (
 	OrderChannelWeb   OrderChannel = "web"
 	OrderChannelPhone OrderChannel = "phone"
 )
+
+// Validate checks the value against the constraints of the spec.
+func (o OrderChannel) Validate() error {
+	return runtime.OneOf(o, OrderChannelWeb, OrderChannelPhone)
+}

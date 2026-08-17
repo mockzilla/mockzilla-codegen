@@ -1,0 +1,25 @@
+{{- if .IsRequired}}
+	if {{.Value}} == nil {
+		errs.Add({{.Path}}, "is required")
+	}
+{{- end}}
+{{- if .IsGuarded}}
+	if {{.Value}} != nil {
+{{- end}}
+{{- range .Calls}}
+	errs.Append({{$.Path}}, {{.}})
+{{- end}}
+{{- with .Items}}
+	for {{.Index}}, {{.Item}} := range {{.Range}} {
+{{- template "models/check.tmpl" .Check}}
+	}
+{{- end}}
+{{- with .Values}}
+	for _, {{.Index}} := range {{.Range}} {
+		{{.Item}} := {{.Map}}[{{.Index}}]
+{{- template "models/check.tmpl" .Check}}
+	}
+{{- end}}
+{{- if .IsGuarded}}
+	}
+{{- end}}

@@ -1,0 +1,17 @@
+openapi: 3.1.0
+info: {title: readOnly and writeOnly, version: "1"}
+paths: {}
+components:
+  schemas:
+    User:
+      type: object
+      required: [id, name, password, roles]
+      properties:
+        id: {type: string, format: uuid, readOnly: true}
+        name: {type: string, minLength: 1}
+        password: {type: string, minLength: 8, writeOnly: true}
+        roles: {type: array, readOnly: true, items: {type: string}}
+    Team:
+      type: object
+      properties:
+        lead: {$ref: '#/components/schemas/User'}

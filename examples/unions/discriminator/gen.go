@@ -22,6 +22,13 @@ type Wallet struct {
 	Provider *string `json:"provider,omitempty"`
 }
 
+// Validate checks the value against the constraints of the spec.
+func (w Wallet) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("type", runtime.Const(w.Type, "wallet"))
+	return errs.Err()
+}
+
 type Unknown struct {
 	Type *string `json:"type,omitempty"`
 }
@@ -31,9 +38,27 @@ type InlineCircle struct {
 	Radius *float64 `json:"radius,omitempty"`
 }
 
+// Validate checks the value against the constraints of the spec.
+func (i InlineCircle) Validate() error {
+	var errs runtime.ValidationErrors
+	if i.Kind != nil {
+		errs.Append("kind", runtime.Const(*i.Kind, "circle"))
+	}
+	return errs.Err()
+}
+
 type InlineSquare struct {
 	Kind *string  `json:"kind,omitempty"`
 	Side *float64 `json:"side,omitempty"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (i InlineSquare) Validate() error {
+	var errs runtime.ValidationErrors
+	if i.Kind != nil {
+		errs.Append("kind", runtime.Const(*i.Kind, "square"))
+	}
+	return errs.Err()
 }
 
 // Explicit mapping for card, the implicit component name for Bank, a const for Wallet.
@@ -93,9 +118,14 @@ func (p *Payment) UnmarshalJSON(data []byte) error {
 	})
 }
 
-// Validate checks that exactly one variant is set.
+// Validate checks the value against the constraints of the spec.
 func (p Payment) Validate() error {
-	return runtime.ExactlyOne(p.Card != nil, p.Bank != nil, p.Wallet != nil)
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(p.Card != nil, p.Bank != nil, p.Wallet != nil))
+	if p.Wallet != nil {
+		errs.Append("", p.Wallet.Validate())
+	}
+	return errs.Err()
 }
 
 // Any other type value falls back to Unknown.
@@ -143,9 +173,11 @@ func (t *Tolerant) UnmarshalJSON(data []byte) error {
 	})
 }
 
-// Validate checks that exactly one variant is set.
+// Validate checks the value against the constraints of the spec.
 func (t Tolerant) Validate() error {
-	return runtime.ExactlyOne(t.Card != nil, t.Unknown != nil)
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(t.Card != nil, t.Unknown != nil))
+	return errs.Err()
 }
 
 type Inline struct {
@@ -190,7 +222,15 @@ func (i *Inline) UnmarshalJSON(data []byte) error {
 	})
 }
 
-// Validate checks that exactly one variant is set.
+// Validate checks the value against the constraints of the spec.
 func (i Inline) Validate() error {
-	return runtime.ExactlyOne(i.Circle != nil, i.Square != nil)
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(i.Circle != nil, i.Square != nil))
+	if i.Circle != nil {
+		errs.Append("", i.Circle.Validate())
+	}
+	if i.Square != nil {
+		errs.Append("", i.Square.Validate())
+	}
+	return errs.Err()
 }

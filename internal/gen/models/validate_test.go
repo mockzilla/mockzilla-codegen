@@ -1,0 +1,103 @@
+// Copyright (c) 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+// Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+// permission notice shall be included in all copies or substantial portions of the Software.
+
+package models
+
+import (
+	"testing"
+
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
+)
+
+// TestViewRendersValidation compares with testdata/validation.golden. UPDATE=1 writes it instead.
+func TestViewRendersValidation(t *testing.T) {
+	t.Parallel()
+
+	str := gomodel.Builtin{Name: "string"}
+	num := gomodel.Builtin{Name: "float64"}
+	code := &gomodel.Pattern{Name: "patternPetCode", Source: `^[A-Z]+$`, Part: gomodel.PartTypes}
+	owner := &gomodel.Decl{Name: "Owner", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
+		Fields: []*gomodel.Field{{Name: "ID", JSONName: "id", Type: str}},
+	}, Validation: &gomodel.Validation{HasResponse: true, Checks: []*gomodel.Check{
+		{Field: "ID", Path: "id", Side: gomodel.SideResponse, Rules: []gomodel.Rule{{Kind: gomodel.RuleFormat, Format: "uuid"}}},
+	}}}
+	status := &gomodel.Decl{Name: "Status", Part: gomodel.PartEnums, Kind: gomodel.KindEnum, Enum: &gomodel.Enum{Base: str, Values: []gomodel.EnumValue{
+		{Name: "StatusOn", Value: spec.Value{Kind: spec.KindString, Str: "on"}},
+		{Name: "StatusOff", Value: spec.Value{Kind: spec.KindString, Str: "off"}},
+	}}, Validation: &gomodel.Validation{}}
+	empty := &gomodel.Decl{Name: "Empty", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}, Validation: &gomodel.Validation{}}
+	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{Fields: []*gomodel.Field{
+		{Name: "Name", JSONName: "name", Type: str},
+		{Name: "Code", JSONName: "code", Type: gomodel.Pointer{Elem: str}},
+		{Name: "Weight", JSONName: "weight", Type: num},
+		{Name: "Tags", JSONName: "tags", Type: gomodel.Slice{Elem: str}},
+		{Name: "Grid", JSONName: "grid", Type: gomodel.Slice{Elem: gomodel.Slice{Elem: num}}},
+		{Name: "Labels", JSONName: "labels", Type: gomodel.Map{Key: str, Elem: str}},
+		{Name: "Owner", JSONName: "owner", Type: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: owner}}},
+		{Name: "Secret", JSONName: "secret", Type: str},
+	}}, Validation: &gomodel.Validation{HasResponse: true, Checks: []*gomodel.Check{
+		{Field: "Name", Path: "name", Rules: []gomodel.Rule{
+			{Kind: gomodel.RuleMinLength, Number: "1"},
+			{Kind: gomodel.RuleMaxLength, Number: "9"},
+			{Kind: gomodel.RuleConst, Const: spec.Value{Kind: spec.KindString, Str: "Rex"}},
+		}},
+		{Field: "Code", Path: "code", IsPointer: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RulePattern, Pattern: code}}},
+		{Field: "Weight", Path: "weight", Rules: []gomodel.Rule{
+			{Kind: gomodel.RuleMinimum, Number: "0", IsExclusive: true},
+			{Kind: gomodel.RuleMaximum, Number: "9.5"},
+			{Kind: gomodel.RuleMultipleOf, Number: "0.5"},
+		}},
+		{Field: "Tags", Path: "tags", IsGuarded: true, IsRequired: true, Rules: []gomodel.Rule{
+			{Kind: gomodel.RuleMinItems, Number: "1"},
+			{Kind: gomodel.RuleMaxItems, Number: "3"},
+			{Kind: gomodel.RuleUnique},
+		}},
+		{Field: "Grid", Path: "grid", IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleUniqueJSON}}, Items: &gomodel.Check{
+			IsGuarded: true,
+			Items:     &gomodel.Check{Rules: []gomodel.Rule{{Kind: gomodel.RuleMinimum, Number: "0"}}},
+		}},
+		{Field: "Labels", Path: "labels", IsGuarded: true, Rules: []gomodel.Rule{
+			{Kind: gomodel.RuleMinProperties, Number: "1"},
+			{Kind: gomodel.RuleMaxProperties, Number: "2"},
+		}, Values: &gomodel.Check{Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "1"}}}},
+		{Field: "Owner", Path: "owner", IsPointer: true, IsGuarded: true, IsNested: true, Nested: owner},
+		{Field: "Secret", Path: "secret", Side: gomodel.SideRequest, Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "8"}}},
+	}}}
+	pets := &gomodel.Decl{Name: "Pets", Part: gomodel.PartTypes, Kind: gomodel.KindDefined, Target: gomodel.Slice{Elem: gomodel.DeclRef{Decl: pet}}, Validation: &gomodel.Validation{
+		HasResponse: true,
+		Checks: []*gomodel.Check{{
+			Rules: []gomodel.Rule{{Kind: gomodel.RuleMaxItems, Number: "2"}},
+			Items: &gomodel.Check{IsNested: true, Nested: pet},
+		}},
+	}}
+	choice := &gomodel.Decl{Name: "Choice", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
+		Variants: []*gomodel.Variant{
+			{Name: "Status", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: status}}, Kinds: gomodel.JSONString},
+			{Name: "Number", FieldType: gomodel.Pointer{Elem: num}, Kinds: gomodel.JSONNumber},
+		},
+	}, Validation: &gomodel.Validation{Count: "ExactlyOne", Checks: []*gomodel.Check{
+		{Field: "Status", IsPointer: true, IsGuarded: true, IsNested: true, Nested: status},
+	}}, Error: &gomodel.ErrorMessage{Path: "detail"}}
+	problem := &gomodel.Decl{Name: "Problem", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
+		Fields: []*gomodel.Field{{Name: "Message", JSONName: "message", Type: str}},
+	}, Error: &gomodel.ErrorMessage{Path: "message", HasConstructor: true}}
+
+	g := New(&gomodel.Model{
+		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, problem},
+		Patterns: []*gomodel.Pattern{code},
+	})
+	checkRender(t, g, "validation")
+}
+
+func TestRuleFuncs(t *testing.T) {
+	t.Parallel()
+
+	for kind := gomodel.RuleMinLength; kind <= gomodel.RuleConst; kind++ {
+		if ruleFuncs[kind] == "" {
+			t.Errorf("rule kind %d has no runtime function", kind)
+		}
+	}
+}

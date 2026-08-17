@@ -21,6 +21,7 @@ var (
 	boolType   = Builtin{Name: "bool"}
 	byteType   = Builtin{Name: "byte"}
 	rawJSON    = Qualified{Import: importJSON, Name: "RawMessage"}
+	emailType  = Qualified{Import: importRuntime, Name: "Email"}
 )
 
 // Read-only tables. Formats are looked up in lower case.
@@ -28,7 +29,7 @@ var (
 	stringFormats = map[string]Type{
 		"date":      Qualified{Import: importRuntime, Name: "Date"},
 		"date-time": Qualified{Import: importTime, Name: "Time"},
-		"email":     Qualified{Import: importRuntime, Name: "Email"},
+		"email":     emailType,
 		"byte":      Slice{Elem: byteType},
 		"binary":    Qualified{Import: importRuntime, Name: "File"},
 		"json":      rawJSON,

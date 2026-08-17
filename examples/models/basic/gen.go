@@ -22,12 +22,39 @@ type Pet struct {
 	Owner     *PetOwner     `json:"owner,omitempty"`
 }
 
+// Validate checks the value against the constraints of the spec.
+func (p Pet) Validate() error {
+	var errs runtime.ValidationErrors
+	if p.Owner != nil {
+		errs.Append("owner", p.Owner.Validate())
+	}
+	return errs.Err()
+}
+
 type PetOwner struct {
 	Name  *string        `json:"name,omitempty"`
 	Email *runtime.Email `json:"email,omitempty"`
 }
 
+// Validate checks the value against the constraints of the spec.
+func (p PetOwner) Validate() error {
+	var errs runtime.ValidationErrors
+	if p.Email != nil {
+		errs.Append("email", p.Email.Validate())
+	}
+	return errs.Err()
+}
+
 type Pets []Pet
+
+// Validate checks the value against the constraints of the spec.
+func (p Pets) Validate() error {
+	var errs runtime.ValidationErrors
+	for idx, item := range p {
+		errs.Append(runtime.Index("", idx), item.Validate())
+	}
+	return errs.Err()
+}
 
 type Error struct {
 	Code    int32  `json:"code"`

@@ -5,15 +5,12 @@
 
 package runtime
 
-import "net/mail"
-
 // Email holds an email address. Decoding accepts any string; Validate checks it.
 type Email string
 
 // Validate accepts a bare address only: "a@example.com", not "A <a@example.com>".
 func (e Email) Validate() error {
-	a, err := mail.ParseAddress(string(e))
-	if err != nil || a.Name != "" || a.Address != string(e) {
+	if !IsEmail(string(e)) {
 		return ErrInvalidEmail
 	}
 	return nil

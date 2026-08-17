@@ -6,6 +6,7 @@
 package gomodel
 
 import (
+	"cmp"
 	"path"
 	"strconv"
 	"strings"
@@ -17,11 +18,23 @@ var kindWords = map[DeclKind]string{KindStruct: "struct", KindAlias: "alias", Ki
 
 var jsonWords = []string{"null", "boolean", "integer", "number", "string", "array", "object"}
 
+var ruleWords = map[RuleKind]string{
+	RuleMinLength: "minLength", RuleMaxLength: "maxLength", RulePattern: "pattern", RuleFormat: "format",
+	RuleMinimum: "minimum", RuleMaximum: "maximum", RuleMultipleOf: "multipleOf", RuleMinItems: "minItems",
+	RuleMaxItems: "maxItems", RuleUnique: "unique", RuleUniqueJSON: "uniqueJSON", RuleMinProperties: "minProperties",
+	RuleMaxProperties: "maxProperties", RuleConst: "const",
+}
+
+var sideWords = map[Side]string{SideBoth: "", SideResponse: " response-only", SideRequest: " request-only"}
+
 // Dump writes a model as plain text for tests and debugging. It is not Go source.
 func Dump(m *Model) string {
 	var b strings.Builder
 	for _, d := range m.Decls {
 		dumpDecl(&b, d)
+	}
+	for _, p := range m.Patterns {
+		b.WriteString("pattern " + p.Name + " " + p.Part + " " + strconv.Quote(p.Source) + "\n")
 	}
 	for _, op := range m.Operations {
 		dumpOperation(&b, op)
@@ -62,6 +75,72 @@ func dumpDecl(b *strings.Builder, d *Decl) {
 	if d.Union != nil {
 		dumpUnion(b, d.Union)
 	}
+	if v := d.Validation; v != nil {
+		b.WriteString("  ? validate")
+		if v.Count != "" {
+			b.WriteString(" count=" + v.Count)
+		}
+		if v.HasResponse {
+			b.WriteString(" response")
+		}
+		b.WriteString("\n")
+		for _, c := range v.Checks {
+			dumpCheck(b, c, "  ? ")
+		}
+	}
+	if e := d.Error; e != nil {
+		b.WriteString("  ! error " + e.Path)
+		if e.HasConstructor {
+			b.WriteString(" constructor")
+		}
+		b.WriteString("\n")
+	}
+}
+
+func dumpCheck(b *strings.Builder, c *Check, indent string) {
+	b.WriteString(indent + cmp.Or(c.Field, "-") + " path=" + c.Path + sideWords[c.Side])
+	for _, flag := range []struct {
+		isSet bool
+		word  string
+	}{
+		{c.IsPointer, "pointer"},
+		{c.IsGuarded, "guarded"},
+		{c.IsRequired, "required"},
+		{c.IsNested, "nested"},
+	} {
+		if flag.isSet {
+			b.WriteString(" " + flag.word)
+		}
+	}
+	for _, r := range c.Rules {
+		b.WriteString(" " + ruleText(r))
+	}
+	b.WriteString("\n")
+	if c.Items != nil {
+		dumpCheck(b, c.Items, indent+"  items ")
+	}
+	if c.Values != nil {
+		dumpCheck(b, c.Values, indent+"  values ")
+	}
+}
+
+func ruleText(r Rule) string {
+	arg := r.Number
+	switch r.Kind {
+	case RulePattern:
+		arg = r.Pattern.Name
+	case RuleFormat:
+		arg = r.Format
+	case RuleConst:
+		arg = valueLiteral(r.Const)
+	case RuleMinimum, RuleMaximum:
+		if r.IsExclusive {
+			arg += " exclusive"
+		}
+	case RuleMinLength, RuleMaxLength, RuleMultipleOf, RuleMinItems, RuleMaxItems, RuleUnique, RuleUniqueJSON,
+		RuleMinProperties, RuleMaxProperties:
+	}
+	return ruleWords[r.Kind] + "(" + arg + ")"
 }
 
 func dumpUnion(b *strings.Builder, u *Union) {

@@ -67,7 +67,7 @@ type Models struct {
 // ModelValidation controls the generated Validate methods.
 type ModelValidation struct {
 	Skip     bool `yaml:"skip" desc:"Generate no Validate methods."`
-	Response bool `yaml:"response" desc:"Also validate response-only types."`
+	Response bool `yaml:"response" desc:"Also generate ValidateResponse where readOnly and writeOnly fields make a response check other things than a request."`
 }
 
 // Server controls server generation.

@@ -30,15 +30,22 @@ var partOrder = []layout.PartID{
 
 // Generator builds the template data of every models part.
 type Generator struct {
-	byPart map[layout.PartID][]*gomodel.Decl
+	byPart   map[layout.PartID][]*gomodel.Decl
+	patterns map[layout.PartID][]*gomodel.Pattern
 }
 
 func New(m *gomodel.Model) *Generator {
-	byPart := make(map[layout.PartID][]*gomodel.Decl, len(partOrder))
-	for _, d := range m.Decls {
-		byPart[layout.PartID(d.Part)] = append(byPart[layout.PartID(d.Part)], d)
+	g := &Generator{
+		byPart:   make(map[layout.PartID][]*gomodel.Decl, len(partOrder)),
+		patterns: map[layout.PartID][]*gomodel.Pattern{},
 	}
-	return &Generator{byPart: byPart}
+	for _, d := range m.Decls {
+		g.byPart[layout.PartID(d.Part)] = append(g.byPart[layout.PartID(d.Part)], d)
+	}
+	for _, p := range m.Patterns {
+		g.patterns[layout.PartID(p.Part)] = append(g.patterns[layout.PartID(p.Part)], p)
+	}
+	return g
 }
 
 // Templates is the models template set. Every part renders through part.tmpl; no block can be
@@ -77,7 +84,7 @@ func (g *Generator) Parts() []layout.Part {
 // them.
 func (g *Generator) View(part layout.PartID, s *gocode.Scope) *PartView {
 	decls := g.byPart[part]
-	v := &PartView{Decls: make([]DeclView, len(decls))}
+	v := &PartView{Patterns: patternViews(g.patterns[part], s), Decls: make([]DeclView, len(decls))}
 	for i, d := range decls {
 		v.Decls[i] = declView(d, s)
 	}

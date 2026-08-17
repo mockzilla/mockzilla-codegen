@@ -1,0 +1,4 @@
+spec: {path: api.yaml}
+package: readwrite
+models:
+  validation: {response: true}
