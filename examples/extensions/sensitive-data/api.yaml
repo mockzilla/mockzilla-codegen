@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info: {title: x-sensitive-data, version: "1"}
+paths: {}
+components:
+  schemas:
+    User:
+      type: object
+      required: [username, ssn]
+      properties:
+        username: {type: string}
+        password: {type: string, x-sensitive-data: true}
+        ssn: {type: string, x-sensitive-data: {mask: regex, pattern: '\d'}}
+        card: {type: string, x-sensitive-data: {mask: partial, keepSuffix: 4}}
+        apiKey: {type: string, x-sensitive-data: hash}
+        pin: {type: integer, x-sensitive-data: true}
+        contacts: {type: array, items: {$ref: '#/components/schemas/Contact'}}
+    Contact:
+      type: object
+      properties:
+        email: {type: string, format: email, x-sensitive-data: true}

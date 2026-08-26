@@ -7,6 +7,7 @@ package gomodel
 
 import (
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/extension"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
@@ -80,23 +81,27 @@ const (
 
 // Decl is one package-level type. ID is the JSON pointer it comes from. Struct is set for
 // KindStruct and KindUnion, Union for KindUnion, Enum for KindEnum, Target for the other kinds.
-// Validation is nil for aliases and when validation is off; Error is set for error types.
+// Validation is nil for aliases and when validation is off; Error is set for error types; Masks is
+// set for types that hold sensitive values.
 type Decl struct {
-	ID         string
-	Name       string
-	Part       string
-	Kind       DeclKind
-	Doc        string
-	Deprecated bool
-	Struct     *Struct
-	Union      *Union
-	Enum       *Enum
-	Target     Type
-	Validation *Validation
-	Error      *ErrorMessage
-	Origin     diag.Origin
+	ID               string
+	Name             string
+	Part             string
+	Kind             DeclKind
+	Doc              string
+	Deprecated       bool
+	DeprecatedReason string
+	Struct           *Struct
+	Union            *Union
+	Enum             *Enum
+	Target           Type
+	Validation       *Validation
+	Error            *ErrorMessage
+	Masks            []*Mask
+	Origin           diag.Origin
 
-	schema *spec.Schema
+	schema    *spec.Schema
+	enumNames []string
 }
 
 // Validation is what the Validate methods of a declaration check. Count is the runtime check of
@@ -144,6 +149,36 @@ type Pattern struct {
 	Origin diag.Origin
 }
 
+// MaskKind is what Masked does to one value.
+type MaskKind int
+
+const (
+	MaskFull MaskKind = iota
+	MaskRegex
+	MaskHash
+	MaskPartial
+	// MaskZero clears a sensitive value that is no string.
+	MaskZero
+	// MaskNested calls Masked of the value's own type.
+	MaskNested
+	// MaskItems masks each item of a slice.
+	MaskItems
+	// MaskValues masks each value of a map.
+	MaskValues
+)
+
+// Mask is one change Masked makes to a copy. Field is the Go field, empty for the value itself.
+// Pattern is the expression of MaskRegex; KeepPrefix and KeepSuffix the characters MaskPartial
+// leaves visible.
+type Mask struct {
+	Field      string
+	Kind       MaskKind
+	IsPointer  bool
+	Pattern    *Pattern
+	KeepPrefix int
+	KeepSuffix int
+}
+
 // ErrorMessage is where an error type keeps its message. HasConstructor adds a NewT function.
 type ErrorMessage struct {
 	Path           string
@@ -186,21 +221,28 @@ type Variant struct {
 }
 
 // Field is one struct field. Required, Nullable, ReadOnly and WriteOnly repeat the spec.
+// IsJSONIgnored writes the field with the JSON tag "-". Sensitive is how Masked masks it, nil for
+// a value that is not sensitive.
 type Field struct {
-	Name       string
-	JSONName   string
-	Type       Type
-	Required   bool
-	Nullable   bool
-	OmitEmpty  bool
-	ReadOnly   bool
-	WriteOnly  bool
-	Deprecated bool
-	Doc        string
-	Tags       []Tag
-	Origin     diag.Origin
+	Name             string
+	JSONName         string
+	Type             Type
+	Required         bool
+	Nullable         bool
+	OmitEmpty        bool
+	ReadOnly         bool
+	WriteOnly        bool
+	Deprecated       bool
+	DeprecatedReason string
+	IsJSONIgnored    bool
+	Doc              string
+	Tags             []Tag
+	Sensitive        *extension.Mask
+	Origin           diag.Origin
 
-	schema *spec.Schema
+	schema           *spec.Schema
+	goName           string
+	isPointerSkipped bool
 }
 
 // Tag is a struct tag written next to json, such as yaml:"name,omitempty".

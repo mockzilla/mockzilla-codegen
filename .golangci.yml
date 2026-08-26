@@ -57,6 +57,9 @@ linters:
         - G306
     misspell:
       locale: US
+      # x-oapi-codegen-only-honour-go-name is a legacy extension name.
+      ignore-rules:
+        - honour
     nolintlint:
       require-explanation: true
       require-specific: true

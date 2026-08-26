@@ -43,6 +43,7 @@ type DeclView struct {
 	Union      *UnionView
 	Validate   *ValidateView
 	Error      *ErrorView
+	Mask       *MaskView
 }
 
 // FieldView is one struct field; Tag is the whole tag literal.
@@ -99,7 +100,7 @@ type AdditionalView struct {
 }
 
 func declView(d *gomodel.Decl, s *gocode.Scope) DeclView {
-	v := DeclView{Doc: withDeprecated(d.Doc, d.Deprecated), Name: d.Name}
+	v := DeclView{Doc: withDeprecated(d.Doc, d.Deprecated, d.DeprecatedReason), Name: d.Name}
 	switch {
 	case d.Union != nil:
 		v.IsUnion = true
@@ -127,6 +128,9 @@ func declView(d *gomodel.Decl, s *gocode.Scope) DeclView {
 	}
 	if d.Error != nil {
 		v.Error = errorView(d, s)
+	}
+	if len(d.Masks) > 0 {
+		v.Mask = maskView(d, s)
 	}
 	return v
 }
@@ -228,7 +232,7 @@ func receiver(name string) string {
 func fieldView(f *gomodel.Field, jsonTag string, s *gocode.Scope) FieldView {
 	tags := append([]gomodel.Tag{{Key: "json", Value: jsonTag}}, f.Tags...)
 	return FieldView{
-		Doc:  withDeprecated(f.Doc, f.Deprecated),
+		Doc:  withDeprecated(f.Doc, f.Deprecated, f.DeprecatedReason),
 		Name: f.Name,
 		Type: s.Expr(f.Type),
 		Tag:  gocode.Tag(tags),
@@ -238,6 +242,9 @@ func fieldView(f *gomodel.Field, jsonTag string, s *gocode.Scope) FieldView {
 // jsonValue is the json tag of a property. omitzero joins omitempty on struct values, which
 // omitempty alone never drops; a property named "-" needs the trailing comma.
 func jsonValue(f *gomodel.Field) string {
+	if f.IsJSONIgnored {
+		return "-"
+	}
 	parts := []string{f.JSONName}
 	if f.OmitEmpty {
 		parts = append(parts, "omitempty")
@@ -268,13 +275,19 @@ func isStructValue(t gomodel.Type) bool {
 	return false
 }
 
-func withDeprecated(doc string, isDeprecated bool) string {
+// withDeprecated adds the deprecation paragraph Go tools look for, with x-deprecated-reason when
+// the spec gives one.
+func withDeprecated(doc string, isDeprecated bool, reason string) string {
+	note := deprecatedNote
+	if reason != "" {
+		note = "Deprecated: " + reason
+	}
 	switch {
 	case !isDeprecated:
 		return doc
 	case doc == "":
-		return deprecatedNote
+		return note
 	default:
-		return doc + "\n\n" + deprecatedNote
+		return doc + "\n\n" + note
 	}
 }

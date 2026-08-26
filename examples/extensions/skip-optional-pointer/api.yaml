@@ -1,0 +1,12 @@
+openapi: 3.1.0
+info: {title: x-go-type-skip-optional-pointer, version: "1"}
+paths: {}
+components:
+  schemas:
+    Settings:
+      type: object
+      properties:
+        theme: {type: string}
+        language:
+          type: string
+          x-go-type-skip-optional-pointer: true

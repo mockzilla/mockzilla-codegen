@@ -110,4 +110,4 @@ pattern patternPetName models.types "^[A-Z]"
 pattern patternPetTagsItem models.types "^[a-z]+$"
 pattern patternPetAccent models.types "^\\x{00e9}"
 ---
-warning pattern-unsupported 45:16 /components/schemas/Pet/properties/ahead: pattern "^(?=a)" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?=`); it is not checked
+warning pattern-unsupported 45:16 /components/schemas/Pet/properties/ahead: pattern "^(?=a)" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?=`); it is not used

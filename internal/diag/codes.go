@@ -28,6 +28,8 @@ const (
 	CodeUnionSelf           = "union-self"
 	CodePatternUnsupported  = "pattern-unsupported"
 	CodeErrorMapping        = "error-mapping"
+	CodeExtensionUnknown    = "extension-unknown"
+	CodeExtensionValue      = "extension-value"
 	CodeEnumIgnored         = "enum-ignored"
 	CodeEnumValue           = "enum-value"
 	CodeAllOfConflict       = "allof-conflict"

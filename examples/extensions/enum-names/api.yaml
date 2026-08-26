@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info: {title: x-enum-names, version: "1"}
+paths: {}
+components:
+  schemas:
+    Priority:
+      type: integer
+      enum: [0, 1, 2]
+      x-enum-names: [PriorityLow, PriorityNormal, PriorityUrgent]
+    Region:
+      type: string
+      enum: [eu-west-1, us-east-1]
+      x-enum-names: [RegionEurope, RegionAmerica]

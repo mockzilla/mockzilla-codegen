@@ -27,6 +27,8 @@ var ruleWords = map[RuleKind]string{
 
 var sideWords = map[Side]string{SideBoth: "", SideResponse: " response-only", SideRequest: " request-only"}
 
+var maskWords = []string{"full", "regex", "hash", "partial", "zero", "nested", "items", "values"}
+
 // Dump writes a model as plain text for tests and debugging. It is not Go source.
 func Dump(m *Model) string {
 	var b strings.Builder
@@ -53,6 +55,9 @@ func dumpDecl(b *strings.Builder, d *Decl) {
 	b.WriteString(" " + d.Part)
 	if d.Deprecated {
 		b.WriteString(" deprecated")
+	}
+	if d.DeprecatedReason != "" {
+		b.WriteString(" reason=" + strconv.Quote(d.DeprecatedReason))
 	}
 	if d.Doc != "" {
 		b.WriteString(" doc=" + strconv.Quote(d.Doc))
@@ -87,6 +92,19 @@ func dumpDecl(b *strings.Builder, d *Decl) {
 		for _, c := range v.Checks {
 			dumpCheck(b, c, "  ? ")
 		}
+	}
+	for _, m := range d.Masks {
+		b.WriteString("  * mask " + cmp.Or(m.Field, "-") + " " + maskWords[m.Kind])
+		if m.IsPointer {
+			b.WriteString(" pointer")
+		}
+		if m.Pattern != nil {
+			b.WriteString(" " + m.Pattern.Name)
+		}
+		if m.KeepPrefix > 0 || m.KeepSuffix > 0 {
+			b.WriteString(" keep=" + strconv.Itoa(m.KeepPrefix) + "," + strconv.Itoa(m.KeepSuffix))
+		}
+		b.WriteString("\n")
 	}
 	if e := d.Error; e != nil {
 		b.WriteString("  ! error " + e.Path)
@@ -206,6 +224,9 @@ func dumpField(b *strings.Builder, f *Field) {
 		{f.ReadOnly, "readOnly"},
 		{f.WriteOnly, "writeOnly"},
 		{f.Deprecated, "deprecated"},
+		{f.IsJSONIgnored, "jsonIgnored"},
+		{f.Sensitive != nil, "sensitive"},
+		{f.DeprecatedReason != "", "reason=" + strconv.Quote(f.DeprecatedReason)},
 	} {
 		if flag.isSet {
 			b.WriteString(" " + flag.word)

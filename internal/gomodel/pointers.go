@@ -5,6 +5,8 @@
 
 package gomodel
 
+import "strings"
+
 // presence is what decides whether a struct field is a pointer.
 type presence struct {
 	isRequired       bool
@@ -42,7 +44,8 @@ func nilable(t Type) bool {
 	case Slice, Map, Pointer:
 		return true
 	case Builtin:
-		return t == anyType
+		// x-go-type can name a slice, map or pointer type as written.
+		return t == anyType || strings.HasPrefix(t.Name, "[]") || strings.HasPrefix(t.Name, "map[") || strings.HasPrefix(t.Name, "*")
 	case Qualified:
 		return t == rawJSON
 	case DeclRef:

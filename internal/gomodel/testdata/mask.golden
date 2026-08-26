@@ -1,0 +1,39 @@
+User struct models.types
+  Name *string json=name omitempty
+  Password *string json=password omitempty sensitive
+  Ssn string json=ssn required sensitive
+  Token *string json=token omitempty sensitive
+  Card *string json=card omitempty sensitive
+  Pin *int json=pin omitempty sensitive
+  Odd *string json=odd omitempty sensitive
+  Profile *Profile json=profile omitempty
+  Friends []Profile json=friends omitempty
+  ByName map[string]Profile json=byName omitempty
+  Plain *Plain json=plain omitempty
+  * mask Password full pointer
+  * mask Ssn regex patternUserSsn
+  * mask Token hash pointer
+  * mask Card partial pointer keep=0,4
+  * mask Pin zero pointer
+  * mask Odd full pointer
+  * mask Profile nested pointer
+  * mask Friends items
+  * mask ByName values
+Profile struct models.types
+  Email runtime.Email json=email required sensitive
+  Next *Profile json=next omitempty
+  * mask Email full
+  * mask Next nested pointer
+Plain struct models.types
+  A *string json=a omitempty
+Profiles defined []Profile models.types
+  * mask - items
+Holder union models.unions
+  | oneOf
+  | Profile *Profile kinds=object required=email known=email,next
+  | String *string kinds=string
+  * mask Profile nested pointer
+Alias alias Profile models.types
+pattern patternUserSsn models.types "\\d"
+---
+warning pattern-unsupported 16:14 /components/schemas/User/properties/odd: pattern "(?=x)" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?=`); it is not used

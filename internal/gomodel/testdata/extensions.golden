@@ -1,0 +1,35 @@
+Customer struct models.types
+  Identifier string json=id required yaml=id
+  accountSecret *string json=secret omitempty jsonIgnored yaml=secret,omitempty
+  Nickname string json=nickname omitempty yaml=nickname,omitempty
+  Count *int json=count yaml=count
+  Code *string json=code omitempty yaml=code,omitempty
+  Tagged *string json=tagged omitempty db=tagged_col yaml=tagged
+  Old *string json=old omitempty deprecated reason="use nickname" yaml=old,omitempty
+  Uid *uuid.UUID json=uid omitempty yaml=uid,omitempty
+  Wait *time.Duration json=wait omitempty yaml=wait,omitempty
+  IDs []string json=ids omitempty yaml=ids,omitempty
+  Address *PostalAddress json=address omitempty yaml=address,omitempty
+  Typo *string json=typo omitempty yaml=typo,omitempty
+PostalAddress struct models.types
+  City *string json=city omitempty yaml=city,omitempty
+Level enum int models.enums
+  LevelLow 1
+  LevelMid 2
+  Level3 3
+Legacy struct models.types deprecated reason="Use Account."
+  A *string json=a omitempty yaml=a,omitempty
+Decimal alias dec.Decimal models.types
+Other struct models.types
+  Validate2 *string json=clash omitempty yaml=clash,omitempty
+GetAccountPathParams struct models.params
+  AccountRef string json=id required yaml=id
+GetAccountQuery struct models.params
+  Page int json=page omitempty yaml=page,omitempty
+op GetAccount GET /accounts/{id}
+  params path GetAccountPathParams
+  params query GetAccountQuery
+  response 200 application/json Customer
+---
+warning extension-unknown 64:11 /components/schemas/Account/properties/typo/x-go-nam: unknown extension x-go-nam; it is left out
+warning name-clash 84:16 /components/schemas/Renamed/properties/clash: "Validate" is reserved, renamed to "Validate2"

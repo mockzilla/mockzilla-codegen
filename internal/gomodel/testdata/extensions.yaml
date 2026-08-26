@@ -1,0 +1,84 @@
+openapi: 3.1.0
+info: {title: extensions, version: "1"}
+paths:
+  /accounts/{id}:
+    get:
+      operationId: getAccount
+      parameters:
+        - {name: id, in: path, required: true, x-go-name: AccountRef, schema: {type: string}}
+        - {name: page, in: query, x-go-type-skip-optional-pointer: true, schema: {type: integer}}
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Account'}
+components:
+  schemas:
+    Account:
+      type: object
+      x-go-name: Customer
+      required: [id]
+      properties:
+        id:
+          type: string
+          x-go-name: identifier
+        secret:
+          type: string
+          x-go-name: accountSecret
+          x-oapi-codegen-only-honour-go-name: true
+          x-go-json-ignore: true
+        nickname:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        count:
+          type: integer
+          x-omitempty: false
+        code:
+          type: string
+          x-omitempty: true
+        tagged:
+          type: string
+          x-oapi-codegen-extra-tags: {db: tagged_col, json: ignored, yaml: tagged}
+        old:
+          type: string
+          deprecated: true
+          x-deprecated-reason: use nickname
+        uid:
+          type: string
+          x-go-type: uuid.UUID
+          x-go-type-import: {path: github.com/google/uuid}
+        wait:
+          type: integer
+          x-go-type: time.Duration
+        ids:
+          type: array
+          items: {type: string}
+          x-go-type: '[]string'
+        address:
+          type: object
+          x-go-type-name: PostalAddress
+          properties:
+            city: {type: string}
+        typo:
+          type: string
+          x-go-nam: Oops
+    Level:
+      type: integer
+      enum: [1, 2, 3]
+      x-enum-names: [LevelLow, LevelMid]
+    Legacy:
+      type: object
+      deprecated: true
+      x-deprecated-reason: Use Account.
+      properties:
+        a: {type: string}
+    Decimal:
+      type: string
+      x-go-type: decimal.Decimal
+      x-go-type-import: {path: github.com/shopspring/decimal, name: dec}
+    Renamed:
+      type: object
+      x-go-type-name: Other
+      properties:
+        clash: {type: string, x-go-name: Validate}

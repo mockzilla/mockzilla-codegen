@@ -20,4 +20,6 @@ var (
 {{end}}
 {{- if .Error}}{{template "models/error.tmpl" .}}
 {{end}}
+{{- if .Mask}}{{template "models/mask.tmpl" .}}
+{{end}}
 {{- end}}

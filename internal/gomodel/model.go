@@ -52,6 +52,13 @@ type Response struct {
 	Contents []Content
 }
 
+// readers read the spec once for every step of Build.
+type readers struct {
+	flat   *flattener
+	unions *unionReader
+	ext    *extReader
+}
+
 // Options are the settings Build uses. Reserved names are declared by the generator elsewhere in
 // the package; each operation also declares its name plus every OperationSuffixes entry.
 // IsValidated adds Validate methods, ValidateResponse where responses differ. ErrorMapping maps
@@ -112,19 +119,20 @@ func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 	}
 
 	flat := newFlattener(&diags)
-	unions := newUnionReader(opts.Namer, flat)
-	c := newCollector(doc, flat, unions, &diags)
+	r := readers{flat: flat, unions: newUnionReader(opts.Namer, flat), ext: newExtReader(opts.Namer, &diags)}
+	c := newCollector(doc, r, &diags)
 	c.run(ops)
 	types := resolveTypes(c.pending, reserved, &diags)
 
-	b := newBuilder(opts, flat, unions, &diags)
+	b := newBuilder(opts, r, &diags)
 	decls := b.build(c.pending, ops)
 	resolveConstants(decls, slices.Concat(reserved, types), opts, &diags)
 
-	var patterns []*Pattern
+	patterns := newPatternSet(opts.Namer, &diags)
 	if opts.IsValidated {
-		patterns = newValidator(opts, flat, b.decls, &diags).plan(decls)
+		newValidator(opts, flat, b.decls, patterns).plan(decls)
 	}
+	planMasks(decls, patterns)
 	resolveErrors(decls, opts.ErrorMapping, &diags)
-	return &Model{Decls: decls, Patterns: patterns, Operations: ops}, diags.List()
+	return &Model{Decls: decls, Patterns: patterns.named(), Operations: ops}, diags.List()
 }

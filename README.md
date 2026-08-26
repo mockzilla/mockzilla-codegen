@@ -16,6 +16,7 @@ Status: early development. The config format and the generated API may still cha
 - Plain Go validation code, no reflection ([validation](docs/validation.md)).
 - Response types that are Go errors, with a message path you choose ([error types](docs/errors.md)).
 - Filters, overlays, pruning and spec simplification before generation.
+- `x-go-*` extensions and masking of sensitive values in logs ([extensions](docs/extensions.md)).
 
 ## Getting started
 
