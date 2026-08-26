@@ -1,0 +1,23 @@
+openapi: 3.1.0
+info: {title: x-deprecated-reason, version: "1"}
+paths: {}
+components:
+  schemas:
+    Profile:
+      type: object
+      properties:
+        name: {type: string}
+        nick:
+          type: string
+          description: Short name.
+          deprecated: true
+          x-deprecated-reason: Use name instead.
+        id:
+          type: string
+          x-deprecated-reason: Ignored without deprecated.
+    LegacyProfile:
+      type: object
+      deprecated: true
+      x-deprecated-reason: Use Profile.
+      properties:
+        name: {type: string}

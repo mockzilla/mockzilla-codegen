@@ -1,0 +1,14 @@
+openapi: 3.1.0
+info: {title: x-go-json-ignore, version: "1"}
+paths: {}
+components:
+  schemas:
+    Session:
+      type: object
+      properties:
+        id: {type: string}
+        cache:
+          type: object
+          x-go-json-ignore: true
+          properties:
+            hits: {type: integer}

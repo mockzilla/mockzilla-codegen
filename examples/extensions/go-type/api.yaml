@@ -1,0 +1,21 @@
+openapi: 3.1.0
+info: {title: x-go-type, version: "1"}
+paths: {}
+components:
+  schemas:
+    Host:
+      type: object
+      properties:
+        address:
+          type: string
+          x-go-type: netip.Addr
+          x-go-type-import: {path: net/netip}
+        timeout:
+          type: integer
+          x-go-type: time.Duration
+        labels:
+          type: object
+          x-go-type: 'map[string]string'
+    Port:
+      type: integer
+      x-go-type: uint16

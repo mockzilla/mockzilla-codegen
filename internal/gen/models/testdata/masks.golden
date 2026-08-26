@@ -1,0 +1,79 @@
+package api
+
+import (
+	"log/slog"
+	"regexp"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+)
+
+var (
+	patternUserSsn = regexp.MustCompile(`\d`)
+)
+
+type Contact struct {
+	Email string `json:"email"`
+}
+
+// Masked returns a copy with the sensitive values masked. JSON encoding is left as it is.
+func (c Contact) Masked() Contact {
+	c.Email = runtime.MaskFull(c.Email)
+	return c
+}
+
+// LogValue gives slog the masked value, so logs do not show sensitive values.
+func (c Contact) LogValue() slog.Value {
+	return runtime.LogValue(c.Masked())
+}
+
+// Deprecated: Use Account.
+type User struct {
+	Password *string            `json:"password"`
+	Ssn      string             `json:"ssn"`
+	Token    string             `json:"token"`
+	Card     string             `json:"card"`
+	Pin      int                `json:"pin"`
+	Main     *Contact           `json:"main"`
+	Plain    Contact            `json:"plain"`
+	List     []Contact          `json:"list"`
+	ByName   map[string]Contact `json:"byName"`
+	// Deprecated: Use Password.
+	Old    string `json:"old"`
+	Hidden string `json:"-"`
+}
+
+// Masked returns a copy with the sensitive values masked. JSON encoding is left as it is.
+func (u User) Masked() User {
+	if u.Password != nil {
+		u.Password = runtime.Ptr(runtime.MaskFull(*u.Password))
+	}
+	u.Ssn = runtime.MaskRegex(u.Ssn, patternUserSsn)
+	u.Token = runtime.MaskHash(u.Token)
+	u.Card = runtime.MaskPartial(u.Card, 1, 4)
+	u.Pin = runtime.Zero(u.Pin)
+	if u.Main != nil {
+		u.Main = runtime.Ptr(u.Main.Masked())
+	}
+	u.Plain = u.Plain.Masked()
+	u.List = runtime.MaskSlice(u.List)
+	u.ByName = runtime.MaskMap(u.ByName)
+	return u
+}
+
+// LogValue gives slog the masked value, so logs do not show sensitive values.
+func (u User) LogValue() slog.Value {
+	return runtime.LogValue(u.Masked())
+}
+
+type Contacts []Contact
+
+// Masked returns a copy with the sensitive values masked. JSON encoding is left as it is.
+func (c Contacts) Masked() Contacts {
+	c = runtime.MaskSlice(c)
+	return c
+}
+
+// LogValue gives slog the masked value, so logs do not show sensitive values.
+func (c Contacts) LogValue() slog.Value {
+	return runtime.LogValue(c.Masked())
+}

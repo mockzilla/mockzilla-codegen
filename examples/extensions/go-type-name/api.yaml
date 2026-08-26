@@ -1,0 +1,14 @@
+openapi: 3.1.0
+info: {title: x-go-type-name, version: "1"}
+paths: {}
+components:
+  schemas:
+    Client:
+      type: object
+      x-go-type-name: Customer
+      properties:
+        address:
+          type: object
+          x-go-type-name: PostalAddress
+          properties:
+            city: {type: string}

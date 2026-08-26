@@ -69,6 +69,7 @@ type collector struct {
 	namer       *naming.Namer
 	flat        *flattener
 	unions      *unionReader
+	ext         *extReader
 	diags       *diag.Collector
 	pending     []*pending
 	bySchema    map[*spec.Schema]*pending
@@ -77,12 +78,13 @@ type collector struct {
 	isComponent map[*spec.Schema]bool
 }
 
-func newCollector(doc *spec.Document, flat *flattener, unions *unionReader, diags *diag.Collector) *collector {
+func newCollector(doc *spec.Document, r readers, diags *diag.Collector) *collector {
 	c := &collector{
 		doc:         doc,
-		namer:       unions.namer,
-		flat:        flat,
-		unions:      unions,
+		namer:       r.unions.namer,
+		flat:        r.flat,
+		unions:      r.unions,
+		ext:         r.ext,
 		diags:       diags,
 		bySchema:    map[*spec.Schema]*pending{},
 		visited:     map[*spec.Schema]bool{},
@@ -195,6 +197,12 @@ func (c *collector) walk(s *spec.Schema, at place, rule declRule) {
 		return
 	}
 	c.visited[s] = true
+	if c.ext.of(s.Extensions, s.Origin).GoType != nil {
+		if rule == ruleAlways {
+			c.add(s, at, shapeAny)
+		}
+		return
+	}
 	c.onStack[s] = at
 	defer delete(c.onStack, s)
 
@@ -238,9 +246,23 @@ func (c *collector) needsDecl(s *spec.Schema, sh shape, rule declRule) bool {
 // add registers a declaration for s and returns the place its children are named from.
 func (c *collector) add(s *spec.Schema, at place, sh shape) place {
 	d := &Decl{ID: s.Origin.Pointer, Part: partOf(sh, at.part), Origin: origin(s.Origin)}
-	p := c.push(&pending{decl: d, schema: s, shape: sh, base: at.base, name: at.name, fallback: at.fallback, rank: at.rank})
-	c.bySchema[s] = p
+	p := &pending{decl: d, schema: s, shape: sh, base: at.base, name: at.name, fallback: at.fallback, rank: at.rank}
+	if name := c.goName(s, at); name != "" {
+		p.base, p.name, p.fallback, p.rank = nil, name, "", naming.RankGoName
+	}
+	c.bySchema[s] = c.push(p)
 	return place{base: p, rank: naming.RankInline, part: at.part}
+}
+
+// goName is the type name x-go-type-name gives s, or x-go-name where s is named on its own, as a
+// component or a body is.
+func (c *collector) goName(s *spec.Schema, at place) string {
+	set := c.ext.of(s.Extensions, s.Origin)
+	name := set.TypeName
+	if name == "" && at.base == nil {
+		name = set.Name
+	}
+	return c.ext.goName(set, name)
 }
 
 func (c *collector) push(p *pending) *pending {

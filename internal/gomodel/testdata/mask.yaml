@@ -1,0 +1,39 @@
+openapi: 3.1.0
+info: {title: masking, version: "1"}
+paths: {}
+components:
+  schemas:
+    User:
+      type: object
+      required: [ssn]
+      properties:
+        name: {type: string}
+        password: {type: string, x-sensitive-data: true}
+        ssn: {type: string, x-sensitive-data: {mask: regex, pattern: '\d'}}
+        token: {type: string, x-sensitive-data: hash}
+        card: {type: string, x-sensitive-data: {mask: partial, keepSuffix: 4}}
+        pin: {type: integer, x-sensitive-data: true}
+        odd: {type: string, x-sensitive-data: {mask: regex, pattern: '(?=x)'}}
+        profile: {$ref: '#/components/schemas/Profile'}
+        friends: {type: array, items: {$ref: '#/components/schemas/Profile'}}
+        byName: {type: object, additionalProperties: {$ref: '#/components/schemas/Profile'}}
+        plain: {$ref: '#/components/schemas/Plain'}
+    Profile:
+      type: object
+      required: [email]
+      properties:
+        email: {type: string, format: email, x-sensitive-data: true}
+        next: {$ref: '#/components/schemas/Profile'}
+    Plain:
+      type: object
+      properties:
+        a: {type: string}
+    Profiles:
+      type: array
+      items: {$ref: '#/components/schemas/Profile'}
+    Holder:
+      oneOf:
+        - $ref: '#/components/schemas/Profile'
+        - {type: string}
+    Alias:
+      $ref: '#/components/schemas/Profile'

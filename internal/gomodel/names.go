@@ -91,6 +91,9 @@ func resolveFields(d *Decl, n *naming.Namer, methods []string, c *diag.Collector
 	reqs := make([]naming.Request, len(d.Struct.Fields))
 	for i, f := range d.Struct.Fields {
 		reqs[i] = naming.Request{ID: fieldID(d, f), Want: n.Exported(f.JSONName), Rank: naming.RankInline, Order: i, Origin: f.Origin}
+		if f.goName != "" {
+			reqs[i].Want, reqs[i].Rank = f.goName, naming.RankGoName
+		}
 	}
 	res := resolve(reserved, reqs, c)
 	for _, f := range d.Struct.Fields {
@@ -125,7 +128,10 @@ func resolveConstants(decls []*Decl, reserved []string, opts Options, c *diag.Co
 		}
 		for i, v := range d.Enum.Values {
 			r := naming.Request{ID: constID(d, i), Want: opts.Namer.EnumConst(d.Name, valueText(v.Value)), Order: len(reqs), Origin: d.Origin}
-			if !opts.EnumPrefix {
+			switch {
+			case i < len(d.enumNames):
+				r.Want, r.Rank = d.enumNames[i], naming.RankGoName
+			case !opts.EnumPrefix:
 				r.Want, r.Fallback = opts.Namer.Exported(valueText(v.Value)), r.Want
 			}
 			reqs = append(reqs, r)

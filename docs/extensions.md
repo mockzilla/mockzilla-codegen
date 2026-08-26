@@ -1,0 +1,95 @@
+# Extensions
+
+Extensions change what codegen writes for one schema, property or parameter.
+
+| Extension | Where | Effect |
+|---|---|---|
+| `x-go-type` | schema | the Go type to use instead of the one codegen picks |
+| `x-go-type-import` | next to `x-go-type` | the package of that type: a path, or `{path, name}` to import it under a name |
+| `x-go-type-name` | schema | the name of the type the schema declares |
+| `x-go-name` | schema, property, parameter | the name of the type, field or parameter field |
+| `x-oapi-codegen-only-honour-go-name` | next to `x-go-name` | use the name as written, even unexported |
+| `x-go-type-skip-optional-pointer` | property, parameter | no pointer for an optional field |
+| `x-go-json-ignore` | property | JSON tag `-` |
+| `x-omitempty` | property | `omitempty` on (`true`) or off (`false`) |
+| `x-oapi-codegen-extra-tags` | property | extra struct tags; they win over `models.extra-tags` on the same key |
+| `x-enum-names` | enum schema | constant names, in value order |
+| `x-deprecated-reason` | schema, property | the text of `// Deprecated:` when `deprecated: true` is set |
+| `x-sensitive-data` | property | masked in `Masked()` and in logs |
+| `x-mcp` | operation | MCP tool settings: `skip`, `name`, `description` |
+
+A value of the wrong kind is left out, with a warning. An unknown extension starting with `x-go-`
+or `x-oapi-codegen-` is left out with a warning too, since it is likely a typo. Other `x-*`
+extensions are ignored. Booleans may be written as strings, `"true"`, as older specs do.
+
+## x-go-type
+
+```yaml
+Host:
+  type: object
+  properties:
+    address:
+      type: string
+      x-go-type: netip.Addr
+      x-go-type-import: {path: net/netip}
+    timeout:
+      type: integer
+      x-go-type: time.Duration
+Port:
+  type: integer
+  x-go-type: uint16
+```
+
+```go
+type Host struct {
+	Address *netip.Addr    `json:"address,omitempty"`
+	Timeout *time.Duration `json:"timeout,omitempty"`
+}
+
+type Port = uint16
+```
+
+- A name with one dot is a type of a package: `x-go-type-import` gives its path, else the part
+  before the dot is taken as the path, which works for standard library packages such as `time`.
+- Anything else is written as is: `int64`, `[]string`, `map[string]string`. A slice, map or
+  pointer type written this way gets no extra pointer.
+- A component with `x-go-type` becomes an alias of that type; its properties are not generated.
+- The type is not validated, and a union takes any JSON for it.
+
+## Names
+
+`x-go-name` names a field, a parameter field, or a type declared under `components` or for a body.
+`x-go-type-name` names the type any schema declares, inline ones included, and never a field. Both
+take part in clash resolution with the highest rank; a name that still has to change gets a
+warning. The name is exported unless `x-oapi-codegen-only-honour-go-name: true` is set.
+
+## x-sensitive-data
+
+```yaml
+password: {type: string, x-sensitive-data: true}
+ssn: {type: string, x-sensitive-data: {mask: regex, pattern: '\d'}}
+card: {type: string, x-sensitive-data: {mask: partial, keepPrefix: 0, keepSuffix: 4}}
+apiKey: {type: string, x-sensitive-data: hash}
+```
+
+| Mask | Result |
+|---|---|
+| `full` (or `true`) | `********`, whatever the length |
+| `regex` | each character the pattern matches becomes `*`: `***-**-****` |
+| `hash` | the first 16 hex digits of the SHA-256: equal values stay equal |
+| `partial` | `keepPrefix` and `keepSuffix` characters stay: `********3456` |
+
+A type with a sensitive value gets two methods:
+
+- `Masked()` returns a copy with the sensitive values masked. A sensitive value that is no string is
+  cleared. Nested types, slices and maps of them are masked too.
+- `LogValue()` makes `log/slog` log the masked copy.
+
+JSON encoding stays raw: `json.Marshal(user)` sends the real values, `json.Marshal(user.Masked())`
+the masked ones. A regex pattern RE2 cannot compile falls back to the full mask, with a warning.
+
+## Coming from oapi-codegen
+
+- `x-go-type-name` on a component declares the type under the new name only. oapi-codegen also
+  kept an alias under the component name.
+- `x-mcp` is read now and used when MCP servers are generated.

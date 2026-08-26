@@ -1,0 +1,20 @@
+{{- with .Mask}}
+// Masked returns a copy with the sensitive values masked. JSON encoding is left as it is.
+func ({{.Receiver}} {{$.Name}}) Masked() {{$.Name}} {
+{{- range .Fields}}
+{{- if .Guard}}
+	if {{.Guard}} {
+		{{.Target}} = {{.Value}}
+	}
+{{- else}}
+	{{.Target}} = {{.Value}}
+{{- end}}
+{{- end}}
+	return {{.Receiver}}
+}
+
+// LogValue gives slog the masked value, so logs do not show sensitive values.
+func ({{.Receiver}} {{$.Name}}) LogValue() {{.Slog}}.Value {
+	return {{.Runtime}}.LogValue({{.Receiver}}.Masked())
+}
+{{- end}}

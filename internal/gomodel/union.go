@@ -221,10 +221,10 @@ func jsonKinds(t Type, seen map[*Decl]bool) JSONKind {
 	case Builtin:
 		return builtinKinds(t.Name)
 	case Qualified:
-		if t == rawJSON {
-			return JSONAny
+		if slices.Contains(stringTypes, Type(t)) {
+			return JSONString
 		}
-		return JSONString
+		return JSONAny
 	case Pointer:
 		return jsonKinds(t.Elem, seen)
 	case Slice:

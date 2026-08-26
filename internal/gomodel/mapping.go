@@ -26,6 +26,14 @@ var (
 
 // Read-only tables. Formats are looked up in lower case.
 var (
+	// stringTypes are the types from other packages that JSON holds as strings.
+	stringTypes = []Type{
+		Qualified{Import: importTime, Name: "Time"},
+		Qualified{Import: importRuntime, Name: "Date"},
+		emailType,
+		Qualified{Import: importRuntime, Name: "File"},
+	}
+
 	stringFormats = map[string]Type{
 		"date":      Qualified{Import: importRuntime, Name: "Date"},
 		"date-time": Qualified{Import: importTime, Name: "Time"},

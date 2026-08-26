@@ -7,9 +7,11 @@ package gomodel
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/extension"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
@@ -26,13 +28,14 @@ type builder struct {
 	opts   Options
 	flat   *flattener
 	unions *unionReader
+	ext    *extReader
 	diags  *diag.Collector
 	decls  map[*spec.Schema]*Decl
 	plans  []*fieldPlan
 	tags   []string
 }
 
-func newBuilder(opts Options, flat *flattener, unions *unionReader, diags *diag.Collector) *builder {
+func newBuilder(opts Options, r readers, diags *diag.Collector) *builder {
 	var tags []string
 	for _, t := range opts.ExtraTags {
 		if t != "json" && !slices.Contains(tags, t) {
@@ -40,7 +43,7 @@ func newBuilder(opts Options, flat *flattener, unions *unionReader, diags *diag.
 		}
 	}
 	slices.Sort(tags)
-	return &builder{opts: opts, flat: flat, unions: unions, diags: diags, decls: map[*spec.Schema]*Decl{}, tags: tags}
+	return &builder{opts: opts, flat: r.flat, unions: r.unions, ext: r.ext, diags: diags, decls: map[*spec.Schema]*Decl{}, tags: tags}
 }
 
 // build fills every declaration, then settles pointers, which need every type known first.
@@ -82,7 +85,13 @@ func (b *builder) declare(d *Decl, s *spec.Schema, sh shape) {
 		d.Doc = description(f)
 	}
 	d.Deprecated = slices.ContainsFunc(siblings(f), func(x *spec.Schema) bool { return x.Deprecated })
+	set := b.ext.of(s.Extensions, s.Origin)
+	d.DeprecatedReason, d.enumNames = set.DeprecatedReason, set.EnumNames
 
+	if set.GoType != nil {
+		d.Kind, d.Target = KindAlias, goType(set.GoType)
+		return
+	}
 	if r := refOf(s); r != nil {
 		d.Kind, d.Target = KindAlias, b.typeOf(r.Target)
 		return
@@ -110,7 +119,7 @@ func (b *builder) fillStruct(d *Decl, f *spec.Schema) {
 			Name:     "AdditionalProperties",
 			JSONName: "-",
 			Type:     Map{Key: stringType, Elem: b.valueType(f)},
-			Tags:     b.fieldTags("-", false),
+			Tags:     b.fieldTags("-", false, nil),
 		}
 	}
 	d.Struct = st
@@ -180,6 +189,7 @@ func (b *builder) methods(d *Decl) []string {
 func (b *builder) fields(d *Decl, f *spec.Schema) []*Field {
 	out := make([]*Field, 0, len(f.Properties))
 	for _, p := range f.Properties {
+		set := b.ext.of(p.Schema.Extensions, p.Schema.Origin)
 		fd := &Field{
 			JSONName:   p.Name,
 			Required:   p.Required,
@@ -194,7 +204,7 @@ func (b *builder) fields(d *Decl, f *spec.Schema) []*Field {
 			fd.Doc = description(p.Schema)
 		}
 		fd.OmitEmpty = !fd.Required || fd.ReadOnly || fd.WriteOnly
-		fd.Tags = b.fieldTags(fd.JSONName, fd.OmitEmpty)
+		b.applyExtensions(fd, set)
 		b.plan(d, fd, b.typeOf(p.Schema))
 		out = append(out, fd)
 	}
@@ -218,7 +228,7 @@ func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
 		if b.opts.Descriptions {
 			fd.Doc = p.Description
 		}
-		fd.Tags = b.fieldTags(fd.JSONName, fd.OmitEmpty)
+		b.applyExtensions(fd, b.ext.of(p.Extensions, p.Origin))
 
 		t := Type(stringType)
 		if s != nil {
@@ -228,6 +238,19 @@ func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
 		d.Struct.Fields = append(d.Struct.Fields, fd)
 	}
 	resolveFields(d, b.opts.Namer, b.methods(d), b.diags)
+}
+
+// applyExtensions sets what the extensions of a field ask for, then its tags.
+func (b *builder) applyExtensions(fd *Field, set extension.Set) {
+	fd.DeprecatedReason = set.DeprecatedReason
+	fd.IsJSONIgnored = set.IsJSONIgnored
+	fd.Sensitive = set.Sensitive
+	fd.goName = b.ext.goName(set, set.Name)
+	fd.isPointerSkipped = set.IsPointerSkipped
+	if set.OmitEmpty != nil {
+		fd.OmitEmpty = *set.OmitEmpty
+	}
+	fd.Tags = b.fieldTags(fd.JSONName, fd.OmitEmpty, set.Tags)
 }
 
 func (b *builder) enumOf(d *Decl, f *spec.Schema) *Enum {
@@ -256,6 +279,9 @@ func (b *builder) typeOf(s *spec.Schema) Type {
 	}
 	if d, ok := b.decls[s]; ok {
 		return DeclRef{Decl: d}
+	}
+	if set := b.ext.of(s.Extensions, s.Origin); set.GoType != nil {
+		return goType(set.GoType)
 	}
 	if r := refOf(s); r != nil {
 		return b.typeOf(r.Target)
@@ -318,7 +344,7 @@ func (b *builder) plan(d *Decl, f *Field, base Type) {
 		owner:    d,
 		field:    f,
 		base:     base,
-		presence: presence{isRequired: f.Required, isNullable: f.Nullable},
+		presence: presence{isRequired: f.Required, isNullable: f.Nullable, isPointerSkipped: f.isPointerSkipped},
 	})
 }
 
@@ -364,15 +390,26 @@ func (b *builder) contents(list []*spec.MediaType) []Content {
 	return out
 }
 
-func (b *builder) fieldTags(jsonName string, isOmitEmpty bool) []Tag {
+// fieldTags are the tags next to json: one per config extra tag, then those of
+// x-oapi-codegen-extra-tags, which win on the same key. A json key there is left out.
+func (b *builder) fieldTags(jsonName string, isOmitEmpty bool, extra []extension.Tag) []Tag {
 	value := jsonName
 	if isOmitEmpty {
 		value += ",omitempty"
 	}
 
-	var out []Tag
+	byKey := make(map[string]string, len(b.tags)+len(extra))
 	for _, key := range b.tags {
-		out = append(out, Tag{Key: key, Value: value})
+		byKey[key] = value
+	}
+	for _, t := range extra {
+		byKey[t.Key] = t.Value
+	}
+	delete(byKey, "json")
+
+	var out []Tag
+	for _, key := range slices.Sorted(maps.Keys(byKey)) {
+		out = append(out, Tag{Key: key, Value: byKey[key]})
 	}
 	return out
 }

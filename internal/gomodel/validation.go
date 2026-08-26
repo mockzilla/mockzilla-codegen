@@ -7,14 +7,10 @@ package gomodel
 
 import (
 	"cmp"
-	"fmt"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 
-	"github.com/mockzilla/mockzilla-codegen/internal/diag"
-	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
@@ -33,41 +29,21 @@ const (
 // checkedFormats are the string formats runtime.Format checks.
 var checkedFormats = []string{"uuid", "uri", "uri-reference", "ipv4", "ipv6", "hostname", "date", "date-time", "email"}
 
-// unicodeEscape is \uXXXX, which RE2 writes as \x{XXXX}.
-var unicodeEscape = regexp.MustCompile(`\\u([0-9a-fA-F]{4})`)
-
-// patternKey finds the variable of a pattern within one part.
-type patternKey struct {
-	part   string
-	source string
-}
-
 // validator plans the Validate methods once every type is settled. A declaration gets them when
 // it checks something, itself or through the types it holds.
 type validator struct {
 	opts     Options
 	flat     *flattener
 	decls    map[*spec.Schema]*Decl
-	diags    *diag.Collector
-	patterns map[patternKey]*Pattern
-	list     []*Pattern
-	wants    []string
-	warned   map[string]bool
+	patterns *patternSet
 }
 
-func newValidator(opts Options, flat *flattener, decls map[*spec.Schema]*Decl, diags *diag.Collector) *validator {
-	return &validator{
-		opts:     opts,
-		flat:     flat,
-		decls:    decls,
-		diags:    diags,
-		patterns: map[patternKey]*Pattern{},
-		warned:   map[string]bool{},
-	}
+func newValidator(opts Options, flat *flattener, decls map[*spec.Schema]*Decl, patterns *patternSet) *validator {
+	return &validator{opts: opts, flat: flat, decls: decls, patterns: patterns}
 }
 
-// plan sets the Validation of every declaration and returns the patterns they use, named.
-func (v *validator) plan(decls []*Decl) []*Pattern {
+// plan sets the Validation of every declaration.
+func (v *validator) plan(decls []*Decl) {
 	for _, d := range decls {
 		d.Validation = v.validation(d)
 	}
@@ -75,16 +51,6 @@ func (v *validator) plan(decls []*Decl) []*Pattern {
 	if v.opts.ValidateResponse {
 		markResponse(decls)
 	}
-
-	reqs := make([]naming.Request, len(v.list))
-	for i := range v.list {
-		reqs[i] = naming.Request{ID: strconv.Itoa(i), Want: v.wants[i], Order: i}
-	}
-	res := naming.Resolve(nil, reqs)
-	for i, p := range v.list {
-		p.Name = res.Names[strconv.Itoa(i)]
-	}
-	return v.list
 }
 
 func (v *validator) validation(d *Decl) *Validation {
@@ -255,30 +221,7 @@ func (v *validator) pattern(d *Decl, kw *spec.Schema, name string) *Pattern {
 	if kw.Pattern == "" {
 		return nil
 	}
-	source := unicodeEscape.ReplaceAllString(kw.Pattern, `\x{$1}`)
-	if _, err := regexp.Compile(source); err != nil {
-		if !v.warned[kw.Origin.Pointer+"\x00"+kw.Pattern] {
-			v.warned[kw.Origin.Pointer+"\x00"+kw.Pattern] = true
-			v.diags.Append(diag.Diagnostic{
-				Severity: diag.Warning,
-				Code:     diag.CodePatternUnsupported,
-				Pointer:  kw.Origin.Pointer,
-				Origin:   origin(kw.Origin),
-				Message:  fmt.Sprintf("pattern %q is not RE2 (%v); it is not checked", kw.Pattern, err),
-			})
-		}
-		return nil
-	}
-
-	key := patternKey{part: d.Part, source: source}
-	if p, ok := v.patterns[key]; ok {
-		return p
-	}
-	p := &Pattern{Source: source, Part: d.Part, Origin: origin(kw.Origin)}
-	v.patterns[key] = p
-	v.list = append(v.list, p)
-	v.wants = append(v.wants, v.opts.Namer.Unexported("pattern", name))
-	return p
+	return v.patterns.add(d.Part, kw.Pattern, kw.Origin, name)
 }
 
 // keepChecked drops the Validation of declarations that check nothing, and the nested calls to

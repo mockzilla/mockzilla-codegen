@@ -1,0 +1,14 @@
+openapi: 3.1.0
+info: {title: x-oapi-codegen-extra-tags, version: "1"}
+paths: {}
+components:
+  schemas:
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          x-oapi-codegen-extra-tags: {db: order_id, validate: required}
+        total:
+          type: number
+          x-oapi-codegen-extra-tags: {db: total_cents}

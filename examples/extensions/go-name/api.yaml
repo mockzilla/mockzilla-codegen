@@ -1,0 +1,17 @@
+openapi: 3.1.0
+info: {title: x-go-name, version: "1"}
+paths: {}
+components:
+  schemas:
+    account_record:
+      type: object
+      x-go-name: Account
+      properties:
+        acct_no:
+          type: string
+          x-go-name: Number
+        internal:
+          type: string
+          x-go-name: internalNote
+          x-oapi-codegen-only-honour-go-name: true
+          x-go-json-ignore: true

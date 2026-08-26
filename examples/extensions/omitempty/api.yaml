@@ -1,0 +1,15 @@
+openapi: 3.1.0
+info: {title: x-omitempty, version: "1"}
+paths: {}
+components:
+  schemas:
+    Query:
+      type: object
+      required: [cursor]
+      properties:
+        cursor:
+          type: string
+          x-omitempty: true
+        limit:
+          type: integer
+          x-omitempty: false
