@@ -37,3 +37,8 @@ components:
         - {type: string}
     Alias:
       $ref: '#/components/schemas/Profile'
+    Clash:
+      type: object
+      properties:
+        masked: {type: string, x-sensitive-data: true}
+        logValue: {type: string}
