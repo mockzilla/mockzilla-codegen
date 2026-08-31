@@ -35,4 +35,5 @@ const (
 	CodeAllOfConflict       = "allof-conflict"
 	CodeAllOfCycle          = "allof-cycle"
 	CodeAliasCycle          = "alias-cycle"
+	CodeRouteDropped        = "route-dropped"
 )

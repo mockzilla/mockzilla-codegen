@@ -98,4 +98,11 @@ func TestHeldAndValidates(t *testing.T) {
 	assert.True(t, Validates(emailType))
 	assert.False(t, Validates(DeclRef{Decl: plain}))
 	assert.False(t, Validates(str))
+
+	alias := &Decl{Name: "Animal", Kind: KindAlias, Target: DeclRef{Decl: pet}}
+	assert.Same(t, pet, StructDecl(Pointer{Elem: DeclRef{Decl: alias}}))
+	assert.Nil(t, StructDecl(str))
+	assert.Equal(t, DeclRef{Decl: pet}, Underlying(DeclRef{Decl: alias}))
+	note := &Decl{Name: "Note", Kind: KindDefined, Target: DeclRef{Decl: &Decl{Name: "Text", Kind: KindAlias, Target: str}}}
+	assert.Equal(t, str, Underlying(DeclRef{Decl: note}))
 }

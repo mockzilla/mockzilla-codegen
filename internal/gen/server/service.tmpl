@@ -71,6 +71,16 @@ func (r *{{$op.Data}}) {{.Method}}(h {{.Type}}) *{{$op.Data}} {
 }
 {{- end}}
 
+// StatusCode returns the status.
+func (r *{{.Data}}) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *{{.Data}}) Header() {{$.HTTP}}.Header {
+	return r.Headers
+}
+
 // Payload returns the body.
 func (r *{{.Data}}) Payload() any {
 	return r.Body

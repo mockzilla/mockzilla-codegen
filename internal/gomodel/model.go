@@ -18,6 +18,17 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
+// serverNames are what the server parts declare next to the models.
+var serverNames = []string{
+	"NewRouter", "HTTPAdapter", "NewHTTPAdapter", "ServerOption", "ServerOptions", "NewServerOptions",
+	"WithRouter", "WithMiddleware", "WithErrorHandler", "WithJSONDecoder", "WithMultipartMaxMemory",
+	"ErrorKind", "HandlerError", "ErrorHandler", "ErrorHandlerFunc", "DefaultErrorHandler",
+	"ErrorParse", "ErrorDecode", "ErrorValidation", "ErrorService", "ErrorResponse",
+}
+
+// middlewareNames are what the middleware scaffold declares.
+var middlewareNames = []string{"RequestIDMiddleware", "RecoverMiddleware", "LoggingMiddleware", "CORSMiddleware", "TimeoutMiddleware"}
+
 // Model is the Go side of a spec. Decls come in walk order: components first, each followed by
 // the types inside it, then what operations declare.
 type Model struct {
@@ -35,10 +46,12 @@ type Operation struct {
 	Responses []Response
 }
 
-// ParamGroup is the struct that holds the parameters of one location.
+// ParamGroup is the struct that holds the parameters of one location; Params are the parameters
+// in the order of the struct's fields.
 type ParamGroup struct {
-	In   string
-	Decl *Decl
+	In     string
+	Decl   *Decl
+	Params []*spec.Parameter
 }
 
 // Content is one media type; Type is nil when it has no schema.
@@ -94,7 +107,7 @@ func OptionsFrom(cfg *config.Config) Options {
 		EnumPrefix:       cfg.Naming.EnumPrefix == nil || *cfg.Naming.EnumPrefix,
 		Namer:            n,
 		IsValidated:      !models.Validation.Skip,
-		ValidateResponse: !models.Validation.Skip && models.Validation.Response,
+		ValidateResponse: !models.Validation.Skip && (models.Validation.Response || cfg.Server != nil && cfg.Server.Validation.Response),
 		ErrorMapping:     models.ErrorMapping,
 	}
 	for _, name := range slices.Sorted(maps.Keys(models.ErrorMapping)) {
@@ -104,7 +117,14 @@ func OptionsFrom(cfg *config.Config) Options {
 	if s := cfg.Server; s != nil {
 		name := cmp.Or(s.Name, "Service")
 		opts.IsServer = true
-		opts.Reserved = append(opts.Reserved, name+"Interface", "NewRouter", "ErrorKind", "HandlerError", "ErrorHandler", "DefaultErrorHandler")
+		opts.Reserved = append(opts.Reserved, name+"Interface")
+		opts.Reserved = append(opts.Reserved, serverNames...)
+		if s.Scaffold.Service != "" {
+			opts.Reserved = append(opts.Reserved, name, "New"+name, "ErrNotImplemented")
+		}
+		if s.Scaffold.Middleware != "" {
+			opts.Reserved = append(opts.Reserved, middlewareNames...)
+		}
 		opts.OperationSuffixes = []string{n.ServiceRequestOptions(""), n.ResponseData("")}
 	}
 	if c := cfg.Client; c != nil {

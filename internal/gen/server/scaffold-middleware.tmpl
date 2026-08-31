@@ -1,0 +1,73 @@
+// statusWriter keeps the status code a handler wrote.
+type statusWriter struct {
+	{{.HTTP}}.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(code int) {
+	w.status = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
+// Unwrap lets http.ResponseController reach the writer underneath.
+func (w *statusWriter) Unwrap() {{.HTTP}}.ResponseWriter {
+	return w.ResponseWriter
+}
+
+// RequestIDMiddleware gives every request an X-Request-ID header, kept when the client sent one,
+// and echoes it in the response.
+func RequestIDMiddleware(next {{.HTTP}}.Handler) {{.HTTP}}.Handler {
+	return {{.HTTP}}.HandlerFunc(func(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request) {
+		id := r.Header.Get("X-Request-ID")
+		if id == "" {
+			id = {{.Rand}}.Text()
+			r.Header.Set("X-Request-ID", id)
+		}
+		w.Header().Set("X-Request-ID", id)
+		next.ServeHTTP(w, r)
+	})
+}
+
+// RecoverMiddleware answers a panic with 500 and logs it, instead of dropping the connection.
+func RecoverMiddleware(next {{.HTTP}}.Handler) {{.HTTP}}.Handler {
+	return {{.HTTP}}.HandlerFunc(func(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request) {
+		defer func() {
+			if p := recover(); p != nil {
+				{{.Slog}}.ErrorContext(r.Context(), "panic", "error", p, "stack", string({{.Debug}}.Stack()))
+				{{.HTTP}}.Error(w, {{.HTTP}}.StatusText({{.HTTP}}.StatusInternalServerError), {{.HTTP}}.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// LoggingMiddleware logs every request with its status and how long it took.
+func LoggingMiddleware(next {{.HTTP}}.Handler) {{.HTTP}}.Handler {
+	return {{.HTTP}}.HandlerFunc(func(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request) {
+		start := {{.Time}}.Now()
+		sw := &statusWriter{ResponseWriter: w, status: {{.HTTP}}.StatusOK}
+		next.ServeHTTP(sw, r)
+		{{.Slog}}.InfoContext(r.Context(), "request", "method", r.Method, "path", r.URL.Path, "status", sw.status, "duration", {{.Time}}.Since(start))
+	})
+}
+
+// CORSMiddleware allows every origin. Narrow it before the server faces the web.
+func CORSMiddleware(next {{.HTTP}}.Handler) {{.HTTP}}.Handler {
+	return {{.HTTP}}.HandlerFunc(func(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if r.Method == {{.HTTP}}.MethodOptions {
+			w.WriteHeader({{.HTTP}}.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// TimeoutMiddleware answers 503 when a request takes longer than timeout.
+func TimeoutMiddleware(timeout {{.Time}}.Duration) func({{.HTTP}}.Handler) {{.HTTP}}.Handler {
+	return func(next {{.HTTP}}.Handler) {{.HTTP}}.Handler {
+		return {{.HTTP}}.TimeoutHandler(next, timeout, {{.HTTP}}.StatusText({{.HTTP}}.StatusServiceUnavailable))
+	}
+}

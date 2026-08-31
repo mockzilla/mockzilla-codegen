@@ -1,0 +1,162 @@
+// ServerOptions is what the adapter and the router are set up with. Router is the router the
+// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
+// writes the response of a failed request; JSONDecoder reads JSON bodies.
+type ServerOptions struct {
+	Router             any
+	Middleware         []func({{.HTTP}}.Handler) {{.HTTP}}.Handler
+	ErrorHandler       {{.Runtime}}.ErrorHandler
+	JSONDecoder        func(body {{.IO}}.Reader, dst any, isRequired bool) error
+	MultipartMaxMemory int64
+}
+
+// ServerOption sets one field of ServerOptions.
+type ServerOption func(*ServerOptions)
+
+// NewServerOptions applies opts to the defaults.
+func NewServerOptions(opts ...ServerOption) *ServerOptions {
+	o := &ServerOptions{
+		ErrorHandler:       {{.Runtime}}.DefaultErrorHandler{},
+		JSONDecoder:        {{.Runtime}}.DecodeJSON,
+		MultipartMaxMemory: {{.MaxMemory}},
+	}
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o
+}
+
+// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+func WithMiddleware(mw ...func({{.HTTP}}.Handler) {{.HTTP}}.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithErrorHandler sets what writes the response of a failed request.
+func WithErrorHandler(h {{.Runtime}}.ErrorHandler) ServerOption {
+	return func(o *ServerOptions) {
+		o.ErrorHandler = h
+	}
+}
+
+// WithJSONDecoder sets what reads JSON bodies. isRequired says whether an empty body is an error.
+func WithJSONDecoder(decode func(body {{.IO}}.Reader, dst any, isRequired bool) error) ServerOption {
+	return func(o *ServerOptions) {
+		o.JSONDecoder = decode
+	}
+}
+
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
+// disk.
+func WithMultipartMaxMemory(n int64) ServerOption {
+	return func(o *ServerOptions) {
+		o.MultipartMaxMemory = n
+	}
+}
+
+// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+type HTTPAdapter struct {
+	svc  {{.Service}}
+	opts *ServerOptions
+}
+
+// responseData is what every response data type gives the adapter.
+type responseData interface {
+	StatusCode() int
+	Header() {{.HTTP}}.Header
+	Payload() any
+	ContentType() string
+}
+
+// NewHTTPAdapter returns the adapter of svc.
+func NewHTTPAdapter(svc {{.Service}}, opts ...ServerOption) *HTTPAdapter {
+	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+}
+{{- range $op := .Operations}}
+
+// {{.Name}} handles {{.Method}} {{.Path}}.
+func (a *HTTPAdapter) {{.Name}}(w {{$.HTTP}}.ResponseWriter, r *{{$.HTTP}}.Request) {
+	opts := &{{.Options}}{RawRequest: r}
+{{- if .HasQuery}}
+	query := r.URL.Query()
+{{- end}}
+{{- range .Groups}}
+	opts.{{.Field}} = &{{.Type}}{}
+{{- range .Params}}
+	if err := {{$.Runtime}}.{{.Decoder}}({{.Source}}, {{$.Runtime}}.Param{Name: {{.Name}}, Style: {{$.Runtime}}.{{.Style}}, IsExplode: {{.IsExplode}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}}, {{.Target}}); err != nil {
+		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorParse, OperationID: {{$op.ID}}, ParamName: {{.Name}}, ParamLocation: {{.Location}}, Err: err})
+		return
+	}
+{{- end}}
+{{- end}}
+{{- if .HasBody}}
+	switch contentType := {{$.Runtime}}.ContentType(r.Header); contentType {
+{{- range .Bodies}}
+	case {{.MediaType}}:
+{{- template "server/body.tmpl" .}}
+{{- end}}
+	case "":
+{{- if .IsBodyRequired}}
+		a.failDecode(w, r, {{.ID}}, {{$.Runtime}}.ErrBodyEmpty)
+		return
+{{- end}}
+	default:
+{{- range .Wildcards}}
+{{- template "server/body.tmpl" .}}
+{{- else}}
+		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorDecode, OperationID: {{.ID}}, Status: {{$.HTTP}}.StatusUnsupportedMediaType, Err: {{$.Runtime}}.ContentTypeError(contentType)})
+		return
+{{- end}}
+	}
+{{- end}}
+{{- if $.IsRequestValidated}}
+	if err := opts.Validate(); err != nil {
+		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorValidation, OperationID: {{.ID}}, Err: err})
+		return
+	}
+{{- end}}
+
+	res, err := a.svc.{{.Name}}(r.Context(), opts)
+	if err != nil {
+{{- range .Errors}}
+		if {{.Var}}, ok := {{$.Runtime}}.AsError[{{.Type}}](err); ok {
+			a.opts.ErrorHandler.HandleError(w, r, {{.Status}}, {{.Var}})
+			return
+		}
+{{- end}}
+		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorService, OperationID: {{.ID}}, Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorService, OperationID: {{.ID}}, Err: {{$.Runtime}}.ErrNoResponse})
+		return
+	}
+	a.write(w, r, {{.ID}}, res)
+}
+{{- end}}
+
+// fail answers a request the handler could not serve.
+func (a *HTTPAdapter) fail(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, err *{{.Runtime}}.HandlerError) {
+	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
+}
+
+// failDecode answers a request whose body could not be read.
+func (a *HTTPAdapter) failDecode(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, err error) {
+	a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorDecode, OperationID: id, Err: err})
+}
+
+// write writes the response of the service{{if .IsResponseValidated}}, once it passes the checks of the spec{{end}}.
+func (a *HTTPAdapter) write(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, res responseData) {
+{{- if .IsResponseValidated}}
+	if err := {{.Runtime}}.ValidateResponse(res.Payload()); err != nil {
+		a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorResponse, OperationID: id, Err: err})
+		return
+	}
+{{- end}}
+	if res.ContentType() != "" {
+		w.Header().Set("Content-Type", res.ContentType())
+	}
+	if err := {{.Runtime}}.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
+		a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorService, OperationID: id, Err: err})
+	}
+}

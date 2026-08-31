@@ -74,6 +74,7 @@ type collector struct {
 	diags       *diag.Collector
 	pending     []*pending
 	headers     map[*spec.Response]*Decl
+	headerDecls map[string]*Decl
 	bySchema    map[*spec.Schema]*pending
 	visited     map[*spec.Schema]bool
 	onStack     map[*spec.Schema]place
@@ -90,6 +91,7 @@ func newCollector(doc *spec.Document, r readers, diags *diag.Collector) *collect
 		ext:         r.ext,
 		diags:       diags,
 		headers:     map[*spec.Response]*Decl{},
+		headerDecls: map[string]*Decl{},
 		bySchema:    map[*spec.Schema]*pending{},
 		visited:     map[*spec.Schema]bool{},
 		onStack:     map[*spec.Schema]place{},
@@ -141,8 +143,15 @@ func (c *collector) run(ops []*Operation) {
 	}
 }
 
-// responseHeaders adds the struct of the typed headers of a response and walks their schemas.
+// responseHeaders adds the struct of the typed headers of a response and walks their schemas. A
+// component response gets one struct, named after the component, for every operation that uses it.
 func (c *collector) responseHeaders(op *Operation, r *spec.Response) {
+	id := r.Origin.Pointer + "/headers"
+	if d, ok := c.headerDecls[id]; ok {
+		c.headers[r] = d
+		return
+	}
+
 	list := make([]*spec.Parameter, len(r.Headers))
 	for i, h := range r.Headers {
 		list[i] = &spec.Parameter{
@@ -160,9 +169,13 @@ func (c *collector) responseHeaders(op *Operation, r *spec.Response) {
 		}
 	}
 
-	d := &Decl{ID: r.Origin.Pointer + "/headers", Kind: KindStruct, Part: PartResponses, Origin: origin(r.Origin)}
-	p := c.push(&pending{decl: d, params: list, name: c.namer.ResponseHeaders(op.Name, r.Status), rank: naming.RankOperation})
-	c.headers[r] = d
+	name, rank := c.namer.ResponseHeaders(op.Name, r.Status), naming.RankOperation
+	if r.Ref != nil && r.Ref.Name != "" {
+		name, rank = c.namer.Exported(r.Ref.Name)+"Headers", naming.RankComponent
+	}
+	d := &Decl{ID: id, Kind: KindStruct, Part: PartResponses, Origin: origin(r.Origin)}
+	p := c.push(&pending{decl: d, params: list, name: name, rank: rank})
+	c.headers[r], c.headerDecls[id] = d, d
 
 	at := place{base: p, rank: naming.RankInline, part: PartResponses}
 	for _, h := range list {
@@ -211,7 +224,7 @@ func (c *collector) params(op *Operation) {
 
 		d := &Decl{ID: op.Spec.Origin.Pointer + "/parameters/" + in, Kind: KindStruct, Part: PartParams, Origin: origin(op.Spec.Origin)}
 		p := c.push(&pending{decl: d, params: list, name: c.namer.Params(op.Name, in), rank: naming.RankOperation})
-		op.Params = append(op.Params, ParamGroup{In: in, Decl: d})
+		op.Params = append(op.Params, ParamGroup{In: in, Decl: d, Params: list})
 
 		at := place{base: p, rank: naming.RankInline, part: PartParams}
 		for _, param := range list {

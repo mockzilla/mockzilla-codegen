@@ -1,0 +1,57 @@
+package main
+
+import (
+	"context"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"example.com/work/api"
+	"example.com/work/mw"
+	"example.com/work/svc"
+)
+
+func main() {
+	if err := run(); err != nil {
+		slog.Error("server stopped", "error", err)
+		os.Exit(1)
+	}
+}
+
+// run serves on port 9090 until the process is told to stop, then lets the requests in
+// flight finish.
+func run() error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	router := api.NewRouter(svc.NewPets(), api.WithMiddleware(
+		mw.RequestIDMiddleware,
+		mw.RecoverMiddleware,
+		mw.LoggingMiddleware,
+		mw.CORSMiddleware,
+		mw.TimeoutMiddleware(45*time.Second),
+	))
+	srv := &http.Server{
+		Addr:              ":9090",
+		Handler:           router,
+		ReadHeaderTimeout: 45 * time.Second,
+	}
+
+	errs := make(chan error, 1)
+	go func() {
+		slog.Info("listening", "addr", srv.Addr)
+		errs <- srv.ListenAndServe()
+	}()
+
+	select {
+	case err := <-errs:
+		return err
+	case <-ctx.Done():
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	return srv.Shutdown(shutdownCtx)
+}

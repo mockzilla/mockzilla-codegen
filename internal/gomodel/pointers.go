@@ -41,6 +41,25 @@ func Validates(t Type) bool {
 	return ok && (d == nil || d.Validation != nil)
 }
 
+// Underlying is the type under t, through aliases and defined types.
+func Underlying(t Type) Type {
+	for {
+		r, ok := t.(DeclRef)
+		if !ok || r.Decl.Kind != KindAlias && r.Decl.Kind != KindDefined {
+			return t
+		}
+		t = r.Decl.Target
+	}
+}
+
+// StructDecl is the struct declaration a value of type t is, through pointers and aliases, or nil.
+func StructDecl(t Type) *Decl {
+	if r, ok := unalias(elem(t)).(DeclRef); ok && r.Decl.Kind == KindStruct {
+		return r.Decl
+	}
+	return nil
+}
+
 // elemType is for array items and map values: a pointer only when the value can be null.
 func elemType(t Type, isNullable bool) Type {
 	if isNullable && !nilable(t) {

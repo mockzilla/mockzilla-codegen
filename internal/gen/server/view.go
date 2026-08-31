@@ -7,6 +7,7 @@ package server
 
 import (
 	"cmp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -90,14 +91,16 @@ type constructorAt struct {
 }
 
 func serviceView(g *Generator, s *gocode.Scope) *ServiceView {
-	v := &ServiceView{
-		Name:    g.name + "Interface",
-		Context: s.Import(gomodel.Import{Path: "context"}),
-		HTTP:    s.Import(gomodel.Import{Path: "net/http"}),
-		Runtime: s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
+	v := &ServiceView{Name: g.opts.Name + "Interface"}
+	if len(g.ops) == 0 {
+		return v
 	}
+
+	v.Context = s.Import(gomodel.Import{Path: "context"})
+	v.HTTP = s.Import(gomodel.Import{Path: "net/http"})
+	v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
 	for _, op := range g.ops {
-		v.Operations = append(v.Operations, operationView(op, g.namer, s))
+		v.Operations = append(v.Operations, operationView(op, g.opts.Namer, s))
 	}
 	return v
 }
@@ -117,16 +120,12 @@ func operationView(op *gomodel.Operation, n *naming.Namer, s *gocode.Scope) Oper
 			v.Checks = append(v.Checks, CheckView{Field: field, Path: gocode.Quote(p.In)})
 		}
 	}
-	isMultiple := len(op.Bodies) > 1
-	for _, c := range op.Bodies {
-		field := "Body"
-		if isMultiple {
-			field += n.MediaTag(c.MediaType)
-		}
+	fields := bodyFields(op.Bodies, n)
+	for i, c := range op.Bodies {
 		t := bodyType(c)
-		v.Fields = append(v.Fields, FieldView{Name: field, Type: s.Expr(t), Doc: "Body sent as " + c.MediaType + "."})
+		v.Fields = append(v.Fields, FieldView{Name: fields[i], Type: s.Expr(t), Doc: "Body sent as " + c.MediaType + "."})
 		if gomodel.Validates(t) {
-			v.Checks = append(v.Checks, CheckView{Field: field, Path: gocode.Quote("body")})
+			v.Checks = append(v.Checks, CheckView{Field: fields[i], Path: gocode.Quote("body")})
 		}
 	}
 
@@ -159,6 +158,30 @@ func constructorView(op *gomodel.Operation, r gomodel.Response, at constructorAt
 	}
 	v.Doc = doc + "."
 	return v
+}
+
+// bodyFields names the options field of each body: Body for one, else Body and the tag of its
+// media type. Two media types with one tag, such as application/xml and text/xml, are told apart
+// by the type, then by a number.
+func bodyFields(bodies []gomodel.Content, n *naming.Namer) []string {
+	if len(bodies) == 1 {
+		return []string{"Body"}
+	}
+
+	fields := make([]string, 0, len(bodies))
+	for _, c := range bodies {
+		field := "Body" + n.MediaTag(c.MediaType)
+		if slices.Contains(fields, field) {
+			typ, _, _ := strings.Cut(c.MediaType, "/")
+			field = "Body" + n.Exported(typ) + n.MediaTag(c.MediaType)
+		}
+		base := field
+		for i := 2; slices.Contains(fields, field); i++ {
+			field = base + strconv.Itoa(i)
+		}
+		fields = append(fields, field)
+	}
+	return fields
 }
 
 // bodyType is the Go type a body field holds: the schema's type, held by pointer unless it can

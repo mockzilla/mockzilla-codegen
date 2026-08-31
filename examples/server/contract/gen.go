@@ -4,8 +4,10 @@ package contract
 
 import (
 	"context"
+	"io"
 	"net/http"
 
+	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
@@ -153,6 +155,16 @@ func (r *ListPetsResponseData) WithTypedHeadersDefault(h ListPetsResponseDefault
 	return r
 }
 
+// StatusCode returns the status.
+func (r *ListPetsResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *ListPetsResponseData) Header() http.Header {
+	return r.Headers
+}
+
 // Payload returns the body.
 func (r *ListPetsResponseData) Payload() any {
 	return r.Body
@@ -215,6 +227,16 @@ func (r *CreatePetResponseData) WithHeaders(h http.Header) *CreatePetResponseDat
 	return r
 }
 
+// StatusCode returns the status.
+func (r *CreatePetResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *CreatePetResponseData) Header() http.Header {
+	return r.Headers
+}
+
 // Payload returns the body.
 func (r *CreatePetResponseData) Payload() any {
 	return r.Body
@@ -266,6 +288,16 @@ func (r *DeletePetResponseData) WithHeaders(h http.Header) *DeletePetResponseDat
 	return r
 }
 
+// StatusCode returns the status.
+func (r *DeletePetResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *DeletePetResponseData) Header() http.Header {
+	return r.Headers
+}
+
 // Payload returns the body.
 func (r *DeletePetResponseData) Payload() any {
 	return r.Body
@@ -314,6 +346,16 @@ func (r *UploadResponseData) WithHeaders(h http.Header) *UploadResponseData {
 	return r
 }
 
+// StatusCode returns the status.
+func (r *UploadResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *UploadResponseData) Header() http.Header {
+	return r.Headers
+}
+
 // Payload returns the body.
 func (r *UploadResponseData) Payload() any {
 	return r.Body
@@ -360,6 +402,16 @@ func (r *GetPingResponseData) WithHeaders(h http.Header) *GetPingResponseData {
 	return r
 }
 
+// StatusCode returns the status.
+func (r *GetPingResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *GetPingResponseData) Header() http.Header {
+	return r.Headers
+}
+
 // Payload returns the body.
 func (r *GetPingResponseData) Payload() any {
 	return r.Body
@@ -368,4 +420,278 @@ func (r *GetPingResponseData) Payload() any {
 // ContentType is the media type the body is written as, empty for the default of its Go type.
 func (r *GetPingResponseData) ContentType() string {
 	return r.contentType
+} // The error types the handlers use, as the runtime declares them.
+type (
+	ErrorKind           = runtime.ErrorKind
+	HandlerError        = runtime.HandlerError
+	ErrorHandler        = runtime.ErrorHandler
+	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
+	DefaultErrorHandler = runtime.DefaultErrorHandler
+)
+
+// The kinds of HandlerError.
+const (
+	ErrorParse      = runtime.ErrorParse
+	ErrorDecode     = runtime.ErrorDecode
+	ErrorValidation = runtime.ErrorValidation
+	ErrorService    = runtime.ErrorService
+	ErrorResponse   = runtime.ErrorResponse
+) // ServerOptions is what the adapter and the router are set up with. Router is the router the
+// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
+// writes the response of a failed request; JSONDecoder reads JSON bodies.
+type ServerOptions struct {
+	Router             any
+	Middleware         []func(http.Handler) http.Handler
+	ErrorHandler       runtime.ErrorHandler
+	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
+	MultipartMaxMemory int64
+}
+
+// ServerOption sets one field of ServerOptions.
+type ServerOption func(*ServerOptions)
+
+// NewServerOptions applies opts to the defaults.
+func NewServerOptions(opts ...ServerOption) *ServerOptions {
+	o := &ServerOptions{
+		ErrorHandler:       runtime.DefaultErrorHandler{},
+		JSONDecoder:        runtime.DecodeJSON,
+		MultipartMaxMemory: 33554432,
+	}
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o
+}
+
+// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithErrorHandler sets what writes the response of a failed request.
+func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
+	return func(o *ServerOptions) {
+		o.ErrorHandler = h
+	}
+}
+
+// WithJSONDecoder sets what reads JSON bodies. isRequired says whether an empty body is an error.
+func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error) ServerOption {
+	return func(o *ServerOptions) {
+		o.JSONDecoder = decode
+	}
+}
+
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
+// disk.
+func WithMultipartMaxMemory(n int64) ServerOption {
+	return func(o *ServerOptions) {
+		o.MultipartMaxMemory = n
+	}
+}
+
+// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+type HTTPAdapter struct {
+	svc  PetsInterface
+	opts *ServerOptions
+}
+
+// responseData is what every response data type gives the adapter.
+type responseData interface {
+	StatusCode() int
+	Header() http.Header
+	Payload() any
+	ContentType() string
+}
+
+// NewHTTPAdapter returns the adapter of svc.
+func NewHTTPAdapter(svc PetsInterface, opts ...ServerOption) *HTTPAdapter {
+	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+}
+
+// ListPets handles GET /pets.
+func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
+	opts := &ListPetsServiceRequestOptions{RawRequest: r}
+	query := r.URL.Query()
+	opts.Query = &ListPetsQuery{}
+	if err := runtime.DecodeQuery(query, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Limit); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "limit", ParamLocation: "query", Err: err})
+		return
+	}
+	opts.Headers = &ListPetsHeaders{}
+	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Trace", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XTrace); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "X-Trace", ParamLocation: "header", Err: err})
+		return
+	}
+	opts.Cookies = &ListPetsCookies{}
+	if err := runtime.DecodeCookie(r.Cookies(), runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Cookies.Session); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "session", ParamLocation: "cookie", Err: err})
+		return
+	}
+
+	res, err := a.svc.ListPets(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "ListPets", res)
+}
+
+// CreatePet handles POST /pets.
+func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
+	opts := &CreatePetServiceRequestOptions{RawRequest: r}
+	switch contentType := runtime.ContentType(r.Header); contentType {
+	case "application/json":
+		if err := a.opts.JSONDecoder(r.Body, &opts.BodyJSON, true); err != nil {
+			a.failDecode(w, r, "CreatePet", err)
+			return
+		}
+	case "application/x-www-form-urlencoded":
+		if err := runtime.DecodeForm(r.Body, &opts.BodyForm, true); err != nil {
+			a.failDecode(w, r, "CreatePet", err)
+			return
+		}
+	case "":
+		a.failDecode(w, r, "CreatePet", runtime.ErrBodyEmpty)
+		return
+	default:
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "CreatePet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return
+	}
+
+	res, err := a.svc.CreatePet(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreatePet", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreatePet", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "CreatePet", res)
+}
+
+// DeletePet handles DELETE /pets/{id}.
+func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
+	opts := &DeletePetServiceRequestOptions{RawRequest: r}
+	opts.PathParams = &DeletePetPathParams{}
+	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "DeletePet", ParamName: "id", ParamLocation: "path", Err: err})
+		return
+	}
+
+	res, err := a.svc.DeletePet(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "DeletePet", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "DeletePet", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "DeletePet", res)
+}
+
+// Upload handles POST /upload.
+func (a *HTTPAdapter) Upload(w http.ResponseWriter, r *http.Request) {
+	opts := &UploadServiceRequestOptions{RawRequest: r}
+	switch contentType := runtime.ContentType(r.Header); contentType {
+	case "text/plain":
+		text, err := runtime.DecodeText(r.Body, false)
+		if err != nil {
+			a.failDecode(w, r, "Upload", err)
+			return
+		}
+		opts.Body = text
+	case "":
+	default:
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "Upload", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return
+	}
+
+	res, err := a.svc.Upload(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Upload", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Upload", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "Upload", res)
+}
+
+// GetPing handles GET /ping.
+func (a *HTTPAdapter) GetPing(w http.ResponseWriter, r *http.Request) {
+	opts := &GetPingServiceRequestOptions{RawRequest: r}
+
+	res, err := a.svc.GetPing(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPing", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPing", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "GetPing", res)
+}
+
+// fail answers a request the handler could not serve.
+func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
+}
+
+// failDecode answers a request whose body could not be read.
+func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
+	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
+}
+
+// write writes the response of the service.
+func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
+	if res.ContentType() != "" {
+		w.Header().Set("Content-Type", res.ContentType())
+	}
+	if err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
+	}
+} // WithRouter registers the routes on r instead of a new router.
+func WithRouter(r chi.Router) ServerOption {
+	return func(o *ServerOptions) {
+		o.Router = r
+	}
+}
+
+// NewRouter registers every operation on a chi router. On a new router the middleware
+// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
+// wraps the generated routes and nothing else.
+func NewRouter(svc PetsInterface, opts ...ServerOption) chi.Router {
+	o := NewServerOptions(opts...)
+	adapter := NewHTTPAdapter(svc, opts...)
+	register := func(r chi.Router) {
+		r.Get("/pets", adapter.ListPets)
+		r.Post("/pets", adapter.CreatePet)
+		r.Delete("/pets/{id}", adapter.DeletePet)
+		r.Post("/upload", adapter.Upload)
+		r.Get("/ping", adapter.GetPing)
+	}
+
+	router, _ := o.Router.(chi.Router)
+	if router == nil {
+		router = chi.NewRouter()
+		router.Use(o.Middleware...)
+		register(router)
+		return router
+	}
+	router.Group(func(r chi.Router) {
+		r.Use(o.Middleware...)
+		register(r)
+	})
+	return router
 }

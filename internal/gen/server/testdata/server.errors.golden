@@ -1,0 +1,21 @@
+package api
+
+import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+
+// The error types the handlers use, as the runtime declares them.
+type (
+	ErrorKind           = runtime.ErrorKind
+	HandlerError        = runtime.HandlerError
+	ErrorHandler        = runtime.ErrorHandler
+	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
+	DefaultErrorHandler = runtime.DefaultErrorHandler
+)
+
+// The kinds of HandlerError.
+const (
+	ErrorParse      = runtime.ErrorParse
+	ErrorDecode     = runtime.ErrorDecode
+	ErrorValidation = runtime.ErrorValidation
+	ErrorService    = runtime.ErrorService
+	ErrorResponse   = runtime.ErrorResponse
+)

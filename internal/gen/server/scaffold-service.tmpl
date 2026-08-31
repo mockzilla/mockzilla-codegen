@@ -1,0 +1,19 @@
+// ErrNotImplemented is what every operation returns until it is written.
+var ErrNotImplemented = {{.Errors}}.New("not implemented")
+
+var _ {{.Interface}} = (*{{.Name}})(nil)
+
+// {{.Name}} implements {{.Interface}}.
+type {{.Name}} struct{}
+
+// New{{.Name}} returns a {{.Name}}.
+func New{{.Name}}() *{{.Name}} {
+	return &{{.Name}}{}
+}
+{{- range .Operations}}
+
+// {{.Name}} handles {{.Method}} {{.Path}}.
+func (s *{{$.Name}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{.Data}}, error) {
+	return nil, ErrNotImplemented
+}
+{{- end}}
