@@ -24,9 +24,11 @@ type PetsInterface interface {
 
 // ListPetsServiceRequestOptions is what ListPets receives. RawRequest is the request as it came in.
 type ListPetsServiceRequestOptions struct {
-	Query      *ListPetsQuery
-	Matrix     *GetPetPathParams
-	RawRequest *http.Request
+	Query       *ListPetsQuery
+	Headers     *ListPetsHeaders
+	Cookies     *ListPetsCookies
+	QueryString *ListPetsQueryString
+	RawRequest  *http.Request
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
@@ -81,6 +83,16 @@ func (r *ListPetsResponseData) WithTypedHeadersDefault(h ListPetsResponseDefault
 	return r
 }
 
+// StatusCode returns the status.
+func (r *ListPetsResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *ListPetsResponseData) Header() http.Header {
+	return r.Headers
+}
+
 // Payload returns the body.
 func (r *ListPetsResponseData) Payload() any {
 	return r.Body
@@ -95,10 +107,18 @@ func (r *ListPetsResponseData) ContentType() string {
 type CreatePetServiceRequestOptions struct {
 	// Body sent as application/json.
 	BodyJSON *Pet
+	// Body sent as application/x-www-form-urlencoded.
+	BodyForm *Pet
+	// Body sent as multipart/form-data.
+	BodyMultipart *Upload
 	// Body sent as text/plain.
 	BodyText string
+	// Body sent as text/markdown.
+	BodyMarkdown *Note
 	// Body sent as image/png.
-	BodyPng    []byte
+	BodyPng []byte
+	// Body sent as application/xml.
+	BodyXML    *Pet
 	RawRequest *http.Request
 }
 
@@ -107,6 +127,12 @@ func (o *CreatePetServiceRequestOptions) Validate() error {
 	var errs runtime.ValidationErrors
 	if o.BodyJSON != nil {
 		errs.Append("body", o.BodyJSON.Validate())
+	}
+	if o.BodyForm != nil {
+		errs.Append("body", o.BodyForm.Validate())
+	}
+	if o.BodyXML != nil {
+		errs.Append("body", o.BodyXML.Validate())
 	}
 	return errs.Err()
 }
@@ -126,7 +152,12 @@ func NewCreatePetResponseData201(body *Pet) *CreatePetResponseData {
 }
 
 // NewCreatePetResponseData4XX returns the response data of status 4XX with body as application/problem+json.
-func NewCreatePetResponseData4XX(status int, body any) *CreatePetResponseData {
+func NewCreatePetResponseData4XX(status int, body *Problem) *CreatePetResponseData {
+	return &CreatePetResponseData{Status: status, Body: body, contentType: "application/problem+json"}
+}
+
+// NewCreatePetResponseData5XX returns the response data of status 5XX with body as application/problem+json.
+func NewCreatePetResponseData5XX(status int, body *Problem) *CreatePetResponseData {
 	return &CreatePetResponseData{Status: status, Body: body, contentType: "application/problem+json"}
 }
 
@@ -148,6 +179,16 @@ func (r *CreatePetResponseData) WithTypedHeaders(h ListPetsResponse200Headers) *
 	return r
 }
 
+// StatusCode returns the status.
+func (r *CreatePetResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *CreatePetResponseData) Header() http.Header {
+	return r.Headers
+}
+
 // Payload returns the body.
 func (r *CreatePetResponseData) Payload() any {
 	return r.Body
@@ -160,7 +201,7 @@ func (r *CreatePetResponseData) ContentType() string {
 
 // DeletePetServiceRequestOptions is what DeletePet receives. RawRequest is the request as it came in.
 type DeletePetServiceRequestOptions struct {
-	PathParams *GetPetPathParams
+	PathParams *DeletePetPathParams
 	// Body sent as application/json.
 	Body       map[string]string
 	RawRequest *http.Request
@@ -180,9 +221,14 @@ type DeletePetResponseData struct {
 	contentType string
 }
 
-// NewDeletePetResponseData returns the response data of status 204.
-func NewDeletePetResponseData() *DeletePetResponseData {
+// NewDeletePetResponseData204 returns the response data of status 204.
+func NewDeletePetResponseData204() *DeletePetResponseData {
 	return &DeletePetResponseData{Status: 204, contentType: ""}
+}
+
+// NewDeletePetResponseData404 returns the response data of status 404 with body as application/json.
+func NewDeletePetResponseData404(body *Problem) *DeletePetResponseData {
+	return &DeletePetResponseData{Status: 404, Body: body, contentType: "application/json"}
 }
 
 // WithStatus sets the status code.
@@ -195,6 +241,16 @@ func (r *DeletePetResponseData) WithStatus(code int) *DeletePetResponseData {
 func (r *DeletePetResponseData) WithHeaders(h http.Header) *DeletePetResponseData {
 	r.Headers = h
 	return r
+}
+
+// StatusCode returns the status.
+func (r *DeletePetResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *DeletePetResponseData) Header() http.Header {
+	return r.Headers
 }
 
 // Payload returns the body.
@@ -228,9 +284,14 @@ type PingResponseData struct {
 	contentType string
 }
 
-// NewPingResponseData returns the response data of status 200 with body as text/plain.
-func NewPingResponseData(body *string) *PingResponseData {
+// NewPingResponseData200 returns the response data of status 200 with body as text/plain.
+func NewPingResponseData200(body *string) *PingResponseData {
 	return &PingResponseData{Status: 200, Body: body, contentType: "text/plain"}
+}
+
+// NewPingResponseDataDefault returns the response data of status default with body as application/json.
+func NewPingResponseDataDefault(status int, body any) *PingResponseData {
+	return &PingResponseData{Status: status, Body: body, contentType: "application/json"}
 }
 
 // WithStatus sets the status code.
@@ -243,6 +304,16 @@ func (r *PingResponseData) WithStatus(code int) *PingResponseData {
 func (r *PingResponseData) WithHeaders(h http.Header) *PingResponseData {
 	r.Headers = h
 	return r
+}
+
+// StatusCode returns the status.
+func (r *PingResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *PingResponseData) Header() http.Header {
+	return r.Headers
 }
 
 // Payload returns the body.

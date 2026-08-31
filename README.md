@@ -17,6 +17,8 @@ Status: early development. The config format and the generated API may still cha
 - Response types that are Go errors, with a message path you choose ([error types](docs/errors.md)).
 - Filters, overlays, pruning and spec simplification before generation.
 - `x-go-*` extensions and masking of sensitive values in logs ([extensions](docs/extensions.md)).
+- A service interface to implement, an HTTP adapter that decodes every parameter style and body
+  type, a chi router and starter files ([server](docs/server.md)).
 
 ## Getting started
 

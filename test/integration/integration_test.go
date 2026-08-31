@@ -33,14 +33,26 @@ const (
 	progressEvery     = 5 * time.Second
 )
 
-var variants = []itest.Variant{{Name: "models"}}
+// servers are the server variants FRAMEWORKS can name, with the modules their code imports. The
+// init call builds the router, which panics on a route the framework rejects.
+var servers = map[string]struct {
+	variant itest.Variant
+	deps    []string
+}{
+	"chi": {
+		variant: itest.Variant{Name: "chi", Config: "server:\n  framework: chi\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/go-chi/chi/v5"},
+	},
+}
 
-// TestIntegration generates every spec in testdata/specs and builds the result. It fails on an
+// TestIntegration generates every spec in testdata/specs with the models variant and one per
+// framework FRAMEWORKS names, chi by default, then builds and tests the result. It fails on an
 // unlisted failure and on a listed spec that passes now.
 func TestIntegration(t *testing.T) {
 	t.Parallel()
 
-	require.Empty(t, os.Getenv("FRAMEWORKS"), "FRAMEWORKS needs server generation")
+	variants, deps, err := selectVariants(os.LookupEnv("FRAMEWORKS"))
+	require.NoError(t, err)
 	repo, err := filepath.Abs("../..")
 	require.NoError(t, err)
 	named := strings.Fields(os.Getenv("SPEC") + " " + os.Getenv("SPECS"))
@@ -66,7 +78,7 @@ func TestIntegration(t *testing.T) {
 	sandbox := itest.Sandbox{Dir: filepath.Join(repo, ".sandbox", "integration"), Repo: repo}
 	tool, err := sandbox.BuildTool(ctx, itest.Exec)
 	require.NoError(t, err)
-	require.NoError(t, sandbox.Setup(ctx, itest.Exec, []string{gomodel.RuntimePath}))
+	require.NoError(t, sandbox.Setup(ctx, itest.Exec, deps))
 	runtimeFiles, err := filepath.Glob(filepath.Join(repo, "pkg", "runtime", "*.go"))
 	require.NoError(t, err)
 	toolHash, err := itest.HashFiles(append([]string{tool}, runtimeFiles...)...)
@@ -121,6 +133,25 @@ func TestIntegration(t *testing.T) {
 	for _, name := range v.Fixed {
 		t.Errorf("%s passes now; remove it from %s", name, knownFailuresFile)
 	}
+}
+
+// selectVariants is the models variant and the server variants of the frameworks named, chi when
+// none is set, with the modules the sandbox needs.
+func selectVariants(frameworks string, isSet bool) ([]itest.Variant, []string, error) {
+	if !isSet {
+		frameworks = "chi"
+	}
+	variants := []itest.Variant{{Name: "models"}}
+	deps := []string{gomodel.RuntimePath}
+	for _, name := range strings.FieldsFunc(frameworks, func(r rune) bool { return r == ',' || r == ' ' }) {
+		s, ok := servers[name]
+		if !ok {
+			return nil, nil, fmt.Errorf("FRAMEWORKS names %q, which has no integration variant", name)
+		}
+		variants = append(variants, s.variant)
+		deps = append(deps, s.deps...)
+	}
+	return variants, deps, nil
 }
 
 // runWithProgress runs the jobs and prints the runner's progress while they run.

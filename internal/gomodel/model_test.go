@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -101,20 +102,21 @@ func TestOptionsFrom(t *testing.T) {
 			name: "Server and client names are reserved",
 			cfg: &config.Config{
 				Naming: config.Naming{Initialisms: []string{"PSP"}},
-				Server: &config.Server{Name: "PetService"},
+				Server: &config.Server{Name: "PetService", Validation: config.ServerValidation{Response: true}, Scaffold: config.Scaffold{Service: "service.go", Middleware: "middleware.go"}},
 				Client: &config.Client{},
 			},
 			want: Options{
-				IntType:      "int",
-				Descriptions: true,
-				EnumPrefix:   true,
-				Namer:        n,
-				IsValidated:  true,
-				IsServer:     true,
-				Reserved: []string{
-					"PetServiceInterface", "NewRouter", "ErrorKind", "HandlerError", "ErrorHandler", "DefaultErrorHandler",
-					"Client", "NewClient", "ClientOption", "ClientInterface", "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithRequestEditor",
-				},
+				IntType:          "int",
+				Descriptions:     true,
+				EnumPrefix:       true,
+				Namer:            n,
+				IsValidated:      true,
+				ValidateResponse: true,
+				IsServer:         true,
+				Reserved: slices.Concat(
+					[]string{"PetServiceInterface"}, serverNames, []string{"PetService", "NewPetService", "ErrNotImplemented"}, middlewareNames,
+					[]string{"Client", "NewClient", "ClientOption", "ClientInterface", "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithRequestEditor"},
+				),
 				OperationSuffixes: []string{"ServiceRequestOptions", "ResponseData"},
 			},
 		},

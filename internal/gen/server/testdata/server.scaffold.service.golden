@@ -1,0 +1,41 @@
+package svc
+
+import (
+	"context"
+	"errors"
+
+	"example.com/work/api"
+)
+
+// ErrNotImplemented is what every operation returns until it is written.
+var ErrNotImplemented = errors.New("not implemented")
+
+var _ api.PetsInterface = (*Pets)(nil)
+
+// Pets implements api.PetsInterface.
+type Pets struct{}
+
+// NewPets returns a Pets.
+func NewPets() *Pets {
+	return &Pets{}
+}
+
+// ListPets handles GET /pets.
+func (s *Pets) ListPets(ctx context.Context, opts *api.ListPetsServiceRequestOptions) (*api.ListPetsResponseData, error) {
+	return nil, ErrNotImplemented
+}
+
+// CreatePet handles POST /pets.
+func (s *Pets) CreatePet(ctx context.Context, opts *api.CreatePetServiceRequestOptions) (*api.CreatePetResponseData, error) {
+	return nil, ErrNotImplemented
+}
+
+// DeletePet handles DELETE /pets/{id}.
+func (s *Pets) DeletePet(ctx context.Context, opts *api.DeletePetServiceRequestOptions) (*api.DeletePetResponseData, error) {
+	return nil, ErrNotImplemented
+}
+
+// Ping handles GET /ping.
+func (s *Pets) Ping(ctx context.Context, opts *api.PingServiceRequestOptions) (*api.PingResponseData, error) {
+	return nil, ErrNotImplemented
+}

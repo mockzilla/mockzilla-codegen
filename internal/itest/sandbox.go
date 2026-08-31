@@ -45,8 +45,10 @@ func (s Sandbox) Setup(ctx context.Context, run Command, deps []string) error {
 	if err := os.MkdirAll(s.Dir, 0o755); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(filepath.Join(s.Dir, specsFolder)); err != nil {
-		return err
+	for _, folder := range []string{specsFolder, checkFolder} {
+		if err := os.RemoveAll(filepath.Join(s.Dir, folder)); err != nil {
+			return err
+		}
 	}
 
 	var imports strings.Builder

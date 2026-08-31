@@ -28,8 +28,12 @@ func Write(w http.ResponseWriter, status int, headers http.Header, body any) err
 		return WriteFile(w, status, *b)
 	case []byte:
 		return WriteBytes(w, status, b)
+	case *[]byte:
+		return WriteBytes(w, status, *b)
 	case string:
 		return WriteBytes(w, status, []byte(b))
+	case *string:
+		return WriteBytes(w, status, []byte(*b))
 	}
 	return WriteJSON(w, status, body)
 }

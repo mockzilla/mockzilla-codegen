@@ -55,6 +55,15 @@ func (s *Scope) Import(imp gomodel.Import) string {
 	return s.Imports.Add(imp.Path, imp.Alias)
 }
 
+// Symbol returns name, declared in the file that holds part, as the scope's file writes it.
+func (s *Scope) Symbol(part layout.PartID, name string) string {
+	target := s.Layout.FileOf(part)
+	if target == nil || filepath.Dir(target.Path) == filepath.Dir(s.File.Path) {
+		return name
+	}
+	return s.Imports.Add(target.ImportPath, target.Package) + "." + name
+}
+
 // RuntimeGuard returns the constant a file that imports the runtime refers to, so a runtime too
 // old or too new for the file fails to compile. It is empty when the file does not import it.
 func (s *Scope) RuntimeGuard() string {
@@ -66,9 +75,5 @@ func (s *Scope) RuntimeGuard() string {
 
 // decl qualifies a declaration placed in another folder with that folder's package.
 func (s *Scope) decl(d *gomodel.Decl) string {
-	target := s.Layout.FileOf(layout.PartID(d.Part))
-	if target == nil || filepath.Dir(target.Path) == filepath.Dir(s.File.Path) {
-		return d.Name
-	}
-	return s.Imports.Add(target.ImportPath, target.Package) + "." + d.Name
+	return s.Symbol(layout.PartID(d.Part), d.Name)
 }

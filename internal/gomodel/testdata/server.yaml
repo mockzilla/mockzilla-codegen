@@ -22,6 +22,8 @@ paths:
           application/json: {schema: {$ref: '#/components/schemas/Pet'}}
       responses:
         "201": {description: created}
+        default:
+          $ref: '#/components/responses/Error'
   /clash:
     get:
       responses:

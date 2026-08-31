@@ -7,6 +7,7 @@ package gocode
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -20,6 +21,30 @@ func TestExpressions(t *testing.T) {
 	assert.Equal(t, "p.Validate()", Call("p.Validate"))
 	assert.Equal(t, "m[key]", Index("m", "key"))
 	assert.Equal(t, "p.Cat != nil", NotNil("p.Cat"))
+	assert.Equal(t, "&opts.Body", AddressOf("opts.Body"))
+}
+
+func TestDuration(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		d    time.Duration
+		want string
+	}{
+		{name: "Whole seconds", d: 30 * time.Second, want: "30 * time.Second"},
+		{name: "Whole hours", d: 2 * time.Hour, want: "2 * time.Hour"},
+		{name: "Milliseconds", d: 1500 * time.Millisecond, want: "1500 * time.Millisecond"},
+		{name: "Nanoseconds", d: 1001, want: "1001 * time.Nanosecond"},
+		{name: "Zero", d: 0, want: "0 * time.Hour"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, Duration(tc.d, "time"))
+		})
+	}
 }
 
 func TestRawString(t *testing.T) {

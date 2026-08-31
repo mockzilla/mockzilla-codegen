@@ -55,10 +55,20 @@ func (failingParse) Parse(context.Context, []byte, provider.ParseOptions) (*spec
 func examples(t *testing.T) []string {
 	t.Helper()
 
-	paths, err := filepath.Glob(filepath.Join("..", "..", "examples", "*", "*", "codegen.yml"))
+	root := filepath.Join("..", "..", "examples")
+	paths, err := filepath.Glob(filepath.Join(root, "*", "*", "codegen.yml"))
 	require.NoError(t, err)
+	nested, err := filepath.Glob(filepath.Join(root, "*", "*", "*", "codegen.yml"))
+	require.NoError(t, err)
+	paths = append(paths, nested...)
 	require.NotEmpty(t, paths)
 	return paths
+}
+
+// exampleName is the path of an example inside examples/.
+func exampleName(path string) string {
+	rel, _ := filepath.Rel(filepath.Join("..", "..", "examples"), filepath.Dir(path))
+	return filepath.ToSlash(rel)
 }
 
 // TestExamples compares every example with a fresh run. UPDATE=1 writes the run instead.
@@ -66,7 +76,7 @@ func TestExamples(t *testing.T) {
 	t.Parallel()
 
 	for _, path := range examples(t) {
-		t.Run(filepath.Base(filepath.Dir(path)), func(t *testing.T) {
+		t.Run(exampleName(path), func(t *testing.T) {
 			t.Parallel()
 
 			cfg, err := config.Load(path)
@@ -75,7 +85,7 @@ func TestExamples(t *testing.T) {
 			require.NoError(t, err)
 
 			if os.Getenv("UPDATE") != "" {
-				_, err = Write(res, WriteOptions{})
+				_, err = Write(res, WriteOptions{OverwriteScaffolds: true})
 				require.NoError(t, err)
 				return
 			}
@@ -92,7 +102,7 @@ func TestExamplesAreDeterministic(t *testing.T) {
 	t.Parallel()
 
 	for _, path := range examples(t) {
-		t.Run(filepath.Base(filepath.Dir(path)), func(t *testing.T) {
+		t.Run(exampleName(path), func(t *testing.T) {
 			t.Parallel()
 
 			cfg, err := config.Load(path)
@@ -177,6 +187,11 @@ func TestGenerateErrors(t *testing.T) {
 			name:    "Selector that matches no part",
 			cfg:     "output: {files: {./server.go: [server]}}\n",
 			wantErr: layout.ErrUnknownSelector,
+		},
+		{
+			name:    "Framework without a router yet",
+			cfg:     "server: {framework: std-http}\n",
+			wantErr: ErrFramework,
 		},
 		{
 			name:    "Template override of an unknown block",
