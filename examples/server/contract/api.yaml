@@ -1,0 +1,76 @@
+openapi: 3.1.0
+info: {title: service contract, version: "1"}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List pets
+      description: Returns the pets, a page at a time.
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100}}
+        - {name: X-Trace, in: header, schema: {type: string}}
+        - {name: session, in: cookie, schema: {type: string}}
+      responses:
+        "200":
+          description: ok
+          headers:
+            X-Total-Count: {required: true, schema: {type: integer}}
+            X-Next: {schema: {type: string}}
+          content:
+            application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Pet'}}}
+        default:
+          description: error
+          headers:
+            X-Request-ID: {schema: {type: string}}
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Problem'}}
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+          application/x-www-form-urlencoded: {schema: {$ref: '#/components/schemas/Pet'}}
+      responses:
+        "201":
+          description: created
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+        "4XX":
+          description: rejected
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Problem'}}
+  /pets/{id}:
+    delete:
+      operationId: deletePet
+      deprecated: true
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "204": {description: gone}
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        content:
+          text/plain: {}
+      responses:
+        "200":
+          description: raw
+          content:
+            application/octet-stream: {}
+  /ping:
+    get:
+      responses:
+        "200": {description: pong}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, minLength: 1}
+    Problem:
+      type: object
+      properties:
+        detail: {type: string}

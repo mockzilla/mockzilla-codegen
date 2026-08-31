@@ -1,0 +1,41 @@
+openapi: 3.1.0
+info: {title: server, version: "1"}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200":
+          description: ok
+          headers:
+            X-Total-Count: {schema: {type: integer}, required: true}
+            X-Page-Token: {description: Next page, schema: {type: string}}
+            X-Mode: {schema: {type: string, enum: [fast, slow]}}
+          content:
+            application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Pet'}}}
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      operationId: createPet
+      requestBody:
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+      responses:
+        "201": {description: created}
+  /clash:
+    get:
+      responses:
+        "200": {description: ok}
+components:
+  responses:
+    Error:
+      description: error
+      headers:
+        X-Request-ID: {schema: {type: string}}
+      content:
+        application/json: {schema: {$ref: '#/components/schemas/Problem'}}
+  schemas:
+    Pet: {type: object, properties: {name: {type: string}}}
+    Problem: {type: object, properties: {detail: {type: string}}}
+    NewListPetsResponseData200: {type: string}
+    ListPetsResponse200Headers: {type: integer}

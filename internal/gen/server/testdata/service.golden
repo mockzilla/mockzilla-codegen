@@ -1,0 +1,256 @@
+package api
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+)
+
+// PetsInterface is what the generated handlers call. Implement it with the business logic.
+type PetsInterface interface {
+	// List pets
+	//
+	// Returns pets.
+	ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error)
+	// Same
+	//
+	// Deprecated: the spec marks it deprecated.
+	CreatePet(ctx context.Context, opts *CreatePetServiceRequestOptions) (*CreatePetResponseData, error)
+	// Deprecated: the spec marks it deprecated.
+	DeletePet(ctx context.Context, opts *DeletePetServiceRequestOptions) (*DeletePetResponseData, error)
+	Ping(ctx context.Context, opts *PingServiceRequestOptions) (*PingResponseData, error)
+}
+
+// ListPetsServiceRequestOptions is what ListPets receives. RawRequest is the request as it came in.
+type ListPetsServiceRequestOptions struct {
+	Query      *ListPetsQuery
+	Matrix     *GetPetPathParams
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *ListPetsServiceRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.Query != nil {
+		errs.Append("query", o.Query.Validate())
+	}
+	return errs.Err()
+}
+
+// ListPetsResponseData is what ListPets returns: the status, the headers and the body of the response.
+type ListPetsResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewListPetsResponseData200 returns the response data of status 200 with body as application/json.
+func NewListPetsResponseData200(body Pets) *ListPetsResponseData {
+	return &ListPetsResponseData{Status: 200, Body: body, contentType: "application/json"}
+}
+
+// NewListPetsResponseDataDefault returns the response data of status default with body as application/json.
+func NewListPetsResponseDataDefault(status int, body *Problem) *ListPetsResponseData {
+	return &ListPetsResponseData{Status: status, Body: body, contentType: "application/json"}
+}
+
+// WithStatus sets the status code.
+func (r *ListPetsResponseData) WithStatus(code int) *ListPetsResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *ListPetsResponseData) WithHeaders(h http.Header) *ListPetsResponseData {
+	r.Headers = h
+	return r
+}
+
+// WithTypedHeaders200 adds the headers the spec declares for status 200.
+func (r *ListPetsResponseData) WithTypedHeaders200(h ListPetsResponse200Headers) *ListPetsResponseData {
+	r.Headers = runtime.Headers(r.Headers, h)
+	return r
+}
+
+// WithTypedHeadersDefault adds the headers the spec declares for status default.
+func (r *ListPetsResponseData) WithTypedHeadersDefault(h ListPetsResponseDefaultHeaders) *ListPetsResponseData {
+	r.Headers = runtime.Headers(r.Headers, h)
+	return r
+}
+
+// Payload returns the body.
+func (r *ListPetsResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *ListPetsResponseData) ContentType() string {
+	return r.contentType
+}
+
+// CreatePetServiceRequestOptions is what CreatePet receives. RawRequest is the request as it came in.
+type CreatePetServiceRequestOptions struct {
+	// Body sent as application/json.
+	BodyJSON *Pet
+	// Body sent as text/plain.
+	BodyText string
+	// Body sent as image/png.
+	BodyPng    []byte
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *CreatePetServiceRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.BodyJSON != nil {
+		errs.Append("body", o.BodyJSON.Validate())
+	}
+	return errs.Err()
+}
+
+// CreatePetResponseData is what CreatePet returns: the status, the headers and the body of the response.
+type CreatePetResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewCreatePetResponseData201 returns the response data of status 201 with body as application/json.
+func NewCreatePetResponseData201(body *Pet) *CreatePetResponseData {
+	return &CreatePetResponseData{Status: 201, Body: body, contentType: "application/json"}
+}
+
+// NewCreatePetResponseData4XX returns the response data of status 4XX with body as application/problem+json.
+func NewCreatePetResponseData4XX(status int, body any) *CreatePetResponseData {
+	return &CreatePetResponseData{Status: status, Body: body, contentType: "application/problem+json"}
+}
+
+// WithStatus sets the status code.
+func (r *CreatePetResponseData) WithStatus(code int) *CreatePetResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *CreatePetResponseData) WithHeaders(h http.Header) *CreatePetResponseData {
+	r.Headers = h
+	return r
+}
+
+// WithTypedHeaders adds the headers the spec declares for status 201.
+func (r *CreatePetResponseData) WithTypedHeaders(h ListPetsResponse200Headers) *CreatePetResponseData {
+	r.Headers = runtime.Headers(r.Headers, h)
+	return r
+}
+
+// Payload returns the body.
+func (r *CreatePetResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *CreatePetResponseData) ContentType() string {
+	return r.contentType
+}
+
+// DeletePetServiceRequestOptions is what DeletePet receives. RawRequest is the request as it came in.
+type DeletePetServiceRequestOptions struct {
+	PathParams *GetPetPathParams
+	// Body sent as application/json.
+	Body       map[string]string
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *DeletePetServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// DeletePetResponseData is what DeletePet returns: the status, the headers and the body of the response.
+type DeletePetResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewDeletePetResponseData returns the response data of status 204.
+func NewDeletePetResponseData() *DeletePetResponseData {
+	return &DeletePetResponseData{Status: 204, contentType: ""}
+}
+
+// WithStatus sets the status code.
+func (r *DeletePetResponseData) WithStatus(code int) *DeletePetResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *DeletePetResponseData) WithHeaders(h http.Header) *DeletePetResponseData {
+	r.Headers = h
+	return r
+}
+
+// Payload returns the body.
+func (r *DeletePetResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *DeletePetResponseData) ContentType() string {
+	return r.contentType
+}
+
+// PingServiceRequestOptions is what Ping receives. RawRequest is the request as it came in.
+type PingServiceRequestOptions struct {
+	// Body sent as application/json.
+	Body       []Pet
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *PingServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// PingResponseData is what Ping returns: the status, the headers and the body of the response.
+type PingResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewPingResponseData returns the response data of status 200 with body as text/plain.
+func NewPingResponseData(body *string) *PingResponseData {
+	return &PingResponseData{Status: 200, Body: body, contentType: "text/plain"}
+}
+
+// WithStatus sets the status code.
+func (r *PingResponseData) WithStatus(code int) *PingResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *PingResponseData) WithHeaders(h http.Header) *PingResponseData {
+	r.Headers = h
+	return r
+}
+
+// Payload returns the body.
+func (r *PingResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *PingResponseData) ContentType() string {
+	return r.contentType
+}
