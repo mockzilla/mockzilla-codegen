@@ -1,0 +1,29 @@
+package check
+
+import (
+	"testing"
+{{range .}}
+	{{.Alias}} {{.Import}}
+{{- end}}
+)
+
+func TestInit(t *testing.T) {
+	checks := []struct {
+		name string
+		fn   func()
+	}{
+{{- range .}}
+		{name: {{.Name}}, fn: func() { {{.Call}} }},
+{{- end}}
+	}
+	for _, c := range checks {
+		t.Run(c.name, func(t *testing.T) {
+			defer func() {
+				if p := recover(); p != nil {
+					t.Fatalf("panic: %v", p)
+				}
+			}()
+			c.fn()
+		})
+	}
+}

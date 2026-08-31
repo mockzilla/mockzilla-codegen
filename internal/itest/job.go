@@ -16,6 +16,7 @@ import (
 const (
 	StageGenerate = "generate"
 	StageBuild    = "build"
+	StageTest     = "test"
 )
 
 // waitDelay bounds the wait for output pipes that a killed process's children keep open.
@@ -25,10 +26,12 @@ const waitDelay = 10 * time.Second
 type Command func(ctx context.Context, dir, name string, args ...string) ([]byte, error)
 
 // Variant is one config every spec is generated with. Config is YAML added to the package and
-// output keys the runner writes.
+// output keys the runner writes. Init, when set, is a call the runner makes on every package once
+// it builds, with %s standing for the package, such as %s.NewRouter(nil); a panic fails the job.
 type Variant struct {
 	Name   string
 	Config string
+	Init   string
 }
 
 // Job is one spec generated with one variant into Package, a folder of the sandbox with forward

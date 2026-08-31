@@ -21,4 +21,5 @@ var (
 	ErrParamValue   = errors.New("invalid parameter value")
 	ErrBodyEmpty    = errors.New("request body is required")
 	ErrContentType  = errors.New("unsupported content type")
+	ErrNoResponse   = errors.New("the service returned no response")
 )

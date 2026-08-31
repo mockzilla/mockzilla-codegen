@@ -23,10 +23,12 @@ import (
 // PartID names one piece of generated code, such as models.types.
 type PartID string
 
-// Part is a part a generator writes, with the parts its code refers to.
+// Part is a part a generator writes, with the parts its code refers to. Package, when set, is the
+// package name of the file that holds it, whatever its folder is called: main for a program.
 type Part struct {
-	ID   PartID
-	Uses []PartID
+	ID      PartID
+	Uses    []PartID
+	Package string
 }
 
 type FileKind int
@@ -34,6 +36,13 @@ type FileKind int
 const (
 	Generated FileKind = iota
 	Scaffold
+)
+
+// The parts of the scaffold files, each written to the file the config names for it.
+const (
+	PartScaffoldService    PartID = "server.scaffold.service"
+	PartScaffoldMiddleware PartID = "server.scaffold.middleware"
+	PartScaffoldMain       PartID = "server.scaffold.main"
 )
 
 // File is one output file. Path is resolved against the config folder; Rel is the path as the
@@ -109,6 +118,9 @@ func (l *Layout) assign(def *File, cands []candidate, parts []Part) error {
 		}
 		l.byPart[p.ID] = best
 		best.Parts = append(best.Parts, p.ID)
+		if p.Package != "" {
+			best.Package = p.Package
+		}
 	}
 	return unknownSelectors(cands, used, parts)
 }
@@ -143,10 +155,12 @@ func (l *Layout) name(cfg *config.Config, mod Module) error {
 		return err
 	}
 
+	packages := make(map[string]*File, len(dirs))
 	for _, f := range l.Files {
 		dir := filepath.Dir(f.Path)
 		f.ImportPath = imports[dir]
 		switch pkg, ok := names[dir]; {
+		case f.Package != "":
 		case ok:
 			f.Package = pkg
 		case dir == defDir:
@@ -154,10 +168,17 @@ func (l *Layout) name(cfg *config.Config, mod Module) error {
 		default:
 			f.Package = naming.Package(dir)
 		}
+
+		if other, ok := packages[dir]; ok && other.Package != f.Package {
+			return fmt.Errorf("%w: %s is package %s next to %s, package %s", ErrPackageConflict, f.Rel, f.Package, other.Rel, other.Package)
+		}
+		packages[dir] = f
 	}
 	return nil
 }
 
+// candidates are output.file, the files output.files names, and the scaffold files, each with its
+// own part.
 func candidates(cfg *config.Config) (*File, []candidate) {
 	def := &File{Path: resolve(cfg, cfg.Output.File), Rel: cfg.Output.File}
 	list := make([]candidate, 0, len(cfg.Output.Files))
@@ -168,7 +189,35 @@ func candidates(cfg *config.Config) (*File, []candidate) {
 		}
 		list = append(list, candidate{file: f, selectors: cfg.Output.Files[rel]})
 	}
+	for _, sc := range scaffolds(cfg) {
+		f := &File{Path: resolve(cfg, sc.rel), Rel: sc.rel, Kind: Scaffold}
+		list = append(list, candidate{file: f, selectors: []string{string(sc.part)}})
+	}
 	return def, list
+}
+
+// scaffold is a starter file the config asks for, and the part that fills it.
+type scaffold struct {
+	rel  string
+	part PartID
+}
+
+// scaffolds lists the scaffold files server.scaffold names, in a fixed order.
+func scaffolds(cfg *config.Config) []scaffold {
+	if cfg.Server == nil {
+		return nil
+	}
+	var out []scaffold
+	for _, sc := range []scaffold{
+		{rel: cfg.Server.Scaffold.Service, part: PartScaffoldService},
+		{rel: cfg.Server.Scaffold.Middleware, part: PartScaffoldMiddleware},
+		{rel: cfg.Server.Scaffold.Main, part: PartScaffoldMain},
+	} {
+		if sc.rel != "" {
+			out = append(out, sc)
+		}
+	}
+	return out
 }
 
 func candidateFiles(cands []candidate) []*File {

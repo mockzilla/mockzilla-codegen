@@ -113,6 +113,11 @@ func TestValidate(t *testing.T) {
 			issues: []Issue{{Key: "server.framework", Message: `"gin" is not one of chi, std-http`}},
 		},
 		{
+			name:   "The main scaffold needs the service scaffold",
+			edit:   func(c *Config) { c.Server = &Server{Framework: "chi", Scaffold: Scaffold{Main: "cmd/server/main.go"}} },
+			issues: []Issue{{Key: "server.scaffold.main", Message: "needs server.scaffold.service, which main starts"}},
+		},
+		{
 			name:   "MCP needs a client",
 			edit:   func(c *Config) { c.MCP = &MCP{} },
 			issues: []Issue{{Key: "mcp", Message: "needs a client block"}},

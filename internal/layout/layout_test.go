@@ -36,10 +36,11 @@ func TestPlan(t *testing.T) {
 
 	allParts := []PartID{"models.types", "models.enums", "models.unions", "models.params"}
 	tests := []struct {
-		name string
-		cfg  string
-		mod  Module
-		want []*File
+		name  string
+		cfg   string
+		mod   Module
+		parts []Part
+		want  []*File
 	}{
 		{
 			name: "Every part goes to output.file by default",
@@ -88,6 +89,19 @@ func TestPlan(t *testing.T) {
 			},
 		},
 		{
+			name: "Scaffold files take their part and main its package",
+			cfg: "output: {file: ./api/gen.go}\nserver:\n  framework: chi\n" +
+				"  scaffold: {service: ./api/service.go, middleware: ./api/middleware.go, main: ./cmd/server/main.go}\n",
+			mod:   workModule,
+			parts: []Part{{ID: "models.types"}, {ID: PartScaffoldService}, {ID: PartScaffoldMain, Package: "main"}, {ID: PartScaffoldMiddleware}},
+			want: []*File{
+				{Path: "/work/api/gen.go", Rel: "./api/gen.go", Package: "api", ImportPath: "example.com/work/api", Parts: []PartID{"models.types"}},
+				{Path: "/work/api/middleware.go", Rel: "./api/middleware.go", Package: "api", ImportPath: "example.com/work/api", Kind: Scaffold, Parts: []PartID{PartScaffoldMiddleware}},
+				{Path: "/work/api/service.go", Rel: "./api/service.go", Package: "api", ImportPath: "example.com/work/api", Kind: Scaffold, Parts: []PartID{PartScaffoldService}},
+				{Path: "/work/cmd/server/main.go", Rel: "./cmd/server/main.go", Package: "main", ImportPath: "example.com/work/cmd/server", Kind: Scaffold, Parts: []PartID{PartScaffoldMain}},
+			},
+		},
+		{
 			name: "One folder needs no module",
 			cfg:  "output: {file: ./api/gen.go}\n",
 			want: []*File{
@@ -108,7 +122,11 @@ func TestPlan(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			l, err := Plan(parseConfig(t, tc.cfg, "/work"), modelParts, tc.mod)
+			parts := modelParts
+			if tc.parts != nil {
+				parts = tc.parts
+			}
+			l, err := Plan(parseConfig(t, tc.cfg, "/work"), parts, tc.mod)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, l.Files)
@@ -128,6 +146,7 @@ func TestPlanErrors(t *testing.T) {
 	tests := []struct {
 		name    string
 		cfg     *config.Config
+		parts   []Part
 		dir     string
 		mod     Module
 		wantErr error
@@ -170,6 +189,17 @@ func TestPlanErrors(t *testing.T) {
 			wantMsg: "outside the module: /other is not inside /work",
 		},
 		{
+			name: "A main file next to generated code",
+			cfg: &config.Config{
+				Output: config.Output{File: "./gen.go"},
+				Server: &config.Server{Framework: "chi", Scaffold: config.Scaffold{Service: "./service.go", Main: "./main.go"}},
+			},
+			parts:   []Part{{ID: "models.types"}, {ID: PartScaffoldService}, {ID: PartScaffoldMain, Package: "main"}},
+			mod:     workModule,
+			wantErr: ErrPackageConflict,
+			wantMsg: "two packages in one folder: ./main.go is package main next to ./gen.go, package work",
+		},
+		{
 			name: "Relative config folder cannot be placed in the module",
 			cfg: &config.Config{Output: config.Output{File: "./gen.go", Files: map[string][]string{
 				"./models/types.go": {"models.types"},
@@ -190,9 +220,13 @@ func TestPlanErrors(t *testing.T) {
 				dir = "/work"
 			}
 			cfg := parseConfig(t, "", dir)
-			cfg.Output = tc.cfg.Output
+			cfg.Output, cfg.Server = tc.cfg.Output, tc.cfg.Server
 
-			l, err := Plan(cfg, modelParts, tc.mod)
+			parts := modelParts
+			if tc.parts != nil {
+				parts = tc.parts
+			}
+			l, err := Plan(cfg, parts, tc.mod)
 
 			require.ErrorIs(t, err, tc.wantErr)
 			require.EqualError(t, err, tc.wantMsg)

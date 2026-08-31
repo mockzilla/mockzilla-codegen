@@ -69,7 +69,11 @@ func checkServer(s *Server) []Issue {
 	if s == nil {
 		return nil
 	}
-	return checkEnum("server.framework", s.Framework, frameworks)
+	issues := checkEnum("server.framework", s.Framework, frameworks)
+	if s.Scaffold.Main != "" && s.Scaffold.Service == "" {
+		issues = append(issues, Issue{Key: "server.scaffold.main", Message: "needs server.scaffold.service, which main starts"})
+	}
+	return issues
 }
 
 func checkMCP(m *MCP, cl *Client) []Issue {

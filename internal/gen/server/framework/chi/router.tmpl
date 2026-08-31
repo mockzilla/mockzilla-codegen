@@ -1,0 +1,34 @@
+// WithRouter registers the routes on r instead of a new router.
+func WithRouter(r {{.Framework}}.Router) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = r
+	}
+}
+
+// NewRouter registers every operation on a chi router. On a new router the middleware
+// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
+// wraps the generated routes and nothing else.
+func NewRouter(svc {{.Service}}, opts ...{{.Option}}) {{.Framework}}.Router {
+	o := {{.NewOptions}}(opts...)
+{{- if .Routes}}
+	adapter := {{.NewAdapter}}(svc, opts...)
+{{- end}}
+	register := func(r {{.Framework}}.Router) {
+{{- range .Routes}}
+		r.{{.Method}}({{.Pattern}}, adapter.{{.Operation}})
+{{- end}}
+	}
+
+	router, _ := o.Router.({{.Framework}}.Router)
+	if router == nil {
+		router = {{.Framework}}.NewRouter()
+		router.Use(o.Middleware...)
+		register(router)
+		return router
+	}
+	router.Group(func(r {{.Framework}}.Router) {
+		r.Use(o.Middleware...)
+		register(r)
+	})
+	return router
+}

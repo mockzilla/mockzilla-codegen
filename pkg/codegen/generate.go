@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/models"
@@ -97,10 +98,39 @@ func (g *generation) model(ctx context.Context) error {
 	m, built := gomodel.Build(doc, gomodel.OptionsFrom(g.cfg))
 	g.diags.Append(built...)
 	g.gen = models.New(m)
-	if s := g.cfg.Server; s != nil {
-		g.srv = server.New(m, cmp.Or(s.Name, "Service"), naming.New(g.cfg.Naming.Initialisms))
+	if g.cfg.Server == nil {
+		return nil
 	}
+
+	opts, err := serverOptions(g.cfg)
+	if err != nil {
+		return err
+	}
+	var srvDiags []diag.Diagnostic
+	g.srv, srvDiags = server.New(m, opts)
+	g.diags.Append(srvDiags...)
 	return nil
+}
+
+// serverOptions reads the server block of cfg. The framework it names has to be one the generator
+// knows.
+func serverOptions(cfg *config.Config) (server.Options, error) {
+	s := cfg.Server
+	fw, ok := server.Frameworks()[s.Framework]
+	if !ok {
+		return server.Options{}, fmt.Errorf("%w: %s", ErrFramework, s.Framework)
+	}
+	return server.Options{
+		Name:               cmp.Or(s.Name, "Service"),
+		Namer:              naming.New(cfg.Naming.Initialisms),
+		Framework:          fw,
+		ValidateRequest:    s.Validation.Request,
+		ValidateResponse:   s.Validation.Response,
+		MultipartMaxMemory: int64(s.MultipartMaxMemory),
+		Scaffold:           server.Scaffold{Service: s.Scaffold.Service != "", Middleware: s.Scaffold.Middleware != "", Main: s.Scaffold.Main != ""},
+		Port:               s.Scaffold.Port,
+		Timeout:            time.Duration(s.Scaffold.Timeout),
+	}, nil
 }
 
 // plan places the parts in files and loads the templates.
@@ -112,7 +142,7 @@ func (g *generation) plan() error {
 	parts, sets := g.gen.Parts(), []render.Set{models.Templates()}
 	if g.srv != nil {
 		parts = append(parts, g.srv.Parts()...)
-		sets = append(sets, server.Templates())
+		sets = append(sets, server.Templates(g.srv.Framework())...)
 	}
 	if g.lay, err = layout.Plan(g.cfg, parts, mod); err != nil {
 		return err

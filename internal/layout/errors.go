@@ -14,6 +14,7 @@ var (
 	ErrOutsideModule    = errors.New("outside the module")
 	ErrImportCycle      = errors.New("import cycle")
 	ErrModule           = errors.New("read go.mod")
+	ErrPackageConflict  = errors.New("two packages in one folder")
 
 	errNoModuleLine = errors.New("no module line")
 )

@@ -7,4 +7,7 @@ package codegen
 
 import "errors"
 
-var ErrWrite = errors.New("write generated file")
+var (
+	ErrWrite     = errors.New("write generated file")
+	ErrFramework = errors.New("no router for the framework")
+)

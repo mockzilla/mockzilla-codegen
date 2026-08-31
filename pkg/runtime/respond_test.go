@@ -30,7 +30,9 @@ func TestWrite(t *testing.T) {
 		{name: "JSON", body: map[string]int{"a": 1}, wantContentType: "application/json", wantBody: `{"a":1}`},
 		{name: "JSON with the content type given", headers: http.Header{"Content-Type": {"application/problem+json"}}, body: 1, wantContentType: "application/problem+json", wantBody: "1"},
 		{name: "Text", body: "hi", wantContentType: "application/octet-stream", wantBody: "hi"},
+		{name: "Text behind a pointer", body: Ptr("hi"), wantContentType: "application/octet-stream", wantBody: "hi"},
 		{name: "Bytes", headers: http.Header{"Content-Type": {"text/plain"}}, body: []byte("hi"), wantContentType: "text/plain", wantBody: "hi"},
+		{name: "Bytes behind a pointer", body: Ptr([]byte("hi")), wantContentType: "application/octet-stream", wantBody: "hi"},
 		{name: "File", body: NewFile([]byte("data"), "a.bin", "image/png"), wantContentType: "image/png", wantBody: "data"},
 		{name: "File pointer", body: Ptr(NewFileReader(strings.NewReader("data"), "a", "", -1)), wantContentType: "", wantBody: "data"},
 	}

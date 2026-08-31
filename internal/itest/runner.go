@@ -8,19 +8,49 @@ package itest
 import (
 	"bytes"
 	"context"
+	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"text/template"
 	"time"
 )
 
-const configFile = "codegen.yml"
+const (
+	configFile  = "codegen.yml"
+	checkFolder = "check"
+	checkTest   = "TestInit"
+)
+
+//go:embed check.tmpl
+var checkSource string
+
+// checkTemplate writes the test file of a batch from its checks.
+var checkTemplate = template.Must(template.New("check").Parse(checkSource))
+
+// check is one init call of the batch test: the package imported as Alias, the quoted subtest
+// Name and the Call on the alias.
+type check struct {
+	Alias  string
+	Import string
+	Name   string
+	Call   string
+}
+
+// testEvent is one line of go test -json.
+type testEvent struct {
+	Action string
+	Test   string
+	Output string
+}
 
 // Runner generates jobs with the CLI at Tool and builds what they generate in the sandbox.
 type Runner struct {
@@ -63,15 +93,16 @@ func (r *Runner) Run(ctx context.Context, jobs []Job) []Result {
 	}()
 
 	var batch []int
+	batches := 0
 	for i := range generated {
 		batch = append(batch, i)
 		if len(batch) >= r.BatchSize {
-			r.build(ctx, batch, results)
-			batch = nil
+			r.build(ctx, batch, results, batches)
+			batch, batches = nil, batches+1
 		}
 	}
 	if len(batch) > 0 {
-		r.build(ctx, batch, results)
+		r.build(ctx, batch, results, batches)
 	}
 	return results
 }
@@ -102,7 +133,8 @@ func (r *Runner) generate(ctx context.Context, job Job) Result {
 }
 
 func (r *Runner) runTool(ctx context.Context, dir string, job Job) ([]byte, error) {
-	cfg := "package: " + path.Base(job.Package) + "\noutput:\n  file: ./gen.go\n" + job.Variant.Config
+	name := path.Base(job.Package)
+	cfg := "package: " + name + "\noutput:\n  file: ./gen.go\n" + job.Variant.Config
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
@@ -119,7 +151,8 @@ func (r *Runner) runTool(ctx context.Context, dir string, job Job) ([]byte, erro
 	return out, err
 }
 
-func (r *Runner) build(ctx context.Context, batch []int, results []Result) {
+// build builds the packages of batch, the id-th one, and checks those that build.
+func (r *Runner) build(ctx context.Context, batch []int, results []Result, id int) {
 	n := int64(len(batch))
 	r.building.Add(n)
 	defer func() {
@@ -132,9 +165,23 @@ func (r *Runner) build(ctx context.Context, batch []int, results []Result) {
 		pkgs[k] = results[i].Job.Package
 	}
 	failures := r.buildPackages(ctx, pkgs)
+	var checked []Job
 	for k, i := range batch {
 		if out, isFailed := failures[pkgs[k]]; isFailed {
 			results[i].Stage, results[i].Output = StageBuild, out
+			r.failed.Add(1)
+		} else if results[i].Job.Variant.Init != "" {
+			checked = append(checked, results[i].Job)
+		}
+	}
+	if len(checked) == 0 {
+		return
+	}
+
+	failures = r.checkPackages(ctx, checked, id)
+	for k, i := range batch {
+		if out, isFailed := failures[pkgs[k]]; isFailed {
+			results[i].Stage, results[i].Output = StageTest, out
 			r.failed.Add(1)
 		}
 	}
@@ -170,6 +217,82 @@ func (r *Runner) buildPackages(ctx context.Context, pkgs []string) map[string]st
 		for _, p := range pkgs {
 			maps.Copy(failures, r.buildPackages(ctx, []string{p}))
 		}
+	}
+	return failures
+}
+
+// checkPackages writes one test package that makes the init call of every job, numbered by id,
+// runs it, and returns the output of each package whose call fails. A run that fails without
+// naming a package fails every package with its output.
+func (r *Runner) checkPackages(ctx context.Context, jobs []Job, id int) map[string]string {
+	pkg := path.Join(checkFolder, "batch"+strconv.Itoa(id))
+	dir := filepath.Join(r.Sandbox.Dir, filepath.FromSlash(pkg))
+	failures := map[string]string{}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return failAll(failures, jobs, err.Error())
+	}
+	var src bytes.Buffer
+	_ = checkTemplate.Execute(&src, checks(jobs)) // a slice of plain strings cannot fail
+	if err := os.WriteFile(filepath.Join(dir, "check_test.go"), src.Bytes(), 0o644); err != nil {
+		return failAll(failures, jobs, err.Error())
+	}
+
+	out, err := r.Exec(ctx, r.Sandbox.Dir, "go", "test", "-count=1", "-json", "./"+pkg)
+	if err == nil {
+		return nil
+	}
+	if failures = checkFailures(out); len(failures) == 0 {
+		return failAll(failures, jobs, joinOutput(out, err))
+	}
+	return failures
+}
+
+// checks are the init calls of jobs, one subtest each, named after the package so a panic in one
+// names it and leaves the others to run.
+func checks(jobs []Job) []check {
+	out := make([]check, len(jobs))
+	for i, job := range jobs {
+		alias := "p" + strconv.Itoa(i)
+		out[i] = check{
+			Alias:  alias,
+			Import: strconv.Quote(path.Join(sandboxModule, job.Package)),
+			Name:   strconv.Quote(job.Package),
+			Call:   fmt.Sprintf(job.Variant.Init, alias),
+		}
+	}
+	return out
+}
+
+// checkFailures reads go test -json output and returns what each failing subtest printed, by the
+// package its name is.
+func checkFailures(out []byte) map[string]string {
+	outputs := map[string]*strings.Builder{}
+	failures := map[string]string{}
+	for line := range strings.Lines(string(out)) {
+		var ev testEvent
+		if json.Unmarshal([]byte(line), &ev) != nil {
+			continue
+		}
+		p, isSubtest := strings.CutPrefix(ev.Test, checkTest+"/")
+		if !isSubtest {
+			continue
+		}
+		if outputs[p] == nil {
+			outputs[p] = &strings.Builder{}
+		}
+		if ev.Action == "output" {
+			_, _ = outputs[p].WriteString(ev.Output)
+		}
+		if ev.Action == "fail" {
+			failures[p] = strings.TrimSpace(outputs[p].String())
+		}
+	}
+	return failures
+}
+
+func failAll(failures map[string]string, jobs []Job, out string) map[string]string {
+	for _, job := range jobs {
+		failures[job.Package] = out
 	}
 	return failures
 }
