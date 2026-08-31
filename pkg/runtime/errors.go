@@ -16,4 +16,9 @@ var (
 	ErrAmbiguous            = errors.New("more than one union variant matches")
 	ErrUnknownDiscriminator = errors.New("unknown discriminator value")
 	ErrNotObject            = errors.New("not a JSON object")
+
+	ErrParamMissing = errors.New("parameter is required")
+	ErrParamValue   = errors.New("invalid parameter value")
+	ErrBodyEmpty    = errors.New("request body is required")
+	ErrContentType  = errors.New("unsupported content type")
 )

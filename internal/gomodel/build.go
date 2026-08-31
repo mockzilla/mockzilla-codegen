@@ -47,7 +47,8 @@ func newBuilder(opts Options, r readers, diags *diag.Collector) *builder {
 }
 
 // build fills every declaration, then settles pointers, which need every type known first.
-func (b *builder) build(list []*pending, ops []*Operation) []*Decl {
+// headers are the typed header structs of responses.
+func (b *builder) build(list []*pending, ops []*Operation, headers map[*spec.Response]*Decl) []*Decl {
 	decls := make([]*Decl, len(list))
 	for i, p := range list {
 		decls[i] = p.decl
@@ -73,7 +74,7 @@ func (b *builder) build(list []*pending, ops []*Operation) []*Decl {
 			op.Bodies = b.contents(op.Spec.Body.Contents)
 		}
 		for _, r := range op.Spec.Responses {
-			op.Responses = append(op.Responses, Response{Status: r.Status, Contents: b.contents(r.Contents)})
+			op.Responses = append(op.Responses, Response{Status: r.Status, Contents: b.contents(r.Contents), Headers: headers[r]})
 		}
 	}
 	return decls

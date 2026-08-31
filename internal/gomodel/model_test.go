@@ -110,6 +110,7 @@ func TestOptionsFrom(t *testing.T) {
 				EnumPrefix:   true,
 				Namer:        n,
 				IsValidated:  true,
+				IsServer:     true,
 				Reserved: []string{
 					"PetServiceInterface", "NewRouter", "ErrorKind", "HandlerError", "ErrorHandler", "DefaultErrorHandler",
 					"Client", "NewClient", "ClientOption", "ClientInterface", "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithRequestEditor",

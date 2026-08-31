@@ -6,14 +6,18 @@
 package codegen
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/models"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
+	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/prepare"
 	"github.com/mockzilla/mockzilla-codegen/internal/provider"
 	"github.com/mockzilla/mockzilla-codegen/internal/render"
@@ -52,6 +56,7 @@ type generation struct {
 	opts   options
 	diags  diag.Collector
 	gen    *models.Generator
+	srv    *server.Generator
 	lay    *layout.Layout
 	engine *render.Engine
 	files  []File
@@ -92,6 +97,9 @@ func (g *generation) model(ctx context.Context) error {
 	m, built := gomodel.Build(doc, gomodel.OptionsFrom(g.cfg))
 	g.diags.Append(built...)
 	g.gen = models.New(m)
+	if s := g.cfg.Server; s != nil {
+		g.srv = server.New(m, cmp.Or(s.Name, "Service"), naming.New(g.cfg.Naming.Initialisms))
+	}
 	return nil
 }
 
@@ -101,12 +109,17 @@ func (g *generation) plan() error {
 	if err != nil {
 		return err
 	}
-	if g.lay, err = layout.Plan(g.cfg, g.gen.Parts(), mod); err != nil {
+	parts, sets := g.gen.Parts(), []render.Set{models.Templates()}
+	if g.srv != nil {
+		parts = append(parts, g.srv.Parts()...)
+		sets = append(sets, server.Templates())
+	}
+	if g.lay, err = layout.Plan(g.cfg, parts, mod); err != nil {
 		return err
 	}
 
 	isFormat := g.cfg.Output.Format == nil || *g.cfg.Output.Format
-	g.engine, err = render.New([]render.Set{models.Templates()}, render.Options{Templates: g.cfg.Templates, Format: isFormat})
+	g.engine, err = render.New(sets, render.Options{Templates: g.cfg.Templates, Format: isFormat})
 	return err
 }
 
@@ -126,11 +139,19 @@ func (g *generation) render() error {
 	return nil
 }
 
+// view is the template data of part: the server generator's for server parts, else the models'.
+func (g *generation) view(part layout.PartID, s *gocode.Scope) any {
+	if strings.HasPrefix(string(part), "server.") {
+		return g.srv.View(part, s)
+	}
+	return g.gen.View(part, s)
+}
+
 func (g *generation) file(f *layout.File) ([]byte, error) {
 	s := gocode.NewScope(f, g.lay)
 	data := render.FileData{Header: g.cfg.Header, Package: f.Package}
 	for _, part := range f.Parts {
-		out, err := g.engine.RenderPart(part, g.gen.View(part, s))
+		out, err := g.engine.RenderPart(part, g.view(part, s))
 		if err != nil {
 			return nil, err
 		}

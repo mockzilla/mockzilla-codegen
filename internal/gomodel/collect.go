@@ -66,12 +66,14 @@ type childSchema struct {
 // It walks exactly the schemas whose types the builder computes later.
 type collector struct {
 	doc         *spec.Document
+	isServer    bool
 	namer       *naming.Namer
 	flat        *flattener
 	unions      *unionReader
 	ext         *extReader
 	diags       *diag.Collector
 	pending     []*pending
+	headers     map[*spec.Response]*Decl
 	bySchema    map[*spec.Schema]*pending
 	visited     map[*spec.Schema]bool
 	onStack     map[*spec.Schema]place
@@ -81,11 +83,13 @@ type collector struct {
 func newCollector(doc *spec.Document, r readers, diags *diag.Collector) *collector {
 	c := &collector{
 		doc:         doc,
+		isServer:    r.isServer,
 		namer:       r.unions.namer,
 		flat:        r.flat,
 		unions:      r.unions,
 		ext:         r.ext,
 		diags:       diags,
+		headers:     map[*spec.Response]*Decl{},
 		bySchema:    map[*spec.Schema]*pending{},
 		visited:     map[*spec.Schema]bool{},
 		onStack:     map[*spec.Schema]place{},
@@ -130,7 +134,39 @@ func (c *collector) run(ops []*Operation) {
 				at := place{name: n.Response(op.Name, r.Status, mt.Name, isMultiple), rank: naming.RankOperation, part: PartResponses}
 				c.walk(mt.Schema, at, ruleUnlessRef)
 			}
+			if c.isServer && len(r.Headers) > 0 {
+				c.responseHeaders(op, r)
+			}
 		}
+	}
+}
+
+// responseHeaders adds the struct of the typed headers of a response and walks their schemas.
+func (c *collector) responseHeaders(op *Operation, r *spec.Response) {
+	list := make([]*spec.Parameter, len(r.Headers))
+	for i, h := range r.Headers {
+		list[i] = &spec.Parameter{
+			Name:        h.Name,
+			In:          spec.InHeader,
+			Description: h.Description,
+			Required:    h.Required,
+			Deprecated:  h.Deprecated,
+			Style:       h.Style,
+			Explode:     h.Explode,
+			Schema:      h.Schema,
+			Contents:    h.Contents,
+			Extensions:  h.Extensions,
+			Origin:      h.Origin,
+		}
+	}
+
+	d := &Decl{ID: r.Origin.Pointer + "/headers", Kind: KindStruct, Part: PartResponses, Origin: origin(r.Origin)}
+	p := c.push(&pending{decl: d, params: list, name: c.namer.ResponseHeaders(op.Name, r.Status), rank: naming.RankOperation})
+	c.headers[r] = d
+
+	at := place{base: p, rank: naming.RankInline, part: PartResponses}
+	for _, h := range list {
+		c.walk(paramSchema(h), at.child(c.namer.InlineProperty("", h.Name)), ruleIfNeeded)
 	}
 }
 

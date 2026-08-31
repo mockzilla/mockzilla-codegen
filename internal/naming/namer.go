@@ -90,10 +90,30 @@ func (n *Namer) Response(op, status, contentType string, multiple bool) string {
 	if multiple {
 		op += n.MediaTag(contentType)
 	}
-	if strings.EqualFold(status, "default") {
-		return op + "ResponseDefault"
+	return op + "Response" + n.Status(status)
+}
+
+// ResponseHeaders names the typed headers of a response: GetPetResponse200Headers.
+func (n *Namer) ResponseHeaders(op, status string) string {
+	return n.Response(op, status, "", false) + "Headers"
+}
+
+// ResponseConstructor names the function that makes the response data of an operation from the
+// body of one status: NewGetPetResponseData, or NewGetPetResponseData404 among several.
+func (n *Namer) ResponseConstructor(op, status string, multiple bool) string {
+	name := "New" + n.ResponseData(op)
+	if multiple {
+		name += n.Status(status)
 	}
-	return op + "Response" + strings.ToUpper(n.camel(status))
+	return name
+}
+
+// Status writes a status as a name part: 200, 4XX, Default.
+func (n *Namer) Status(status string) string {
+	if strings.EqualFold(status, "default") {
+		return "Default"
+	}
+	return strings.ToUpper(n.camel(status))
 }
 
 // Params names the struct for one parameter location: GetPetPathParams, GetPetQuery.

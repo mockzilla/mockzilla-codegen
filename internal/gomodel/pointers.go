@@ -29,6 +29,18 @@ func fieldType(t Type, p presence) Type {
 	return Pointer{Elem: t}
 }
 
+// Held is how a struct field holds a value of type t that may be absent: a pointer, unless t can
+// be nil already.
+func Held(t Type) Type {
+	return elemType(t, true)
+}
+
+// Validates reports whether a value of type t, or of the type t points to, has a Validate method.
+func Validates(t Type) bool {
+	d, ok := validated(elem(t))
+	return ok && (d == nil || d.Validation != nil)
+}
+
 // elemType is for array items and map values: a pointer only when the value can be null.
 func elemType(t Type, isNullable bool) Type {
 	if isNullable && !nilable(t) {
