@@ -1,0 +1,27 @@
+Pet struct models.types
+  Name *string json=name omitempty
+Problem struct models.types
+  Detail *string json=detail omitempty
+NewListPetsResponseData200Schema alias string models.types
+ListPetsResponse200Headers alias int models.types
+ListPetsResponse200 defined []Pet models.responses
+ListPetsResponse200Headers2 struct models.responses
+  XTotalCount int json=X-Total-Count required
+  XPageToken *string json=X-Page-Token omitempty doc="Next page"
+  XMode *ListPetsResponse200Headers2XMode json=X-Mode omitempty
+ListPetsResponse200Headers2XMode enum string models.enums
+  ListPetsResponse200Headers2XModeFast "fast"
+  ListPetsResponse200Headers2XModeSlow "slow"
+ListPetsResponseDefaultHeaders struct models.responses
+  XRequestID *string json=X-Request-ID omitempty
+op ListPets GET /pets
+  response 200 application/json ListPetsResponse200
+  response 200 headers ListPetsResponse200Headers2
+  response default application/json Problem
+  response default headers ListPetsResponseDefaultHeaders
+op CreatePet POST /pets
+  body application/json Pet
+op GetClash GET /clash
+---
+info name-clash 9:11 /paths/~1pets/get/responses/200/headers: "ListPetsResponse200Headers" is used by /components/schemas/ListPetsResponse200Headers, renamed to "ListPetsResponse200Headers2"
+info name-clash 40:33 /components/schemas/NewListPetsResponseData200: "NewListPetsResponseData200" is reserved, renamed to "NewListPetsResponseData200Schema"

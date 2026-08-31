@@ -83,3 +83,19 @@ func TestPointersInModel(t *testing.T) {
 	t.Parallel()
 	checkGolden(t, "pointers", "pointers", testOptions())
 }
+
+func TestHeldAndValidates(t *testing.T) {
+	t.Parallel()
+
+	str := Builtin{Name: "string"}
+	pet := &Decl{Name: "Pet", Kind: KindStruct, Struct: &Struct{}, Validation: &Validation{}}
+	plain := &Decl{Name: "Plain", Kind: KindStruct, Struct: &Struct{}}
+
+	assert.Equal(t, Pointer{Elem: str}, Held(str))
+	assert.Equal(t, Slice{Elem: str}, Held(Slice{Elem: str}))
+	assert.True(t, Validates(DeclRef{Decl: pet}))
+	assert.True(t, Validates(Pointer{Elem: DeclRef{Decl: pet}}))
+	assert.True(t, Validates(emailType))
+	assert.False(t, Validates(DeclRef{Decl: plain}))
+	assert.False(t, Validates(str))
+}

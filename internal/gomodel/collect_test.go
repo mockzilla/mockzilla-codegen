@@ -13,6 +13,9 @@ func TestCollector(t *testing.T) {
 	reserved := testOptions()
 	reserved.Reserved = []string{"Client"}
 	reserved.OperationSuffixes = []string{"ResponseData"}
+	server := testOptions()
+	server.IsServer = true
+	server.OperationSuffixes = []string{"ServiceRequestOptions", "ResponseData"}
 	tests := []struct {
 		name    string
 		fixture string
@@ -21,6 +24,7 @@ func TestCollector(t *testing.T) {
 		{name: "operations", fixture: "operations", opts: testOptions()},
 		{name: "operations-reserved", fixture: "operations", opts: reserved},
 		{name: "refs", fixture: "refs", opts: testOptions()},
+		{name: "server", fixture: "server", opts: server},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -253,6 +253,9 @@ func dumpOperation(b *strings.Builder, op *Operation) {
 		for _, c := range r.Contents {
 			b.WriteString("  response " + r.Status + " " + c.MediaType + " " + typeText(c.Type) + "\n")
 		}
+		if r.Headers != nil {
+			b.WriteString("  response " + r.Status + " headers " + r.Headers.Name + "\n")
+		}
 	}
 }
 

@@ -47,22 +47,28 @@ type Content struct {
 	Type      Type
 }
 
+// Response is one status of an operation. Headers is the struct of its typed headers, nil when it
+// declares none or no server is generated.
 type Response struct {
 	Status   string
 	Contents []Content
+	Headers  *Decl
 }
 
-// readers read the spec once for every step of Build.
+// readers read the spec once for every step of Build. isServer says whether the server contract
+// is generated.
 type readers struct {
-	flat   *flattener
-	unions *unionReader
-	ext    *extReader
+	flat     *flattener
+	unions   *unionReader
+	ext      *extReader
+	isServer bool
 }
 
 // Options are the settings Build uses. Reserved names are declared by the generator elsewhere in
 // the package; each operation also declares its name plus every OperationSuffixes entry.
 // IsValidated adds Validate methods, ValidateResponse where responses differ. ErrorMapping maps
-// error type names to the path of their message.
+// error type names to the path of their message. IsServer declares what the service contract
+// needs: response header structs and the names of its constructors.
 type Options struct {
 	IntType           string
 	Descriptions      bool
@@ -73,6 +79,7 @@ type Options struct {
 	OperationSuffixes []string
 	IsValidated       bool
 	ValidateResponse  bool
+	IsServer          bool
 	ErrorMapping      map[string]string
 }
 
@@ -96,6 +103,7 @@ func OptionsFrom(cfg *config.Config) Options {
 
 	if s := cfg.Server; s != nil {
 		name := cmp.Or(s.Name, "Service")
+		opts.IsServer = true
 		opts.Reserved = append(opts.Reserved, name+"Interface", "NewRouter", "ErrorKind", "HandlerError", "ErrorHandler", "DefaultErrorHandler")
 		opts.OperationSuffixes = []string{n.ServiceRequestOptions(""), n.ResponseData("")}
 	}
@@ -116,16 +124,22 @@ func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 		for _, suffix := range opts.OperationSuffixes {
 			reserved = append(reserved, op.Name+suffix)
 		}
+		if opts.IsServer {
+			isMultiple := len(op.Spec.Responses) > 1
+			for _, r := range op.Spec.Responses {
+				reserved = append(reserved, opts.Namer.ResponseConstructor(op.Name, r.Status, isMultiple))
+			}
+		}
 	}
 
 	flat := newFlattener(&diags)
-	r := readers{flat: flat, unions: newUnionReader(opts.Namer, flat), ext: newExtReader(opts.Namer, &diags)}
+	r := readers{flat: flat, unions: newUnionReader(opts.Namer, flat), ext: newExtReader(opts.Namer, &diags), isServer: opts.IsServer}
 	c := newCollector(doc, r, &diags)
 	c.run(ops)
 	types := resolveTypes(c.pending, reserved, &diags)
 
 	b := newBuilder(opts, r, &diags)
-	decls := b.build(c.pending, ops)
+	decls := b.build(c.pending, ops, c.headers)
 	resolveConstants(decls, slices.Concat(reserved, types), opts, &diags)
 
 	patterns := newPatternSet(opts.Namer, &diags)

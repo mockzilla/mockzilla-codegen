@@ -1,0 +1,83 @@
+// {{.Name}} is what the generated handlers call. Implement it with the business logic.
+type {{.Name}} interface {
+{{- range .Operations}}
+{{- with .Doc}}
+{{comment .}}
+{{- end}}
+	{{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{.Data}}, error)
+{{- end}}
+}
+{{- range $op := .Operations}}
+
+// {{.Options}} is what {{.Name}} receives. RawRequest is the request as it came in.
+type {{.Options}} struct {
+{{- range .Fields}}
+{{- with .Doc}}
+{{comment .}}
+{{- end}}
+	{{.Name}} {{.Type}}
+{{- end}}
+	RawRequest *{{$.HTTP}}.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *{{.Options}}) Validate() error {
+{{- if .Checks}}
+	var errs {{$.Runtime}}.ValidationErrors
+{{- range .Checks}}
+	if o.{{.Field}} != nil {
+		errs.Append({{.Path}}, o.{{.Field}}.Validate())
+	}
+{{- end}}
+	return errs.Err()
+{{- else}}
+	return nil
+{{- end}}
+}
+
+// {{.Data}} is what {{.Name}} returns: the status, the headers and the body of the response.
+type {{.Data}} struct {
+	Status  int
+	Headers {{$.HTTP}}.Header
+	Body    any
+
+	contentType string
+}
+{{- range .Constructors}}
+
+// {{.Name}} {{.Doc}}
+func {{.Name}}({{if .HasStatusArg}}status int{{end}}{{if and .HasStatusArg .Body}}, {{end}}{{if .Body}}body {{.Body}}{{end}}) *{{$op.Data}} {
+	return &{{$op.Data}}{Status: {{.Status}}, {{if .Body}}Body: body, {{end}}contentType: {{.ContentType}}}
+}
+{{- end}}
+
+// WithStatus sets the status code.
+func (r *{{.Data}}) WithStatus(code int) *{{.Data}} {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *{{.Data}}) WithHeaders(h {{$.HTTP}}.Header) *{{.Data}} {
+	r.Headers = h
+	return r
+}
+{{- range .Headers}}
+
+// {{.Method}} {{.Doc}}
+func (r *{{$op.Data}}) {{.Method}}(h {{.Type}}) *{{$op.Data}} {
+	r.Headers = {{$.Runtime}}.Headers(r.Headers, h)
+	return r
+}
+{{- end}}
+
+// Payload returns the body.
+func (r *{{.Data}}) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *{{.Data}}) ContentType() string {
+	return r.contentType
+}
+{{- end}}
