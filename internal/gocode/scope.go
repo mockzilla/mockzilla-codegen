@@ -64,6 +64,16 @@ func (s *Scope) Symbol(part layout.PartID, name string) string {
 	return s.Imports.Add(target.ImportPath, target.Package) + "." + name
 }
 
+// Qualified returns expr, a type expression whose trailing identifier is declared in the package
+// imp, as the scope's file writes it: plain in that package or without one, else qualified with
+// the name the file imports imp under.
+func (s *Scope) Qualified(expr string, imp gomodel.Import) string {
+	if imp.Path == "" || imp.Path == s.File.ImportPath {
+		return expr
+	}
+	return Qualify(expr, s.Import(imp))
+}
+
 // RuntimeGuard returns the constant a file that imports the runtime refers to, so a runtime too
 // old or too new for the file fails to compile. It is empty when the file does not import it.
 func (s *Scope) RuntimeGuard() string {

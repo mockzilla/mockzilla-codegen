@@ -30,21 +30,24 @@ var optionFields = map[string]string{
 }
 
 // ServiceView is the data of the service part. Context, HTTP and Runtime are the names the
-// packages are imported under.
+// packages are imported under; User is the config's user-context.
 type ServiceView struct {
 	Name       string
 	Context    string
 	HTTP       string
 	Runtime    string
+	User       map[string]any
 	Operations []OperationView
 }
 
-// OperationView is one operation: its method, options type and response data type.
+// OperationView is one operation: its method, options type and response data type. Fields are
+// the parameter groups, the bodies, then what plugins add.
 type OperationView struct {
 	Name         string
 	Doc          string
 	Options      string
 	Data         string
+	User         map[string]any
 	Fields       []FieldView
 	Checks       []CheckView
 	Constructors []ConstructorView
@@ -90,8 +93,32 @@ type constructorAt struct {
 	scope     *gocode.Scope
 }
 
+// SuccessResponse is the first 2xx response of an operation: the status code the handlers answer
+// with, the start of a range such as 2XX, and the body its constructor takes, nil without one.
+type SuccessResponse struct {
+	Status int
+	Body   *gomodel.Content
+}
+
+// Success returns the first 2xx response of op, if it has one.
+func Success(op *gomodel.Operation) (SuccessResponse, bool) {
+	for _, r := range op.Responses {
+		status := statusOf(r.Status)
+		if status < 200 || status > 299 {
+			continue
+		}
+
+		s := SuccessResponse{Status: status}
+		if c, ok := firstBody(r.Contents); ok {
+			s.Body = &c
+		}
+		return s, true
+	}
+	return SuccessResponse{}, false
+}
+
 func serviceView(g *Generator, s *gocode.Scope) *ServiceView {
-	v := &ServiceView{Name: g.opts.Name + "Interface"}
+	v := &ServiceView{Name: g.opts.Name + "Interface", User: g.opts.User}
 	if len(g.ops) == 0 {
 		return v
 	}
@@ -100,17 +127,19 @@ func serviceView(g *Generator, s *gocode.Scope) *ServiceView {
 	v.HTTP = s.Import(gomodel.Import{Path: "net/http"})
 	v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
 	for _, op := range g.ops {
-		v.Operations = append(v.Operations, operationView(op, g.opts.Namer, s))
+		v.Operations = append(v.Operations, operationView(g, op, s))
 	}
 	return v
 }
 
-func operationView(op *gomodel.Operation, n *naming.Namer, s *gocode.Scope) OperationView {
+func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope) OperationView {
+	n := g.opts.Namer
 	v := OperationView{
 		Name:    op.Name,
 		Doc:     operationDoc(op.Spec),
 		Options: n.ServiceRequestOptions(op.Name),
 		Data:    n.ResponseData(op.Name),
+		User:    g.opts.User,
 	}
 
 	for _, p := range op.Params {
@@ -122,11 +151,14 @@ func operationView(op *gomodel.Operation, n *naming.Namer, s *gocode.Scope) Oper
 	}
 	fields := bodyFields(op.Bodies, n)
 	for i, c := range op.Bodies {
-		t := bodyType(c)
+		t := BodyType(c)
 		v.Fields = append(v.Fields, FieldView{Name: fields[i], Type: s.Expr(t), Doc: "Body sent as " + c.MediaType + "."})
 		if gomodel.Validates(t) {
 			v.Checks = append(v.Checks, CheckView{Field: fields[i], Path: gocode.Quote("body")})
 		}
+	}
+	for _, f := range g.opts.ExtraFields {
+		v.Fields = append(v.Fields, FieldView{Name: f.Name, Type: s.Qualified(f.Type, f.Import), Doc: f.Doc})
 	}
 
 	isSeveral := len(op.Responses) > 1
@@ -153,7 +185,7 @@ func constructorView(op *gomodel.Operation, r gomodel.Response, at constructorAt
 	doc := "returns the response data of status " + r.Status
 	if c, ok := firstBody(r.Contents); ok {
 		v.ContentType = gocode.Quote(c.MediaType)
-		v.Body = at.scope.Expr(bodyType(c))
+		v.Body = at.scope.Expr(BodyType(c))
 		doc += " with body as " + c.MediaType
 	}
 	v.Doc = doc + "."
@@ -184,9 +216,9 @@ func bodyFields(bodies []gomodel.Content, n *naming.Namer) []string {
 	return fields
 }
 
-// bodyType is the Go type a body field holds: the schema's type, held by pointer unless it can
+// BodyType is the Go type a body field holds: the schema's type, held by pointer unless it can
 // be nil, or any for JSON without a schema, a string for text and bytes for anything else.
-func bodyType(c gomodel.Content) gomodel.Type {
+func BodyType(c gomodel.Content) gomodel.Type {
 	switch {
 	case c.Type != nil:
 		return gomodel.Held(c.Type)

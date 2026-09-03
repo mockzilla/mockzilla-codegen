@@ -140,6 +140,23 @@ func TestPlan(t *testing.T) {
 	}
 }
 
+func TestDraft(t *testing.T) {
+	t.Parallel()
+
+	cfg := parseConfig(t, "output:\n  file: ./gen.go\n  files:\n    ./register.go: [plugin.sample.register]\n    ./b.go: [models.types]\n", "/work")
+
+	l, err := Draft(cfg, modelParts, workModule)
+
+	require.NoError(t, err)
+	assert.Equal(t, []*File{
+		{Path: "/work/b.go", Rel: "./b.go", Package: "work", ImportPath: "example.com/work", Parts: []PartID{"models.types"}},
+		{Path: "/work/gen.go", Rel: "./gen.go", Package: "work", ImportPath: "example.com/work", Parts: []PartID{"models.enums", "models.unions", "models.params"}},
+	}, l.Files)
+
+	_, err = Plan(cfg, modelParts, workModule)
+	require.ErrorIs(t, err, ErrUnknownSelector)
+}
+
 func TestPlanErrors(t *testing.T) {
 	t.Parallel()
 

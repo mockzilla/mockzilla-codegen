@@ -10,7 +10,9 @@ package server
 
 import (
 	"embed"
+	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
@@ -37,8 +39,18 @@ var templates embed.FS
 // routerMethods are the HTTP methods every router registers.
 var routerMethods = []string{"GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD", "PATCH", "TRACE"}
 
+// The blocks of the server templates a config may override.
+const (
+	BlockServiceHeader       = "server.service-header"
+	BlockRequestOptionsExtra = "server.request-options-extra"
+	BlockResponseDataExtra   = "server.response-data-extra"
+	BlockRouterExtra         = "server.router-extra"
+)
+
 // Options are the settings of the server generator. Name is the base of the interface name.
-// Scaffold flags say which scaffold files the config asks for.
+// Scaffold flags say which scaffold files the config asks for. ExtraFields are added to the
+// request options of every operation; User is the config's user-context, which the overridable
+// blocks see.
 type Options struct {
 	Name               string
 	Namer              *naming.Namer
@@ -49,6 +61,8 @@ type Options struct {
 	Scaffold           Scaffold
 	Port               int
 	Timeout            time.Duration
+	ExtraFields        []ExtraField
+	User               map[string]any
 }
 
 // Scaffold says which scaffold files are written.
@@ -56,6 +70,15 @@ type Scaffold struct {
 	Service    bool
 	Middleware bool
 	Main       bool
+}
+
+// ExtraField is a field a plugin adds to every request options struct. Type is the type as the
+// package of Import writes it; Import is empty for a type that needs none.
+type ExtraField struct {
+	Name   string
+	Type   string
+	Doc    string
+	Import gomodel.Import
 }
 
 // Generator builds the template data of every server part.
@@ -94,6 +117,11 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 // Framework is the framework the router is generated for.
 func (g *Generator) Framework() framework.Framework {
 	return g.opts.Framework
+}
+
+// Routes lists the operations the router registers.
+func (g *Generator) Routes() []framework.Route {
+	return g.routes
 }
 
 // Parts returns the server parts with the parts each refers to.
@@ -171,9 +199,19 @@ func Templates(fw framework.Framework) []render.Set {
 				layout.PartScaffoldMiddleware: "scaffold-middleware.tmpl",
 				layout.PartScaffoldMain:       "scaffold-main.tmpl",
 			},
+			Blocks: []string{BlockServiceHeader, BlockRequestOptionsExtra, BlockResponseDataExtra},
 		},
-		{Name: fw.Name(), FS: fw.Templates(), Parts: map[layout.PartID]string{PartRouter: "router.tmpl"}},
+		{Name: fw.Name(), FS: fw.Templates(), Parts: map[layout.PartID]string{PartRouter: "router.tmpl"}, Blocks: []string{BlockRouterExtra}},
 	}
+}
+
+// ReservedField reports whether name is a field the request options declare themselves, so an
+// extra field cannot take it: a parameter group, a body field, RawRequest or the Validate method.
+func ReservedField(name string) bool {
+	if name == "RawRequest" || name == "Validate" || strings.HasPrefix(name, "Body") {
+		return true
+	}
+	return slices.Contains(slices.Collect(maps.Values(optionFields)), name)
 }
 
 // routes lists the operations the router serves, without those the framework rejects.

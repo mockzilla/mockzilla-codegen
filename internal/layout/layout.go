@@ -72,21 +72,13 @@ type candidate struct {
 // Plan puts every part in the file whose selector matches it most closely, output.file when
 // none does, then names the package and import path of every folder.
 func Plan(cfg *config.Config, parts []Part, mod Module) (*Layout, error) {
-	def, cands := candidates(cfg)
-	l := &Layout{byPart: make(map[PartID]*File, len(parts))}
-	if err := l.assign(def, cands, parts); err != nil {
-		return nil, err
-	}
+	return plan(cfg, parts, mod, true)
+}
 
-	l.collect(def, cands)
-	if err := l.name(cfg, mod); err != nil {
-		return nil, err
-	}
-
-	if err := importCycle(l.Files, l.byPart, parts); err != nil {
-		return nil, err
-	}
-	return l, nil
+// Draft plans the parts known before plugins contribute theirs. A selector that matches none of
+// them is not an error yet; Plan reports it once every part is known.
+func Draft(cfg *config.Config, parts []Part, mod Module) (*Layout, error) {
+	return plan(cfg, parts, mod, false)
 }
 
 // FileOf returns the file that holds p, or nil for a part the layout does not know.
@@ -94,7 +86,32 @@ func (l *Layout) FileOf(p PartID) *File {
 	return l.byPart[p]
 }
 
-func (l *Layout) assign(def *File, cands []candidate, parts []Part) error {
+func plan(cfg *config.Config, parts []Part, mod Module, isStrict bool) (*Layout, error) {
+	def, cands := candidates(cfg)
+	l := &Layout{byPart: make(map[PartID]*File, len(parts))}
+	used, err := l.assign(def, cands, parts)
+	if err != nil {
+		return nil, err
+	}
+	if isStrict {
+		if err = unknownSelectors(cands, used, parts); err != nil {
+			return nil, err
+		}
+	}
+
+	l.collect(def, cands)
+	if err = l.name(cfg, mod); err != nil {
+		return nil, err
+	}
+
+	if err = importCycle(l.Files, l.byPart, parts); err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+// assign places every part and returns the selectors that placed one.
+func (l *Layout) assign(def *File, cands []candidate, parts []Part) (map[string]bool, error) {
 	used := make(map[string]bool)
 	for _, p := range parts {
 		best, rank := def, 0
@@ -114,7 +131,7 @@ func (l *Layout) assign(def *File, cands []candidate, parts []Part) error {
 			}
 		}
 		if rival != nil {
-			return fmt.Errorf("%w: %s is selected by both %s and %s", ErrSelectorConflict, p.ID, best.Rel, rival.Rel)
+			return nil, fmt.Errorf("%w: %s is selected by both %s and %s", ErrSelectorConflict, p.ID, best.Rel, rival.Rel)
 		}
 		l.byPart[p.ID] = best
 		best.Parts = append(best.Parts, p.ID)
@@ -122,7 +139,7 @@ func (l *Layout) assign(def *File, cands []candidate, parts []Part) error {
 			best.Package = p.Package
 		}
 	}
-	return unknownSelectors(cands, used, parts)
+	return used, nil
 }
 
 func (l *Layout) collect(def *File, cands []candidate) {

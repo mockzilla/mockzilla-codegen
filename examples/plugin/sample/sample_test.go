@@ -1,0 +1,43 @@
+// Copyright (c) 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+// Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+// permission notice shall be included in all copies or substantial portions of the Software.
+
+package sample_test
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/mockzilla-codegen/examples/plugin/sample"
+	"github.com/mockzilla/mockzilla-codegen/pkg/codegen"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
+)
+
+// TestExamples compares the basic example with a fresh run with the plugin. UPDATE=1 writes the
+// run instead. The generator's own example test leaves the plugin examples out, since the plugin
+// lives in this module.
+func TestExamples(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(filepath.Join("..", "basic", "codegen.yml"))
+	require.NoError(t, err)
+	res, err := codegen.Generate(context.Background(), cfg, codegen.WithPlugins(sample.Plugin{}))
+	require.NoError(t, err)
+
+	if os.Getenv("UPDATE") != "" {
+		_, err = codegen.Write(res, codegen.WriteOptions{OverwriteScaffolds: true})
+		require.NoError(t, err)
+		return
+	}
+	for _, f := range res.Files {
+		want, readErr := os.ReadFile(f.Path)
+		require.NoError(t, readErr, "run make examples")
+		assert.Equal(t, string(want), string(f.Content), f.Path)
+	}
+}

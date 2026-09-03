@@ -30,10 +30,7 @@ func (s *ImportSet) Add(path, want string) string {
 		return name
 	}
 
-	base := want
-	if base == "" {
-		base = guessName(path)
-	}
+	base := ImportName(path, want)
 	name := base
 	for i := 2; s.paths[name] != ""; i++ {
 		name = base + strconv.Itoa(i)
@@ -83,6 +80,15 @@ func (s *ImportSet) Decl() string {
 	}
 	b.WriteString(")")
 	return b.String()
+}
+
+// ImportName is the name path is imported under: alias when given, else the package name guessed
+// from the path.
+func ImportName(path, alias string) string {
+	if alias != "" {
+		return alias
+	}
+	return guessName(path)
 }
 
 // guessName follows the usual layout of module paths: a major version suffix (v2) and a go-
