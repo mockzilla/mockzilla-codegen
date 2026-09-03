@@ -81,6 +81,38 @@ func TestScopeExpr(t *testing.T) {
 	}
 }
 
+func TestScopeQualified(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		expr        string
+		imp         gomodel.Import
+		want        string
+		wantImports string
+	}{
+		{name: "No package", expr: "func() any", want: "func() any"},
+		{name: "Own package", expr: "[]ListQuery", imp: gomodel.Import{Path: "example.com/work/api"}, want: "[]ListQuery"},
+		{
+			name:        "Other package is qualified and imported",
+			expr:        "[]Pet",
+			imp:         gomodel.Import{Path: "example.com/work/models", Alias: "model"},
+			want:        "[]model.Pet",
+			wantImports: `import model "example.com/work/models"`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := NewScope(twoPackages(t).FileOf(gomodel.PartParams), nil)
+			assert.Equal(t, tc.want, s.Qualified(tc.expr, tc.imp))
+			assert.Equal(t, tc.wantImports, s.Imports.Decl())
+		})
+	}
+}
+
 func TestScopeRuntimeGuard(t *testing.T) {
 	t.Parallel()
 

@@ -12,7 +12,8 @@ import (
 )
 
 // RouterView is the data of the router part. Framework is the name the framework's package is
-// imported under; the other names are written as the file spells them.
+// imported under; the other names are written as the file spells them. User is the config's
+// user-context.
 type RouterView struct {
 	Framework  string
 	Service    string
@@ -20,6 +21,7 @@ type RouterView struct {
 	Options    string
 	NewOptions string
 	NewAdapter string
+	User       map[string]any
 	Routes     []RouteView
 }
 
@@ -39,6 +41,7 @@ func routerView(g *Generator, s *gocode.Scope) *RouterView {
 		Options:    s.Symbol(PartAdapter, "ServerOptions"),
 		NewOptions: s.Symbol(PartAdapter, "NewServerOptions"),
 		NewAdapter: s.Symbol(PartAdapter, "NewHTTPAdapter"),
+		User:       g.opts.User,
 	}
 	for _, r := range g.routes {
 		v.Routes = append(v.Routes, RouteView{Method: routerMethod(r.Method), Pattern: gocode.Quote(r.Pattern), Operation: r.Operation})

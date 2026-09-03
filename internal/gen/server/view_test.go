@@ -14,6 +14,40 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 )
 
+func TestSuccess(t *testing.T) {
+	t.Parallel()
+
+	pet := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Pet"}}
+	xml, jsonBody := gomodel.Content{MediaType: "application/xml", Type: pet}, gomodel.Content{MediaType: "application/json", Type: pet}
+	tests := []struct {
+		name      string
+		responses []gomodel.Response
+		want      SuccessResponse
+		wantOK    bool
+	}{
+		{name: "No responses"},
+		{name: "No 2xx response", responses: []gomodel.Response{{Status: "404"}, {Status: "default", Contents: []gomodel.Content{jsonBody}}}},
+		{
+			name:      "First 2xx response with its JSON body",
+			responses: []gomodel.Response{{Status: "201", Contents: []gomodel.Content{xml, jsonBody}}, {Status: "200"}},
+			want:      SuccessResponse{Status: 201, Body: &jsonBody},
+			wantOK:    true,
+		},
+		{name: "Range without a body", responses: []gomodel.Response{{Status: "2XX"}}, want: SuccessResponse{Status: 200}, wantOK: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := Success(&gomodel.Operation{Responses: tc.responses})
+
+			assert.Equal(t, tc.wantOK, ok)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestBodyFields(t *testing.T) {
 	t.Parallel()
 

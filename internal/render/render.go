@@ -36,6 +36,14 @@ type Set struct {
 	Blocks []string
 }
 
+// Source is a template given as text, such as a plugin's, with the funcs it may call on top of
+// the engine's. Name names it in errors.
+type Source struct {
+	Name  string
+	Text  string
+	Funcs template.FuncMap
+}
+
 // Options mirror the config keys the engine reads.
 type Options struct {
 	Templates map[string]string
@@ -85,6 +93,20 @@ func (e *Engine) RenderPart(part layout.PartID, data any) ([]byte, error) {
 		return nil, fmt.Errorf("%w: %s", ErrUnknownPart, part)
 	}
 	return e.execute(name, data)
+}
+
+// RenderSource parses src on its own, apart from the sets, and runs it on data.
+func RenderSource(src Source, data any) ([]byte, error) {
+	t, err := template.New(src.Name).Funcs(funcs()).Funcs(src.Funcs).Parse(src.Text)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s: %w", ErrTemplate, src.Name, err)
+	}
+
+	var b bytes.Buffer
+	if err = t.Execute(&b, data); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrExecute, err)
+	}
+	return b.Bytes(), nil
 }
 
 // RenderFile puts a file together and formats it when the options ask for that.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"example.com/trace"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
@@ -28,7 +29,10 @@ type ListPetsServiceRequestOptions struct {
 	Headers     *ListPetsHeaders
 	Cookies     *ListPetsCookies
 	QueryString *ListPetsQueryString
-	RawRequest  *http.Request
+	// GenerateResponse makes the body of the response.
+	GenerateResponse func() any
+	Trace            *trace.Span
+	RawRequest       *http.Request
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
@@ -118,8 +122,11 @@ type CreatePetServiceRequestOptions struct {
 	// Body sent as image/png.
 	BodyPng []byte
 	// Body sent as application/xml.
-	BodyXML    *Pet
-	RawRequest *http.Request
+	BodyXML *Pet
+	// GenerateResponse makes the body of the response.
+	GenerateResponse func() any
+	Trace            *trace.Span
+	RawRequest       *http.Request
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
@@ -203,8 +210,11 @@ func (r *CreatePetResponseData) ContentType() string {
 type DeletePetServiceRequestOptions struct {
 	PathParams *DeletePetPathParams
 	// Body sent as application/json.
-	Body       map[string]string
-	RawRequest *http.Request
+	Body map[string]string
+	// GenerateResponse makes the body of the response.
+	GenerateResponse func() any
+	Trace            *trace.Span
+	RawRequest       *http.Request
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
@@ -266,8 +276,11 @@ func (r *DeletePetResponseData) ContentType() string {
 // PingServiceRequestOptions is what Ping receives. RawRequest is the request as it came in.
 type PingServiceRequestOptions struct {
 	// Body sent as application/json.
-	Body       []Pet
-	RawRequest *http.Request
+	Body []Pet
+	// GenerateResponse makes the body of the response.
+	GenerateResponse func() any
+	Trace            *trace.Span
+	RawRequest       *http.Request
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.

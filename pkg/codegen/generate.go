@@ -9,6 +9,9 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"maps"
+	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -24,6 +27,9 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/render"
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
+
+// templateExt marks a templates value that names a file instead of holding the text.
+const templateExt = ".tmpl"
 
 type FileKind int
 
@@ -53,24 +59,30 @@ type File struct {
 
 // generation is one Generate run.
 type generation struct {
-	cfg    *config.Config
-	opts   options
-	diags  diag.Collector
-	gen    *models.Generator
-	srv    *server.Generator
-	lay    *layout.Layout
-	engine *render.Engine
-	files  []File
+	cfg      *config.Config
+	opts     options
+	diags    diag.Collector
+	reserved reservations
+	namer    *naming.Namer
+	m        *gomodel.Model
+	gen      *models.Generator
+	srv      *server.Generator
+	sources  map[layout.PartID]source
+	lay      *layout.Layout
+	engine   *render.Engine
+	files    []File
 }
 
 // Generate reads the spec cfg names, or the one WithSpec gives, and returns the files to write.
 // cfg must come from config.Load or config.Parse, which fill in the defaults.
 func Generate(ctx context.Context, cfg *config.Config, opts ...Option) (*Result, error) {
-	g := &generation{cfg: cfg, opts: newOptions(opts)}
+	g := &generation{cfg: cfg, opts: newOptions(opts), sources: make(map[layout.PartID]source)}
 	steps := []func() error{
 		cfg.Validate,
+		g.reserve,
 		func() error { return g.model(ctx) },
-		g.plan,
+		g.place,
+		g.load,
 		g.render,
 	}
 	for _, step := range steps {
@@ -81,7 +93,7 @@ func Generate(ctx context.Context, cfg *config.Config, opts ...Option) (*Result,
 	return &Result{Files: g.files, Diagnostics: diagnostics(g.diags.List())}, nil
 }
 
-// model prepares and parses the spec, then builds the Go model and its generator.
+// model prepares and parses the spec, then builds the Go model and its generators.
 func (g *generation) model(ctx context.Context) error {
 	prepared, err := prepare.Run(ctx, g.opts.provider, prepare.Input{Spec: g.opts.spec, Config: g.cfg})
 	if err != nil {
@@ -95,34 +107,38 @@ func (g *generation) model(ctx context.Context) error {
 	}
 	g.diags.Append(parsed...)
 
-	m, built := gomodel.Build(doc, gomodel.OptionsFrom(g.cfg))
+	opts := gomodel.OptionsFrom(g.cfg)
+	opts.Reserved = append(opts.Reserved, g.reserved.idents...)
+	var built []diag.Diagnostic
+	g.m, built = gomodel.Build(doc, opts)
 	g.diags.Append(built...)
-	g.gen = models.New(m)
+	g.namer = naming.New(g.cfg.Naming.Initialisms)
+	g.gen = models.New(g.m)
 	if g.cfg.Server == nil {
 		return nil
 	}
 
-	opts, err := serverOptions(g.cfg)
+	srvOpts, err := g.serverOptions()
 	if err != nil {
 		return err
 	}
 	var srvDiags []diag.Diagnostic
-	g.srv, srvDiags = server.New(m, opts)
+	g.srv, srvDiags = server.New(g.m, srvOpts)
 	g.diags.Append(srvDiags...)
 	return nil
 }
 
-// serverOptions reads the server block of cfg. The framework it names has to be one the generator
-// knows.
-func serverOptions(cfg *config.Config) (server.Options, error) {
-	s := cfg.Server
+// serverOptions reads the server block of the config. The framework it names has to be one the
+// generator knows.
+func (g *generation) serverOptions() (server.Options, error) {
+	s := g.cfg.Server
 	fw, ok := server.Frameworks()[s.Framework]
 	if !ok {
 		return server.Options{}, fmt.Errorf("%w: %s", ErrFramework, s.Framework)
 	}
 	return server.Options{
 		Name:               cmp.Or(s.Name, "Service"),
-		Namer:              naming.New(cfg.Naming.Initialisms),
+		Namer:              g.namer,
 		Framework:          fw,
 		ValidateRequest:    s.Validation.Request,
 		ValidateResponse:   s.Validation.Response,
@@ -130,27 +146,71 @@ func serverOptions(cfg *config.Config) (server.Options, error) {
 		Scaffold:           server.Scaffold{Service: s.Scaffold.Service != "", Middleware: s.Scaffold.Middleware != "", Main: s.Scaffold.Main != ""},
 		Port:               s.Scaffold.Port,
 		Timeout:            time.Duration(s.Scaffold.Timeout),
+		ExtraFields:        g.reserved.fields,
+		User:               g.cfg.UserContext,
 	}, nil
 }
 
-// plan places the parts in files and loads the templates.
-func (g *generation) plan() error {
+// place lays the built-in parts out, lets the plugins contribute theirs against that draft, then
+// lays every part out.
+func (g *generation) place() error {
 	mod, err := layout.FindModule(g.cfg.Resolve("."), g.cfg.Output.Module)
 	if err != nil {
 		return err
 	}
-	parts, sets := g.gen.Parts(), []render.Set{models.Templates()}
+
+	parts := g.gen.Parts()
 	if g.srv != nil {
 		parts = append(parts, g.srv.Parts()...)
+	}
+	if len(g.opts.plugins) > 0 {
+		draft, draftErr := layout.Draft(g.cfg, parts, mod)
+		if draftErr != nil {
+			return draftErr
+		}
+		added, addErr := g.contribute(draft)
+		if addErr != nil {
+			return addErr
+		}
+		parts = append(parts, added...)
+	}
+
+	g.lay, err = layout.Plan(g.cfg, parts, mod)
+	return err
+}
+
+// load loads the templates and the block overrides of the config.
+func (g *generation) load() error {
+	sets := []render.Set{models.Templates()}
+	if g.srv != nil {
 		sets = append(sets, server.Templates(g.srv.Framework())...)
 	}
-	if g.lay, err = layout.Plan(g.cfg, parts, mod); err != nil {
+	overrides, err := g.templates()
+	if err != nil {
 		return err
 	}
 
 	isFormat := g.cfg.Output.Format == nil || *g.cfg.Output.Format
-	g.engine, err = render.New(sets, render.Options{Templates: g.cfg.Templates, Format: isFormat})
+	g.engine, err = render.New(sets, render.Options{Templates: overrides, Format: isFormat})
 	return err
+}
+
+// templates returns the block overrides of the config, with a value that names a .tmpl file
+// replaced by that file's text.
+func (g *generation) templates() (map[string]string, error) {
+	out := make(map[string]string, len(g.cfg.Templates))
+	for _, name := range slices.Sorted(maps.Keys(g.cfg.Templates)) {
+		text := g.cfg.Templates[name]
+		if strings.HasSuffix(text, templateExt) {
+			data, err := os.ReadFile(g.cfg.Resolve(text))
+			if err != nil {
+				return nil, fmt.Errorf("%w: templates.%s: %w", ErrTemplateFile, name, err)
+			}
+			text = string(data)
+		}
+		out[name] = text
+	}
+	return out, nil
 }
 
 // render writes every file of the layout.
@@ -181,7 +241,7 @@ func (g *generation) file(f *layout.File) ([]byte, error) {
 	s := gocode.NewScope(f, g.lay)
 	data := render.FileData{Header: g.cfg.Header, Package: f.Package}
 	for _, part := range f.Parts {
-		out, err := g.engine.RenderPart(part, g.view(part, s))
+		out, err := g.part(part, s)
 		if err != nil {
 			return nil, err
 		}
