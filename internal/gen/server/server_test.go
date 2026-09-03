@@ -59,6 +59,14 @@ func TestNew(t *testing.T) {
 	}, diags)
 }
 
+func TestRoutes(t *testing.T) {
+	t.Parallel()
+
+	g, _ := New(petModel(), allOptions())
+
+	assert.Equal(t, g.routes, g.Routes())
+}
+
 func TestFrameworks(t *testing.T) {
 	t.Parallel()
 
@@ -72,10 +80,58 @@ func TestTemplates(t *testing.T) {
 
 	require.Len(t, sets, 2)
 	assert.Equal(t, "server", sets[0].Name)
+	assert.Equal(t, []string{"server.service-header", "server.request-options-extra", "server.response-data-extra"}, sets[0].Blocks)
 	assert.Equal(t, "chi", sets[1].Name)
 	assert.Equal(t, map[layout.PartID]string{PartRouter: "router.tmpl"}, sets[1].Parts)
+	assert.Equal(t, []string{"server.router-extra"}, sets[1].Blocks)
 	_, err := render.New(sets, render.Options{})
 	require.NoError(t, err)
+}
+
+func TestReservedField(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		field string
+		want  bool
+	}{
+		{name: "Parameter group", field: "Query", want: true},
+		{name: "Body of one media type", field: "BodyJSON", want: true},
+		{name: "The raw request", field: "RawRequest", want: true},
+		{name: "The Validate method", field: "Validate", want: true},
+		{name: "A plugin's own field", field: "GenerateResponse"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, ReservedField(tc.field))
+		})
+	}
+}
+
+// TestBlocks overrides every block with text that reads the user-context.
+func TestBlocks(t *testing.T) {
+	t.Parallel()
+
+	m := petModel()
+	g, _ := New(m, allOptions())
+	f := fixture{m: m, g: g, cfg: scaffoldConfig, templates: map[string]string{
+		BlockServiceHeader:       "// Owned by {{.User.owner}}.\n",
+		BlockRequestOptionsExtra: "\n\tOwner string // {{.User.owner}}",
+		BlockResponseDataExtra:   "\n\tOwner string // {{.User.owner}}",
+		BlockRouterExtra:         "\n\t\tr.Get(\"/owner\", {{.User.handler}})",
+	}}
+
+	service := string(f.render(t, PartService))
+	router := string(f.render(t, PartRouter))
+
+	assert.Contains(t, service, "// Owned by platform.\n// PetsInterface is what")
+	assert.Contains(t, service, "\tTrace            *trace.Span\n\tOwner            string // platform\n\tRawRequest       *http.Request\n")
+	assert.Contains(t, service, "\tBody    any\n\tOwner   string // platform\n\n\tcontentType string\n")
+	assert.Contains(t, router, "r.Get(\"/ping\", adapter.Ping)\n\t\tr.Get(\"/owner\", ownerHandler)\n\t}\n")
 }
 
 func TestParts(t *testing.T) {
@@ -180,7 +236,8 @@ func TestViewWithoutOperations(t *testing.T) {
 	assert.NotContains(t, string(f.render(t, layout.PartScaffoldService)), "context")
 }
 
-// allOptions asks for every check and scaffold.
+// allOptions asks for every check and scaffold, and adds the fields of a plugin: one of a type
+// that needs no import, one of a type from another package.
 func allOptions() Options {
 	return Options{
 		Name:               "Pets",
@@ -192,21 +249,27 @@ func allOptions() Options {
 		Scaffold:           Scaffold{Service: true, Middleware: true, Main: true},
 		Port:               9090,
 		Timeout:            45 * time.Second,
+		ExtraFields: []ExtraField{
+			{Name: "GenerateResponse", Type: "func() any", Doc: "GenerateResponse makes the body of the response."},
+			{Name: "Trace", Type: "*Span", Import: gomodel.Import{Path: "example.com/trace"}},
+		},
+		User: map[string]any{"owner": "platform", "handler": "ownerHandler"},
 	}
 }
 
-// fixture is a model, its generator and the config that lays the parts out.
+// fixture is a model, its generator, the config that lays the parts out and the block overrides.
 type fixture struct {
-	m   *gomodel.Model
-	g   *Generator
-	cfg string
+	m         *gomodel.Model
+	g         *Generator
+	cfg       string
+	templates map[string]string
 }
 
 // render renders one part into the file the layout gives it.
 func (f fixture) render(t *testing.T, part layout.PartID) []byte {
 	t.Helper()
 
-	e, err := render.New(Templates(f.g.Framework()), render.Options{Format: true})
+	e, err := render.New(Templates(f.g.Framework()), render.Options{Templates: f.templates, Format: true})
 	require.NoError(t, err)
 	s := f.scope(t, part)
 	out, err := e.RenderPart(part, f.g.View(part, s))

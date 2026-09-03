@@ -1,0 +1,138 @@
+// Copyright (c) 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+// Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+// permission notice shall be included in all copies or substantial portions of the Software.
+
+package codegen
+
+import (
+	"text/template"
+
+	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
+)
+
+// Plugin adds generated code next to the built-in parts. Name matches [a-z][a-z0-9]* and names
+// the parts: plugin.<name>.<part>. Reserve runs before names are resolved, Contribute after.
+type Plugin interface {
+	Name() string
+	Reserve() Reservations
+	Contribute(api *API) (*Contribution, error)
+}
+
+// Reservations is what a plugin declares before naming. Idents are the package-level names its
+// parts declare, which no model may take; RequestOptionFields are added to the request options of
+// every operation, before RawRequest.
+type Reservations struct {
+	Idents              []string
+	RequestOptionFields []FieldSpec
+}
+
+// FieldSpec is one field a plugin adds. Name is an exported identifier; Doc is its comment, empty
+// for none.
+type FieldSpec struct {
+	Name string
+	Type TypeRef
+	Doc  string
+}
+
+// Contribution is what a plugin generates. Parts are placed through output.files as
+// plugin.<name>.<part>; Scaffolds replace the templates of the scaffold files the config writes;
+// Funcs are available to this plugin's templates, next to the generator's.
+type Contribution struct {
+	Parts     []PartSource
+	Scaffolds map[ScaffoldKind]string
+	Funcs     template.FuncMap
+}
+
+// PartSource is one part: its template, the data the template runs on and the imports its code
+// needs. Name matches [a-z][a-z0-9]*. The template may also call expr, which writes a TypeRef as
+// the file spells it, and import, which imports a path and returns the name to qualify with.
+type PartSource struct {
+	Name     string
+	Template string
+	Data     any
+	Imports  []Import
+}
+
+// Import is a package a generated file imports, under Alias when set.
+type Import struct {
+	Path  string
+	Alias string
+}
+
+// ScaffoldKind names a scaffold file.
+type ScaffoldKind int
+
+const (
+	ScaffoldService ScaffoldKind = iota
+	ScaffoldMiddleware
+	ScaffoldMain
+)
+
+func (k ScaffoldKind) String() string {
+	switch k {
+	case ScaffoldService:
+		return "service"
+	case ScaffoldMiddleware:
+		return "middleware"
+	case ScaffoldMain:
+		return "main"
+	default:
+		return "unknown"
+	}
+}
+
+// API is what a plugin sees of the generated code once names are resolved: the package of the
+// default output file, every operation, every declared type and the config's user-context. It
+// only ever gains fields.
+type API struct {
+	Package     string
+	Operations  []Operation
+	Types       []TypeRef
+	UserContext map[string]any
+}
+
+// Operation is one operation or webhook of the spec. ID is its Go name, which the handlers report
+// as the operation ID; HasOptions says whether it takes parameters or a body, IsRouted whether the
+// router registers it. RequestOptions and ResponseData are the types of the service contract,
+// empty without a server; Success is the first 2xx response, nil without one.
+type Operation struct {
+	ID             string
+	Method         string
+	Path           string
+	Summary        string
+	Tags           []string
+	HasOptions     bool
+	IsRouted       bool
+	RequestOptions TypeRef
+	ResponseData   TypeRef
+	Success        *Success
+}
+
+// Success is a 2xx response. Status is its code, or the start of a range such as 2XX. ContentType
+// and Body are those of its JSON body, else of its first one; Body is empty without one. IsRaw is
+// set when the body has no schema: any, a string or bytes.
+type Success struct {
+	Status      int
+	ContentType string
+	Body        TypeRef
+	IsRaw       bool
+}
+
+// TypeRef is a Go type. Name is the type as the package that declares it writes it: an identifier,
+// or a pointer, slice or map around one, such as []Pet. Package and ImportPath are those of the
+// identifier, empty for a type that needs no import.
+type TypeRef struct {
+	Name       string
+	Package    string
+	ImportPath string
+}
+
+// Expr writes t as the package with import path from spells it: qualified with Package unless t
+// is declared there or needs no import.
+func (t TypeRef) Expr(from string) string {
+	if t.ImportPath == "" || t.ImportPath == from {
+		return t.Name
+	}
+	return gocode.Qualify(t.Name, t.Package)
+}

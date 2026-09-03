@@ -264,7 +264,7 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 		Field:       field,
 		Target:      gocode.AddressOf(gocode.Selector("opts", field)),
 	}
-	t := bodyType(c)
+	t := BodyType(c)
 	base, isPointer := t, false
 	if p, ok := t.(gomodel.Pointer); ok {
 		base, isPointer = p.Elem, true

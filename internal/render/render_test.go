@@ -7,8 +7,10 @@ package render
 
 import (
 	"io/fs"
+	"strings"
 	"testing"
 	"testing/fstest"
+	"text/template"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -83,6 +85,52 @@ func TestRenderPartErrors(t *testing.T) {
 	_, err = e.RenderPart("fake.broken", []string{})
 	require.ErrorIs(t, err, ErrExecute)
 	assert.ErrorContains(t, err, `fake/other.tmpl:1:2: executing "fake/other.tmpl" at <.Missing>`)
+}
+
+func TestRenderSource(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		src     Source
+		want    string
+		wantErr error
+		wantMsg string
+	}{
+		{
+			name: "Own funcs next to the engine's",
+			src:  Source{Name: "plugin.sample.register", Text: `{{shout .}} {{quote .}}`, Funcs: template.FuncMap{"shout": strings.ToUpper}},
+			want: `PET "Pet"`,
+		},
+		{
+			name:    "Text that does not parse",
+			src:     Source{Name: "plugin.sample.register", Text: `{{if}}`},
+			wantErr: ErrTemplate,
+			wantMsg: "load templates: plugin.sample.register: template: plugin.sample.register:1: missing value for if",
+		},
+		{
+			name:    "Text that fails to run",
+			src:     Source{Name: "plugin.sample.register", Text: `{{.Missing}}`},
+			wantErr: ErrExecute,
+			wantMsg: `render: template: plugin.sample.register:1:2: executing "plugin.sample.register" at <.Missing>: can't evaluate field Missing in type string`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := RenderSource(tc.src, "Pet")
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				assert.EqualError(t, err, tc.wantMsg)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, string(got))
+		})
+	}
 }
 
 func TestNewOverrideErrors(t *testing.T) {

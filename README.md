@@ -19,6 +19,8 @@ Status: early development. The config format and the generated API may still cha
 - `x-go-*` extensions and masking of sensitive values in logs ([extensions](docs/extensions.md)).
 - A service interface to implement, an HTTP adapter that decodes every parameter style and body
   type, a chi router and starter files ([server](docs/server.md)).
+- A plugin API for tools built on the generator, and template overrides for a closed list of
+  blocks ([plugins](docs/plugins.md)).
 
 ## Getting started
 
@@ -105,6 +107,8 @@ Blocks:
 - `spec`: the input spec and how to prepare it (overlays, filter, prune, simplify).
 - `models`, `server`, `client`, `mcp`: what to generate. Models are always on. The other blocks
   are on when present, even as a bare key (`mcp:`). `mcp` needs `client`.
+- `templates`, `user-context`: overrides of the template blocks a config may replace, and the
+  values they see as `.User` ([plugins](docs/plugins.md#template-overrides)).
 - `output`: where the files go. Only this block says where.
 
 ### Output files

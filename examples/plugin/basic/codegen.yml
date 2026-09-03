@@ -1,0 +1,10 @@
+spec: {path: api.yaml}
+package: basic
+server:
+  framework: chi
+  name: Pets
+  scaffold:
+    service: ./service.go
+output:
+  files:
+    ./register.go: [plugin.sample.register]

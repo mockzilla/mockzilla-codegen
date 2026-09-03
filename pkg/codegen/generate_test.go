@@ -10,6 +10,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -51,7 +53,8 @@ func (failingParse) Parse(context.Context, []byte, provider.ParseOptions) (*spec
 	return nil, nil, errParse
 }
 
-// examples returns the config files of the golden examples.
+// examples returns the config files of the golden examples. Those under plugin/ need a plugin of
+// the examples module, so their own tests generate them.
 func examples(t *testing.T) []string {
 	t.Helper()
 
@@ -60,7 +63,7 @@ func examples(t *testing.T) []string {
 	require.NoError(t, err)
 	nested, err := filepath.Glob(filepath.Join(root, "*", "*", "*", "codegen.yml"))
 	require.NoError(t, err)
-	paths = append(paths, nested...)
+	paths = slices.DeleteFunc(append(paths, nested...), func(p string) bool { return strings.HasPrefix(exampleName(p), "plugin/") })
 	require.NotEmpty(t, paths)
 	return paths
 }
@@ -198,6 +201,11 @@ func TestGenerateErrors(t *testing.T) {
 			cfg:     "templates: {models.struct: x}\n",
 			wantErr: config.ErrInvalid,
 		},
+		{
+			name:    "Template override file that is missing",
+			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: ./header.tmpl}\n",
+			wantErr: ErrTemplateFile,
+		},
 	}
 
 	for _, tc := range tests {
@@ -224,6 +232,25 @@ func TestGenerateErrors(t *testing.T) {
 			assert.Nil(t, res)
 		})
 	}
+}
+
+// TestGenerateTemplateOverrides overrides a block inline and one from a file, both reading the
+// user-context.
+func TestGenerateTemplateOverrides(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "header.tmpl"), []byte("// Owned by {{.User.owner}}.\n"), 0o600))
+	cfg, err := config.Parse([]byte("server: {framework: chi}\nuser-context: {owner: platform}\n"+
+		"templates: {server.service-header: ./header.tmpl, server.request-options-extra: \"\\n\\tOwner string // {{.User.owner}}\"}\n"), dir)
+	require.NoError(t, err)
+
+	res, err := Generate(context.Background(), cfg, WithSpec([]byte(storeSpec)))
+
+	require.NoError(t, err)
+	content := string(res.Files[0].Content)
+	assert.Contains(t, content, "// Owned by platform.\n// ServiceInterface is what")
+	assert.Contains(t, content, "\tOwner      string // platform\n\tRawRequest *http.Request\n")
 }
 
 func TestGenerationRenderErrors(t *testing.T) {

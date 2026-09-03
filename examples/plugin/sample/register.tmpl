@@ -1,0 +1,34 @@
+{{- $chi := import "github.com/go-chi/chi/v5"}}
+{{- $http := import "net/http"}}
+{{- $json := import "encoding/json"}}
+// Route is one routed operation of the API and the status of its success response.
+type Route struct {
+	ID     string
+	Method string
+	Path   string
+	Status int
+}
+
+// Routes lists the routed operations of the API.
+var Routes = []Route{
+{{- range .}}
+	{ID: {{quote .ID}}, Method: {{quote .Method}}, Path: {{quote .Path}}, Status: {{.Status}}},
+{{- end}}
+}
+
+// Bodies makes an empty success body per operation, by ID. An operation without a body has none.
+var Bodies = map[string]func() any{
+{{- range .}}
+{{- if .HasBody}}
+	{{quote .ID}}: func() any { return new({{expr .Body}}) },
+{{- end}}
+{{- end}}
+}
+
+// Register serves the list of routes at path on r.
+func Register(r {{$chi}}.Router, path string) {
+	r.Get(path, func(w {{$http}}.ResponseWriter, _ *{{$http}}.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = {{$json}}.NewEncoder(w).Encode(Routes)
+	})
+}
