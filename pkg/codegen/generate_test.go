@@ -192,11 +192,6 @@ func TestGenerateErrors(t *testing.T) {
 			wantErr: layout.ErrUnknownSelector,
 		},
 		{
-			name:    "Framework without a router yet",
-			cfg:     "server: {framework: std-http}\n",
-			wantErr: ErrFramework,
-		},
-		{
 			name:    "Template override of an unknown block",
 			cfg:     "templates: {models.struct: x}\n",
 			wantErr: config.ErrInvalid,
@@ -232,6 +227,19 @@ func TestGenerateErrors(t *testing.T) {
 			assert.Nil(t, res)
 		})
 	}
+}
+
+// TestModelOfUnknownFramework names a framework the config takes but no router exists for, which
+// validation rules out before Generate gets there.
+func TestModelOfUnknownFramework(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Parse([]byte("server: {framework: chi}\n"), t.TempDir())
+	require.NoError(t, err)
+	cfg.Server.Framework = "gin"
+	g := &generation{cfg: cfg, opts: newOptions([]Option{WithSpec([]byte(petSpec))}), sources: map[layout.PartID]source{}}
+
+	require.ErrorIs(t, g.model(context.Background()), ErrFramework)
 }
 
 // TestGenerateTemplateOverrides overrides a block inline and one from a file, both reading the

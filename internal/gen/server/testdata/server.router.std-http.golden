@@ -1,0 +1,38 @@
+package api
+
+import "net/http"
+
+// WithRouter registers the routes on mux instead of a new one.
+func WithRouter(mux *http.ServeMux) ServerOption {
+	return func(o *ServerOptions) {
+		o.Router = mux
+	}
+}
+
+// NewRouter registers every operation on an http.ServeMux and returns it. The middleware
+// WithMiddleware adds wraps a new mux as a whole, unknown paths too; on the mux WithRouter gives
+// it, the middleware wraps the generated routes and nothing else.
+func NewRouter(svc PetsInterface, opts ...ServerOption) http.Handler {
+	o := NewServerOptions(opts...)
+	adapter := NewHTTPAdapter(svc, opts...)
+	wrap := func(h http.Handler) http.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(mux *http.ServeMux, route func(http.Handler) http.Handler) {
+		mux.Handle("GET /pets", route(http.HandlerFunc(adapter.ListPets)))
+		mux.Handle("POST /pets", route(http.HandlerFunc(adapter.CreatePet)))
+		mux.Handle("DELETE /pets/{id}", route(http.HandlerFunc(adapter.DeletePet)))
+		mux.Handle("GET /ping", route(http.HandlerFunc(adapter.Ping)))
+	}
+
+	if mux, _ := o.Router.(*http.ServeMux); mux != nil {
+		register(mux, wrap)
+		return mux
+	}
+	mux := http.NewServeMux()
+	register(mux, func(h http.Handler) http.Handler { return h })
+	return wrap(mux)
+}

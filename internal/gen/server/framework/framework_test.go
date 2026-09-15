@@ -11,26 +11,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestConflicts(t *testing.T) {
-	t.Parallel()
-
-	get := Route{Operation: "GetPet", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/{id}"}
-	del := Route{Operation: "DeletePet", Method: "DELETE", Path: "/pets/{petId}", Pattern: "/pets/{petId}"}
-	again := Route{Operation: "GetPetAgain", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/{id}"}
-	renamed := Route{Operation: "GetAnimal", Method: "GET", Path: "/pets/{animalId}", Pattern: "/pets/{animalId}"}
-
-	kept, dropped := Conflicts([]Route{get, del, again, renamed})
-
-	assert.Equal(t, []Route{get, del}, kept)
-	assert.Equal(t, []Conflict{
-		{Route: again, Reason: "repeats the route of GetPet"},
-		{Route: renamed, Reason: "names its path parameters otherwise than GetPet at /pets/{id}"},
-	}, dropped)
-}
-
 func TestParams(t *testing.T) {
 	t.Parallel()
 
 	assert.Equal(t, []string{"owner", "id"}, Params("/owners/{owner}/pets/{id}.json"))
 	assert.Nil(t, Params("/pets"))
+}
+
+func TestShape(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "GET /owners/{}/pets/{}", Shape("GET /owners/{owner}/pets/{id}"))
+	assert.Equal(t, "/files/{}", Shape("/files/{path...}"))
 }
