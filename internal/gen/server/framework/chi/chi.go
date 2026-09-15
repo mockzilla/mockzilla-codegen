@@ -40,10 +40,10 @@ func (Framework) Imports() []gomodel.Import {
 	return []gomodel.Import{{Path: importPath}}
 }
 
-// RoutePattern keeps the path as it is: chi writes parameters as {name} too. It fails on what chi
-// panics on: a path without a leading slash, an unclosed brace, a parameter named twice, or a
-// wildcard that is not last.
-func (Framework) RoutePattern(path string) (string, error) {
+// RoutePattern keeps the path as it is, since chi writes parameters as {name} too and takes the
+// method as a call of its own. It fails on what chi panics on: a path without a leading slash, an
+// unclosed brace, a parameter named twice, or a wildcard that is not last.
+func (Framework) RoutePattern(_, path string) (string, error) {
 	switch {
 	case !strings.HasPrefix(path, "/"):
 		return "", fmt.Errorf("%w: it must begin with /", framework.ErrPattern)
@@ -61,6 +61,28 @@ func (Framework) RoutePattern(path string) (string, error) {
 		}
 	}
 	return path, nil
+}
+
+// Conflicts drops every route that has the method and shape of an earlier one: a repeat of it,
+// or one whose path parameters are named otherwise, which chi keys by position.
+func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
+	var kept []framework.Route
+	var dropped []framework.Conflict
+	seen := map[string]framework.Route{}
+	for _, r := range routes {
+		key := r.Method + " " + framework.Shape(r.Pattern)
+		first, isTaken := seen[key]
+		switch {
+		case !isTaken:
+			seen[key] = r
+			kept = append(kept, r)
+		case first.Pattern == r.Pattern:
+			dropped = append(dropped, framework.Conflict{Route: r, Reason: "repeats the route of " + first.Operation})
+		default:
+			dropped = append(dropped, framework.Conflict{Route: r, Reason: "names its path parameters otherwise than " + first.Operation + " at " + first.Path})
+		}
+	}
+	return kept, dropped
 }
 
 func (Framework) PathParam(s *gocode.Scope, name string) string {
