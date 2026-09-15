@@ -18,6 +18,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/chi"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/stdhttp"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
@@ -182,7 +183,7 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 
 // Frameworks lists the frameworks a router can be generated for, by name.
 func Frameworks() map[string]framework.Framework {
-	return map[string]framework.Framework{"chi": chi.Framework{}}
+	return map[string]framework.Framework{"chi": chi.Framework{}, "std-http": stdhttp.Framework{}}
 }
 
 // Templates are the server template set and the framework's, which holds the router.
@@ -226,7 +227,7 @@ func routes(ops []*gomodel.Operation, fw framework.Framework) ([]framework.Route
 			issues = append(issues, routeIssue{op: op, reason: "the router does not take the method " + op.Spec.Method})
 			continue
 		}
-		pattern, err := fw.RoutePattern(op.Spec.Path)
+		pattern, err := fw.RoutePattern(op.Spec.Method, op.Spec.Path)
 		if err != nil {
 			issues = append(issues, routeIssue{op: op, reason: err.Error()})
 			continue
@@ -234,7 +235,7 @@ func routes(ops []*gomodel.Operation, fw framework.Framework) ([]framework.Route
 		out = append(out, framework.Route{Operation: op.Name, Method: op.Spec.Method, Path: op.Spec.Path, Pattern: pattern})
 	}
 
-	kept, dropped := framework.Conflicts(out)
+	kept, dropped := fw.Conflicts(out)
 	for _, c := range dropped {
 		i := slices.IndexFunc(ops, func(op *gomodel.Operation) bool { return op.Name == c.Route.Operation })
 		issues = append(issues, routeIssue{op: ops[i], reason: c.Reason})

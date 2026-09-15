@@ -6,8 +6,10 @@
 package server
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/models"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/chi"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/stdhttp"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
@@ -70,7 +73,7 @@ func TestRoutes(t *testing.T) {
 func TestFrameworks(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, map[string]framework.Framework{"chi": chi.Framework{}}, Frameworks())
+	assert.Equal(t, map[string]framework.Framework{"chi": chi.Framework{}, "std-http": stdhttp.Framework{}}, Frameworks())
 }
 
 func TestTemplates(t *testing.T) {
@@ -181,12 +184,12 @@ func TestParts(t *testing.T) {
 	}
 }
 
-// TestViewRendersParts compares each part with testdata/<part>.golden. UPDATE=1 writes them
-// instead.
+// TestViewRendersParts compares each part with testdata/<part>.golden, the router of each
+// framework with testdata/server.router.<framework>.golden. UPDATE=1 writes them instead.
 func TestViewRendersParts(t *testing.T) {
 	t.Parallel()
 
-	parts := []layout.PartID{PartService, PartErrors, PartAdapter, PartRouter, layout.PartScaffoldService, layout.PartScaffoldMiddleware, layout.PartScaffoldMain}
+	parts := []layout.PartID{PartService, PartErrors, PartAdapter, layout.PartScaffoldService, layout.PartScaffoldMiddleware, layout.PartScaffoldMain}
 	for _, part := range parts {
 		t.Run(string(part), func(t *testing.T) {
 			t.Parallel()
@@ -195,17 +198,36 @@ func TestViewRendersParts(t *testing.T) {
 			g, _ := New(m, allOptions())
 			got := fixture{m: m, g: g, cfg: scaffoldConfig}.render(t, part)
 
-			path := filepath.Join("testdata", string(part)+".golden")
-			if os.Getenv("UPDATE") != "" {
-				require.NoError(t, os.MkdirAll("testdata", 0o755))
-				require.NoError(t, os.WriteFile(path, got, 0o644))
-				return
-			}
-			want, err := os.ReadFile(path)
-			require.NoError(t, err)
-			assert.Equal(t, string(want), string(got))
+			assertGolden(t, filepath.Join("testdata", string(part)+".golden"), got)
 		})
 	}
+	for _, name := range slices.Sorted(maps.Keys(Frameworks())) {
+		t.Run(string(PartRouter)+" "+name, func(t *testing.T) {
+			t.Parallel()
+
+			m := petModel()
+			opts := allOptions()
+			opts.Framework = Frameworks()[name]
+			g, _ := New(m, opts)
+			got := fixture{m: m, g: g, cfg: scaffoldConfig}.render(t, PartRouter)
+
+			assertGolden(t, filepath.Join("testdata", string(PartRouter)+"."+name+".golden"), got)
+		})
+	}
+}
+
+// assertGolden compares got with the file at path, or writes it when UPDATE is set.
+func assertGolden(t *testing.T, path string, got []byte) {
+	t.Helper()
+
+	if os.Getenv("UPDATE") != "" {
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.WriteFile(path, got, 0o644))
+		return
+	}
+	want, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, string(want), string(got))
 }
 
 func TestViewWithoutChecks(t *testing.T) {

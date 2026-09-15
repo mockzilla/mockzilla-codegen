@@ -49,7 +49,7 @@ func TestRoutePattern(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := Framework{}.RoutePattern(tc.path)
+			got, err := Framework{}.RoutePattern("GET", tc.path)
 
 			if tc.wantErr != "" {
 				require.ErrorIs(t, err, framework.ErrPattern)
@@ -60,6 +60,23 @@ func TestRoutePattern(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+func TestConflicts(t *testing.T) {
+	t.Parallel()
+
+	get := framework.Route{Operation: "GetPet", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/{id}"}
+	del := framework.Route{Operation: "DeletePet", Method: "DELETE", Path: "/pets/{petId}", Pattern: "/pets/{petId}"}
+	again := framework.Route{Operation: "GetPetAgain", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/{id}"}
+	renamed := framework.Route{Operation: "GetAnimal", Method: "GET", Path: "/pets/{animalId}", Pattern: "/pets/{animalId}"}
+
+	kept, dropped := Framework{}.Conflicts([]framework.Route{get, del, again, renamed})
+
+	assert.Equal(t, []framework.Route{get, del}, kept)
+	assert.Equal(t, []framework.Conflict{
+		{Route: again, Reason: "repeats the route of GetPet"},
+		{Route: renamed, Reason: "names its path parameters otherwise than GetPet at /pets/{id}"},
+	}, dropped)
 }
 
 func TestPathParam(t *testing.T) {

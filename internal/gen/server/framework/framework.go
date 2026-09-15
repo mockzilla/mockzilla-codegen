@@ -28,7 +28,7 @@ const (
 // param is a path parameter as OpenAPI writes it.
 var param = regexp.MustCompile(`\{([^{}]*)\}`)
 
-// Route is one operation on the router. Pattern is the path as the framework writes it.
+// Route is one operation on the router. Pattern is the route as the framework writes it.
 type Route struct {
 	Operation string
 	Method    string
@@ -47,36 +47,16 @@ type Framework interface {
 	Name() string
 	Family() Family
 	Imports() []gomodel.Import
-	// RoutePattern writes an OpenAPI path as the router takes it, or fails for a path the router
-	// rejects.
-	RoutePattern(path string) (string, error)
+	// RoutePattern writes an operation's method and OpenAPI path as the router takes them, or
+	// fails for a path the router rejects.
+	RoutePattern(method, path string) (string, error)
+	// Conflicts drops every route the router cannot hold next to an earlier one, with the reason.
+	Conflicts(routes []Route) ([]Route, []Conflict)
 	// PathParam writes the expression that reads a path parameter in a handler, where r is the
 	// request.
 	PathParam(s *gocode.Scope, name string) string
 	// Templates holds router.tmpl, the template of the router part.
 	Templates() fs.FS
-}
-
-// Conflicts drops every route that has the method and shape of an earlier one: a repeat of it,
-// or one whose path parameters are named otherwise, which routers key by position.
-func Conflicts(routes []Route) ([]Route, []Conflict) {
-	var kept []Route
-	var dropped []Conflict
-	seen := map[string]Route{}
-	for _, r := range routes {
-		key := r.Method + " " + param.ReplaceAllString(r.Pattern, "{}")
-		first, isTaken := seen[key]
-		switch {
-		case !isTaken:
-			seen[key] = r
-			kept = append(kept, r)
-		case first.Pattern == r.Pattern:
-			dropped = append(dropped, Conflict{Route: r, Reason: "repeats the route of " + first.Operation})
-		default:
-			dropped = append(dropped, Conflict{Route: r, Reason: "names its path parameters otherwise than " + first.Operation + " at " + first.Path})
-		}
-	}
-	return kept, dropped
 }
 
 // Params lists the path parameters of a path, in order.
@@ -86,4 +66,10 @@ func Params(path string) []string {
 		out = append(out, m[1])
 	}
 	return out
+}
+
+// Shape is a pattern with its parameter names blanked, so patterns that differ in the names of
+// their parameters alone compare equal.
+func Shape(pattern string) string {
+	return param.ReplaceAllString(pattern, "{}")
 }

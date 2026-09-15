@@ -7,8 +7,8 @@ for the framework the block names, and starter files on request.
 
 ```yaml
 server:
-  framework: chi
-  name: Pets   # the interface is PetsInterface; defaults to Service
+  framework: chi   # or std-http
+  name: Pets       # the interface is PetsInterface; defaults to Service
 ```
 
 ## Service interface
@@ -183,7 +183,12 @@ NewRouter(svc, WithErrorHandler(ErrorHandlerFunc(func(w http.ResponseWriter, r *
 
 ## Router
 
-`NewRouter` registers every operation on a router of the framework, chi for now:
+`NewRouter` registers every operation on a router of the framework `server.framework` names:
+
+| Framework | Router | `NewRouter` returns | `WithRouter` takes |
+|---|---|---|---|
+| `chi` | github.com/go-chi/chi/v5 | `chi.Router` | `chi.Router` |
+| `std-http` | `http.ServeMux` with the patterns of Go 1.22 | `http.Handler` | `*http.ServeMux` |
 
 ```go
 router := NewRouter(svc, WithMiddleware(RequestIDMiddleware, RecoverMiddleware))
@@ -191,13 +196,31 @@ http.ListenAndServe(":8080", router)
 ```
 
 On a new router the middleware wraps everything, unknown paths included, so a CORS preflight is
-answered. With `WithRouter(existing)` the routes are registered in a group of the given router and
-the middleware wraps those routes only.
+answered. With `WithRouter(existing)` the routes are registered on the given router and the
+middleware wraps those routes only: in a group of a chi router, around each handler on a
+`ServeMux`.
 
-Paths keep the spec's `{name}` parameters. An operation the router cannot serve is left out with a
-`route-dropped` warning: a method chi does not route, a path chi rejects (no leading slash, an
-unclosed brace, a parameter named twice, `*` not last), a route that repeats an earlier one, or one
-whose path parameters are named otherwise than an earlier route of the same shape.
+An operation the router cannot serve is left out with a `route-dropped` warning: a method the
+router does not take, a path it rejects, or a route it cannot hold next to an earlier one.
+
+### chi
+
+Routes keep the spec's `{name}` parameters and a trailing `*`. chi rejects a path without a
+leading slash, an unclosed brace, a parameter named twice and `*` not last. A route that repeats
+an earlier one, or whose path parameters are named otherwise than an earlier route of the same
+shape, is dropped, since chi keys parameters by position.
+
+### std-http
+
+Routes are `ServeMux` patterns such as `GET /pets/{id}`, and the handlers read parameters with
+`r.PathValue`. A parameter name that is no Go identifier is written with underscores, `{pet-id}`
+as `{pet_id}`. A trailing `*` becomes `{rest...}`, which takes the rest of the path, and a trailing
+slash becomes `{$}`, so `/pets/` matches itself alone. `ServeMux` rejects a path without a leading
+slash, one that is not clean (`/a//b`, `/a/../b`), a parameter that does not fill its segment
+(`{id}.json`) and two wildcards of one name. It panics on a route that matches the same requests as
+an earlier one, or overlaps with it while neither is more specific, `/a/{x}` next to `/{y}/b`; the
+generator drops such routes by the same rules, so `NewRouter` never panics. A `GET` route answers
+`HEAD` requests too.
 
 ## Scaffolds
 

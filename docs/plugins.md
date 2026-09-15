@@ -182,6 +182,7 @@ user-context:
 | `server.response-data-extra` | in every response data struct, after `Body` | the operation |
 | `server.router-extra` | in the router's registration, after the routes | the router |
 
-An unknown block is a config error that lists the blocks. The blocks inside a struct or a function
+In `server.router-extra`, a chi route goes on `r`; a std-http route on `mux`, its handler wrapped
+with `route`. An unknown block is a config error that lists the blocks. The blocks inside a struct or a function
 start after the line before them, so their text begins with a newline. `user-context` is
 available as `.User` in every block and as `API.UserContext` to plugins.

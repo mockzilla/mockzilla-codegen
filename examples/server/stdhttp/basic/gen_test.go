@@ -12,7 +12,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -68,6 +67,16 @@ func TestRouter(t *testing.T) {
 	servertest.Run(t, NewRouter(&service{pets: map[int]Pet{}}), servertest.Basic)
 }
 
+func TestMethodNotAllowed(t *testing.T) {
+	t.Parallel()
+
+	rec := httptest.NewRecorder()
+	NewRouter(&service{pets: map[int]Pet{}}).ServeHTTP(rec, httptest.NewRequest("PUT", "/ping", nil))
+
+	assert.Equal(t, 405, rec.Code)
+	assert.Equal(t, "GET, HEAD", rec.Header().Get("Allow"))
+}
+
 func TestWithRouterAndMiddleware(t *testing.T) {
 	t.Parallel()
 
@@ -80,8 +89,8 @@ func TestWithRouterAndMiddleware(t *testing.T) {
 			})
 		}
 	}
-	own := chi.NewRouter()
-	own.Get("/health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	own := http.NewServeMux()
+	own.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	router := NewRouter(&service{pets: map[int]Pet{}}, WithRouter(own), WithMiddleware(tag("outer"), tag("inner")))
 	require.Same(t, own, router)
 
@@ -94,6 +103,28 @@ func TestWithRouterAndMiddleware(t *testing.T) {
 	router.ServeHTTP(rec, httptest.NewRequest("GET", "/health", nil))
 	assert.Equal(t, 204, rec.Code)
 	assert.Equal(t, []string{"outer", "inner"}, seen, "the middleware wraps the generated routes only")
+}
+
+func TestMiddlewareOnNewMux(t *testing.T) {
+	t.Parallel()
+
+	var seen []string
+	tag := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			seen = append(seen, r.URL.Path)
+			next.ServeHTTP(w, r)
+		})
+	}
+	router := NewRouter(&service{pets: map[int]Pet{}}, WithMiddleware(tag))
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest("GET", "/ping", nil))
+	assert.Equal(t, 200, rec.Code)
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest("GET", "/nope", nil))
+	assert.Equal(t, 404, rec.Code)
+	assert.Equal(t, []string{"/ping", "/nope"}, seen, "the middleware wraps unknown paths of a new mux too")
 }
 
 func TestErrorHandler(t *testing.T) {

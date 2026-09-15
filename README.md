@@ -18,7 +18,7 @@ Status: early development. The config format and the generated API may still cha
 - Filters, overlays, pruning and spec simplification before generation.
 - `x-go-*` extensions and masking of sensitive values in logs ([extensions](docs/extensions.md)).
 - A service interface to implement, an HTTP adapter that decodes every parameter style and body
-  type, a chi router and starter files ([server](docs/server.md)).
+  type, a router for chi or `http.ServeMux`, and starter files ([server](docs/server.md)).
 - A plugin API for tools built on the generator, and template overrides for a closed list of
   blocks ([plugins](docs/plugins.md)).
 

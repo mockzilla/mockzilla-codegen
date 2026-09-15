@@ -43,6 +43,9 @@ var servers = map[string]struct {
 		variant: itest.Variant{Name: "chi", Config: "server:\n  framework: chi\n", Init: "%s.NewRouter(nil)"},
 		deps:    []string{"github.com/go-chi/chi/v5"},
 	},
+	"std-http": {
+		variant: itest.Variant{Name: "std-http", Config: "server:\n  framework: std-http\n", Init: "%s.NewRouter(nil)"},
+	},
 }
 
 // TestIntegration generates every spec in testdata/specs with the models variant and one per
