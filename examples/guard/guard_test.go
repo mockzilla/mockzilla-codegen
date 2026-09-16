@@ -35,7 +35,7 @@ func TestRuntimeGuard(t *testing.T) {
 
 	generated, err := os.ReadFile(filepath.Join("..", "models", "basic", "gen.go"))
 	require.NoError(t, err)
-	require.Contains(t, string(generated), "const _ = runtime.SupportsGeneratorV1")
+	require.Contains(t, string(generated), "const _ = runtime.SupportsGeneratorV2")
 
 	tests := []struct {
 		name      string
@@ -49,14 +49,14 @@ func TestRuntimeGuard(t *testing.T) {
 		},
 		{
 			name:      "Runtime too old for the code",
-			generated: strings.ReplaceAll(string(generated), "SupportsGeneratorV1", "SupportsGeneratorV2"),
-			wantErr:   "undefined: runtime.SupportsGeneratorV2",
+			generated: strings.ReplaceAll(string(generated), "SupportsGeneratorV2", "SupportsGeneratorV3"),
+			wantErr:   "undefined: runtime.SupportsGeneratorV3",
 		},
 		{
 			name:      "Runtime too new for the code",
 			generated: string(generated),
-			runtime:   func(src string) string { return strings.ReplaceAll(src, "SupportsGeneratorV1", "SupportsGeneratorV2") },
-			wantErr:   "undefined: runtime.SupportsGeneratorV1",
+			runtime:   func(src string) string { return strings.ReplaceAll(src, "SupportsGeneratorV2", "SupportsGeneratorV3") },
+			wantErr:   "undefined: runtime.SupportsGeneratorV2",
 		},
 	}
 

@@ -1,0 +1,226 @@
+// Copyright (c) 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+// Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+// permission notice shall be included in all copies or substantial portions of the Software.
+
+package runtime
+
+import (
+	"bytes"
+	"io"
+	"mime"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+type stamped struct {
+	Title    string    `json:"title"`
+	When     time.Time `json:"when"`
+	Raw      []byte    `json:"raw"`
+	Optional *string   `json:"optional"`
+	Any      any       `json:"any"`
+	Ptrs     []*string `json:"ptrs"`
+	Bad      chan int  `json:"-"`
+}
+
+// failAfter takes n bytes and fails the write that goes past them.
+type failAfter struct {
+	n int
+}
+
+func (w *failAfter) Write(p []byte) (int, error) {
+	if len(p) > w.n {
+		return 0, io.ErrClosedPipe
+	}
+	w.n -= len(p)
+	return len(p), nil
+}
+
+func TestEncodeForm(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   any
+		want    url.Values
+		wantErr string
+	}{
+		{
+			name: "Nested objects, lists and lists of objects, in the shape DecodeForm reads",
+			value: order{
+				Name:    "Rex",
+				Age:     Ptr(3),
+				Active:  true,
+				Address: address{City: "Berlin", Country: "DE"},
+				Items:   []string{"a", "b"},
+				Lines:   []address{{City: "Paris"}},
+				Extra:   map[string]any{"n": 1.5, "list": []any{[]any{1, 2}}},
+				Ignored: "gone",
+			},
+			want: url.Values{
+				"name": {"Rex"}, "age": {"3"}, "active": {"true"},
+				"address[city]": {"Berlin"}, "address[country]": {"DE"},
+				"items":          {"a", "b"},
+				"lines[0][city]": {"Paris"}, "lines[0][country]": {""},
+				"extra[n]": {"1.5"}, "extra[list][0]": {"1", "2"},
+				"phone": {""},
+			},
+		},
+		{name: "A map", value: map[string]int{"b": 2, "a": 1}, want: url.Values{"a": {"1"}, "b": {"2"}}},
+		{name: "Nothing", value: nil, want: url.Values{}},
+		{name: "A value that is no object", value: []int{1}, wantErr: "invalid body value: a form needs an object, not \"[1]\""},
+		{name: "A value that cannot be written as JSON", value: make(chan int), wantErr: "json: unsupported type: chan int"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := EncodeForm(tc.value)
+
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestEncodeFormRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	in := order{
+		Name:    "Rex",
+		Age:     Ptr(3),
+		Active:  true,
+		Address: address{City: "Berlin", Country: "DE"},
+		Items:   []string{"a", "b"},
+		Lines:   []address{{City: "Paris"}, {City: "Rome"}},
+		Extra:   map[string]any{"n": int64(1)},
+		Codes:   []int{7},
+		Meta:    map[string]bool{"x": true},
+	}
+	values, err := EncodeForm(in)
+	require.NoError(t, err)
+
+	var out order
+	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &out, true))
+
+	assert.Equal(t, in, out)
+}
+
+func TestEncodeMultipart(t *testing.T) {
+	t.Parallel()
+
+	in := upload{
+		Title:    "Cat",
+		File:     NewFile([]byte("meow"), "cat.txt", "text/plain"),
+		Optional: nil,
+		Files:    []File{NewFile([]byte("a"), "a.bin", ""), NewFile([]byte("b"), "b.bin", "")},
+		Tags:     []string{"x", "y"},
+		Address:  &address{City: "Berlin"},
+		Point:    address{City: "Rome"},
+		Count:    3,
+	}
+
+	data, contentType, err := EncodeMultipart(&in)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(data))
+	req.Header.Set("Content-Type", contentType)
+	var out upload
+	require.NoError(t, DecodeMultipart(req, &out, 0))
+	content, err := out.File.Bytes()
+	require.NoError(t, err)
+	assert.Equal(t, "meow", string(content))
+	assert.Equal(t, "cat.txt", out.File.Name())
+	assert.Equal(t, "text/plain", out.File.ContentType())
+	assert.Len(t, out.Files, 2)
+	assert.Equal(t, "application/octet-stream", out.Files[0].ContentType())
+	assert.Nil(t, out.Optional)
+	assert.Equal(t, in.Tags, out.Tags)
+	assert.Equal(t, in.Address, out.Address)
+	assert.Equal(t, in.Point, out.Point)
+	assert.Equal(t, 3, out.Count)
+	assert.Equal(t, "Cat", out.Title)
+}
+
+func TestEncodeMultipartParts(t *testing.T) {
+	t.Parallel()
+
+	when := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	data, contentType, err := EncodeMultipart(stamped{Title: `a "quoted" \ name`, When: when, Raw: []byte{0, 1}, Any: map[string]int{"n": 1}, Ptrs: []*string{Ptr("p"), nil}})
+	require.NoError(t, err)
+
+	_, params, err := mime.ParseMediaType(contentType)
+	require.NoError(t, err)
+	mr := multipart.NewReader(bytes.NewReader(data), params["boundary"])
+	form, err := mr.ReadForm(1 << 20)
+	require.NoError(t, err)
+
+	assert.Equal(t, map[string][]string{
+		"title": {`a "quoted" \ name`},
+		"when":  {"2026-01-02T03:04:05Z"},
+		"raw":   {"\x00\x01"},
+		"any":   {`{"n":1}`},
+		"ptrs":  {"p"},
+	}, form.Value)
+}
+
+func TestEncodeMultipartErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   any
+		wantErr string
+	}{
+		{name: "No struct", value: 42, wantErr: "invalid body value: a multipart form needs a struct, not int"},
+		{name: "A nil pointer", value: (*upload)(nil), wantErr: "invalid body value: a multipart form needs a struct, not *runtime.upload"},
+		{name: "A file that cannot be opened", value: upload{File: NewFileFromMultipart(&multipart.FileHeader{Filename: "gone"})}, wantErr: "open : no such file or directory"},
+		{name: "A value that cannot be written as JSON", value: struct{ Any any }{Any: map[string]chan int{"a": nil}}, wantErr: "json: unsupported type: chan int"},
+		{name: "A value that cannot be written as text", value: struct{ Bad chan int }{}, wantErr: "invalid parameter value: cannot write chan int as a parameter"},
+		{name: "A file that cannot be read", value: upload{File: NewFileReader(errReader{}, "a", "", -1)}, wantErr: "unexpected EOF"},
+		{name: "A file of a list that cannot be read", value: upload{Files: []File{NewFileReader(errReader{}, "a", "", -1)}}, wantErr: "unexpected EOF"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, _, err := EncodeMultipart(tc.value)
+
+			require.EqualError(t, err, tc.wantErr)
+		})
+	}
+}
+
+// TestWriteMultipartFailingWriter fails the writer at every point a part writes to it.
+func TestWriteMultipartFailingWriter(t *testing.T) {
+	t.Parallel()
+
+	values := []any{
+		upload{Title: "Cat", File: NewFile([]byte("meow"), "cat.txt", ""), Point: address{City: "Rome"}},
+		stamped{Raw: []byte{1}},
+	}
+	for _, v := range values {
+		var buf bytes.Buffer
+		_, err := writeMultipart(&buf, v)
+		require.NoError(t, err)
+
+		for n := range buf.Len() {
+			_, err = writeMultipart(&failAfter{n: n}, v)
+			require.ErrorIs(t, err, io.ErrClosedPipe, n)
+		}
+	}
+}

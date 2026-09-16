@@ -1,0 +1,332 @@
+// Copyright (c) 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+// Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+// permission notice shall be included in all copies or substantial portions of the Software.
+
+package client
+
+import (
+	"strings"
+
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
+	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+)
+
+// Body encoders of the request builder, by what a body field holds.
+const (
+	encodeJSON      = "JSONBody"
+	encodeForm      = "FormBody"
+	encodeMultipart = "MultipartBody"
+	encodeText      = "TextBody"
+	encodeBytes     = "BytesBody"
+	encodeFile      = "FileBody"
+)
+
+var (
+	stringType = gomodel.Builtin{Name: "string"}
+	bytesType  = gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}
+	anyType    = gomodel.Builtin{Name: "any"}
+	fileType   = gomodel.Qualified{Import: gomodel.Import{Path: gomodel.RuntimePath}, Name: "File"}
+)
+
+// encoders are the request builder methods that add a parameter, by location.
+var encoders = map[string]string{
+	spec.InPath:   "PathParam",
+	spec.InQuery:  "QueryParam",
+	spec.InHeader: "HeaderParam",
+	spec.InCookie: "CookieParam",
+}
+
+// methodConsts are the constants of net/http for the methods it names.
+var methodConsts = map[string]string{
+	"GET":     "MethodGet",
+	"HEAD":    "MethodHead",
+	"POST":    "MethodPost",
+	"PUT":     "MethodPut",
+	"PATCH":   "MethodPatch",
+	"DELETE":  "MethodDelete",
+	"CONNECT": "MethodConnect",
+	"OPTIONS": "MethodOptions",
+	"TRACE":   "MethodTrace",
+}
+
+// wildcardMediaTypes are what a body under a wildcard media type is sent as, by encoder.
+var wildcardMediaTypes = map[string]string{encodeJSON: "application/json", encodeText: "text/plain", encodeBytes: "application/octet-stream"}
+
+// OperationsView is the data of the operations part. Client is the client type as the file writes
+// it; Interface is the interface it implements.
+type OperationsView struct {
+	Client       string
+	Interface    string
+	Context      string
+	HTTP         string
+	Runtime      string
+	HasEnvelopes bool
+	User         map[string]any
+	Operations   []OperationView
+}
+
+// OperationView is one operation: the request it builds, the method that returns the body of its
+// success response, and with HasEnvelopes the method that returns its envelope. Method is the
+// net/http constant or a quoted method; Path is quoted. Success is the status of the response the
+// plain method returns the body of, as the spec writes it, empty for none; Result is that body's
+// type and Zero the value returned on an error. Targets are what the plain method decodes,
+// EnvelopeTargets what the HasEnvelopes method decodes into the envelope Response.
+type OperationView struct {
+	Name            string
+	Doc             string
+	Method          string
+	Path            string
+	Options         string
+	Groups          []GroupView
+	Bodies          []BodyView
+	IsBodyRequired  bool
+	Success         string
+	Result          string
+	Zero            string
+	Targets         []TargetView
+	Response        string
+	EnvelopeTargets []TargetView
+}
+
+// GroupView is the parameters of one location: the options field that holds them and how each
+// is added to the request.
+type GroupView struct {
+	Field  string
+	Params []ParamView
+}
+
+// ParamView is one parameter: the builder method that adds it, the expression of its value and
+// its runtime.Param. Name is quoted, Style a runtime constant.
+type ParamView struct {
+	Encoder    string
+	Value      string
+	Name       string
+	Style      string
+	IsExplode  bool
+	IsRequired bool
+	IsJSON     bool
+}
+
+// BodyView is one body field: the expression that says it is set, the builder method that sends
+// it with the expression of its value, and the quoted media type the method takes, empty for one
+// that needs none. An empty Encoder is a body the client cannot send, whose media type it reports.
+type BodyView struct {
+	IsSet     string
+	Encoder   string
+	Value     string
+	MediaType string
+}
+
+// TargetView is one runtime.Target: the quoted status and media type, and the address of what
+// the body is decoded into; IsHeaders marks the typed headers of the status.
+type TargetView struct {
+	Status    string
+	MediaType string
+	Dst       string
+	IsHeaders bool
+}
+
+func operationsView(g *Generator, s *gocode.Scope) *OperationsView {
+	v := &OperationsView{
+		Client:       s.Symbol(PartCore, g.opts.Name),
+		Interface:    g.opts.Name + "Interface",
+		HasEnvelopes: g.opts.HasEnvelopes,
+		User:         g.opts.User,
+	}
+	if len(g.ops) == 0 {
+		return v
+	}
+
+	v.Context = s.Import(gomodel.Import{Path: "context"})
+	v.HTTP = s.Import(gomodel.Import{Path: "net/http"})
+	v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
+	for _, op := range g.ops {
+		v.Operations = append(v.Operations, operationView(g, op, s, v.HTTP))
+	}
+	return v
+}
+
+func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg string) OperationView {
+	n := g.opts.Namer
+	v := OperationView{
+		Name:           op.Name,
+		Doc:            operation.Doc(op.Spec),
+		Method:         methodExpr(op.Spec.Method, httpPkg),
+		Path:           gocode.Quote(op.Spec.Path),
+		Options:        s.Symbol(PartOptions, n.ClientRequestOptions(op.Name)),
+		IsBodyRequired: op.Spec.Body != nil && op.Spec.Body.Required,
+	}
+	for _, p := range op.Params {
+		if encoders[p.In] == "" {
+			continue
+		}
+		v.Groups = append(v.Groups, groupView(g, p))
+	}
+	fields := operation.BodyFields(op.Bodies, n)
+	for i, c := range op.Bodies {
+		v.Bodies = append(v.Bodies, bodyView(c, fields[i], s))
+	}
+
+	if r, c, ok := successBody(op); ok {
+		v.Success = r.Status
+		v.Result = s.Expr(operation.BodyType(c))
+		v.Zero = "nil"
+		if v.Result == "string" {
+			v.Zero = `""`
+		}
+		v.Targets = append(v.Targets, TargetView{Status: gocode.Quote(r.Status), MediaType: gocode.Quote(c.MediaType), Dst: gocode.AddressOf("out")})
+	}
+	v.Targets = append(v.Targets, errorTargets(op, s)...)
+
+	if g.opts.HasEnvelopes {
+		v.Response = s.Symbol(PartResponses, n.ClientResponse(op.Name))
+		for _, f := range envelopeFields(op, n, s) {
+			v.EnvelopeTargets = append(v.EnvelopeTargets, TargetView{
+				Status:    gocode.Quote(f.status),
+				MediaType: gocode.Quote(f.mediaType),
+				Dst:       gocode.AddressOf(gocode.Selector("out", f.Name)),
+				IsHeaders: f.isHeaders,
+			})
+		}
+	}
+	return v
+}
+
+// groupView adds each parameter of a location from its field of the group's struct.
+func groupView(g *Generator, p gomodel.ParamGroup) GroupView {
+	v := GroupView{Field: operation.GroupField(p.In, g.opts.Namer)}
+	for i, f := range p.Decl.Struct.Fields {
+		param := p.Params[i]
+		v.Params = append(v.Params, ParamView{
+			Encoder:    encoders[p.In],
+			Value:      gocode.Selector(gocode.Selector("opts", v.Field), f.Name),
+			Name:       gocode.Quote(param.Name),
+			Style:      operation.Style(param),
+			IsExplode:  param.Explode,
+			IsRequired: param.Required || p.In == spec.InPath,
+			IsJSON:     operation.IsJSONParam(param),
+		})
+	}
+	return v
+}
+
+// bodyView picks the encoder of a media type by the type of its field: JSON and forms take
+// anything, multipart a struct, a File streams, any other media type is sent as a string or as
+// bytes, whichever its field is. A wildcard media type sends anything else as JSON. Other pairs,
+// such as XML into a struct, cannot be sent.
+func bodyView(c gomodel.Content, field string, s *gocode.Scope) BodyView {
+	t := operation.BodyType(c)
+	value := gocode.Selector("opts", field)
+	v := BodyView{IsSet: gocode.NotNil(value), Value: value, MediaType: gocode.Quote(c.MediaType)}
+	base := elem(t)
+	under := gomodel.Underlying(base)
+	mediaType := strings.ToLower(c.MediaType)
+	isWildcard := strings.Contains(mediaType, "*")
+
+	switch {
+	case runtime.IsJSON(mediaType), isWildcard && under != stringType && under != bytesType && base != fileType:
+		v.Encoder = encodeJSON
+	case mediaType == "application/x-www-form-urlencoded":
+		v.Encoder, v.MediaType = encodeForm, ""
+	case mediaType == "multipart/form-data" && gomodel.StructDecl(t) != nil:
+		v.Encoder, v.MediaType = encodeMultipart, ""
+	case base == fileType:
+		v.Encoder, v.Value = encodeFile, gocode.Deref(value)
+	case under == stringType:
+		v.Encoder, v.Value = encodeText, held(value, base, t, s)
+		if t == stringType {
+			v.IsSet = gocode.NotEmpty(value)
+		}
+	case under == bytesType:
+		v.Encoder, v.Value = encodeBytes, held(value, base, t, s)
+	}
+	if isWildcard {
+		v.MediaType = gocode.Quote(wildcardMediaTypes[v.Encoder])
+	}
+	return v
+}
+
+// held writes value, a field of type t, as its underlying string or bytes: dereferenced when the
+// field holds a pointer, and converted when base is a defined type.
+func held(value string, base, t gomodel.Type, s *gocode.Scope) string {
+	out := value
+	if t != base {
+		out = gocode.Deref(value)
+	}
+	if under := gomodel.Underlying(base); under != base {
+		out = gocode.Call(s.Expr(under), out)
+	}
+	return out
+}
+
+// successBody is the lowest documented 2xx response that has a body, with the body the plain
+// method returns: its JSON one, else its first.
+func successBody(op *gomodel.Operation) (gomodel.Response, gomodel.Content, bool) {
+	var best *gomodel.Response
+	for i := range op.Responses {
+		r := &op.Responses[i]
+		status := operation.StatusOf(r.Status)
+		if status < 200 || status > 299 || len(r.Contents) == 0 {
+			continue
+		}
+		if best == nil || status < operation.StatusOf(best.Status) {
+			best = r
+		}
+	}
+	if best == nil {
+		return gomodel.Response{}, gomodel.Content{}, false
+	}
+	c, _ := operation.FirstBody(best.Contents)
+	return *best, c, true
+}
+
+// errorTargets are the bodies of the responses outside 2xx whose type is an error type, which the
+// plain method decodes into the error it returns.
+func errorTargets(op *gomodel.Operation, s *gocode.Scope) []TargetView {
+	var out []TargetView
+	for _, r := range op.Responses {
+		if status := operation.StatusOf(r.Status); status >= 200 && status <= 299 {
+			continue
+		}
+		for _, c := range r.Contents {
+			d := errorDecl(c.Type)
+			if d == nil {
+				continue
+			}
+			out = append(out, TargetView{Status: gocode.Quote(r.Status), MediaType: gocode.Quote(c.MediaType), Dst: gocode.Call("new", s.Expr(gomodel.DeclRef{Decl: d}))})
+		}
+	}
+	return out
+}
+
+// errorDecl is the error type a value of type t is, through pointers and aliases, or nil.
+func errorDecl(t gomodel.Type) *gomodel.Decl {
+	for {
+		switch x := t.(type) {
+		case gomodel.Pointer:
+			t = x.Elem
+		case gomodel.DeclRef:
+			if x.Decl.Error != nil {
+				return x.Decl
+			}
+			if x.Decl.Kind != gomodel.KindAlias && x.Decl.Kind != gomodel.KindDefined {
+				return nil
+			}
+			t = x.Decl.Target
+		default:
+			return nil
+		}
+	}
+}
+
+// methodExpr is the net/http constant of an HTTP method, or the method quoted when it has none.
+func methodExpr(method, httpPkg string) string {
+	if name, ok := methodConsts[method]; ok {
+		return gocode.Selector(httpPkg, name)
+	}
+	return gocode.Quote(method)
+}

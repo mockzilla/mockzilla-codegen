@@ -60,6 +60,11 @@ func NotNil(x string) string {
 	return x + " != nil"
 }
 
+// NotEmpty writes x != "".
+func NotEmpty(x string) string {
+	return x + ` != ""`
+}
+
 // Index writes x[key].
 func Index(x, key string) string {
 	return x + "[" + key + "]"

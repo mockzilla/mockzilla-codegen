@@ -21,6 +21,7 @@ func TestExpressions(t *testing.T) {
 	assert.Equal(t, "p.Validate()", Call("p.Validate"))
 	assert.Equal(t, "m[key]", Index("m", "key"))
 	assert.Equal(t, "p.Cat != nil", NotNil("p.Cat"))
+	assert.Equal(t, `opts.Body != ""`, NotEmpty("opts.Body"))
 	assert.Equal(t, "&opts.Body", AddressOf("opts.Body"))
 }
 

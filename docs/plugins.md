@@ -119,9 +119,11 @@ type Operation struct {
 	Tags           []string
 	HasOptions     bool     // takes parameters or a body
 	IsRouted       bool     // the router registers it: not a webhook, not dropped
-	RequestOptions TypeRef  // <Op>ServiceRequestOptions, empty without a server block
-	ResponseData   TypeRef  // <Op>ResponseData, empty without a server block
-	Success        *Success // the first 2xx response, nil without one
+	RequestOptions       TypeRef  // <Op>ServiceRequestOptions, empty without a server block
+	ResponseData         TypeRef  // <Op>ResponseData, empty without a server block
+	ClientRequestOptions TypeRef  // <Op>RequestOptions, empty without a client block or for a webhook
+	ClientResponse       TypeRef  // <Op>Response, empty unless client.with-response is set
+	Success              *Success // the first 2xx response, nil without one
 }
 
 type Success struct {

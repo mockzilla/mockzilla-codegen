@@ -14,73 +14,24 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 )
 
-func TestSuccess(t *testing.T) {
+func TestHeaderSuffix(t *testing.T) {
 	t.Parallel()
 
-	pet := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Pet"}}
-	xml, jsonBody := gomodel.Content{MediaType: "application/xml", Type: pet}, gomodel.Content{MediaType: "application/json", Type: pet}
+	headers := &gomodel.Decl{Name: "Headers"}
 	tests := []struct {
 		name      string
 		responses []gomodel.Response
-		want      SuccessResponse
-		wantOK    bool
+		want      string
 	}{
-		{name: "No responses"},
-		{name: "No 2xx response", responses: []gomodel.Response{{Status: "404"}, {Status: "default", Contents: []gomodel.Content{jsonBody}}}},
-		{
-			name:      "First 2xx response with its JSON body",
-			responses: []gomodel.Response{{Status: "201", Contents: []gomodel.Content{xml, jsonBody}}, {Status: "200"}},
-			want:      SuccessResponse{Status: 201, Body: &jsonBody},
-			wantOK:    true,
-		},
-		{name: "Range without a body", responses: []gomodel.Response{{Status: "2XX"}}, want: SuccessResponse{Status: 200}, wantOK: true},
+		{name: "One response with headers takes no suffix", responses: []gomodel.Response{{Status: "200", Headers: headers}, {Status: "404"}}},
+		{name: "Several take their status", responses: []gomodel.Response{{Status: "200", Headers: headers}, {Status: "4XX", Headers: headers}}, want: "4XX"},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, ok := Success(&gomodel.Operation{Responses: tc.responses})
-
-			assert.Equal(t, tc.wantOK, ok)
-			assert.Equal(t, tc.want, got)
-		})
-	}
-}
-
-func TestBodyFields(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		mediaTypes []string
-		want       []string
-	}{
-		{name: "No body"},
-		{name: "One body", mediaTypes: []string{"application/xml"}, want: []string{"Body"}},
-		{name: "Several bodies take their tags", mediaTypes: []string{"application/json", "text/plain"}, want: []string{"BodyJSON", "BodyText"}},
-		{
-			name:       "A tag used twice takes the type, then a number",
-			mediaTypes: []string{"application/xml", "text/xml", "application/xml; charset=utf-8", "text/xml; q=1"},
-			want:       []string{"BodyXML", "BodyTextXML", "BodyApplicationXML", "BodyTextXML2"},
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			var bodies []gomodel.Content
-			for _, mt := range tc.mediaTypes {
-				bodies = append(bodies, gomodel.Content{MediaType: mt})
-			}
-
-			got := bodyFields(bodies, naming.New(nil))
-
-			if tc.want == nil {
-				assert.Empty(t, got)
-				return
-			}
-			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.want, headerSuffix(naming.New(nil), "4XX", &gomodel.Operation{Responses: tc.responses}))
 		})
 	}
 }

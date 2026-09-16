@@ -68,32 +68,34 @@ type Response struct {
 	Headers  *Decl
 }
 
-// readers read the spec once for every step of Build. isServer says whether the server contract
-// is generated.
+// readers read the spec once for every step of Build. hasHeaders says whether responses get
+// structs of their typed headers.
 type readers struct {
-	flat     *flattener
-	unions   *unionReader
-	ext      *extReader
-	isServer bool
+	flat       *flattener
+	unions     *unionReader
+	ext        *extReader
+	hasHeaders bool
 }
 
 // Options are the settings Build uses. Reserved names are declared by the generator elsewhere in
 // the package; each operation also declares its name plus every OperationSuffixes entry.
 // IsValidated adds Validate methods, ValidateResponse where responses differ. ErrorMapping maps
-// error type names to the path of their message. IsServer declares what the service contract
-// needs: response header structs and the names of its constructors.
+// error type names to the path of their message. IsServer reserves the names of the response
+// constructors of the service contract; HasResponseHeaders declares a struct of the typed headers
+// of every response that has some, which the server and the client envelopes use.
 type Options struct {
-	IntType           string
-	Descriptions      bool
-	ExtraTags         []string
-	EnumPrefix        bool
-	Namer             *naming.Namer
-	Reserved          []string
-	OperationSuffixes []string
-	IsValidated       bool
-	ValidateResponse  bool
-	IsServer          bool
-	ErrorMapping      map[string]string
+	IntType            string
+	Descriptions       bool
+	ExtraTags          []string
+	EnumPrefix         bool
+	Namer              *naming.Namer
+	Reserved           []string
+	OperationSuffixes  []string
+	IsValidated        bool
+	ValidateResponse   bool
+	IsServer           bool
+	HasResponseHeaders bool
+	ErrorMapping       map[string]string
 }
 
 // OptionsFrom reads Options from a config. Blocks left out get their defaults.
@@ -116,7 +118,7 @@ func OptionsFrom(cfg *config.Config) Options {
 
 	if s := cfg.Server; s != nil {
 		name := cmp.Or(s.Name, "Service")
-		opts.IsServer = true
+		opts.IsServer, opts.HasResponseHeaders = true, true
 		opts.Reserved = append(opts.Reserved, name+"Interface")
 		opts.Reserved = append(opts.Reserved, serverNames...)
 		if s.Scaffold.Service != "" {
@@ -130,6 +132,11 @@ func OptionsFrom(cfg *config.Config) Options {
 	if c := cfg.Client; c != nil {
 		name := cmp.Or(c.Name, "Client")
 		opts.Reserved = append(opts.Reserved, name, "New"+name, name+"Option", name+"Interface", "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithRequestEditor")
+		opts.OperationSuffixes = append(opts.OperationSuffixes, n.ClientRequestOptions(""))
+		if c.WithResponse {
+			opts.HasResponseHeaders = true
+			opts.OperationSuffixes = append(opts.OperationSuffixes, n.ClientResponse(""))
+		}
 	}
 	return opts
 }
@@ -153,7 +160,7 @@ func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 	}
 
 	flat := newFlattener(&diags)
-	r := readers{flat: flat, unions: newUnionReader(opts.Namer, flat), ext: newExtReader(opts.Namer, &diags), isServer: opts.IsServer}
+	r := readers{flat: flat, unions: newUnionReader(opts.Namer, flat), ext: newExtReader(opts.Namer, &diags), hasHeaders: opts.HasResponseHeaders}
 	c := newCollector(doc, r, &diags)
 	c.run(ops)
 	types := resolveTypes(c.pending, reserved, &diags)

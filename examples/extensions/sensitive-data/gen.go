@@ -10,7 +10,7 @@ import (
 )
 
 // Fails to compile when the runtime package does not match the codegen version that wrote this file.
-const _ = runtime.SupportsGeneratorV1
+const _ = runtime.SupportsGeneratorV2
 
 var (
 	patternUserSsn = regexp.MustCompile(`\d`)

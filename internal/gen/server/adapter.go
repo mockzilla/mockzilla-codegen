@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
@@ -42,20 +43,6 @@ var decoders = map[string]string{
 	spec.InHeader: "DecodeHeader",
 	spec.InCookie: "DecodeCookie",
 }
-
-// styleNames are the runtime constants of the parameter styles.
-var styleNames = map[string]string{
-	"simple":         "StyleSimple",
-	"label":          "StyleLabel",
-	"matrix":         "StyleMatrix",
-	"form":           "StyleForm",
-	"spaceDelimited": "StyleSpaceDelimited",
-	"pipeDelimited":  "StylePipeDelimited",
-	"deepObject":     "StyleDeepObject",
-}
-
-// defaultStyles are the styles of parameters that name none, by location.
-var defaultStyles = map[string]string{spec.InPath: "simple", spec.InQuery: "form", spec.InHeader: "simple", spec.InCookie: "form"}
 
 // ErrorsView is the data of the errors part: the runtime types it names.
 type ErrorsView struct {
@@ -197,7 +184,7 @@ func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope) HandlerVi
 
 	v.IsBodyRequired = op.Spec.Body != nil && op.Spec.Body.Required
 	at := bodyAt{id: v.ID, isRequired: v.IsBodyRequired, scope: s}
-	fields := bodyFields(op.Bodies, g.opts.Namer)
+	fields := operation.BodyFields(op.Bodies, g.opts.Namer)
 	seen := []string{""}
 	for i, c := range op.Bodies {
 		mediaType := baseMediaType(c.MediaType)
@@ -217,7 +204,7 @@ func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope) HandlerVi
 
 // groupView decodes each parameter of a location into its field of the group's struct.
 func groupView(g *Generator, p gomodel.ParamGroup, s *gocode.Scope) GroupView {
-	v := GroupView{Field: optionFields[p.In], Type: s.Expr(gomodel.DeclRef{Decl: p.Decl})}
+	v := GroupView{Field: operation.GroupField(p.In, g.opts.Namer), Type: s.Expr(gomodel.DeclRef{Decl: p.Decl})}
 	for i, f := range p.Decl.Struct.Fields {
 		param := p.Params[i]
 		source := "query"
@@ -229,21 +216,16 @@ func groupView(g *Generator, p gomodel.ParamGroup, s *gocode.Scope) GroupView {
 		case spec.InCookie:
 			source = gocode.Call(gocode.Selector("r", "Cookies"))
 		}
-		style := param.Style
-		if styleNames[style] == "" {
-			style = defaultStyles[p.In]
-		}
-
 		v.Params = append(v.Params, ParamView{
 			Decoder:    decoders[p.In],
 			Source:     source,
 			Target:     gocode.AddressOf(gocode.Selector(gocode.Selector("opts", v.Field), f.Name)),
 			Name:       gocode.Quote(param.Name),
 			Location:   gocode.Quote(p.In),
-			Style:      styleNames[style],
+			Style:      operation.Style(param),
 			IsExplode:  param.Explode,
 			IsRequired: param.Required,
-			IsJSON:     param.Schema == nil && len(param.Contents) > 0 && runtime.IsJSON(param.Contents[0].Name),
+			IsJSON:     operation.IsJSONParam(param),
 		})
 	}
 	return v
@@ -264,7 +246,7 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 		Field:       field,
 		Target:      gocode.AddressOf(gocode.Selector("opts", field)),
 	}
-	t := BodyType(c)
+	t := operation.BodyType(c)
 	base, isPointer := t, false
 	if p, ok := t.(gomodel.Pointer); ok {
 		base, isPointer = p.Elem, true
@@ -319,7 +301,7 @@ func typedErrors(op *gomodel.Operation, s *gocode.Scope) []TypedErrorView {
 				continue
 			}
 			seen = append(seen, d)
-			out = append(out, TypedErrorView{Var: errorVar(d.Name, len(out)), Type: s.Expr(gomodel.DeclRef{Decl: d}), Status: statusOf(r.Status)})
+			out = append(out, TypedErrorView{Var: errorVar(d.Name, len(out)), Type: s.Expr(gomodel.DeclRef{Decl: d}), Status: operation.StatusOf(r.Status)})
 		}
 	}
 	return out
@@ -332,16 +314,4 @@ func errorVar(typeName string, i int) string {
 		name += strconv.Itoa(i + 1)
 	}
 	return name
-}
-
-// statusOf is the status code a response is answered with: its own, the start of its range, or
-// 500 for default.
-func statusOf(status string) int {
-	if code, err := strconv.Atoi(status); err == nil {
-		return code
-	}
-	if code, err := strconv.Atoi(status[:1]); err == nil && len(status) == 3 {
-		return code * 100
-	}
-	return 500
 }

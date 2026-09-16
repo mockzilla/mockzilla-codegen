@@ -5,6 +5,6 @@
 
 package runtime
 
-// SupportsGeneratorV1 is set while this runtime has everything code from generator API level 1
+// SupportsGeneratorV2 is set while this runtime has everything code from generator API level 2
 // uses. Generated files refer to it, so a runtime too old or too new for them fails to compile.
-const SupportsGeneratorV1 = true
+const SupportsGeneratorV2 = true

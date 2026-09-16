@@ -248,6 +248,31 @@ func TestGenerateWithPluginWithoutServer(t *testing.T) {
 	assert.Equal(t, TypeRef{Name: "PetSchema", Package: "api", ImportPath: "example.com/work/api"}, p.api.Types[0], "the reserved name is left to the plugin")
 }
 
+func TestGenerateWithPluginAndClient(t *testing.T) {
+	t.Parallel()
+
+	p := &fakePlugin{name: "sample"}
+	_, err := generate(t, "output: {file: ./api/gen.go, files: {./types/types.go: [client.options, client.responses, models]}}\nclient: {with-response: true}\n", p)
+
+	require.NoError(t, err)
+	inTypes := TypeRef{Package: "types", ImportPath: "example.com/work/types"}
+	assert.Equal(t, TypeRef{Name: "ListPetsRequestOptions", Package: inTypes.Package, ImportPath: inTypes.ImportPath}, p.api.Operations[0].ClientRequestOptions)
+	assert.Equal(t, TypeRef{Name: "ListPetsResponse", Package: inTypes.Package, ImportPath: inTypes.ImportPath}, p.api.Operations[0].ClientResponse)
+	assert.Equal(t, TypeRef{}, p.api.Operations[4].ClientRequestOptions, "a webhook has no client method")
+	assert.Equal(t, TypeRef{}, p.api.Operations[4].ClientResponse)
+}
+
+func TestGenerateWithPluginAndPlainClient(t *testing.T) {
+	t.Parallel()
+
+	p := &fakePlugin{name: "sample"}
+	_, err := generate(t, "output: {file: ./api/gen.go}\nclient:\n", p)
+
+	require.NoError(t, err)
+	assert.Equal(t, TypeRef{Name: "ListPetsRequestOptions", Package: "api", ImportPath: "example.com/work/api"}, p.api.Operations[0].ClientRequestOptions)
+	assert.Equal(t, TypeRef{}, p.api.Operations[0].ClientResponse, "no envelopes without with-response")
+}
+
 func TestGenerateWithPluginErrors(t *testing.T) {
 	t.Parallel()
 

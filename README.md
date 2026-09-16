@@ -1,6 +1,6 @@
 # codegen
 
-Generate Go models and HTTP servers from OpenAPI 3.0, 3.1 and 3.2 specs.
+Generate Go models, HTTP servers and clients from OpenAPI 3.0, 3.1 and 3.2 specs.
 
 Status: early development. The config format and the generated API may still change.
 
@@ -19,6 +19,9 @@ Status: early development. The config format and the generated API may still cha
 - `x-go-*` extensions and masking of sensitive values in logs ([extensions](docs/extensions.md)).
 - A service interface to implement, an HTTP adapter that decodes every parameter style and body
   type, a router for chi or `http.ServeMux`, and starter files ([server](docs/server.md)).
+- A client with one method per operation that returns the success body and turns other statuses
+  into typed errors, and an envelope variant with every documented body and header
+  ([client](docs/client.md)).
 - A plugin API for tools built on the generator, and template overrides for a closed list of
   blocks ([plugins](docs/plugins.md)).
 
@@ -122,7 +125,7 @@ selectors, and the most specific selector wins. A selector can be listed only on
 | `models.<part>` | `types`, `enums`, `unions`, `params`, `bodies`, `responses` |
 | `server` | every server part |
 | `server.<part>` | `service`, `adapter`, `router`, `errors` |
-| `client`, `client.<part>` | client parts |
+| `client`, `client.<part>` | `core`, `options`, `operations`, `responses` |
 | `mcp` | the MCP server |
 | `plugin.<name>`, `plugin.<name>.<part>` | parts added by a plugin |
 

@@ -10,12 +10,12 @@ package server
 
 import (
 	"embed"
-	"maps"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/chi"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/stdhttp"
@@ -209,10 +209,7 @@ func Templates(fw framework.Framework) []render.Set {
 // ReservedField reports whether name is a field the request options declare themselves, so an
 // extra field cannot take it: a parameter group, a body field, RawRequest or the Validate method.
 func ReservedField(name string) bool {
-	if name == "RawRequest" || name == "Validate" || strings.HasPrefix(name, "Body") {
-		return true
-	}
-	return slices.Contains(slices.Collect(maps.Values(optionFields)), name)
+	return name == "RawRequest" || name == "Validate" || strings.HasPrefix(name, "Body") || operation.IsGroupField(name)
 }
 
 // routes lists the operations the router serves, without those the framework rejects.

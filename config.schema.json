@@ -11,7 +11,7 @@
           "type": "string"
         },
         "streaming": {
-          "description": "Generate streaming methods for event-stream responses.",
+          "description": "Generate streaming methods for event-stream responses. Not supported yet.",
           "type": "boolean"
         },
         "timeout": {
