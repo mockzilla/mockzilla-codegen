@@ -1,0 +1,9 @@
+spec: {path: api.yaml}
+package: envelope
+models:
+  error-mapping:
+    Problem: detail
+server:
+  framework: chi
+client:
+  with-response: true

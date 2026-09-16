@@ -1,0 +1,58 @@
+// HTTPDoer sends a request, as *http.Client does.
+type HTTPDoer = {{.Runtime}}.Doer
+
+// RequestEditor changes a request before it is sent, to add credentials for one.
+type RequestEditor func(ctx {{.Context}}.Context, req *{{.HTTP}}.Request) error
+
+// {{.Option}} sets one setting of {{.Name}}.
+type {{.Option}} func(*{{.Name}})
+
+// {{.Name}} calls the API at a base URL, with one method per operation.
+type {{.Name}} struct {
+	baseURL *{{.URL}}.URL
+	doer    HTTPDoer
+	editors []RequestEditor
+}
+
+// New{{.Name}} returns a client of the API at baseURL. It sends with an http.Client that gives up
+// after {{.Timeout}}, unless WithHTTPClient sets another.
+func New{{.Name}}(baseURL string, opts ...{{.Option}}) (*{{.Name}}, error) {
+	u, err := {{.Runtime}}.ParseBaseURL(baseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &{{.Name}}{baseURL: u, doer: &{{.HTTP}}.Client{Timeout: {{.Timeout}}}}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c, nil
+}
+
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API.
+func WithHTTPClient(d HTTPDoer) {{.Option}} {
+	return func(c *{{.Name}}) {
+		c.doer = d
+	}
+}
+
+// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
+func WithRequestEditor(fns ...RequestEditor) {{.Option}} {
+	return func(c *{{.Name}}) {
+		c.editors = append(c.editors, fns...)
+	}
+}
+
+// newRequest builds b against the base URL and runs the editors on the request.
+func (c *{{.Name}}) newRequest(ctx {{.Context}}.Context, b *{{.Runtime}}.RequestBuilder) (*{{.HTTP}}.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
+	if err != nil {
+		return nil, err
+	}
+	for _, edit := range c.editors {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
+}

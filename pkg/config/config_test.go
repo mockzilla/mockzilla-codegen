@@ -127,6 +127,11 @@ func TestValidate(t *testing.T) {
 			edit: func(c *Config) { c.MCP, c.Client = &MCP{}, &Client{} },
 		},
 		{
+			name:   "Client streaming is not there yet",
+			edit:   func(c *Config) { c.Client = &Client{Streaming: true} },
+			issues: []Issue{{Key: "client.streaming", Message: "not supported yet"}},
+		},
+		{
 			name: "Two output files that clean to the same path",
 			edit: func(c *Config) {
 				c.Output.Files = map[string][]string{"./api/a.go": {"models"}, "api/a.go": {"server"}}

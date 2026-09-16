@@ -217,6 +217,16 @@ func TestPlanErrors(t *testing.T) {
 			wantMsg: "two packages in one folder: ./main.go is package main next to ./gen.go, package work",
 		},
 		{
+			name: "A part away from the folder of its owner",
+			cfg: &config.Config{Output: config.Output{File: "./gen.go", Files: map[string][]string{
+				"./client/ops.go": {"client.operations"},
+			}}},
+			parts:   []Part{{ID: "client.core"}, {ID: "client.operations", Owner: "client.core"}},
+			mod:     workModule,
+			wantErr: ErrSplitParts,
+			wantMsg: "parts that belong together are in different folders: client.operations adds methods to the types of client.core, so ./client/ops.go must be in the folder of ./gen.go",
+		},
+		{
 			name: "Relative config folder cannot be placed in the module",
 			cfg: &config.Config{Output: config.Output{File: "./gen.go", Files: map[string][]string{
 				"./models/types.go": {"models.types"},

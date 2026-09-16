@@ -6,28 +6,13 @@
 package server
 
 import (
-	"cmp"
-	"slices"
 	"strconv"
-	"strings"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
-	"github.com/mockzilla/mockzilla-codegen/internal/spec"
-	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
-
-const deprecatedNote = "Deprecated: the spec marks it deprecated."
-
-// optionFields name the fields that hold the parameters of each location.
-var optionFields = map[string]string{
-	spec.InPath:        "PathParams",
-	spec.InQuery:       "Query",
-	spec.InQueryString: "QueryString",
-	spec.InHeader:      "Headers",
-	spec.InCookie:      "Cookies",
-}
 
 // ServiceView is the data of the service part. Context, HTTP and Runtime are the names the
 // packages are imported under; User is the config's user-context.
@@ -93,30 +78,6 @@ type constructorAt struct {
 	scope     *gocode.Scope
 }
 
-// SuccessResponse is the first 2xx response of an operation: the status code the handlers answer
-// with, the start of a range such as 2XX, and the body its constructor takes, nil without one.
-type SuccessResponse struct {
-	Status int
-	Body   *gomodel.Content
-}
-
-// Success returns the first 2xx response of op, if it has one.
-func Success(op *gomodel.Operation) (SuccessResponse, bool) {
-	for _, r := range op.Responses {
-		status := statusOf(r.Status)
-		if status < 200 || status > 299 {
-			continue
-		}
-
-		s := SuccessResponse{Status: status}
-		if c, ok := firstBody(r.Contents); ok {
-			s.Body = &c
-		}
-		return s, true
-	}
-	return SuccessResponse{}, false
-}
-
 func serviceView(g *Generator, s *gocode.Scope) *ServiceView {
 	v := &ServiceView{Name: g.opts.Name + "Interface", User: g.opts.User}
 	if len(g.ops) == 0 {
@@ -136,22 +97,22 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Operati
 	n := g.opts.Namer
 	v := OperationView{
 		Name:    op.Name,
-		Doc:     operationDoc(op.Spec),
+		Doc:     operation.Doc(op.Spec),
 		Options: n.ServiceRequestOptions(op.Name),
 		Data:    n.ResponseData(op.Name),
 		User:    g.opts.User,
 	}
 
 	for _, p := range op.Params {
-		field := cmp.Or(optionFields[p.In], n.Exported(p.In))
+		field := operation.GroupField(p.In, n)
 		v.Fields = append(v.Fields, FieldView{Name: field, Type: s.Expr(gomodel.Pointer{Elem: gomodel.DeclRef{Decl: p.Decl}})})
 		if p.Decl.Validation != nil {
 			v.Checks = append(v.Checks, CheckView{Field: field, Path: gocode.Quote(p.In)})
 		}
 	}
-	fields := bodyFields(op.Bodies, n)
+	fields := operation.BodyFields(op.Bodies, n)
 	for i, c := range op.Bodies {
-		t := BodyType(c)
+		t := operation.BodyType(c)
 		v.Fields = append(v.Fields, FieldView{Name: fields[i], Type: s.Expr(t), Doc: "Body sent as " + c.MediaType + "."})
 		if gomodel.Validates(t) {
 			v.Checks = append(v.Checks, CheckView{Field: fields[i], Path: gocode.Quote("body")})
@@ -183,64 +144,13 @@ func constructorView(op *gomodel.Operation, r gomodel.Response, at constructorAt
 	}
 
 	doc := "returns the response data of status " + r.Status
-	if c, ok := firstBody(r.Contents); ok {
+	if c, ok := operation.FirstBody(r.Contents); ok {
 		v.ContentType = gocode.Quote(c.MediaType)
-		v.Body = at.scope.Expr(BodyType(c))
+		v.Body = at.scope.Expr(operation.BodyType(c))
 		doc += " with body as " + c.MediaType
 	}
 	v.Doc = doc + "."
 	return v
-}
-
-// bodyFields names the options field of each body: Body for one, else Body and the tag of its
-// media type. Two media types with one tag, such as application/xml and text/xml, are told apart
-// by the type, then by a number.
-func bodyFields(bodies []gomodel.Content, n *naming.Namer) []string {
-	if len(bodies) == 1 {
-		return []string{"Body"}
-	}
-
-	fields := make([]string, 0, len(bodies))
-	for _, c := range bodies {
-		field := "Body" + n.MediaTag(c.MediaType)
-		if slices.Contains(fields, field) {
-			typ, _, _ := strings.Cut(c.MediaType, "/")
-			field = "Body" + n.Exported(typ) + n.MediaTag(c.MediaType)
-		}
-		base := field
-		for i := 2; slices.Contains(fields, field); i++ {
-			field = base + strconv.Itoa(i)
-		}
-		fields = append(fields, field)
-	}
-	return fields
-}
-
-// BodyType is the Go type a body field holds: the schema's type, held by pointer unless it can
-// be nil, or any for JSON without a schema, a string for text and bytes for anything else.
-func BodyType(c gomodel.Content) gomodel.Type {
-	switch {
-	case c.Type != nil:
-		return gomodel.Held(c.Type)
-	case runtime.IsJSON(c.MediaType):
-		return gomodel.Builtin{Name: "any"}
-	case strings.HasPrefix(c.MediaType, "text/"):
-		return gomodel.Builtin{Name: "string"}
-	}
-	return gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}
-}
-
-// firstBody is the JSON body of a response, else its first one.
-func firstBody(contents []gomodel.Content) (gomodel.Content, bool) {
-	for _, c := range contents {
-		if runtime.IsJSON(c.MediaType) {
-			return c, true
-		}
-	}
-	if len(contents) == 0 {
-		return gomodel.Content{}, false
-	}
-	return contents[0], true
 }
 
 // headerSuffix tells the typed header methods apart when several statuses declare headers.
@@ -255,18 +165,4 @@ func headerSuffix(n *naming.Namer, status string, op *gomodel.Operation) string 
 		return n.Status(status)
 	}
 	return ""
-}
-
-func operationDoc(op *spec.Operation) string {
-	doc := cmp.Or(op.Summary, op.Description)
-	if op.Summary != "" && op.Description != "" && op.Summary != op.Description {
-		doc += "\n\n" + op.Description
-	}
-	switch {
-	case !op.Deprecated:
-		return doc
-	case doc == "":
-		return deprecatedNote
-	}
-	return doc + "\n\n" + deprecatedNote
 }

@@ -1,0 +1,5 @@
+spec: {path: api.yaml}
+package: params
+server:
+  framework: chi
+client:

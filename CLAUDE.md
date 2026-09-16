@@ -1,6 +1,6 @@
 # codegen
 
-Generates Go models and HTTP servers (later clients and MCP servers) from OpenAPI 3.0, 3.1 and 3.2
+Generates Go models, HTTP servers and clients (later MCP servers) from OpenAPI 3.0, 3.1 and 3.2
 specs. Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33f/libopenapi, which only
 `internal/provider/libopenapi` may import.
 
@@ -14,7 +14,7 @@ specs. Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33
 - One integration spec: `make test-integration SPEC=3.0/misc/<spec>.yml`. Never run the full
   integration or parse sweep unless asked; they cover 2,000+ specs. Each spec runs as models
   only and once per server framework in `FRAMEWORKS` (default `chi`), whose router is also built
-  in a test.
+  in a test; `CLIENT=1` adds the client variant, whose client is built the same way.
 - The integration run skips jobs that passed with the same spec and tool build
   (`.integration-cache.json`); `make test-integration-clear` runs all. Expected failures are listed
   in `test/integration/known-failures.txt`.

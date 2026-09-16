@@ -1,0 +1,95 @@
+package types
+
+import "net/http"
+
+// ListPetsResponse is what ListPetsWithResponse returns: the response with its body read, and the body
+// decoded into the field of its status and media type.
+type ListPetsResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// XML200 is the body of a 200 response as application/xml.
+	XML200 *string
+	// JSON200 is the body of a 200 response as application/json.
+	JSON200 Pets
+	// JSONDefault is the body of a default response as application/json.
+	JSONDefault *Problem
+	// Headers200 holds the headers the spec declares for a 200 response.
+	Headers200 *ListPetsResponse200Headers
+	// HeadersDefault holds the headers the spec declares for a default response.
+	HeadersDefault *ListPetsResponseDefaultHeaders
+}
+
+// StatusCode is the status of the response.
+func (r *ListPetsResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}
+
+// CreatePetResponse is what CreatePetWithResponse returns: the response with its body read, and the body
+// decoded into the field of its status and media type.
+type CreatePetResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// JSON202 is the body of a 202 response as application/json.
+	JSON202 *Note
+	// JSON201 is the body of a 201 response as application/json.
+	JSON201 *Pet
+	// JSON409 is the body of a 409 response as application/json.
+	JSON409 *Locked
+	// ProblemJSON4XX is the body of a 4XX response as application/problem+json.
+	ProblemJSON4XX *Failure
+	// ProblemJSON5XX is the body of a 5XX response as application/problem+json.
+	ProblemJSON5XX *Problem
+	// Headers201 holds the headers the spec declares for a 201 response.
+	Headers201 *ListPetsResponse200Headers
+}
+
+// StatusCode is the status of the response.
+func (r *CreatePetResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}
+
+// DeletePetResponse is what DeletePetWithResponse returns: the response with its body read, and the body
+// decoded into the field of its status and media type.
+type DeletePetResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// JSON404 is the body of a 404 response as application/json.
+	JSON404 *Problem
+}
+
+// StatusCode is the status of the response.
+func (r *DeletePetResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}
+
+// PingResponse is what PingWithResponse returns: the response with its body read, and the body
+// decoded into the field of its status and media type.
+type PingResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// Text200 is the body of a 200 response as text/plain.
+	Text200 *string
+	// XML200 is the body of a 200 response as text/xml.
+	XML200 *string
+	// Image200 is the body of a 200 response as image/*.
+	Image200 []byte
+	// JSONDefault is the body of a default response as application/json.
+	JSONDefault any
+}
+
+// StatusCode is the status of the response.
+func (r *PingResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}
+
+// QueryResponse is what QueryWithResponse returns: the response with its body read, and the body
+// decoded into the field of its status and media type.
+type QueryResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+}
+
+// StatusCode is the status of the response.
+func (r *QueryResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}

@@ -147,11 +147,3 @@ func TestErrorVar(t *testing.T) {
 	assert.Equal(t, "problem", errorVar("Problem", 0))
 	assert.Equal(t, "data2", errorVar("Data", 1))
 }
-
-func TestStatusOf(t *testing.T) {
-	t.Parallel()
-
-	assert.Equal(t, 404, statusOf("404"))
-	assert.Equal(t, 400, statusOf("4XX"))
-	assert.Equal(t, 500, statusOf("default"))
-}

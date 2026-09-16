@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/client"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/models"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
@@ -67,6 +68,7 @@ type generation struct {
 	m        *gomodel.Model
 	gen      *models.Generator
 	srv      *server.Generator
+	cl       *client.Generator
 	sources  map[layout.PartID]source
 	lay      *layout.Layout
 	engine   *render.Engine
@@ -114,6 +116,15 @@ func (g *generation) model(ctx context.Context) error {
 	g.diags.Append(built...)
 	g.namer = naming.New(g.cfg.Naming.Initialisms)
 	g.gen = models.New(g.m)
+	if c := g.cfg.Client; c != nil {
+		g.cl = client.New(g.m, client.Options{
+			Name:         cmp.Or(c.Name, "Client"),
+			Namer:        g.namer,
+			Timeout:      time.Duration(c.Timeout),
+			HasEnvelopes: c.WithResponse,
+			User:         g.cfg.UserContext,
+		})
+	}
 	if g.cfg.Server == nil {
 		return nil
 	}
@@ -163,6 +174,9 @@ func (g *generation) place() error {
 	if g.srv != nil {
 		parts = append(parts, g.srv.Parts()...)
 	}
+	if g.cl != nil {
+		parts = append(parts, g.cl.Parts()...)
+	}
 	if len(g.opts.plugins) > 0 {
 		draft, draftErr := layout.Draft(g.cfg, parts, mod)
 		if draftErr != nil {
@@ -184,6 +198,9 @@ func (g *generation) load() error {
 	sets := []render.Set{models.Templates()}
 	if g.srv != nil {
 		sets = append(sets, server.Templates(g.srv.Framework())...)
+	}
+	if g.cl != nil {
+		sets = append(sets, client.Templates())
 	}
 	overrides, err := g.templates()
 	if err != nil {
@@ -229,10 +246,14 @@ func (g *generation) render() error {
 	return nil
 }
 
-// view is the template data of part: the server generator's for server parts, else the models'.
+// view is the template data of part: the server generator's for server parts, the client
+// generator's for client parts, else the models'.
 func (g *generation) view(part layout.PartID, s *gocode.Scope) any {
-	if strings.HasPrefix(string(part), "server.") {
+	switch {
+	case strings.HasPrefix(string(part), "server."):
 		return g.srv.View(part, s)
+	case strings.HasPrefix(string(part), "client."):
+		return g.cl.View(part, s)
 	}
 	return g.gen.View(part, s)
 }

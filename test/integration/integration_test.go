@@ -48,14 +48,22 @@ var servers = map[string]struct {
 	},
 }
 
-// TestIntegration generates every spec in testdata/specs with the models variant and one per
-// framework FRAMEWORKS names, chi by default, then builds and tests the result. It fails on an
-// unlisted failure and on a listed spec that passes now.
+// clientVariant generates the client with its envelopes, the larger of its two shapes, and
+// builds one against a base URL.
+var clientVariant = itest.Variant{Name: "client", Config: "client:\n  with-response: true\n", Init: "%s.NewClient(\"http://localhost\")"}
+
+// TestIntegration generates every spec in testdata/specs with the models variant, one per
+// framework FRAMEWORKS names, chi by default, and the client variant when CLIENT is set, then
+// builds and tests the result. It fails on an unlisted failure and on a listed spec that passes
+// now.
 func TestIntegration(t *testing.T) {
 	t.Parallel()
 
 	variants, deps, err := selectVariants(os.LookupEnv("FRAMEWORKS"))
 	require.NoError(t, err)
+	if os.Getenv("CLIENT") != "" {
+		variants = append(variants, clientVariant)
+	}
 	repo, err := filepath.Abs("../..")
 	require.NoError(t, err)
 	named := strings.Fields(os.Getenv("SPEC") + " " + os.Getenv("SPECS"))

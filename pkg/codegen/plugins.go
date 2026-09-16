@@ -13,6 +13,8 @@ import (
 	"slices"
 	"text/template"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/client"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
@@ -179,13 +181,18 @@ func (g *generation) operation(op *gomodel.Operation, lay *layout.Layout, isRout
 		IsRouted:   isRouted,
 		Success:    success(op, lay),
 	}
-	if g.srv == nil {
-		return o
+	if g.srv != nil {
+		f := lay.FileOf(server.PartService)
+		o.RequestOptions = TypeRef{Name: g.namer.ServiceRequestOptions(op.Name), Package: f.Package, ImportPath: f.ImportPath}
+		o.ResponseData = TypeRef{Name: g.namer.ResponseData(op.Name), Package: f.Package, ImportPath: f.ImportPath}
 	}
-
-	f := lay.FileOf(server.PartService)
-	o.RequestOptions = TypeRef{Name: g.namer.ServiceRequestOptions(op.Name), Package: f.Package, ImportPath: f.ImportPath}
-	o.ResponseData = TypeRef{Name: g.namer.ResponseData(op.Name), Package: f.Package, ImportPath: f.ImportPath}
+	if g.cl != nil && !op.Spec.IsWebhook {
+		f := lay.FileOf(client.PartOptions)
+		o.ClientRequestOptions = TypeRef{Name: g.namer.ClientRequestOptions(op.Name), Package: f.Package, ImportPath: f.ImportPath}
+		if f = lay.FileOf(client.PartResponses); f != nil {
+			o.ClientResponse = TypeRef{Name: g.namer.ClientResponse(op.Name), Package: f.Package, ImportPath: f.ImportPath}
+		}
+	}
 	return o
 }
 
@@ -220,7 +227,7 @@ func (g *generation) part(id layout.PartID, s *gocode.Scope) ([]byte, error) {
 
 // success is the first 2xx response of op, as the handlers answer it.
 func success(op *gomodel.Operation, lay *layout.Layout) *Success {
-	r, ok := server.Success(op)
+	r, ok := operation.Success(op)
 	if !ok {
 		return nil
 	}
@@ -228,7 +235,7 @@ func success(op *gomodel.Operation, lay *layout.Layout) *Success {
 	s := &Success{Status: r.Status}
 	if r.Body != nil {
 		s.ContentType = r.Body.MediaType
-		s.Body = typeRef(server.BodyType(*r.Body), lay)
+		s.Body = typeRef(operation.BodyType(*r.Body), lay)
 		s.IsRaw = r.Body.Type == nil
 	}
 	return s

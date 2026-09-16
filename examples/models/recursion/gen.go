@@ -5,7 +5,7 @@ package recursion
 import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 
 // Fails to compile when the runtime package does not match the codegen version that wrote this file.
-const _ = runtime.SupportsGeneratorV1
+const _ = runtime.SupportsGeneratorV2
 
 // A tree node. Children hold nodes by value, so no pointer is needed there.
 type Node struct {

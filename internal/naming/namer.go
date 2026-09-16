@@ -141,6 +141,16 @@ func (n *Namer) ResponseData(op string) string {
 	return op + "ResponseData"
 }
 
+// ClientRequestOptions names what the client method of an operation sends.
+func (n *Namer) ClientRequestOptions(op string) string {
+	return op + "RequestOptions"
+}
+
+// ClientResponse names what the WithResponse client method of an operation returns.
+func (n *Namer) ClientResponse(op string) string {
+	return op + "Response"
+}
+
 // EnumConst names an enum constant prefixed with its type: StatusActive.
 func (n *Namer) EnumConst(typ, value string) string {
 	return typ + n.camel(value)

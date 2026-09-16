@@ -1,0 +1,113 @@
+// {{.Interface}} is what {{.Client}} implements: one method per operation, so a test double can
+// stand in for the client.
+type {{.Interface}} interface {
+{{- range .Operations}}
+{{- with .Doc}}
+{{comment .}}
+{{- end}}
+	{{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) ({{with .Result}}{{.}}, {{end}}error)
+{{- if $.HasEnvelopes}}
+	{{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{.Response}}, error)
+{{- end}}
+{{- end}}
+}
+
+var _ {{.Interface}} = (*{{.Client}})(nil)
+{{- range $op := .Operations}}
+
+// {{.Name}}Request builds the request of {{.Name}}, with the editors of the client applied.
+func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{$.HTTP}}.Request, error) {
+	if opts == nil {
+		opts = &{{.Options}}{}
+	}
+	b := {{$.Runtime}}.NewRequestBuilder({{.Method}}, {{.Path}})
+{{- range .Groups}}
+	if opts.{{.Field}} != nil {
+{{- range .Params}}
+		b.{{.Encoder}}({{.Value}}, {{$.Runtime}}.Param{Name: {{.Name}}, Style: {{$.Runtime}}.{{.Style}}, IsExplode: {{.IsExplode}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}})
+{{- end}}
+	}
+{{- end}}
+{{- if .Bodies}}
+	switch {
+{{- range .Bodies}}
+	case {{.IsSet}}:
+{{- if .Encoder}}
+		b.{{.Encoder}}({{.Value}}{{with .MediaType}}, {{.}}{{end}})
+{{- else}}
+		return nil, {{$.Runtime}}.ContentTypeError({{.MediaType}})
+{{- end}}
+{{- end}}
+{{- if .IsBodyRequired}}
+	default:
+		return nil, {{$.Runtime}}.ErrBodyEmpty
+{{- end}}
+	}
+{{- end}}
+	return c.newRequest(ctx, b)
+}
+{{with .Doc}}
+{{comment .}}
+//
+{{- end}}
+// {{.Name}} {{with .Success}}returns the body of a {{.}} response{{else}}sends the request{{end}}. A response outside 2xx comes
+// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) ({{with .Result}}{{.}}, {{end}}error) {
+	req, err := c.{{.Name}}Request(ctx, opts)
+	if err != nil {
+		return {{with .Zero}}{{.}}, {{end}}err
+	}
+	res, body, err := {{$.Runtime}}.Send(c.doer, req)
+	if err != nil {
+		return {{with .Zero}}{{.}}, {{end}}err
+	}
+{{- if .Result}}
+
+	var out {{.Result}}
+	if err = {{$.Runtime}}.DecodeSuccess(res, body, []{{$.Runtime}}.Target{
+{{- range .Targets}}
+		{Status: {{.Status}}, MediaType: {{.MediaType}}, Dst: {{.Dst}}},
+{{- end}}
+	}); err != nil {
+		return {{.Zero}}, err
+	}
+	return out, nil
+{{- else if .Targets}}
+	return {{$.Runtime}}.DecodeSuccess(res, body, []{{$.Runtime}}.Target{
+{{- range .Targets}}
+		{Status: {{.Status}}, MediaType: {{.MediaType}}, Dst: {{.Dst}}},
+{{- end}}
+	})
+{{- else}}
+	return {{$.Runtime}}.DecodeSuccess(res, body, nil)
+{{- end}}
+}
+{{- if $.HasEnvelopes}}
+
+// {{.Name}}WithResponse is {{.Name}} with the whole response: its status, its headers, its raw
+// body, and the body decoded into the field of its status and media type. A status outside 2xx is
+// no error here.
+func (c *{{$.Client}}) {{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{.Response}}, error) {
+	req, err := c.{{.Name}}Request(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := {{$.Runtime}}.Send(c.doer, req)
+	if err != nil {
+		return nil, err
+	}
+
+	out := &{{.Response}}{HTTPResponse: res, Body: body}
+{{- if .EnvelopeTargets}}
+	if err = {{$.Runtime}}.Decode(res, body, []{{$.Runtime}}.Target{
+{{- range .EnvelopeTargets}}
+		{Status: {{.Status}}, {{if .IsHeaders}}IsHeaders: true{{else}}MediaType: {{.MediaType}}{{end}}, Dst: {{.Dst}}},
+{{- end}}
+	}); err != nil {
+		return nil, err
+	}
+{{- end}}
+	return out, nil
+}
+{{- end}}
+{{- end}}

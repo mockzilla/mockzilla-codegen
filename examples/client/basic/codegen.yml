@@ -1,0 +1,8 @@
+spec: {path: api.yaml}
+package: basic
+server:
+  framework: chi
+  name: Pets
+client:
+  name: PetClient
+  timeout: 5s

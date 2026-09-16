@@ -95,18 +95,22 @@ type API struct {
 // Operation is one operation or webhook of the spec. ID is its Go name, which the handlers report
 // as the operation ID; HasOptions says whether it takes parameters or a body, IsRouted whether the
 // router registers it. RequestOptions and ResponseData are the types of the service contract,
-// empty without a server; Success is the first 2xx response, nil without one.
+// empty without a server; ClientRequestOptions is what the client method takes and ClientResponse
+// the envelope its WithResponse method returns, empty without a client or without envelopes;
+// Success is the first 2xx response, nil without one.
 type Operation struct {
-	ID             string
-	Method         string
-	Path           string
-	Summary        string
-	Tags           []string
-	HasOptions     bool
-	IsRouted       bool
-	RequestOptions TypeRef
-	ResponseData   TypeRef
-	Success        *Success
+	ID                   string
+	Method               string
+	Path                 string
+	Summary              string
+	Tags                 []string
+	HasOptions           bool
+	IsRouted             bool
+	RequestOptions       TypeRef
+	ResponseData         TypeRef
+	ClientRequestOptions TypeRef
+	ClientResponse       TypeRef
+	Success              *Success
 }
 
 // Success is a 2xx response. Status is its code, or the start of a range such as 2XX. ContentType

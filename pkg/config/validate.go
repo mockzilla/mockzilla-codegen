@@ -76,6 +76,13 @@ func checkServer(s *Server) []Issue {
 	return issues
 }
 
+func checkClient(c *Client) []Issue {
+	if c == nil || !c.Streaming {
+		return nil
+	}
+	return []Issue{{Key: "client.streaming", Message: "not supported yet"}}
+}
+
 func checkMCP(m *MCP, cl *Client) []Issue {
 	if m == nil || cl != nil {
 		return nil

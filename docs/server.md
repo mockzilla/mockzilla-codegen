@@ -254,3 +254,5 @@ The runtime package holds what the generated HTTP code and clients use, standard
   optional one is left alone.
 - Responses: `Write` sends a status, headers and a body: JSON for most values, text and bytes as
   they are, a `File` streamed.
+- Clients: `RequestBuilder`, `EncodeForm`, `EncodeMultipart`, `Send`, `Decode`, `DecodeSuccess`,
+  `DecodeHeaders` and `APIError`, see [client](client.md#runtime).

@@ -9,7 +9,7 @@ import (
 )
 
 // Fails to compile when the runtime package does not match the codegen version that wrote this file.
-const _ = runtime.SupportsGeneratorV1
+const _ = runtime.SupportsGeneratorV2
 
 // Only additional properties, so a plain map.
 type Labels map[string]string
