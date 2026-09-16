@@ -17,7 +17,7 @@ import (
 
 // generatorLevel is the runtime API level generated code needs. Raise it when generated code
 // starts to use runtime API an older runtime lacks, and add the matching constant to the runtime.
-const generatorLevel = 1
+const generatorLevel = 2
 
 // Scope is the file code is written into. It qualifies types declared in other packages and
 // records the imports they need.

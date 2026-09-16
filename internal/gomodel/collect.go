@@ -66,7 +66,7 @@ type childSchema struct {
 // It walks exactly the schemas whose types the builder computes later.
 type collector struct {
 	doc         *spec.Document
-	isServer    bool
+	hasHeaders  bool
 	namer       *naming.Namer
 	flat        *flattener
 	unions      *unionReader
@@ -84,7 +84,7 @@ type collector struct {
 func newCollector(doc *spec.Document, r readers, diags *diag.Collector) *collector {
 	c := &collector{
 		doc:         doc,
-		isServer:    r.isServer,
+		hasHeaders:  r.hasHeaders,
 		namer:       r.unions.namer,
 		flat:        r.flat,
 		unions:      r.unions,
@@ -136,7 +136,7 @@ func (c *collector) run(ops []*Operation) {
 				at := place{name: n.Response(op.Name, r.Status, mt.Name, isMultiple), rank: naming.RankOperation, part: PartResponses}
 				c.walk(mt.Schema, at, ruleUnlessRef)
 			}
-			if c.isServer && len(r.Headers) > 0 {
+			if c.hasHeaders && len(r.Headers) > 0 {
 				c.responseHeaders(op, r)
 			}
 		}

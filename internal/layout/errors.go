@@ -15,6 +15,7 @@ var (
 	ErrImportCycle      = errors.New("import cycle")
 	ErrModule           = errors.New("read go.mod")
 	ErrPackageConflict  = errors.New("two packages in one folder")
+	ErrSplitParts       = errors.New("parts that belong together are in different folders")
 
 	errNoModuleLine = errors.New("no module line")
 )

@@ -1,0 +1,9 @@
+spec: {path: api.yaml}
+package: errors
+models:
+  error-mapping:
+    Problem: detail
+server:
+  framework: chi
+  validation: {request: true, response: true}
+client:

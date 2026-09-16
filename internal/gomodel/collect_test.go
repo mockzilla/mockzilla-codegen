@@ -14,7 +14,7 @@ func TestCollector(t *testing.T) {
 	reserved.Reserved = []string{"Client"}
 	reserved.OperationSuffixes = []string{"ResponseData"}
 	server := testOptions()
-	server.IsServer = true
+	server.IsServer, server.HasResponseHeaders = true, true
 	server.OperationSuffixes = []string{"ServiceRequestOptions", "ResponseData"}
 	tests := []struct {
 		name    string

@@ -20,6 +20,8 @@ var (
 	ErrParamMissing = errors.New("parameter is required")
 	ErrParamValue   = errors.New("invalid parameter value")
 	ErrBodyEmpty    = errors.New("request body is required")
+	ErrBodyValue    = errors.New("invalid body value")
 	ErrContentType  = errors.New("unsupported content type")
 	ErrNoResponse   = errors.New("the service returned no response")
+	ErrBaseURL      = errors.New("invalid base URL")
 )

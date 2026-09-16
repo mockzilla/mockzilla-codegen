@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSupportsGeneratorV1(t *testing.T) {
+func TestSupportsGeneratorV2(t *testing.T) {
 	t.Parallel()
 
-	assert.True(t, SupportsGeneratorV1)
+	assert.True(t, SupportsGeneratorV2)
 }

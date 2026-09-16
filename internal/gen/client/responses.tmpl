@@ -1,0 +1,17 @@
+{{- range .Operations}}
+// {{.Type}} is what {{.Name}}WithResponse returns: the response with its body read, and the body
+// decoded into the field of its status and media type.
+type {{.Type}} struct {
+	HTTPResponse *{{$.HTTP}}.Response
+	Body         []byte
+{{- range .Fields}}
+{{comment .Doc}}
+	{{.Name}} {{.Type}}
+{{- end}}
+}
+
+// StatusCode is the status of the response.
+func (r *{{.Type}}) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}
+{{- end}}

@@ -221,6 +221,8 @@ func TestSuffixes(t *testing.T) {
 		{name: "Params in an unknown location", got: n.Params("GetPet", "querystring"), want: "GetPetQuerystringParams"},
 		{name: "Service request options", got: n.ServiceRequestOptions("GetPet"), want: "GetPetServiceRequestOptions"},
 		{name: "Response data", got: n.ResponseData("GetPet"), want: "GetPetResponseData"},
+		{name: "Client request options", got: n.ClientRequestOptions("GetPet"), want: "GetPetRequestOptions"},
+		{name: "Client response", got: n.ClientResponse("GetPet"), want: "GetPetResponse"},
 		{name: "Enum constant", got: n.EnumConst("Status", "in_progress"), want: "StatusInProgress"},
 		{name: "Enum constant for a number", got: n.EnumConst("Level", "-1"), want: "LevelMinus1"},
 		{name: "Enum constant for an empty string", got: n.EnumConst("Status", ""), want: "StatusEmpty"},

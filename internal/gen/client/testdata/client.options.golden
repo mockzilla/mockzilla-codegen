@@ -1,0 +1,89 @@
+package types
+
+import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+
+// ListPetsRequestOptions is what ListPets sends: its parameters by location, and its body.
+type ListPetsRequestOptions struct {
+	Query       *ListPetsQuery
+	Headers     *ListPetsHeaders
+	Cookies     *ListPetsCookies
+	QueryString *ListPetsQueryString
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *ListPetsRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.Query != nil {
+		errs.Append("query", o.Query.Validate())
+	}
+	return errs.Err()
+}
+
+// CreatePetRequestOptions is what CreatePet sends: its parameters by location, and its body.
+type CreatePetRequestOptions struct {
+	// Body sent as application/json.
+	BodyJSON *Pet
+	// Body sent as application/x-www-form-urlencoded.
+	BodyForm *Pet
+	// Body sent as multipart/form-data.
+	BodyMultipart *Upload
+	// Body sent as text/plain.
+	BodyText string
+	// Body sent as text/markdown.
+	BodyMarkdown *Note
+	// Body sent as image/png.
+	BodyPng []byte
+	// Body sent as image/jpeg.
+	BodyJpeg *runtime.File
+	// Body sent as application/xml.
+	BodyXML *Pet
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *CreatePetRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.BodyJSON != nil {
+		errs.Append("body", o.BodyJSON.Validate())
+	}
+	if o.BodyForm != nil {
+		errs.Append("body", o.BodyForm.Validate())
+	}
+	if o.BodyXML != nil {
+		errs.Append("body", o.BodyXML.Validate())
+	}
+	return errs.Err()
+}
+
+// DeletePetRequestOptions is what DeletePet sends: its parameters by location, and its body.
+type DeletePetRequestOptions struct {
+	PathParams *DeletePetPathParams
+	// Body sent as application/json.
+	Body map[string]string
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *DeletePetRequestOptions) Validate() error {
+	return nil
+}
+
+// PingRequestOptions is what Ping sends: its parameters by location, and its body.
+type PingRequestOptions struct {
+	// Body sent as */*.
+	Body []Pet
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *PingRequestOptions) Validate() error {
+	return nil
+}
+
+// QueryRequestOptions is what Query sends: its parameters by location, and its body.
+type QueryRequestOptions struct {
+	// Body sent as text/plain.
+	Body *string
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *QueryRequestOptions) Validate() error {
+	return nil
+}

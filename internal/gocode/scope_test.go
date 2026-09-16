@@ -122,5 +122,5 @@ func TestScopeRuntimeGuard(t *testing.T) {
 
 	s.Imports.Add("example.com/runtime", "")
 	s.Import(gomodel.Import{Path: gomodel.RuntimePath})
-	assert.Equal(t, "runtime2.SupportsGeneratorV1", s.RuntimeGuard())
+	assert.Equal(t, "runtime2.SupportsGeneratorV2", s.RuntimeGuard())
 }

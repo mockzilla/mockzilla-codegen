@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info: {title: envelopes, version: "1"}
+paths:
+  /jobs:
+    post:
+      operationId: submitJob
+      summary: Submit a job
+      description: Small jobs run at once and come back as 201; large ones are queued as 202.
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Job'}}
+      responses:
+        "201":
+          description: done
+          headers:
+            Location: {schema: {type: string}}
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Result'}}
+        "202":
+          description: queued
+          headers:
+            Retry-After: {schema: {type: integer}}
+            X-Queue-Position: {schema: {type: integer}}
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Queued'}}
+        "400":
+          description: rejected
+          content:
+            application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}
+  /jobs/{id}/log:
+    get:
+      operationId: getJobLog
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+        - {name: accept, in: header, schema: {type: string}}
+      responses:
+        "200":
+          description: the log, as text or as lines
+          content:
+            text/plain: {schema: {type: string}}
+            application/json: {schema: {type: array, items: {type: string}}}
+        "404": {description: no such job}
+components:
+  schemas:
+    Job:
+      type: object
+      required: [size]
+      properties:
+        size: {type: integer}
+    Result:
+      type: object
+      required: [id, output]
+      properties:
+        id: {type: string}
+        output: {type: string}
+    Queued:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string}
+    Problem:
+      type: object
+      required: [detail]
+      properties:
+        detail: {type: string}

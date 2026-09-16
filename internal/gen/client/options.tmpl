@@ -1,0 +1,26 @@
+{{- range .Operations}}
+// {{.Type}} is what {{.Name}} sends: its parameters by location, and its body.
+type {{.Type}} struct {
+{{- range .Fields}}
+{{- with .Doc}}
+{{comment .}}
+{{- end}}
+	{{.Name}} {{.Type}}
+{{- end}}
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *{{.Type}}) Validate() error {
+{{- if .Checks}}
+	var errs {{$.Runtime}}.ValidationErrors
+{{- range .Checks}}
+	if o.{{.Field}} != nil {
+		errs.Append({{.Path}}, o.{{.Field}}.Validate())
+	}
+{{- end}}
+	return errs.Err()
+{{- else}}
+	return nil
+{{- end}}
+}
+{{- end}}
