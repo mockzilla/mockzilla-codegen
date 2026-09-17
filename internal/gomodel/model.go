@@ -54,10 +54,13 @@ type ParamGroup struct {
 	Params []*spec.Parameter
 }
 
-// Content is one media type; Type is nil when it has no schema.
+// Content is one media type; Type is nil when it has no schema. Item is the type of one frame of
+// a sequential media type such as text/event-stream: its itemSchema, else its schema, which
+// describes one event in specs before 3.2; nil for a media type with neither.
 type Content struct {
 	MediaType string
 	Type      Type
+	Item      Type
 }
 
 // Response is one status of an operation. Headers is the struct of its typed headers, nil when it

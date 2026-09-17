@@ -13,7 +13,6 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
-	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
@@ -24,20 +23,24 @@ type ResponsesView struct {
 }
 
 // EnvelopeView is the envelope of one operation: a field per documented body the client decodes
-// and per struct of typed headers, after the response and its raw body.
+// and per struct of typed headers, after the response and its raw body. HasStream marks an
+// envelope with a stream field, whose Body is nil when the stream is set.
 type EnvelopeView struct {
-	Name   string
-	Type   string
-	Fields []FieldView
+	Name      string
+	Type      string
+	HasStream bool
+	Fields    []FieldView
 }
 
 // envelopeField is one field of an envelope with the response it decodes: the status as the spec
-// writes it and, for a body, its media type; a headers field has none.
+// writes it and, for a body, its media type; a headers field has none. The stream field holds the
+// stream of the response the Stream method reads.
 type envelopeField struct {
 	FieldView
 	status    string
 	mediaType string
 	isHeaders bool
+	isStream  bool
 }
 
 func responsesView(g *Generator, s *gocode.Scope) *ResponsesView {
@@ -49,8 +52,9 @@ func responsesView(g *Generator, s *gocode.Scope) *ResponsesView {
 	v.HTTP = s.Import(gomodel.Import{Path: "net/http"})
 	for _, op := range g.ops {
 		e := EnvelopeView{Name: op.Name, Type: g.opts.Namer.ClientResponse(op.Name)}
-		for _, f := range envelopeFields(op, g.opts.Namer, s) {
+		for _, f := range envelopeFields(g, op, s) {
 			e.Fields = append(e.Fields, f.FieldView)
+			e.HasStream = e.HasStream || f.isStream
 		}
 		v.Operations = append(v.Operations, e)
 	}
@@ -58,11 +62,25 @@ func responsesView(g *Generator, s *gocode.Scope) *ResponsesView {
 }
 
 // envelopeFields lists the fields of an operation's envelope: one per documented body the client
-// can decode, named after its media type and status, then one per struct of typed headers. Two
-// media types with one tag at a status are told apart by the type, then by a number.
-func envelopeFields(op *gomodel.Operation, n *naming.Namer, s *gocode.Scope) []envelopeField {
+// can decode, named after its media type and status, with HasStreams the stream of the response
+// the Stream method reads, then one per struct of typed headers. Two media types with one tag at
+// a status are told apart by the type, then by a number.
+func envelopeFields(g *Generator, op *gomodel.Operation, s *gocode.Scope) []envelopeField {
+	n := g.opts.Namer
 	var out []envelopeField
 	names := []string{"HTTPResponse", "Body", "StatusCode"}
+	var stream *envelopeField
+	if r, c, ok := streamBody(op); ok && g.opts.HasStreams {
+		name := "Stream" + n.Status(r.Status)
+		names = append(names, name)
+		stream = &envelopeField{
+			FieldView: FieldView{Name: name, Type: streamType(s.Expr(frameType(c)), s), Doc: name + " is the stream of a " + r.Status + " response as " + c.MediaType + ", set by the Stream method alone; Body is nil then."},
+			status:    r.Status,
+			mediaType: c.MediaType,
+			isStream:  true,
+		}
+	}
+
 	for _, r := range op.Responses {
 		for _, c := range r.Contents {
 			if !isDecodable(c) {
@@ -85,6 +103,9 @@ func envelopeFields(op *gomodel.Operation, n *naming.Namer, s *gocode.Scope) []e
 				mediaType: c.MediaType,
 			})
 		}
+	}
+	if stream != nil {
+		out = append(out, *stream)
 	}
 	for _, r := range op.Responses {
 		if r.Headers == nil {

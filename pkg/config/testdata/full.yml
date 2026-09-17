@@ -45,6 +45,7 @@ client:
   name: PetClient
   timeout: 5s
   with-response: true
+  streaming: true
 mcp:
   default-skip: false
 templates: {}

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/models"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
@@ -37,13 +38,31 @@ func TestNew(t *testing.T) {
 	m := petModel()
 	m.Operations = append(m.Operations, &gomodel.Operation{Name: "Hook", Spec: &spec.Operation{Method: "POST", Path: "/hook", IsWebhook: true}})
 
-	g := New(m, allOptions())
+	g, diags := New(m, allOptions())
 
 	names := make([]string, len(g.ops))
 	for i, op := range g.ops {
 		names[i] = op.Name
 	}
-	assert.Equal(t, []string{"ListPets", "CreatePet", "DeletePet", "Ping", "Query"}, names)
+	assert.Equal(t, []string{"ListPets", "CreatePet", "DeletePet", "Ping", "Query", "Chat", "Tail"}, names)
+	assert.Empty(t, diags)
+}
+
+func TestNewWarnsAboutStreamOnlyOperationsWithoutStreams(t *testing.T) {
+	t.Parallel()
+
+	opts := allOptions()
+	opts.HasStreams = false
+
+	_, diags := New(petModel(), opts)
+
+	assert.Equal(t, []diag.Diagnostic{{
+		Severity: diag.Warning,
+		Code:     diag.CodeStreamOnly,
+		Pointer:  "/paths/~1tail/get",
+		Origin:   diag.Origin{File: "api.yaml", Line: 40, Col: 5},
+		Message:  "Tail answers only as application/x-ndjson, which Tail reads whole; set client.streaming to read it as it arrives",
+	}}, diags)
 }
 
 func TestTemplates(t *testing.T) {
@@ -93,7 +112,7 @@ func TestParts(t *testing.T) {
 
 			opts := allOptions()
 			opts.HasEnvelopes = tc.withResponse
-			g := New(petModel(), opts)
+			g, _ := New(petModel(), opts)
 
 			assert.Equal(t, tc.want, g.Parts())
 		})
@@ -111,7 +130,7 @@ func TestViewRendersParts(t *testing.T) {
 			t.Parallel()
 
 			m := petModel()
-			g := New(m, allOptions())
+			g, _ := New(m, allOptions())
 			got := fixture{m: m, g: g, cfg: splitConfig}.render(t, part)
 
 			assertGolden(t, filepath.Join("testdata", string(part)+".golden"), got)
@@ -123,7 +142,7 @@ func TestViewRendersParts(t *testing.T) {
 		m := petModel()
 		opts := allOptions()
 		opts.HasEnvelopes = false
-		g := New(m, opts)
+		g, _ := New(m, opts)
 		got := fixture{m: m, g: g, cfg: plainConfig}.render(t, PartOperations)
 
 		assertGolden(t, filepath.Join("testdata", string(PartOperations)+".plain.golden"), got)
@@ -134,7 +153,7 @@ func TestViewWithoutOperations(t *testing.T) {
 	t.Parallel()
 
 	m := &gomodel.Model{}
-	g := New(m, allOptions())
+	g, _ := New(m, allOptions())
 	f := fixture{m: m, g: g, cfg: splitConfig}
 
 	assert.Contains(t, string(f.render(t, PartCore)), "func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error)")
@@ -164,6 +183,7 @@ func allOptions() Options {
 		Namer:        naming.New(nil),
 		Timeout:      5 * time.Second,
 		HasEnvelopes: true,
+		HasStreams:   true,
 		User:         map[string]any{"owner": "platform"},
 	}
 }
@@ -202,7 +222,8 @@ func (f fixture) scope(t *testing.T, part layout.PartID) *gocode.Scope {
 
 // petModel is a model with every shape the client writes: parameters of each location, one or
 // several bodies of every kind, bodies without a schema, responses with and without bodies,
-// ranges, default, typed headers, error types, and a method net/http has no constant for.
+// ranges, default, typed headers, error types, a method net/http has no constant for, a streamed
+// response next to a JSON one, and one that streams alone.
 func petModel() *gomodel.Model {
 	str := gomodel.Builtin{Name: "string"}
 	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}, Validation: &gomodel.Validation{}}
@@ -228,6 +249,7 @@ func petModel() *gomodel.Model {
 	note := &gomodel.Decl{Name: "Note", Part: gomodel.PartTypes, Kind: gomodel.KindDefined, Target: str}
 	upload := &gomodel.Decl{Name: "Upload", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}
 	file := gomodel.Qualified{Import: gomodel.Import{Path: gomodel.RuntimePath}, Name: "File"}
+	chunk := &gomodel.Decl{Name: "ChatResponseItem", Part: gomodel.PartResponses, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}
 
 	list := &gomodel.Operation{
 		Name: "ListPets",
@@ -296,8 +318,22 @@ func petModel() *gomodel.Model {
 		Bodies:    []gomodel.Content{{MediaType: "text/plain", Type: str}},
 		Responses: []gomodel.Response{{Status: "200"}},
 	}
+	chat := &gomodel.Operation{
+		Name:   "Chat",
+		Spec:   &spec.Operation{Method: "POST", Path: "/chat", Body: &spec.RequestBody{Required: true}},
+		Bodies: []gomodel.Content{{MediaType: "application/json", Type: gomodel.DeclRef{Decl: pet}}},
+		Responses: []gomodel.Response{
+			{Status: "200", Contents: []gomodel.Content{{MediaType: "application/json", Type: gomodel.DeclRef{Decl: pet}}, {MediaType: "text/event-stream", Item: gomodel.DeclRef{Decl: chunk}}}},
+			{Status: "default", Contents: []gomodel.Content{{MediaType: "application/json", Type: gomodel.DeclRef{Decl: problem}}}},
+		},
+	}
+	tail := &gomodel.Operation{
+		Name:      "Tail",
+		Spec:      &spec.Operation{Method: "GET", Path: "/tail", Origin: spec.Origin{Pointer: "/paths/~1tail/get", File: "api.yaml", Line: 40, Col: 5}},
+		Responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{{MediaType: "application/x-ndjson", Type: str, Item: str}}}},
+	}
 	return &gomodel.Model{
-		Decls:      []*gomodel.Decl{pet, problem, failure, locked, query, headers, cookies, querystring, path, respHeaders, errHeaders, pets, note, upload},
-		Operations: []*gomodel.Operation{list, create, del, ping, queryOp},
+		Decls:      []*gomodel.Decl{pet, problem, failure, locked, query, headers, cookies, querystring, path, respHeaders, errHeaders, pets, note, upload, chunk},
+		Operations: []*gomodel.Operation{list, create, del, ping, queryOp, chat, tail},
 	}
 }

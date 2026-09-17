@@ -1,0 +1,83 @@
+openapi: 3.2.0
+info: {title: streaming, version: "1"}
+paths:
+  /chat:
+    post:
+      operationId: chat
+      summary: Ask the assistant
+      description: Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Prompt'}}
+      responses:
+        "200":
+          description: the reply
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Reply'}}
+            text/event-stream: {itemSchema: {$ref: '#/components/schemas/Chunk'}}
+        "400":
+          description: rejected
+          content:
+            application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}
+  /events:
+    get:
+      operationId: listEvents
+      summary: Follow the events
+      responses:
+        "200":
+          description: one event per frame, described the way specs before 3.2 do
+          content:
+            text/event-stream:
+              schema:
+                type: object
+                required: [seq, kind]
+                properties:
+                  seq: {type: integer}
+                  kind: {type: string, enum: [created, deleted]}
+                  at: {type: string, format: date-time}
+                  actor:
+                    type: object
+                    required: [name]
+                    properties:
+                      name: {type: string}
+                  tags: {type: array, items: {type: string}}
+  /logs/{job}:
+    get:
+      operationId: tailLog
+      summary: Follow the log of a job
+      parameters:
+        - {name: job, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: one line per frame, handed over as bytes
+          content:
+            application/x-ndjson: {schema: {type: string}}
+        "404":
+          description: no such job
+          content:
+            application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}
+components:
+  schemas:
+    Prompt:
+      type: object
+      required: [text]
+      properties:
+        text: {type: string}
+        stream: {type: boolean}
+    Reply:
+      type: object
+      required: [text]
+      properties:
+        text: {type: string}
+    Chunk:
+      type: object
+      required: [text]
+      properties:
+        text: {type: string}
+        done: {type: boolean}
+    Problem:
+      type: object
+      required: [detail]
+      properties:
+        detail: {type: string}

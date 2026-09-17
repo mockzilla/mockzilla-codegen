@@ -13,6 +13,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/extension"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // fieldPlan keeps what a field's final type needs until recursion is known.
@@ -385,6 +386,12 @@ func (b *builder) contents(list []*spec.MediaType) []Content {
 		c := Content{MediaType: mt.Name}
 		if mt.Schema != nil {
 			c.Type = b.typeOf(mt.Schema)
+		}
+		switch {
+		case mt.ItemSchema != nil:
+			c.Item = b.typeOf(mt.ItemSchema)
+		case runtime.IsSequential(mt.Name):
+			c.Item = c.Type
 		}
 		out = append(out, c)
 	}

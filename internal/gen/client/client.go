@@ -13,6 +13,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
@@ -33,12 +34,14 @@ var templates embed.FS
 
 // Options are the settings of the client generator. Name is the client type; Timeout is what the
 // default http.Client gives up after; HasEnvelopes adds the envelopes and the WithResponse
-// methods; User is the config's user-context.
+// methods; HasStreams adds the Stream methods of the operations that answer with a sequential
+// media type; User is the config's user-context.
 type Options struct {
 	Name         string
 	Namer        *naming.Namer
 	Timeout      time.Duration
 	HasEnvelopes bool
+	HasStreams   bool
 	User         map[string]any
 }
 
@@ -49,14 +52,31 @@ type Generator struct {
 	ops  []*gomodel.Operation
 }
 
-func New(m *gomodel.Model, opts Options) *Generator {
+// New returns the generator of m's operations. Without HasStreams, it warns about every operation
+// whose 2xx responses come only in sequential media types, which the plain method reads whole and
+// so never returns from while the server keeps sending.
+func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 	g := &Generator{opts: opts}
+	var diags []diag.Diagnostic
 	for _, op := range m.Operations {
-		if !op.Spec.IsWebhook {
-			g.ops = append(g.ops, op)
+		if op.Spec.IsWebhook {
+			continue
 		}
+		g.ops = append(g.ops, op)
+		if opts.HasStreams || !isStreamOnly(op) {
+			continue
+		}
+
+		_, c, _ := streamBody(op)
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Warning,
+			Code:     diag.CodeStreamOnly,
+			Pointer:  op.Spec.Origin.Pointer,
+			Origin:   diag.Origin{File: op.Spec.Origin.File, Line: op.Spec.Origin.Line, Col: op.Spec.Origin.Col},
+			Message:  op.Name + " answers only as " + c.MediaType + ", which " + op.Name + " reads whole; set client.streaming to read it as it arrives",
+		})
 	}
-	return g
+	return g, diags
 }
 
 // Templates is the client template set. No block can be overridden yet.
@@ -86,7 +106,7 @@ func (g *Generator) Parts() []layout.Part {
 		}
 		for _, r := range op.Responses {
 			for _, c := range r.Contents {
-				responses = append(responses, c.Type)
+				responses = append(responses, c.Type, c.Item)
 			}
 			if r.Headers != nil {
 				responses = append(responses, gomodel.DeclRef{Decl: r.Headers})

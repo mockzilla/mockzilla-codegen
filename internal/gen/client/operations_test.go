@@ -48,7 +48,8 @@ func TestBodyView(t *testing.T) {
 			t.Parallel()
 
 			m := &gomodel.Model{}
-			f := fixture{m: m, g: New(m, allOptions()), cfg: "output: {file: ./gen.go}\n"}
+			g, _ := New(m, allOptions())
+			f := fixture{m: m, g: g, cfg: "output: {file: ./gen.go}\n"}
 
 			assert.Equal(t, tc.want, bodyView(tc.content, "Body", f.scope(t, PartOperations)))
 		})
@@ -130,4 +131,80 @@ func TestMethodExpr(t *testing.T) {
 
 	assert.Equal(t, "http.MethodPatch", methodExpr("PATCH", "http"))
 	assert.Equal(t, `"QUERY"`, methodExpr("QUERY", "http"))
+}
+
+func TestStreamBody(t *testing.T) {
+	t.Parallel()
+
+	str := gomodel.Builtin{Name: "string"}
+	events := gomodel.Content{MediaType: "text/event-stream", Item: str}
+	lines := gomodel.Content{MediaType: "application/x-ndjson", Item: str}
+	jsonBody := gomodel.Content{MediaType: "application/json", Type: str}
+	tests := []struct {
+		name           string
+		responses      []gomodel.Response
+		want           gomodel.Response
+		wantBody       gomodel.Content
+		wantOK         bool
+		wantStreamOnly bool
+	}{
+		{name: "No responses"},
+		{name: "No sequential 2xx", responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{jsonBody}}, {Status: "500", Contents: []gomodel.Content{events}}}},
+		{
+			name:      "The lowest 2xx with a sequential body, with its first sequential body",
+			responses: []gomodel.Response{{Status: "201", Contents: []gomodel.Content{jsonBody, lines, events}}, {Status: "200", Contents: []gomodel.Content{jsonBody}}},
+			want:      gomodel.Response{Status: "201", Contents: []gomodel.Content{jsonBody, lines, events}},
+			wantBody:  lines,
+			wantOK:    true,
+		},
+		{
+			name:           "Sequential bodies alone",
+			responses:      []gomodel.Response{{Status: "200", Contents: []gomodel.Content{events}}, {Status: "204"}, {Status: "404", Contents: []gomodel.Content{jsonBody}}},
+			want:           gomodel.Response{Status: "200", Contents: []gomodel.Content{events}},
+			wantBody:       events,
+			wantOK:         true,
+			wantStreamOnly: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			op := &gomodel.Operation{Responses: tc.responses}
+			r, c, ok := streamBody(op)
+
+			assert.Equal(t, tc.wantOK, ok)
+			assert.Equal(t, tc.want, r)
+			assert.Equal(t, tc.wantBody, c)
+			assert.Equal(t, tc.wantStreamOnly, isStreamOnly(op))
+		})
+	}
+}
+
+func TestFrameType(t *testing.T) {
+	t.Parallel()
+
+	str := gomodel.Builtin{Name: "string"}
+	chunk := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Chunk", Kind: gomodel.KindStruct}}
+	note := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Note", Kind: gomodel.KindDefined, Target: str}}
+	tests := []struct {
+		name    string
+		content gomodel.Content
+		want    gomodel.Type
+	}{
+		{name: "A struct", content: gomodel.Content{Item: chunk}, want: chunk},
+		{name: "Anything JSON", content: gomodel.Content{Item: gomodel.Builtin{Name: "any"}}, want: gomodel.Builtin{Name: "any"}},
+		{name: "No schema is bytes", content: gomodel.Content{}, want: bytesType},
+		{name: "A string is bytes", content: gomodel.Content{Item: gomodel.Pointer{Elem: str}}, want: bytesType},
+		{name: "A defined string is bytes", content: gomodel.Content{Item: note}, want: bytesType},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, frameType(tc.content))
+		})
+	}
 }

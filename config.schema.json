@@ -11,7 +11,7 @@
           "type": "string"
         },
         "streaming": {
-          "description": "Generate streaming methods for event-stream responses. Not supported yet.",
+          "description": "Also generate Stream methods that read text/event-stream and line-delimited JSON responses frame by frame.",
           "type": "boolean"
         },
         "timeout": {

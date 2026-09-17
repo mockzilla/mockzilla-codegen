@@ -20,7 +20,8 @@ Status: early development. The config format and the generated API may still cha
 - A service interface to implement, an HTTP adapter that decodes every parameter style and body
   type, a router for chi or `http.ServeMux`, and starter files ([server](docs/server.md)).
 - A client with one method per operation that returns the success body and turns other statuses
-  into typed errors, and an envelope variant with every documented body and header
+  into typed errors, an envelope variant with every documented body and header, and a stream
+  variant that reads Server-Sent Events and line-delimited JSON frame by frame
   ([client](docs/client.md)).
 - A plugin API for tools built on the generator, and template overrides for a closed list of
   blocks ([plugins](docs/plugins.md)).
@@ -92,6 +93,7 @@ client:
   name: PetClient
   timeout: 5s
   with-response: true
+  streaming: true
 mcp:
   default-skip: false
 templates: {}

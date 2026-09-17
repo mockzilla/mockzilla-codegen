@@ -9,6 +9,7 @@ client:
   name: PetClient      # the client type; defaults to Client
   timeout: 5s          # what the default http.Client gives up after; defaults to 3s
   with-response: true  # also generate <Op>WithResponse and the envelopes
+  streaming: true      # also generate <Op>Stream for responses that come frame by frame
 ```
 
 ## Client
@@ -135,6 +136,84 @@ func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobReque
   JSON for any JSON, then a wildcard. A status outside 2xx is no error; only a request that
   cannot be built or sent, or a body that does not decode, is.
 
+## Streaming
+
+Some responses are not one document but a sequence of frames that keeps coming: a Server-Sent
+Events feed, or a log tailed as one JSON value per line. The plain method reads such a body whole,
+so it returns only when the server closes the connection. With `streaming: true`, every operation
+that documents a sequential response also gets a method that reads it frame by frame:
+
+```go
+func (c *PetClient) ChatStream(ctx context.Context, opts *ChatRequestOptions) (*runtime.Stream[Chunk], error)
+```
+
+A response is sequential when its media type is one of:
+
+| Media type | Framing |
+|---|---|
+| `text/event-stream` | Server-Sent Events: the `data` lines of an event, joined with newlines |
+| `application/x-ndjson`, `application/ndjson`, `application/jsonl`, `application/x-jsonlines`, `application/json-lines` | one JSON value per line |
+
+- The stream reads the lowest 2xx response with a sequential media type, the first such media
+  type when there are several. `<Op>` and `<Op>WithResponse` are not changed: an operation that
+  documents `application/json` next to `text/event-stream` at one status keeps both shapes.
+- The frame type comes from `itemSchema` (OpenAPI 3.2), else from `schema`, the way specs before
+  3.2 describe one event. A `$ref` reuses the component; an inline schema becomes
+  `<Op>ResponseItem` ([naming](naming.md)). Without a schema, or with one that is a bare string,
+  frames come as `[]byte`.
+- `<Op>Stream` sends `Accept: <media type>` unless the request sets one. For an endpoint that
+  answers either way, the server usually decides from a request field, which the caller still has
+  to set: `&ChatRequestOptions{Body: &Prompt{Text: "hi", Stream: runtime.Ptr(true)}}`.
+- Only a 2xx response in a sequential media type is streamed. A 2xx response in another media
+  type is `runtime.ErrContentType` rather than a stream that yields nothing; a response outside 2xx
+  is a `*runtime.APIError`, with the error type of its status decoded, as with `<Op>`.
+- Without `streaming`, generation warns (`stream-only`) about every operation whose 2xx responses
+  come in sequential media types only, since its plain method blocks until the server hangs up.
+
+`runtime.Stream[T]` reads like `bufio.Scanner`. The caller owns the connection and closes the
+stream:
+
+```go
+stream, err := client.ListEventsStream(ctx, nil)
+if err != nil {
+	return err
+}
+defer stream.Close()
+
+for stream.Next() {
+	event := stream.Current()   // one frame, decoded into T
+	raw := stream.Event()       // the frame behind it: SSE id, event and retry, and the data
+	log.Println(raw.ID, event.Seq)
+}
+return stream.Err()
+```
+
+- `All()` is the same loop as a range-over-func iterator, with the error that stops the stream
+  delivered as the last pair: `for event, err := range stream.All()`.
+- `Err()` is nil at the end of the stream and after a sentinel, else the read error, the decode
+  error (`runtime.ErrFrame`) or `context.Canceled` when the request's context was canceled, which
+  unblocks a pending `Next`.
+- `Sentinels` lists frames that end the stream instead of being decoded. APIs in the style of
+  OpenAI end a stream with `data: [DONE]`, which is no JSON: set `stream.Sentinels =
+  []string{"[DONE]"}` before the first `Next`.
+- SSE comments are skipped, an event without `data` is not dispatched, `retry` must be a whole
+  number of milliseconds, and CRLF line endings are fine. Empty lines of a line-delimited stream
+  are skipped.
+
+With `with-response: true`, the envelope gains a `Stream<status>` field and
+`<Op>StreamWithResponse` fills it: for a streamed response, `Body` is nil and
+`HTTPResponse.Body` stays open until the stream is closed; any other response is read and decoded
+into the usual fields, and is no error.
+
+The helpers work off any `*http.Response`: `runtime.NewStream[T]` picks the framing from the
+`Content-Type`, `runtime.NewEventStream[T]` and `runtime.NewLineStream[T]` set it;
+`runtime.SendStream` sends a request and leaves the body of a streamed response unread, and
+`runtime.OpenStream[T]` does what `<Op>Stream` does.
+
+Limits: request bodies are not streamed, `multipart/mixed` and `application/json-seq` are not
+framed, and a generated server writes a sequential response as one document, since writing
+Server-Sent Events from a handler is not generated yet.
+
 ## Layout
 
 The client has four parts for `output.files`: `client.core` (the client type and its options),
@@ -154,3 +233,5 @@ Generated clients use these helpers of the runtime package, next to the codecs t
 - `Send` sends with a `Doer` and reads the body; `DecodeSuccess` and `Decode` fill the targets of
   the response, `DecodeHeaders` a struct of typed headers; `APIError` is the error of a status
   outside 2xx.
+- `Stream[T]` reads a sequential response frame by frame; `SendStream`, `OpenStream`,
+  `IsStreaming` and `IsSequential` are what the stream methods are built on.

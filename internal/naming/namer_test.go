@@ -210,6 +210,7 @@ func TestSuffixes(t *testing.T) {
 		{name: "Response by status range", got: n.Response("GetPet", "4xx", "application/json", false), want: "GetPetResponse4XX"},
 		{name: "Default response", got: n.Response("GetPet", "Default", "application/json", false), want: "GetPetResponseDefault"},
 		{name: "Response headers", got: n.ResponseHeaders("GetPet", "200"), want: "GetPetResponse200Headers"},
+		{name: "Response item", got: n.ResponseItem("GetEvents"), want: "GetEventsResponseItem"},
 		{name: "Only response constructor", got: n.ResponseConstructor("GetPet", "200", false), want: "NewGetPetResponseData"},
 		{name: "Response constructor among several", got: n.ResponseConstructor("GetPet", "default", true), want: "NewGetPetResponseDataDefault"},
 		{name: "JSON response among several", got: n.Response("GetPet", "200", "application/json", true), want: "GetPetJSONResponse200"},
