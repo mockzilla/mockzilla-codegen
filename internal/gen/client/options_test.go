@@ -26,7 +26,8 @@ func TestRequestOptionsView(t *testing.T) {
 		Bodies: []gomodel.Content{{MediaType: "application/json", Type: gomodel.DeclRef{Decl: pet}}, {MediaType: "text/plain"}},
 	}
 	m := &gomodel.Model{Decls: []*gomodel.Decl{pet, query}, Operations: []*gomodel.Operation{op}}
-	f := fixture{m: m, g: New(m, allOptions()), cfg: "output: {file: ./gen.go}\n"}
+	g, _ := New(m, allOptions())
+	f := fixture{m: m, g: g, cfg: "output: {file: ./gen.go}\n"}
 
 	got := requestOptionsView(f.g, op, f.scope(t, PartOptions))
 

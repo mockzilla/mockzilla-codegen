@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
-	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 )
 
 func TestEnvelopeFields(t *testing.T) {
@@ -29,13 +28,16 @@ func TestEnvelopeFields(t *testing.T) {
 			{MediaType: "text/xml; q=1", Type: str},
 			{MediaType: "text/xml; q=2", Type: str},
 			{MediaType: "text/plain"},
+			{MediaType: "text/stream", Type: str},
+			{MediaType: "text/event-stream", Item: pet},
 		}, Headers: headers},
 		{Status: "default", Contents: []gomodel.Content{{MediaType: "application/json"}}},
 	}}
 	m := &gomodel.Model{}
-	f := fixture{m: m, g: New(m, allOptions()), cfg: "output: {file: ./gen.go}\n"}
+	g, _ := New(m, allOptions())
+	f := fixture{m: m, g: g, cfg: "output: {file: ./gen.go}\n"}
 
-	got := envelopeFields(op, naming.New(nil), f.scope(t, PartResponses))
+	got := envelopeFields(g, op, f.scope(t, PartResponses))
 
 	assert.Equal(t, []envelopeField{
 		{FieldView: FieldView{Name: "JSON200", Type: "*Pet", Doc: "JSON200 is the body of a 200 response as application/json."}, status: "200", mediaType: "application/json"},
@@ -44,7 +46,10 @@ func TestEnvelopeFields(t *testing.T) {
 		{FieldView: FieldView{Name: "TextXML200", Type: "*string", Doc: "TextXML200 is the body of a 200 response as text/xml; q=1."}, status: "200", mediaType: "text/xml; q=1"},
 		{FieldView: FieldView{Name: "TextXML2002", Type: "*string", Doc: "TextXML2002 is the body of a 200 response as text/xml; q=2."}, status: "200", mediaType: "text/xml; q=2"},
 		{FieldView: FieldView{Name: "Text200", Type: "*string", Doc: "Text200 is the body of a 200 response as text/plain."}, status: "200", mediaType: "text/plain"},
+		{FieldView: FieldView{Name: "TextStream200", Type: "*string", Doc: "TextStream200 is the body of a 200 response as text/stream."}, status: "200", mediaType: "text/stream"},
+		{FieldView: FieldView{Name: "EventStream200", Type: "*string", Doc: "EventStream200 is the body of a 200 response as text/event-stream."}, status: "200", mediaType: "text/event-stream"},
 		{FieldView: FieldView{Name: "JSONDefault", Type: "any", Doc: "JSONDefault is the body of a default response as application/json."}, status: "default", mediaType: "application/json"},
+		{FieldView: FieldView{Name: "Stream200", Type: "*runtime.Stream[Pet]", Doc: "Stream200 is the stream of a 200 response as text/event-stream, set by the Stream method alone; Body is nil then."}, status: "200", mediaType: "text/event-stream", isStream: true},
 		{FieldView: FieldView{Name: "Headers200", Type: "*Headers", Doc: "Headers200 holds the headers the spec declares for a 200 response."}, status: "200", isHeaders: true},
 	}, got)
 }

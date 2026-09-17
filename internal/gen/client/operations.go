@@ -6,6 +6,7 @@
 package client
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
@@ -74,7 +75,8 @@ type OperationsView struct {
 // net/http constant or a quoted method; Path is quoted. Success is the status of the response the
 // plain method returns the body of, as the spec writes it, empty for none; Result is that body's
 // type and Zero the value returned on an error. Targets are what the plain method decodes,
-// EnvelopeTargets what the HasEnvelopes method decodes into the envelope Response.
+// EnvelopeTargets what the HasEnvelopes method decodes into the envelope Response. Stream is the
+// Stream method of an operation that answers in a sequential media type, nil without HasStreams.
 type OperationView struct {
 	Name            string
 	Doc             string
@@ -90,6 +92,18 @@ type OperationView struct {
 	Targets         []TargetView
 	Response        string
 	EnvelopeTargets []TargetView
+	Stream          *StreamView
+}
+
+// StreamView is the Stream method of an operation. MediaType is the sequential media type it asks
+// for; Frame is the type of one frame and Type the stream type the method returns; Targets are the
+// error bodies it decodes; Field is the envelope field that holds the stream.
+type StreamView struct {
+	MediaType string
+	Frame     string
+	Type      string
+	Targets   []TargetView
+	Field     string
 }
 
 // GroupView is the parameters of one location: the options field that holds them and how each
@@ -182,9 +196,16 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 	}
 	v.Targets = append(v.Targets, errorTargets(op, s)...)
 
+	if g.opts.HasStreams {
+		v.Stream = streamView(op, s)
+	}
 	if g.opts.HasEnvelopes {
 		v.Response = s.Symbol(PartResponses, n.ClientResponse(op.Name))
-		for _, f := range envelopeFields(op, n, s) {
+		for _, f := range envelopeFields(g, op, s) {
+			if f.isStream {
+				v.Stream.Field = f.Name
+				continue
+			}
 			v.EnvelopeTargets = append(v.EnvelopeTargets, TargetView{
 				Status:    gocode.Quote(f.status),
 				MediaType: gocode.Quote(f.mediaType),
@@ -194,6 +215,35 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 		}
 	}
 	return v
+}
+
+// streamView is the Stream method of an operation, nil for one without a sequential response.
+func streamView(op *gomodel.Operation, s *gocode.Scope) *StreamView {
+	_, c, ok := streamBody(op)
+	if !ok {
+		return nil
+	}
+	frame := s.Expr(frameType(c))
+	return &StreamView{
+		MediaType: c.MediaType,
+		Frame:     frame,
+		Type:      streamType(frame, s),
+		Targets:   errorTargets(op, s),
+	}
+}
+
+// streamType writes the pointer to a runtime.Stream of frame.
+func streamType(frame string, s *gocode.Scope) string {
+	return gocode.Deref(gocode.Index(gocode.Selector(s.Import(gomodel.Import{Path: gomodel.RuntimePath}), "Stream"), frame))
+}
+
+// frameType is the type of one frame of a sequential content: its item type, or bytes without one
+// or when it is a string, which is no JSON.
+func frameType(c gomodel.Content) gomodel.Type {
+	if c.Item == nil || gomodel.Underlying(elem(c.Item)) == stringType {
+		return bytesType
+	}
+	return c.Item
 }
 
 // groupView adds each parameter of a location from its field of the group's struct.
@@ -266,11 +316,31 @@ func held(value string, base, t gomodel.Type, s *gocode.Scope) string {
 // successBody is the lowest documented 2xx response that has a body, with the body the plain
 // method returns: its JSON one, else its first.
 func successBody(op *gomodel.Operation) (gomodel.Response, gomodel.Content, bool) {
+	r, ok := lowestSuccess(op, func(gomodel.Content) bool { return true })
+	if !ok {
+		return gomodel.Response{}, gomodel.Content{}, false
+	}
+	c, _ := operation.FirstBody(r.Contents)
+	return r, c, true
+}
+
+// streamBody is the lowest documented 2xx response with a body in a sequential media type, with
+// the first such body: what the Stream method reads.
+func streamBody(op *gomodel.Operation) (gomodel.Response, gomodel.Content, bool) {
+	r, ok := lowestSuccess(op, isSequential)
+	if !ok {
+		return gomodel.Response{}, gomodel.Content{}, false
+	}
+	return r, r.Contents[slices.IndexFunc(r.Contents, isSequential)], true
+}
+
+// lowestSuccess is the lowest documented 2xx response with a body that fits accepts.
+func lowestSuccess(op *gomodel.Operation, fits func(gomodel.Content) bool) (gomodel.Response, bool) {
 	var best *gomodel.Response
 	for i := range op.Responses {
 		r := &op.Responses[i]
 		status := operation.StatusOf(r.Status)
-		if status < 200 || status > 299 || len(r.Contents) == 0 {
+		if status < 200 || status > 299 || !slices.ContainsFunc(r.Contents, fits) {
 			continue
 		}
 		if best == nil || status < operation.StatusOf(best.Status) {
@@ -278,10 +348,30 @@ func successBody(op *gomodel.Operation) (gomodel.Response, gomodel.Content, bool
 		}
 	}
 	if best == nil {
-		return gomodel.Response{}, gomodel.Content{}, false
+		return gomodel.Response{}, false
 	}
-	c, _ := operation.FirstBody(best.Contents)
-	return *best, c, true
+	return *best, true
+}
+
+// isStreamOnly reports an operation whose 2xx responses have bodies in sequential media types
+// only, so that only its Stream method can read them.
+func isStreamOnly(op *gomodel.Operation) bool {
+	if _, _, ok := streamBody(op); !ok {
+		return false
+	}
+	for _, r := range op.Responses {
+		if status := operation.StatusOf(r.Status); status < 200 || status > 299 {
+			continue
+		}
+		if slices.ContainsFunc(r.Contents, func(c gomodel.Content) bool { return !isSequential(c) }) {
+			return false
+		}
+	}
+	return true
+}
+
+func isSequential(c gomodel.Content) bool {
+	return runtime.IsSequential(c.MediaType)
 }
 
 // errorTargets are the bodies of the responses outside 2xx whose type is an error type, which the

@@ -93,6 +93,11 @@ func (n *Namer) Response(op, status, contentType string, multiple bool) string {
 	return op + "Response" + n.Status(status)
 }
 
+// ResponseItem names the inline schema of one frame of a streamed response: GetEventsResponseItem.
+func (n *Namer) ResponseItem(op string) string {
+	return op + "ResponseItem"
+}
+
 // ResponseHeaders names the typed headers of a response: GetPetResponse200Headers.
 func (n *Namer) ResponseHeaders(op, status string) string {
 	return n.Response(op, status, "", false) + "Headers"

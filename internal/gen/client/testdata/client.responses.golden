@@ -1,6 +1,10 @@
 package types
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+)
 
 // ListPetsResponse is what ListPetsWithResponse returns: the response with its body read, and the body
 // decoded into the field of its status and media type.
@@ -91,5 +95,45 @@ type QueryResponse struct {
 
 // StatusCode is the status of the response.
 func (r *QueryResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}
+
+// ChatResponse is what ChatWithResponse returns: the response with its body read, and the body
+// decoded into the field of its status and media type. ChatStreamWithResponse leaves the
+// body of a streamed response unread, in the stream field.
+type ChatResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// JSON200 is the body of a 200 response as application/json.
+	JSON200 *Pet
+	// EventStream200 is the body of a 200 response as text/event-stream.
+	EventStream200 *string
+	// JSONDefault is the body of a default response as application/json.
+	JSONDefault *Problem
+	// Stream200 is the stream of a 200 response as text/event-stream, set by the Stream method alone;
+	// Body is nil then.
+	Stream200 *runtime.Stream[ChatResponseItem]
+}
+
+// StatusCode is the status of the response.
+func (r *ChatResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}
+
+// TailResponse is what TailWithResponse returns: the response with its body read, and the body
+// decoded into the field of its status and media type. TailStreamWithResponse leaves the
+// body of a streamed response unread, in the stream field.
+type TailResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// Ndjson200 is the body of a 200 response as application/x-ndjson.
+	Ndjson200 *string
+	// Stream200 is the stream of a 200 response as application/x-ndjson, set by the Stream method
+	// alone; Body is nil then.
+	Stream200 *runtime.Stream[[]byte]
+}
+
+// StatusCode is the status of the response.
+func (r *TailResponse) StatusCode() int {
 	return r.HTTPResponse.StatusCode
 }

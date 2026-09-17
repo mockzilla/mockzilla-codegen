@@ -295,3 +295,35 @@ func TestGenerationRenderErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateReportsTheClientDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	const streamSpec = `openapi: 3.1.0
+info: {title: events, version: "1"}
+paths:
+  /events:
+    get:
+      operationId: getEvents
+      responses:
+        "200":
+          description: events
+          content:
+            text/event-stream: {schema: {type: object, properties: {seq: {type: integer}}}}
+`
+	dir := t.TempDir()
+	cfg, err := config.Parse([]byte("package: events\nclient: {}\noutput: {file: ./api/gen.go}\n"), dir)
+	require.NoError(t, err)
+
+	res, err := Generate(context.Background(), cfg, WithSpec([]byte(streamSpec)))
+
+	require.NoError(t, err)
+	assert.Contains(t, res.Diagnostics, Diagnostic{
+		Severity: SeverityWarning,
+		Code:     "stream-only",
+		Pointer:  "/paths/~1events/get",
+		Line:     5,
+		Col:      5,
+		Message:  "GetEvents answers only as text/event-stream, which GetEvents reads whole; set client.streaming to read it as it arrives",
+	})
+}

@@ -55,7 +55,6 @@ func (c *Config) Validate() error {
 		checkSimplify(c.Spec.Simplify),
 		checkModels(c.Models),
 		checkServer(c.Server),
-		checkClient(c.Client),
 		checkMCP(c.MCP, c.Client),
 		checkOutput(c.Output),
 	)

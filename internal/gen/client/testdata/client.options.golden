@@ -87,3 +87,27 @@ type QueryRequestOptions struct {
 func (o *QueryRequestOptions) Validate() error {
 	return nil
 }
+
+// ChatRequestOptions is what Chat sends: its parameters by location, and its body.
+type ChatRequestOptions struct {
+	// Body sent as application/json.
+	Body *Pet
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *ChatRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.Body != nil {
+		errs.Append("body", o.Body.Validate())
+	}
+	return errs.Err()
+}
+
+// TailRequestOptions is what Tail sends: its parameters by location, and its body.
+type TailRequestOptions struct {
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *TailRequestOptions) Validate() error {
+	return nil
+}

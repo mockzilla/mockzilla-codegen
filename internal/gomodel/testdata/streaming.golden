@@ -1,0 +1,23 @@
+Reply struct models.types
+  Text *string json=text omitempty
+LinesItem struct models.responses
+  Line *string json=line omitempty
+Lines alias string models.responses
+ChatRequestBodyItem struct models.bodies
+  Prompt *string json=prompt omitempty
+ChatResponse200 alias string models.responses
+ChatResponseItem struct models.responses
+  Text *string json=text omitempty
+GetEventsResponseItem struct models.responses
+  Seq *int json=seq omitempty
+op Chat POST /chat
+  body application/x-ndjson - item ChatRequestBodyItem
+  response 200 application/json Reply
+  response 200 text/event-stream ChatResponse200 item ChatResponseItem
+op GetEvents GET /events
+  response 200 text/event-stream GetEventsResponseItem item GetEventsResponseItem
+  response 202 text/event-stream - item Reply
+op TailLogs GET /logs
+  response 200 application/jsonl - item LinesItem
+  response 200 text/plain Lines
+---

@@ -24,4 +24,5 @@ var (
 	ErrContentType  = errors.New("unsupported content type")
 	ErrNoResponse   = errors.New("the service returned no response")
 	ErrBaseURL      = errors.New("invalid base URL")
+	ErrFrame        = errors.New("invalid stream frame")
 )

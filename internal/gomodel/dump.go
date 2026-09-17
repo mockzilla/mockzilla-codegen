@@ -247,11 +247,11 @@ func dumpOperation(b *strings.Builder, op *Operation) {
 		b.WriteString("  params " + p.In + " " + p.Decl.Name + "\n")
 	}
 	for _, c := range op.Bodies {
-		b.WriteString("  body " + c.MediaType + " " + typeText(c.Type) + "\n")
+		b.WriteString("  body " + c.MediaType + " " + typeText(c.Type) + itemText(c) + "\n")
 	}
 	for _, r := range op.Responses {
 		for _, c := range r.Contents {
-			b.WriteString("  response " + r.Status + " " + c.MediaType + " " + typeText(c.Type) + "\n")
+			b.WriteString("  response " + r.Status + " " + c.MediaType + " " + typeText(c.Type) + itemText(c) + "\n")
 		}
 		if r.Headers != nil {
 			b.WriteString("  response " + r.Status + " headers " + r.Headers.Name + "\n")
@@ -285,4 +285,12 @@ func valueLiteral(v spec.Value) string {
 		return strconv.Quote(v.Str)
 	}
 	return valueText(v)
+}
+
+// itemText is the frame type of a sequential media type, after its body type.
+func itemText(c Content) string {
+	if c.Item == nil {
+		return ""
+	}
+	return " item " + typeText(c.Item)
 }

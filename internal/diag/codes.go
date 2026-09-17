@@ -36,4 +36,5 @@ const (
 	CodeAllOfCycle          = "allof-cycle"
 	CodeAliasCycle          = "alias-cycle"
 	CodeRouteDropped        = "route-dropped"
+	CodeStreamOnly          = "stream-only"
 )

@@ -117,13 +117,16 @@ func (g *generation) model(ctx context.Context) error {
 	g.namer = naming.New(g.cfg.Naming.Initialisms)
 	g.gen = models.New(g.m)
 	if c := g.cfg.Client; c != nil {
-		g.cl = client.New(g.m, client.Options{
+		var clDiags []diag.Diagnostic
+		g.cl, clDiags = client.New(g.m, client.Options{
 			Name:         cmp.Or(c.Name, "Client"),
 			Namer:        g.namer,
 			Timeout:      time.Duration(c.Timeout),
 			HasEnvelopes: c.WithResponse,
+			HasStreams:   c.Streaming,
 			User:         g.cfg.UserContext,
 		})
+		g.diags.Append(clDiags...)
 	}
 	if g.cfg.Server == nil {
 		return nil
