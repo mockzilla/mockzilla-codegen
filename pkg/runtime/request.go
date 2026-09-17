@@ -234,6 +234,11 @@ func Send(d Doer, req *http.Request) (*http.Response, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	return readBody(res)
+}
+
+// readBody reads the whole body of res, which it closes, and puts it back in memory.
+func readBody(res *http.Response) (*http.Response, []byte, error) {
 	if res.Body == nil {
 		return res, nil, nil
 	}

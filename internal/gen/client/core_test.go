@@ -17,7 +17,8 @@ func TestCoreView(t *testing.T) {
 	t.Parallel()
 
 	m := &gomodel.Model{}
-	f := fixture{m: m, g: New(m, allOptions()), cfg: "output: {file: ./gen.go}\n"}
+	g, _ := New(m, allOptions())
+	f := fixture{m: m, g: g, cfg: "output: {file: ./gen.go}\n"}
 	s := f.scope(t, PartCore)
 
 	got := coreView(f.g, s)

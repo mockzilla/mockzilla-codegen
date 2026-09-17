@@ -129,7 +129,7 @@ func TestParse(t *testing.T) {
 						Timeout:    Duration(45 * time.Second),
 					},
 				},
-				Client:      &Client{Name: "PetClient", Timeout: Duration(5 * time.Second), WithResponse: true},
+				Client:      &Client{Name: "PetClient", Timeout: Duration(5 * time.Second), WithResponse: true, Streaming: true},
 				MCP:         &MCP{},
 				Templates:   map[string]string{},
 				UserContext: map[string]any{"owner": "platform"},

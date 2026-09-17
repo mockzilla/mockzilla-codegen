@@ -12,6 +12,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // declRule says when a schema met at the start of a walk gets a declaration of its own.
@@ -126,15 +127,16 @@ func (c *collector) run(ops []*Operation) {
 		if b := op.Spec.Body; b != nil {
 			isMultiple := countInline(b.Contents) > 1
 			for _, mt := range b.Contents {
-				at := place{name: n.RequestBody(op.Name, mt.Name, isMultiple), rank: naming.RankOperation, part: PartBodies}
-				c.walk(mt.Schema, at, ruleUnlessRef)
+				name := n.RequestBody(op.Name, mt.Name, isMultiple)
+				at := place{name: name, rank: naming.RankOperation, part: PartBodies}
+				c.media(mt, at, place{name: n.ArrayItem(name), rank: naming.RankOperation, part: PartBodies})
 			}
 		}
 		for _, r := range op.Spec.Responses {
 			isMultiple := countInline(r.Contents) > 1
 			for _, mt := range r.Contents {
 				at := place{name: n.Response(op.Name, r.Status, mt.Name, isMultiple), rank: naming.RankOperation, part: PartResponses}
-				c.walk(mt.Schema, at, ruleUnlessRef)
+				c.media(mt, at, place{name: n.ResponseItem(op.Name), rank: naming.RankOperation, part: PartResponses})
 			}
 			if c.hasHeaders && len(r.Headers) > 0 {
 				c.responseHeaders(op, r)
@@ -192,8 +194,20 @@ func (c *collector) contents(name string, contents []*spec.MediaType, kind, part
 		if isMultiple {
 			want += c.namer.MediaTag(mt.Name)
 		}
-		c.walk(mt.Schema, place{name: want, fallback: want + kind, rank: naming.RankComponent, part: part}, ruleUnlessRef)
+		at := place{name: want, fallback: want + kind, rank: naming.RankComponent, part: part}
+		c.media(mt, at, place{name: c.namer.ArrayItem(want), fallback: c.namer.ArrayItem(want + kind), rank: naming.RankComponent, part: part})
 	}
+}
+
+// media walks the schema of a media type at at, and its item schema at item. The schema of a
+// sequential media type, such as text/event-stream, describes one frame when there is no
+// itemSchema, so it is named as the item.
+func (c *collector) media(mt *spec.MediaType, at, item place) {
+	if mt.ItemSchema == nil && runtime.IsSequential(mt.Name) {
+		at = item
+	}
+	c.walk(mt.Schema, at, ruleUnlessRef)
+	c.walk(mt.ItemSchema, item, ruleUnlessRef)
 }
 
 // params adds one struct per parameter location and walks the parameter schemas under it.

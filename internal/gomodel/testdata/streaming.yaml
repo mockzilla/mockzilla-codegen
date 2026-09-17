@@ -1,0 +1,52 @@
+openapi: 3.2.0
+info: {title: streaming, version: "1"}
+paths:
+  /chat:
+    post:
+      operationId: chat
+      requestBody:
+        content:
+          application/x-ndjson:
+            itemSchema: {type: object, properties: {prompt: {type: string}}}
+      responses:
+        "200":
+          description: a reply, whole or as chunks
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Reply'}}
+            text/event-stream:
+              schema: {type: string}
+              itemSchema: {type: object, properties: {text: {type: string}}}
+  /events:
+    get:
+      operationId: getEvents
+      responses:
+        "200":
+          description: events, described as one event each in the 3.0 way
+          content:
+            text/event-stream:
+              schema: {type: object, properties: {seq: {type: integer}}}
+        "202":
+          description: events of a component
+          content:
+            text/event-stream:
+              itemSchema: {$ref: '#/components/schemas/Reply'}
+  /logs:
+    get:
+      operationId: tailLogs
+      responses:
+        "200":
+          $ref: '#/components/responses/Lines'
+components:
+  schemas:
+    Reply:
+      type: object
+      properties:
+        text: {type: string}
+  responses:
+    Lines:
+      description: raw lines
+      content:
+        application/jsonl:
+          itemSchema: {type: object, properties: {line: {type: string}}}
+        text/plain:
+          schema: {type: string}

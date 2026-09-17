@@ -9,6 +9,12 @@ type {{.Interface}} interface {
 {{- if $.HasEnvelopes}}
 	{{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{.Response}}, error)
 {{- end}}
+{{- if .Stream}}
+	{{.Name}}Stream(ctx {{$.Context}}.Context, opts *{{.Options}}) ({{.Stream.Type}}, error)
+{{- if $.HasEnvelopes}}
+	{{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{.Response}}, error)
+{{- end}}
+{{- end}}
 {{- end}}
 }
 
@@ -109,5 +115,60 @@ func (c *{{$.Client}}) {{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{
 {{- end}}
 	return out, nil
 }
+{{- end}}
+{{- if .Stream}}
+
+// {{.Name}}Stream is {{.Name}} over a live stream: it asks for {{.Stream.MediaType}} and returns the
+// frames of a 2xx response in a sequential media type as they arrive. The caller closes the stream.
+// Any other 2xx response is runtime.ErrContentType; a response outside 2xx is a *runtime.APIError,
+// as with {{.Name}}.
+func (c *{{$.Client}}) {{.Name}}Stream(ctx {{$.Context}}.Context, opts *{{.Options}}) ({{.Stream.Type}}, error) {
+	req, err := c.{{.Name}}Request(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+{{- if .Stream.Targets}}
+	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](c.doer, req, {{quote .Stream.MediaType}}, []{{$.Runtime}}.Target{
+{{- range .Stream.Targets}}
+		{Status: {{.Status}}, MediaType: {{.MediaType}}, Dst: {{.Dst}}},
+{{- end}}
+	})
+{{- else}}
+	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](c.doer, req, {{quote .Stream.MediaType}}, nil)
+{{- end}}
+}
+{{- if $.HasEnvelopes}}
+
+// {{.Name}}StreamWithResponse is {{.Name}}WithResponse over a live stream: it asks for
+// {{.Stream.MediaType}}, and a 2xx response in a sequential media type comes back with {{.Stream.Field}}
+// set, Body nil and HTTPResponse.Body open until the stream is closed. Any other response is read
+// and decoded as {{.Name}}WithResponse reads it.
+func (c *{{$.Client}}) {{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{.Response}}, error) {
+	req, err := c.{{.Name}}Request(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := {{$.Runtime}}.SendStream(c.doer, req, {{quote .Stream.MediaType}})
+	if err != nil {
+		return nil, err
+	}
+
+	out := &{{.Response}}{HTTPResponse: res, Body: body}
+	if {{$.Runtime}}.IsStreaming(res) {
+		out.{{.Stream.Field}} = {{$.Runtime}}.NewStream[{{.Stream.Frame}}](res)
+		return out, nil
+	}
+{{- if .EnvelopeTargets}}
+	if err = {{$.Runtime}}.Decode(res, body, []{{$.Runtime}}.Target{
+{{- range .EnvelopeTargets}}
+		{Status: {{.Status}}, {{if .IsHeaders}}IsHeaders: true{{else}}MediaType: {{.MediaType}}{{end}}, Dst: {{.Dst}}},
+{{- end}}
+	}); err != nil {
+		return nil, err
+	}
+{{- end}}
+	return out, nil
+}
+{{- end}}
 {{- end}}
 {{- end}}

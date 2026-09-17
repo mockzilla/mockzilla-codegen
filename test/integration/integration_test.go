@@ -48,9 +48,9 @@ var servers = map[string]struct {
 	},
 }
 
-// clientVariant generates the client with its envelopes, the larger of its two shapes, and
-// builds one against a base URL.
-var clientVariant = itest.Variant{Name: "client", Config: "client:\n  with-response: true\n", Init: "%s.NewClient(\"http://localhost\")"}
+// clientVariant generates the client with its envelopes and its stream methods, the largest of
+// its shapes, and builds one against a base URL.
+var clientVariant = itest.Variant{Name: "client", Config: "client:\n  with-response: true\n  streaming: true\n", Init: "%s.NewClient(\"http://localhost\")"}
 
 // TestIntegration generates every spec in testdata/specs with the models variant, one per
 // framework FRAMEWORKS names, chi by default, and the client variant when CLIENT is set, then
