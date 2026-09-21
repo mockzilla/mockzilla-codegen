@@ -1,0 +1,86 @@
+// MCPTools exposes the operations of the API as MCP tools, each calling the client.
+type MCPTools struct {
+	client {{.Client}}
+}
+
+// NewMCPTools returns the tools that call c.
+func NewMCPTools(c {{.Client}}) *MCPTools {
+	return &MCPTools{client: c}
+}
+
+// Register adds every tool to s. To add a few, pass the definition and the handler of each to
+// mcp.AddTool instead.
+func (t *MCPTools) Register(s *{{.MCP}}.Server) {
+{{- range .Tools}}
+	{{$.MCP}}.AddTool(s, t.{{.Name}}Tool(), t.{{.Name}})
+{{- end}}
+}
+{{- if .HasStream}}
+
+// ErrMCPStreaming is what a tool answers when its operation streams its response, which a tool
+// result cannot carry; read such an operation through the client.
+var ErrMCPStreaming = {{.Errors}}.New("the operation answers with a stream, which an MCP tool cannot return")
+{{- end}}
+{{- range .Tools}}
+
+// {{.Name}}Tool is the definition of the {{.Tool}} tool: its name, its description and the schema
+// of its input.
+func (t *MCPTools) {{.Name}}Tool() *{{$.MCP}}.Tool {
+	return &{{$.MCP}}.Tool{
+		Name: {{quote .Tool}},
+{{- with .Description}}
+		Description: {{quote .}},
+{{- end}}
+		InputSchema: {{$.JSON}}.RawMessage({{.Schema}}),
+		Annotations: &{{$.MCP}}.ToolAnnotations{ReadOnlyHint: {{.IsReadOnly}}, IdempotentHint: {{.IsIdempotent}}},
+	}
+}
+{{- if .IsStream}}
+
+// {{.Name}} handles the {{.Tool}} tool. {{.Name}} answers with a stream, so it is ErrMCPStreaming.
+func (t *MCPTools) {{.Name}}(_ {{$.Context}}.Context, _ *{{$.MCP}}.CallToolRequest, _ {{.Input}}) (*{{$.MCP}}.CallToolResult, any, error) {
+	return nil, nil, ErrMCPStreaming
+}
+{{- else}}
+
+// {{.Name}} handles the {{.Tool}} tool: it calls {{.Name}} of the client and answers {{if .HasResult}}{{if .Text}}with the text it returns{{else}}with what it returns as structured content{{end}}{{else}}ok{{end}}.
+// An error of the client is the error of the tool.
+func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, _ *{{$.MCP}}.CallToolRequest, {{if .HasInput}}in{{else}}_{{end}} {{.Input}}) (*{{$.MCP}}.CallToolResult, any, error) {
+	opts := &{{.Options}}{
+{{- range .Groups}}
+		{{.Field}}: &{{.Type}}{
+{{- range .Assigns}}
+			{{.Field}}: in.{{.From}},
+{{- end}}
+		},
+{{- end}}
+{{- with .Body}}
+		{{.Field}}: in.{{.From}},
+{{- end}}
+	}
+{{- if not .HasResult}}
+	if err := t.client.{{.Name}}(ctx, opts); err != nil {
+		return nil, nil, err
+	}
+	return &{{$.MCP}}.CallToolResult{Content: []{{$.MCP}}.Content{&{{$.MCP}}.TextContent{Text: "ok"}}}, nil, nil
+{{- else}}
+	out, err := t.client.{{.Name}}(ctx, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+{{- if not .Text}}
+	return nil, out, nil
+{{- else if .IsTextPointer}}
+
+	res := &{{$.MCP}}.CallToolResult{Content: []{{$.MCP}}.Content{}}
+	if out != nil {
+		res.Content = append(res.Content, &{{$.MCP}}.TextContent{Text: {{.Text}}})
+	}
+	return res, nil, nil
+{{- else}}
+	return &{{$.MCP}}.CallToolResult{Content: []{{$.MCP}}.Content{&{{$.MCP}}.TextContent{Text: {{.Text}}}}}, nil, nil
+{{- end}}
+{{- end}}
+}
+{{- end}}
+{{- end}}

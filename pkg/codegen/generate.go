@@ -17,6 +17,7 @@ import (
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/client"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/mcp"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/models"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
@@ -69,6 +70,7 @@ type generation struct {
 	gen      *models.Generator
 	srv      *server.Generator
 	cl       *client.Generator
+	mc       *mcp.Generator
 	sources  map[layout.PartID]source
 	lay      *layout.Layout
 	engine   *render.Engine
@@ -128,6 +130,16 @@ func (g *generation) model(ctx context.Context) error {
 		})
 		g.diags.Append(clDiags...)
 	}
+	if m := g.cfg.MCP; m != nil {
+		var mcDiags []diag.Diagnostic
+		g.mc, mcDiags = mcp.New(g.m, mcp.Options{
+			Client:      cmp.Or(g.cfg.Client.Name, "Client"),
+			Namer:       g.namer,
+			DefaultSkip: m.DefaultSkip,
+			User:        g.cfg.UserContext,
+		})
+		g.diags.Append(mcDiags...)
+	}
 	if g.cfg.Server == nil {
 		return nil
 	}
@@ -180,6 +192,9 @@ func (g *generation) place() error {
 	if g.cl != nil {
 		parts = append(parts, g.cl.Parts()...)
 	}
+	if g.mc != nil {
+		parts = append(parts, g.mc.Parts()...)
+	}
 	if len(g.opts.plugins) > 0 {
 		draft, draftErr := layout.Draft(g.cfg, parts, mod)
 		if draftErr != nil {
@@ -204,6 +219,9 @@ func (g *generation) load() error {
 	}
 	if g.cl != nil {
 		sets = append(sets, client.Templates())
+	}
+	if g.mc != nil {
+		sets = append(sets, mcp.Templates())
 	}
 	overrides, err := g.templates()
 	if err != nil {
@@ -250,13 +268,15 @@ func (g *generation) render() error {
 }
 
 // view is the template data of part: the server generator's for server parts, the client
-// generator's for client parts, else the models'.
+// generator's for client parts, the MCP generator's for MCP parts, else the models'.
 func (g *generation) view(part layout.PartID, s *gocode.Scope) any {
 	switch {
 	case strings.HasPrefix(string(part), "server."):
 		return g.srv.View(part, s)
 	case strings.HasPrefix(string(part), "client."):
 		return g.cl.View(part, s)
+	case strings.HasPrefix(string(part), "mcp."):
+		return g.mc.View(part, s)
 	}
 	return g.gen.View(part, s)
 }

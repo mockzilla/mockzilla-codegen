@@ -1,0 +1,281 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+
+	"example.com/work/types"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+// MCPTools exposes the operations of the API as MCP tools, each calling the client.
+type MCPTools struct {
+	client PetClientInterface
+}
+
+// NewMCPTools returns the tools that call c.
+func NewMCPTools(c PetClientInterface) *MCPTools {
+	return &MCPTools{client: c}
+}
+
+// Register adds every tool to s. To add a few, pass the definition and the handler of each to
+// mcp.AddTool instead.
+func (t *MCPTools) Register(s *mcp.Server) {
+	mcp.AddTool(s, t.ListPetsTool(), t.ListPets)
+	mcp.AddTool(s, t.CreatePetTool(), t.CreatePet)
+	mcp.AddTool(s, t.GetPetTool(), t.GetPet)
+	mcp.AddTool(s, t.GetPet2Tool(), t.GetPet2)
+	mcp.AddTool(s, t.PutPetTool(), t.PutPet)
+	mcp.AddTool(s, t.DeletePetTool(), t.DeletePet)
+	mcp.AddTool(s, t.PingTool(), t.Ping)
+	mcp.AddTool(s, t.NoteTool(), t.Note)
+	mcp.AddTool(s, t.UploadTool(), t.Upload)
+	mcp.AddTool(s, t.TailTool(), t.Tail)
+}
+
+// ErrMCPStreaming is what a tool answers when its operation streams its response, which a tool
+// result cannot carry; read such an operation through the client.
+var ErrMCPStreaming = errors.New("the operation answers with a stream, which an MCP tool cannot return")
+
+// ListPetsTool is the definition of the list_pets tool: its name, its description and the schema
+// of its input.
+func (t *MCPTools) ListPetsTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "list_pets",
+		Description: "List pets\n\nReturns pets.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"limit":{"type":"integer","description":"How many at most.","deprecated":true},"filter":{"type":"object"},"X-Trace":{"type":"string"},"session":{"type":"string"}},"required":["filter","session"],"additionalProperties":false}`),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
+	}
+}
+
+// ListPets handles the list_pets tool: it calls ListPets of the client and answers with what it returns as structured content.
+// An error of the client is the error of the tool.
+func (t *MCPTools) ListPets(ctx context.Context, _ *mcp.CallToolRequest, in types.ListPetsToolInput) (*mcp.CallToolResult, any, error) {
+	opts := &types.ListPetsRequestOptions{
+		Query: &types.ListPetsQuery{
+			Limit:  in.Limit,
+			Filter: in.Filter,
+		},
+		Headers: &types.ListPetsHeaders{
+			XTrace: in.XTrace,
+		},
+		Cookies: &types.ListPetsCookies{
+			Session: in.Session,
+		},
+	}
+	out, err := t.client.ListPets(ctx, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, out, nil
+}
+
+// CreatePetTool is the definition of the create_pet tool: its name, its description and the schema
+// of its input.
+func (t *MCPTools) CreatePetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "create_pet",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"body":{"$ref":"#/$defs/Pet","description":"The pet to add."}},"required":["body"],"additionalProperties":false,"$defs":{"Pet":{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}}}`),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: false},
+	}
+}
+
+// CreatePet handles the create_pet tool: it calls CreatePet of the client and answers with what it returns as structured content.
+// An error of the client is the error of the tool.
+func (t *MCPTools) CreatePet(ctx context.Context, _ *mcp.CallToolRequest, in types.CreatePetToolInput) (*mcp.CallToolResult, any, error) {
+	opts := &types.CreatePetRequestOptions{
+		BodyJSON: in.Body,
+	}
+	out, err := t.client.CreatePet(ctx, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, out, nil
+}
+
+// GetPetTool is the definition of the get_pet tool: its name, its description and the schema
+// of its input.
+func (t *MCPTools) GetPetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "get_pet",
+		Description: "Fetch a pet by its id.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string"},"query_id":{"type":"string"},"body":{"type":"string"},"request_body":{}},"required":["id"],"additionalProperties":false}`),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
+	}
+}
+
+// GetPet handles the get_pet tool: it calls GetPet of the client and answers with what it returns as structured content.
+// An error of the client is the error of the tool.
+func (t *MCPTools) GetPet(ctx context.Context, _ *mcp.CallToolRequest, in types.GetPetToolInput) (*mcp.CallToolResult, any, error) {
+	opts := &types.GetPetRequestOptions{
+		PathParams: &types.GetPetPathParams{
+			ID: in.ID,
+		},
+		Query: &types.GetPetQuery{
+			ID:   in.QueryID,
+			Body: in.Body,
+		},
+		Body: in.RequestBody,
+	}
+	out, err := t.client.GetPet(ctx, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, out, nil
+}
+
+// GetPet2Tool is the definition of the get_pet2 tool: its name, its description and the schema
+// of its input.
+func (t *MCPTools) GetPet2Tool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "get_pet2",
+		InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: false},
+	}
+}
+
+// GetPet2 handles the get_pet2 tool: it calls GetPet2 of the client and answers with what it returns as structured content.
+// An error of the client is the error of the tool.
+func (t *MCPTools) GetPet2(ctx context.Context, _ *mcp.CallToolRequest, _ types.GetPet2ToolInput) (*mcp.CallToolResult, any, error) {
+	opts := &types.GetPet2RequestOptions{}
+	out, err := t.client.GetPet2(ctx, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, out, nil
+}
+
+// PutPetTool is the definition of the put_pet tool: its name, its description and the schema
+// of its input.
+func (t *MCPTools) PutPetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "put_pet",
+		InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: true},
+	}
+}
+
+// PutPet handles the put_pet tool: it calls PutPet of the client and answers with the text it returns.
+// An error of the client is the error of the tool.
+func (t *MCPTools) PutPet(ctx context.Context, _ *mcp.CallToolRequest, _ types.PutPetToolInput) (*mcp.CallToolResult, any, error) {
+	opts := &types.PutPetRequestOptions{}
+	out, err := t.client.PutPet(ctx, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	res := &mcp.CallToolResult{Content: []mcp.Content{}}
+	if out != nil {
+		res.Content = append(res.Content, &mcp.TextContent{Text: *out})
+	}
+	return res, nil, nil
+}
+
+// DeletePetTool is the definition of the remove-pet tool: its name, its description and the schema
+// of its input.
+func (t *MCPTools) DeletePetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "remove-pet",
+		Description: "Deprecated: the spec marks it deprecated.",
+		InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: true},
+	}
+}
+
+// DeletePet handles the remove-pet tool: it calls DeletePet of the client and answers ok.
+// An error of the client is the error of the tool.
+func (t *MCPTools) DeletePet(ctx context.Context, _ *mcp.CallToolRequest, _ types.DeletePetToolInput) (*mcp.CallToolResult, any, error) {
+	opts := &types.DeletePetRequestOptions{}
+	if err := t.client.DeletePet(ctx, opts); err != nil {
+		return nil, nil, err
+	}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "ok"}}}, nil, nil
+}
+
+// PingTool is the definition of the ping tool: its name, its description and the schema
+// of its input.
+func (t *MCPTools) PingTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "ping",
+		InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
+	}
+}
+
+// Ping handles the ping tool: it calls Ping of the client and answers with the text it returns.
+// An error of the client is the error of the tool.
+func (t *MCPTools) Ping(ctx context.Context, _ *mcp.CallToolRequest, _ types.PingToolInput) (*mcp.CallToolResult, any, error) {
+	opts := &types.PingRequestOptions{}
+	out, err := t.client.Ping(ctx, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: out}}}, nil, nil
+}
+
+// NoteTool is the definition of the note tool: its name, its description and the schema
+// of its input.
+func (t *MCPTools) NoteTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "note",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"body":{"type":"string"}},"additionalProperties":false}`),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: false},
+	}
+}
+
+// Note handles the note tool: it calls Note of the client and answers with the text it returns.
+// An error of the client is the error of the tool.
+func (t *MCPTools) Note(ctx context.Context, _ *mcp.CallToolRequest, in types.NoteToolInput) (*mcp.CallToolResult, any, error) {
+	opts := &types.NoteRequestOptions{
+		Body: in.Body,
+	}
+	out, err := t.client.Note(ctx, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	res := &mcp.CallToolResult{Content: []mcp.Content{}}
+	if out != nil {
+		res.Content = append(res.Content, &mcp.TextContent{Text: string(*out)})
+	}
+	return res, nil, nil
+}
+
+// UploadTool is the definition of the upload tool: its name, its description and the schema
+// of its input.
+func (t *MCPTools) UploadTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "upload",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"body":{"type":"string","contentEncoding":"base64"}},"additionalProperties":false}`),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: false},
+	}
+}
+
+// Upload handles the upload tool: it calls Upload of the client and answers with what it returns as structured content.
+// An error of the client is the error of the tool.
+func (t *MCPTools) Upload(ctx context.Context, _ *mcp.CallToolRequest, in types.UploadToolInput) (*mcp.CallToolResult, any, error) {
+	opts := &types.UploadRequestOptions{
+		BodyMultipart: in.Body,
+	}
+	out, err := t.client.Upload(ctx, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return nil, out, nil
+}
+
+// TailTool is the definition of the tail tool: its name, its description and the schema
+// of its input.
+func (t *MCPTools) TailTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "tail",
+		InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`),
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
+	}
+}
+
+// Tail handles the tail tool. Tail answers with a stream, so it is ErrMCPStreaming.
+func (t *MCPTools) Tail(_ context.Context, _ *mcp.CallToolRequest, _ types.TailToolInput) (*mcp.CallToolResult, any, error) {
+	return nil, nil, ErrMCPStreaming
+}

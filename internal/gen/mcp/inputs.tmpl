@@ -1,0 +1,16 @@
+{{- range .Inputs}}
+{{- if .Fields}}
+// {{.Type}} is the input of the {{.Tool}} tool: the parameters of the operation.
+type {{.Type}} struct {
+{{- range .Fields}}
+{{- with .Doc}}
+{{comment .}}
+{{- end}}
+	{{.Name}} {{.Type}} {{.Tag}}
+{{- end}}
+}
+{{- else}}
+// {{.Type}} is the input of the {{.Tool}} tool, which takes nothing.
+type {{.Type}} struct{}
+{{- end}}
+{{- end}}

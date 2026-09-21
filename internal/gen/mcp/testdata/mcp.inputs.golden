@@ -1,0 +1,52 @@
+package types
+
+// ListPetsToolInput is the input of the list_pets tool: the parameters of the operation.
+type ListPetsToolInput struct {
+	// How many at most.
+	Limit   *int              `json:"limit,omitempty"`
+	Filter  map[string]string `json:"filter"`
+	XTrace  *string           `json:"X-Trace,omitempty"`
+	Session string            `json:"session"`
+}
+
+// CreatePetToolInput is the input of the create_pet tool: the parameters of the operation.
+type CreatePetToolInput struct {
+	// The pet to add.
+	Body *Pet `json:"body"`
+}
+
+// GetPetToolInput is the input of the get_pet tool: the parameters of the operation.
+type GetPetToolInput struct {
+	ID      string  `json:"id"`
+	QueryID *string `json:"query_id,omitempty"`
+	Body    *string `json:"body,omitempty"`
+	// The request body, sent as application/json.
+	RequestBody map[string]string `json:"request_body,omitempty"`
+}
+
+// GetPet2ToolInput is the input of the get_pet2 tool, which takes nothing.
+type GetPet2ToolInput struct{}
+
+// PutPetToolInput is the input of the put_pet tool, which takes nothing.
+type PutPetToolInput struct{}
+
+// DeletePetToolInput is the input of the remove-pet tool, which takes nothing.
+type DeletePetToolInput struct{}
+
+// PingToolInput is the input of the ping tool, which takes nothing.
+type PingToolInput struct{}
+
+// NoteToolInput is the input of the note tool: the parameters of the operation.
+type NoteToolInput struct {
+	// The request body, sent as text/markdown.
+	Body *Note `json:"body,omitempty"`
+}
+
+// UploadToolInput is the input of the upload tool: the parameters of the operation.
+type UploadToolInput struct {
+	// The request body, sent as multipart/form-data.
+	Body *Upload `json:"body,omitempty"`
+}
+
+// TailToolInput is the input of the tail tool, which takes nothing.
+type TailToolInput struct{}

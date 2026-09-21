@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
@@ -63,7 +64,7 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 			continue
 		}
 		g.ops = append(g.ops, op)
-		if opts.HasStreams || !isStreamOnly(op) {
+		if opts.HasStreams || !IsStreamOnly(op) {
 			continue
 		}
 
@@ -116,12 +117,12 @@ func (g *Generator) Parts() []layout.Part {
 
 	parts := []layout.Part{
 		{ID: PartCore},
-		{ID: PartOptions, Uses: partsOf(requests)},
-		{ID: PartOperations, Uses: slices.Concat([]layout.PartID{PartCore, PartOptions}, partsOf(responses)), Owner: PartCore},
+		{ID: PartOptions, Uses: operation.PartsOf(requests)},
+		{ID: PartOperations, Uses: slices.Concat([]layout.PartID{PartCore, PartOptions}, operation.PartsOf(responses)), Owner: PartCore},
 	}
 	if g.opts.HasEnvelopes {
-		parts[2].Uses = slices.Concat([]layout.PartID{PartCore, PartOptions, PartResponses}, partsOf(responses))
-		parts = append(parts, layout.Part{ID: PartResponses, Uses: partsOf(responses)})
+		parts[2].Uses = slices.Concat([]layout.PartID{PartCore, PartOptions, PartResponses}, operation.PartsOf(responses))
+		parts = append(parts, layout.Part{ID: PartResponses, Uses: operation.PartsOf(responses)})
 	}
 	return parts
 }
@@ -138,33 +139,4 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 	default:
 		return operationsView(g, s)
 	}
-}
-
-// partsOf lists the parts the declarations behind types are in, each once and sorted.
-func partsOf(types []gomodel.Type) []layout.PartID {
-	var out []layout.PartID
-	for _, t := range types {
-		for _, d := range decls(t) {
-			if id := layout.PartID(d.Part); !slices.Contains(out, id) {
-				out = append(out, id)
-			}
-		}
-	}
-	slices.Sort(out)
-	return out
-}
-
-// decls returns the declarations a type refers to.
-func decls(t gomodel.Type) []*gomodel.Decl {
-	switch t := t.(type) {
-	case gomodel.DeclRef:
-		return []*gomodel.Decl{t.Decl}
-	case gomodel.Pointer:
-		return decls(t.Elem)
-	case gomodel.Slice:
-		return decls(t.Elem)
-	case gomodel.Map:
-		return slices.Concat(decls(t.Key), decls(t.Elem))
-	}
-	return nil
 }

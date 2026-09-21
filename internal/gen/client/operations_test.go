@@ -90,7 +90,7 @@ func TestSuccessBody(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			r, c, ok := successBody(&gomodel.Operation{Responses: tc.responses})
+			r, c, ok := SuccessBody(&gomodel.Operation{Responses: tc.responses})
 
 			assert.Equal(t, tc.wantOK, ok)
 			assert.Equal(t, tc.want, r)
@@ -177,7 +177,7 @@ func TestStreamBody(t *testing.T) {
 			assert.Equal(t, tc.wantOK, ok)
 			assert.Equal(t, tc.want, r)
 			assert.Equal(t, tc.wantBody, c)
-			assert.Equal(t, tc.wantStreamOnly, isStreamOnly(op))
+			assert.Equal(t, tc.wantStreamOnly, IsStreamOnly(op))
 		})
 	}
 }

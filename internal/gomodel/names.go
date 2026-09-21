@@ -23,14 +23,14 @@ var structMethods = []string{"Validate", "MarshalJSON", "UnmarshalJSON", "Masked
 var additionalMethods = []string{"AdditionalProperties", "Get", "Set"}
 
 // resolveOperations names operations, then webhooks. They become methods, so they have a scope
-// of their own.
-func resolveOperations(doc *spec.Document, n *naming.Namer, c *diag.Collector) []*Operation {
+// of their own, in which reserved are the methods the generator declares.
+func resolveOperations(doc *spec.Document, n *naming.Namer, reserved []string, c *diag.Collector) []*Operation {
 	all := slices.Concat(doc.Operations, doc.Webhooks)
 	reqs := make([]naming.Request, len(all))
 	for i, op := range all {
 		reqs[i] = naming.Request{ID: op.Origin.Pointer, Want: n.Exported(op.ID), Rank: naming.RankOperation, Order: i, Origin: origin(op.Origin)}
 	}
-	res := resolve(nil, reqs, c)
+	res := resolve(reserved, reqs, c)
 
 	ops := make([]*Operation, len(all))
 	for i, op := range all {

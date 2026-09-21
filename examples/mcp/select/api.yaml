@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info: {title: selected tools, version: "1"}
+paths:
+  /items/{id}:
+    get:
+      operationId: getItem
+      summary: Fetch an item
+      x-mcp:
+        skip: false
+        name: fetch_item
+        description: Fetch one item by its number. Ask for the tenant when it is not known.
+      parameters:
+        - {name: id, in: path, required: true, description: The number of the item., schema: {type: integer}}
+        - {name: id, in: query, description: The number of the item to compare with., schema: {type: integer}}
+        - {name: X-Tenant, in: header, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: the item
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Item'}}
+    delete:
+      operationId: deleteItem
+      summary: Remove an item
+      x-mcp: {skip: false}
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        "204": {description: gone}
+    put:
+      operationId: putItem
+      summary: Replace an item, which stays out of MCP by default
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Item'}}
+      responses:
+        "200":
+          description: the item
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Item'}}
+  /internal/reset:
+    post:
+      operationId: reset
+      summary: Reset the store, never exposed
+      x-mcp: {skip: true}
+      responses:
+        "204": {description: done}
+components:
+  schemas:
+    Item:
+      type: object
+      required: [id, tenant]
+      properties:
+        id: {type: integer}
+        tenant: {type: string}
+        compared: {type: integer}

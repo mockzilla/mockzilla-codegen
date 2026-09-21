@@ -1,6 +1,6 @@
 # codegen
 
-Generate Go models, HTTP servers and clients from OpenAPI 3.0, 3.1 and 3.2 specs.
+Generate Go models, HTTP servers, clients and MCP tools from OpenAPI 3.0, 3.1 and 3.2 specs.
 
 Status: early development. The config format and the generated API may still change.
 
@@ -23,6 +23,8 @@ Status: early development. The config format and the generated API may still cha
   into typed errors, an envelope variant with every documented body and header, and a stream
   variant that reads Server-Sent Events and line-delimited JSON frame by frame
   ([client](docs/client.md)).
+- MCP tools over the client, one per operation with an input schema built from the spec, for the
+  official Go SDK, so an AI assistant calls the API ([MCP](docs/mcp.md)).
 - A plugin API for tools built on the generator, and template overrides for a closed list of
   blocks ([plugins](docs/plugins.md)).
 
@@ -128,7 +130,7 @@ selectors, and the most specific selector wins. A selector can be listed only on
 | `server` | every server part |
 | `server.<part>` | `service`, `adapter`, `router`, `errors` |
 | `client`, `client.<part>` | `core`, `options`, `operations`, `responses` |
-| `mcp` | the MCP server |
+| `mcp`, `mcp.<part>` | `tools`, `inputs` |
 | `plugin.<name>`, `plugin.<name>.<part>` | parts added by a plugin |
 
 The folder of `output.file` uses `package`. Other folders use `output.packages`, else their own

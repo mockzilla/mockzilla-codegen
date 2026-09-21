@@ -138,6 +138,24 @@ func TestOptionsFrom(t *testing.T) {
 				OperationSuffixes:  []string{"RequestOptions", "Response"},
 			},
 		},
+		{
+			name: "MCP reserves its names, the Register method and the tool input suffix",
+			cfg: &config.Config{
+				Naming: config.Naming{Initialisms: []string{"PSP"}},
+				Client: &config.Client{},
+				MCP:    &config.MCP{},
+			},
+			want: Options{
+				IntType:            "int",
+				Descriptions:       true,
+				EnumPrefix:         true,
+				Namer:              n,
+				IsValidated:        true,
+				Reserved:           []string{"Client", "NewClient", "ClientOption", "ClientInterface", "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithRequestEditor", "MCPTools", "NewMCPTools", "ErrMCPStreaming"},
+				ReservedOperations: []string{"Register"},
+				OperationSuffixes:  []string{"RequestOptions", "ToolInput"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
