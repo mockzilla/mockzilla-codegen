@@ -16,7 +16,7 @@ Extensions change what codegen writes for one schema, property or parameter.
 | `x-enum-names` | enum schema | constant names, in value order |
 | `x-deprecated-reason` | schema, property | the text of `// Deprecated:` when `deprecated: true` is set |
 | `x-sensitive-data` | property | masked in `Masked()` and in logs |
-| `x-mcp` | operation | MCP tool settings: `skip`, `name`, `description` |
+| `x-mcp` | operation | MCP tool settings: `skip`, `name`, `description` ([MCP](mcp.md#x-mcp)) |
 
 A value of the wrong kind is left out, with a warning. An unknown extension starting with `x-go-`
 or `x-oapi-codegen-` is left out with a warning too, since it is likely a typo. Other `x-*`
@@ -92,4 +92,5 @@ the masked ones. A regex pattern RE2 cannot compile falls back to the full mask,
 
 - `x-go-type-name` on a component declares the type under the new name only. oapi-codegen also
   kept an alias under the component name.
-- `x-mcp` is read now and used when MCP servers are generated.
+- `x-mcp` picks the tools of the [MCP](mcp.md) block as it did, with `name` checked against what
+  the SDK takes.

@@ -1,6 +1,6 @@
 Pet struct models.types
   Name *string json=name omitempty
-GetPetResponseDataSchema alias string models.types
+GetPetResponseData alias string models.types
 Order enum string models.enums
   OrderAsc "asc"
   OrderDesc "desc"
@@ -12,27 +12,27 @@ PetYaml struct models.bodies
   Name *string json=name omitempty
 PetResponse struct models.responses
   Pet *Pet json=pet omitempty
-GetPetPathParams struct models.params
+GetPet2PathParams struct models.params
   ID string json=id required
-GetPetQuery struct models.params
-  Status *GetPetQueryStatus json=status omitempty
-  Filter *GetPetQueryFilter json=filter omitempty
+GetPet2Query struct models.params
+  Status *GetPet2QueryStatus json=status omitempty
+  Filter *GetPet2QueryFilter json=filter omitempty
   Order *Order json=order omitempty
   Limit *int32 json=limit omitempty
-GetPetQueryStatus enum string models.enums
-  GetPetQueryStatusSold "sold"
-  GetPetQueryStatusKept "kept"
-GetPetQueryFilter struct models.params
+GetPet2QueryStatus enum string models.enums
+  GetPet2QueryStatusSold "sold"
+  GetPet2QueryStatusKept "kept"
+GetPet2QueryFilter struct models.params
   Q *string json=q omitempty
-GetPetHeaders struct models.params
+GetPet2Headers struct models.params
   XTraceID string json=X-Trace-ID required doc="Trace"
-GetPetCookies struct models.params
+GetPet2Cookies struct models.params
   Session *string json=session omitempty
-GetPetJSONResponse404 struct models.responses
+GetPet2JSONResponse404 struct models.responses
   Message *string json=message omitempty
-GetPetXMLResponse404 struct models.responses
+GetPet2XMLResponse404 struct models.responses
   Msg *string json=msg omitempty
-GetPet2PathParams struct models.params
+GetPet3PathParams struct models.params
   ID string json=id required
 PostPetsIDPathParams struct models.params
   ID string json=id required
@@ -41,18 +41,18 @@ PostPetsIDTextRequestBody alias string models.bodies
 PostPetsIDResponse201 alias runtime.File models.responses
 PostPetAddedRequestBody struct models.bodies
   ID *string json=id omitempty
-op GetPet GET /pets/{id}
-  params path GetPetPathParams
-  params query GetPetQuery
-  params header GetPetHeaders
-  params cookie GetPetCookies
+op GetPet2 GET /pets/{id}
+  params path GetPet2PathParams
+  params query GetPet2Query
+  params header GetPet2Headers
+  params cookie GetPet2Cookies
   response 200 application/json Pet
-  response 404 application/json GetPetJSONResponse404
-  response 404 application/xml GetPetXMLResponse404
+  response 404 application/json GetPet2JSONResponse404
+  response 404 application/xml GetPet2XMLResponse404
   response 4XX application/json PetResponse
   response default application/octet-stream -
-op GetPet2 PUT /pets/{id}
-  params path GetPet2PathParams
+op GetPet3 PUT /pets/{id}
+  params path GetPet3PathParams
   body application/json PetJSON
   body application/yaml PetYaml
 op PostPetsID POST /pets/{id}
@@ -64,8 +64,8 @@ op PostPetsID POST /pets/{id}
 op PostPetAdded POST petAdded
   body application/json PostPetAddedRequestBody
 ---
+info name-clash 8:7 /paths/~1pets~1{id}/get: "GetPet" is reserved, renamed to "GetPet2"
 warning duplicate-param 11:11 /paths/~1pets~1{id}/get/parameters/1: query parameter "status" is listed again; only the first one is used
-info name-clash 34:7 /paths/~1pets~1{id}/put: "GetPet" is used by /paths/~1pets~1{id}/get, renamed to "GetPet2"
+info name-clash 34:7 /paths/~1pets~1{id}/put: "GetPet" is reserved, renamed to "GetPet3"
 info name-clash 65:41 /components/parameters/Pet/schema: "Pet" is used by /components/schemas/Pet, renamed to "PetParameter"
 info name-clash 78:36 /components/responses/Pet/content/application~1json/schema: "Pet" is used by /components/schemas/Pet, renamed to "PetResponse"
-info name-clash 84:25 /components/schemas/GetPetResponseData: "GetPetResponseData" is reserved, renamed to "GetPetResponseDataSchema"

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/layout"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
@@ -240,6 +241,35 @@ func TestDoc(t *testing.T) {
 			t.Parallel()
 
 			assert.Equal(t, tc.want, Doc(tc.op))
+		})
+	}
+}
+
+func TestPartsOf(t *testing.T) {
+	t.Parallel()
+
+	pet := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Pet", Part: gomodel.PartTypes}}
+	params := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Query", Part: gomodel.PartParams}}
+	str := gomodel.Builtin{Name: "string"}
+	tests := []struct {
+		name  string
+		types []gomodel.Type
+		want  []layout.PartID
+	}{
+		{name: "No types"},
+		{name: "Builtins and nil are in no part", types: []gomodel.Type{str, nil, gomodel.Qualified{Name: "Time"}}},
+		{
+			name:  "Declarations through pointers, slices and maps, each part once and sorted",
+			types: []gomodel.Type{params, gomodel.Pointer{Elem: pet}, gomodel.Slice{Elem: pet}, gomodel.Map{Key: str, Elem: params}},
+			want:  []layout.PartID{gomodel.PartParams, gomodel.PartTypes},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, PartsOf(tc.types))
 		})
 	}
 }

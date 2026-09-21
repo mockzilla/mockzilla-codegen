@@ -156,9 +156,23 @@ func (n *Namer) ClientResponse(op string) string {
 	return op + "Response"
 }
 
+// ToolInput names what the MCP tool of an operation receives.
+func (n *Namer) ToolInput(op string) string {
+	return op + "ToolInput"
+}
+
 // EnumConst names an enum constant prefixed with its type: StatusActive.
 func (n *Namer) EnumConst(typ, value string) string {
 	return typ + n.camel(value)
+}
+
+// Snake writes a Go name in snake case: GetPetByID gives get_pet_by_id, HTTP2Stats http2_stats.
+func (n *Namer) Snake(name string) string {
+	ws := rawWords(name, n.initialisms)
+	for i, w := range ws {
+		ws[i] = strings.ToLower(w)
+	}
+	return strings.Join(ws, "_")
 }
 
 // MediaTag shortens a media type: application/problem+json gives ProblemJSON.

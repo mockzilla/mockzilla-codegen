@@ -3,9 +3,10 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Package operation holds what the server and the client generators share about an operation:
-// the fields its parameters and bodies go in, the Go type of a body, the response the plain
-// methods answer with, and how the runtime names a parameter's style.
+// Package operation holds what the server, the client and the MCP generators share about an
+// operation: the fields its parameters and bodies go in, the Go type of a body, the response the
+// plain methods answer with, how the runtime names a parameter's style, and the parts the types
+// of an operation are declared in.
 package operation
 
 import (
@@ -16,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/layout"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
@@ -147,6 +149,20 @@ func IsJSONParam(p *spec.Parameter) bool {
 	return p.Schema == nil && len(p.Contents) > 0 && runtime.IsJSON(p.Contents[0].Name)
 }
 
+// PartsOf lists the parts the declarations behind types are in, each once and sorted.
+func PartsOf(types []gomodel.Type) []layout.PartID {
+	var out []layout.PartID
+	for _, t := range types {
+		for _, d := range decls(t) {
+			if id := layout.PartID(d.Part); !slices.Contains(out, id) {
+				out = append(out, id)
+			}
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
 // StatusOf is the status code a response is answered with: its own, the start of its range, or
 // 500 for default.
 func StatusOf(status string) int {
@@ -173,4 +189,19 @@ func Doc(op *spec.Operation) string {
 		return deprecatedNote
 	}
 	return doc + "\n\n" + deprecatedNote
+}
+
+// decls returns the declarations a type refers to.
+func decls(t gomodel.Type) []*gomodel.Decl {
+	switch t := t.(type) {
+	case gomodel.DeclRef:
+		return []*gomodel.Decl{t.Decl}
+	case gomodel.Pointer:
+		return decls(t.Elem)
+	case gomodel.Slice:
+		return decls(t.Elem)
+	case gomodel.Map:
+		return slices.Concat(decls(t.Key), decls(t.Elem))
+	}
+	return nil
 }

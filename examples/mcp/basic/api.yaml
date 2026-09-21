@@ -1,0 +1,80 @@
+openapi: 3.1.0
+info: {title: pets over MCP, version: "1"}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List the pets
+      description: Returns every pet, the newest first.
+      parameters:
+        - name: limit
+          in: query
+          description: How many pets to return at most.
+          schema: {type: integer, minimum: 1, maximum: 100}
+      responses:
+        "200":
+          description: the pets
+          content:
+            application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Pet'}}}
+    post:
+      operationId: createPet
+      summary: Add a pet
+      requestBody:
+        description: The pet to add.
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+      responses:
+        "201":
+          description: the pet as stored
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+        "409":
+          description: a pet with that id exists
+          content:
+            application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}
+  /pets/{id}:
+    get:
+      operationId: getPet
+      summary: Get one pet
+      parameters:
+        - {name: id, in: path, required: true, description: The id of the pet., schema: {type: integer}}
+      responses:
+        "200":
+          description: the pet
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+        "404":
+          description: no such pet
+          content:
+            application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}
+    delete:
+      operationId: deletePet
+      summary: Remove a pet
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        "204": {description: gone}
+  /ping:
+    get:
+      operationId: ping
+      summary: Check that the API is up
+      responses:
+        "200":
+          description: pong
+          content:
+            text/plain: {schema: {type: string}}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: integer, description: A number that is unique among pets.}
+        name: {type: string, minLength: 1}
+        kind: {type: string, enum: [dog, cat, bird]}
+    Problem:
+      type: object
+      required: [detail]
+      properties:
+        detail: {type: string}

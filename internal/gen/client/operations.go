@@ -185,7 +185,7 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 		v.Bodies = append(v.Bodies, bodyView(c, fields[i], s))
 	}
 
-	if r, c, ok := successBody(op); ok {
+	if r, c, ok := SuccessBody(op); ok {
 		v.Success = r.Status
 		v.Result = s.Expr(operation.BodyType(c))
 		v.Zero = "nil"
@@ -313,9 +313,9 @@ func held(value string, base, t gomodel.Type, s *gocode.Scope) string {
 	return out
 }
 
-// successBody is the lowest documented 2xx response that has a body, with the body the plain
+// SuccessBody is the lowest documented 2xx response that has a body, with the body the plain
 // method returns: its JSON one, else its first.
-func successBody(op *gomodel.Operation) (gomodel.Response, gomodel.Content, bool) {
+func SuccessBody(op *gomodel.Operation) (gomodel.Response, gomodel.Content, bool) {
 	r, ok := lowestSuccess(op, func(gomodel.Content) bool { return true })
 	if !ok {
 		return gomodel.Response{}, gomodel.Content{}, false
@@ -353,9 +353,10 @@ func lowestSuccess(op *gomodel.Operation, fits func(gomodel.Content) bool) (gomo
 	return *best, true
 }
 
-// isStreamOnly reports an operation whose 2xx responses have bodies in sequential media types
-// only, so that only its Stream method can read them.
-func isStreamOnly(op *gomodel.Operation) bool {
+// IsStreamOnly reports an operation whose 2xx responses have bodies in sequential media types
+// only, so that only its Stream method can read them: the plain method blocks until the server
+// hangs up.
+func IsStreamOnly(op *gomodel.Operation) bool {
 	if _, _, ok := streamBody(op); !ok {
 		return false
 	}

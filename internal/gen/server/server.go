@@ -127,17 +127,11 @@ func (g *Generator) Routes() []framework.Route {
 
 // Parts returns the server parts with the parts each refers to.
 func (g *Generator) Parts() []layout.Part {
-	var used []layout.PartID
+	var types []gomodel.Type
 	for _, op := range g.ops {
-		for _, t := range operationTypes(op) {
-			for _, d := range decls(t) {
-				if id := layout.PartID(d.Part); !slices.Contains(used, id) {
-					used = append(used, id)
-				}
-			}
-		}
+		types = append(types, operationTypes(op)...)
 	}
-	slices.Sort(used)
+	used := operation.PartsOf(types)
 
 	parts := []layout.Part{
 		{ID: PartService, Uses: used},
@@ -258,19 +252,4 @@ func operationTypes(op *gomodel.Operation) []gomodel.Type {
 		}
 	}
 	return out
-}
-
-// decls returns the declarations a type refers to.
-func decls(t gomodel.Type) []*gomodel.Decl {
-	switch t := t.(type) {
-	case gomodel.DeclRef:
-		return []*gomodel.Decl{t.Decl}
-	case gomodel.Pointer:
-		return decls(t.Elem)
-	case gomodel.Slice:
-		return decls(t.Elem)
-	case gomodel.Map:
-		return slices.Concat(decls(t.Key), decls(t.Elem))
-	}
-	return nil
 }

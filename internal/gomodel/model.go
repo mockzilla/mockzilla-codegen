@@ -26,6 +26,13 @@ var serverNames = []string{
 	"ErrorParse", "ErrorDecode", "ErrorValidation", "ErrorService", "ErrorResponse",
 }
 
+// mcpNames are what the MCP parts declare next to the models; mcpMethods are the methods of the
+// tools type that are no operation.
+var (
+	mcpNames   = []string{"MCPTools", "NewMCPTools", "ErrMCPStreaming"}
+	mcpMethods = []string{"Register"}
+)
+
 // middlewareNames are what the middleware scaffold declares.
 var middlewareNames = []string{"RequestIDMiddleware", "RecoverMiddleware", "LoggingMiddleware", "CORSMiddleware", "TimeoutMiddleware"}
 
@@ -81,7 +88,9 @@ type readers struct {
 }
 
 // Options are the settings Build uses. Reserved names are declared by the generator elsewhere in
-// the package; each operation also declares its name plus every OperationSuffixes entry.
+// the package; each operation also declares its name plus every OperationSuffixes entry, and no
+// operation takes a ReservedOperations name, which the generator declares as a method next to
+// the operations.
 // IsValidated adds Validate methods, ValidateResponse where responses differ. ErrorMapping maps
 // error type names to the path of their message. IsServer reserves the names of the response
 // constructors of the service contract; HasResponseHeaders declares a struct of the typed headers
@@ -93,6 +102,7 @@ type Options struct {
 	EnumPrefix         bool
 	Namer              *naming.Namer
 	Reserved           []string
+	ReservedOperations []string
 	OperationSuffixes  []string
 	IsValidated        bool
 	ValidateResponse   bool
@@ -141,13 +151,18 @@ func OptionsFrom(cfg *config.Config) Options {
 			opts.OperationSuffixes = append(opts.OperationSuffixes, n.ClientResponse(""))
 		}
 	}
+	if cfg.MCP != nil {
+		opts.Reserved = append(opts.Reserved, mcpNames...)
+		opts.ReservedOperations = mcpMethods
+		opts.OperationSuffixes = append(opts.OperationSuffixes, n.ToolInput(""))
+	}
 	return opts
 }
 
 // Build turns a parsed spec into the Go model. Problems in the spec come back as diagnostics.
 func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 	var diags diag.Collector
-	ops := resolveOperations(doc, opts.Namer, &diags)
+	ops := resolveOperations(doc, opts.Namer, opts.ReservedOperations, &diags)
 
 	reserved := slices.Clone(opts.Reserved)
 	for _, op := range ops {

@@ -327,3 +327,37 @@ paths:
 		Message:  "GetEvents answers only as text/event-stream, which GetEvents reads whole; set client.streaming to read it as it arrives",
 	})
 }
+
+func TestGenerateReportsTheMCPDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	const toolSpec = `openapi: 3.1.0
+info: {title: tools, version: "1"}
+paths:
+  /ping:
+    get:
+      operationId: ping
+      x-mcp: {name: "ping me"}
+      responses:
+        "204": {description: pong}
+`
+	dir := t.TempDir()
+	cfg, err := config.Parse([]byte("package: tools\nclient: {}\nmcp: {}\noutput: {file: ./api/gen.go}\n"), dir)
+	require.NoError(t, err)
+
+	res, err := Generate(context.Background(), cfg, WithSpec([]byte(toolSpec)))
+
+	require.NoError(t, err)
+	assert.Contains(t, res.Diagnostics, Diagnostic{
+		Severity: SeverityWarning,
+		Code:     "mcp-tool-name",
+		Pointer:  "/paths/~1ping/get/x-mcp/name",
+		Line:     5,
+		Col:      5,
+		Message:  `x-mcp.name "ping me" is no tool name, which has letters, digits, _ - and . up to 128 characters; the tool is named "ping"`,
+	})
+	assert.Equal(t, []string{
+		"models.types", "models.enums", "models.unions", "models.params", "models.bodies", "models.responses",
+		"client.core", "client.options", "client.operations", "mcp.inputs", "mcp.tools",
+	}, res.Files[0].Parts)
+}
