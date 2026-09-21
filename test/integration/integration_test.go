@@ -52,9 +52,16 @@ var servers = map[string]struct {
 // its shapes, and builds one against a base URL.
 var clientVariant = itest.Variant{Name: "client", Config: "client:\n  with-response: true\n  streaming: true\n", Init: "%s.NewClient(\"http://localhost\")"}
 
+// mcpVariant generates the MCP tools over the client and builds them; mcpDeps are the modules
+// their code imports.
+var (
+	mcpVariant = itest.Variant{Name: "mcp", Config: "client: {}\nmcp: {}\n", Init: "%s.NewMCPTools(nil)"}
+	mcpDeps    = []string{"github.com/modelcontextprotocol/go-sdk/mcp"}
+)
+
 // TestIntegration generates every spec in testdata/specs with the models variant, one per
-// framework FRAMEWORKS names, chi by default, and the client variant when CLIENT is set, then
-// builds and tests the result. It fails on an unlisted failure and on a listed spec that passes
+// framework FRAMEWORKS names, chi by default, the client variant when CLIENT is set and the MCP
+// variant when MCP is set, then builds and tests the result. It fails on an unlisted failure and on a listed spec that passes
 // now.
 func TestIntegration(t *testing.T) {
 	t.Parallel()
@@ -63,6 +70,10 @@ func TestIntegration(t *testing.T) {
 	require.NoError(t, err)
 	if os.Getenv("CLIENT") != "" {
 		variants = append(variants, clientVariant)
+	}
+	if os.Getenv("MCP") != "" {
+		variants = append(variants, mcpVariant)
+		deps = append(deps, mcpDeps...)
 	}
 	repo, err := filepath.Abs("../..")
 	require.NoError(t, err)

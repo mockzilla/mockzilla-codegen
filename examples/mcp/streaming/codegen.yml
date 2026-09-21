@@ -1,0 +1,7 @@
+spec: {path: api.yaml}
+package: streaming
+server:
+  framework: chi
+client:
+  streaming: true
+mcp: {}

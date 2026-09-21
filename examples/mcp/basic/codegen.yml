@@ -1,0 +1,10 @@
+spec: {path: api.yaml}
+package: basic
+models:
+  error-mapping:
+    Problem: detail
+server:
+  framework: chi
+client:
+  name: PetClient
+mcp: {}

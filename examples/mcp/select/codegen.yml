@@ -1,0 +1,7 @@
+spec: {path: api.yaml}
+package: selected
+server:
+  framework: chi
+client:
+mcp:
+  default-skip: true

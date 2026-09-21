@@ -13,6 +13,7 @@ func TestCollector(t *testing.T) {
 	reserved := testOptions()
 	reserved.Reserved = []string{"Client"}
 	reserved.OperationSuffixes = []string{"ResponseData"}
+	reserved.ReservedOperations = []string{"GetPet"}
 	server := testOptions()
 	server.IsServer, server.HasResponseHeaders = true, true
 	server.OperationSuffixes = []string{"ServiceRequestOptions", "ResponseData"}

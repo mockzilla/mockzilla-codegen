@@ -224,9 +224,14 @@ func TestSuffixes(t *testing.T) {
 		{name: "Response data", got: n.ResponseData("GetPet"), want: "GetPetResponseData"},
 		{name: "Client request options", got: n.ClientRequestOptions("GetPet"), want: "GetPetRequestOptions"},
 		{name: "Client response", got: n.ClientResponse("GetPet"), want: "GetPetResponse"},
+		{name: "Tool input", got: n.ToolInput("GetPet"), want: "GetPetToolInput"},
 		{name: "Enum constant", got: n.EnumConst("Status", "in_progress"), want: "StatusInProgress"},
 		{name: "Enum constant for a number", got: n.EnumConst("Level", "-1"), want: "LevelMinus1"},
 		{name: "Enum constant for an empty string", got: n.EnumConst("Status", ""), want: "StatusEmpty"},
+		{name: "Snake case of a Go name", got: n.Snake("GetPetByID"), want: "get_pet_by_id"},
+		{name: "Snake case keeps an initialism with digits whole", got: n.Snake("HTTP2Stats"), want: "http2_stats"},
+		{name: "Snake case of a plural initialism", got: n.Snake("ListUserIDs"), want: "list_user_ids"},
+		{name: "Snake case of one word", got: n.Snake("Ping"), want: "ping"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

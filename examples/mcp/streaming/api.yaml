@@ -1,0 +1,50 @@
+openapi: 3.2.0
+info: {title: streaming over MCP, version: "1"}
+paths:
+  /chat:
+    post:
+      operationId: chat
+      summary: Ask the assistant
+      description: Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Prompt'}}
+      responses:
+        "200":
+          description: the reply
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Reply'}}
+            text/event-stream: {itemSchema: {$ref: '#/components/schemas/Chunk'}}
+  /events:
+    get:
+      operationId: listEvents
+      summary: Follow the events
+      responses:
+        "200":
+          description: one event per frame
+          content:
+            text/event-stream:
+              itemSchema: {$ref: '#/components/schemas/Event'}
+components:
+  schemas:
+    Prompt:
+      type: object
+      required: [text]
+      properties:
+        text: {type: string}
+        stream: {type: boolean}
+    Reply:
+      type: object
+      required: [text]
+      properties:
+        text: {type: string}
+    Chunk:
+      type: object
+      properties:
+        delta: {type: string}
+    Event:
+      type: object
+      required: [seq]
+      properties:
+        seq: {type: integer}
