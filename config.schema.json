@@ -174,7 +174,8 @@
           "description": "HTTP framework to generate for.",
           "enum": [
             "chi",
-            "std-http"
+            "std-http",
+            "echo"
           ],
           "type": "string"
         },

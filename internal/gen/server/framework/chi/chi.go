@@ -66,23 +66,11 @@ func (Framework) RoutePattern(_, path string) (string, error) {
 // Conflicts drops every route that has the method and shape of an earlier one: a repeat of it,
 // or one whose path parameters are named otherwise, which chi keys by position.
 func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
-	var kept []framework.Route
-	var dropped []framework.Conflict
-	seen := map[string]framework.Route{}
-	for _, r := range routes {
-		key := r.Method + " " + framework.Shape(r.Pattern)
-		first, isTaken := seen[key]
-		switch {
-		case !isTaken:
-			seen[key] = r
-			kept = append(kept, r)
-		case first.Pattern == r.Pattern:
-			dropped = append(dropped, framework.Conflict{Route: r, Reason: "repeats the route of " + first.Operation})
-		default:
-			dropped = append(dropped, framework.Conflict{Route: r, Reason: "names its path parameters otherwise than " + first.Operation + " at " + first.Path})
-		}
-	}
-	return kept, dropped
+	return framework.ConflictsByShape(routes)
+}
+
+func (Framework) Handler(s *gocode.Scope) framework.Handler {
+	return framework.HTTPHandler(s)
 }
 
 func (Framework) PathParam(s *gocode.Scope, name string) string {

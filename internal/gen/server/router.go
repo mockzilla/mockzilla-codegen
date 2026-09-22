@@ -25,11 +25,13 @@ type RouterView struct {
 	Routes     []RouteView
 }
 
-// RouteView registers one operation: Method as the router's method, Pattern quoted.
+// RouteView registers one operation: Method as the router's method, Get, HTTPMethod as the
+// request writes it, GET, and Pattern quoted.
 type RouteView struct {
-	Method    string
-	Pattern   string
-	Operation string
+	Method     string
+	HTTPMethod string
+	Pattern    string
+	Operation  string
 }
 
 func routerView(g *Generator, s *gocode.Scope) *RouterView {
@@ -44,7 +46,7 @@ func routerView(g *Generator, s *gocode.Scope) *RouterView {
 		User:       g.opts.User,
 	}
 	for _, r := range g.routes {
-		v.Routes = append(v.Routes, RouteView{Method: routerMethod(r.Method), Pattern: gocode.Quote(r.Pattern), Operation: r.Operation})
+		v.Routes = append(v.Routes, RouteView{Method: routerMethod(r.Method), HTTPMethod: r.Method, Pattern: gocode.Quote(r.Pattern), Operation: r.Operation})
 	}
 	return v
 }

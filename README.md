@@ -18,7 +18,7 @@ Status: early development. The config format and the generated API may still cha
 - Filters, overlays, pruning and spec simplification before generation.
 - `x-go-*` extensions and masking of sensitive values in logs ([extensions](docs/extensions.md)).
 - A service interface to implement, an HTTP adapter that decodes every parameter style and body
-  type, a router for chi or `http.ServeMux`, and starter files ([server](docs/server.md)).
+  type, a router for chi, echo or `http.ServeMux`, and starter files ([server](docs/server.md)).
 - A client with one method per operation that returns the success body and turns other statuses
   into typed errors, an envelope variant with every documented body and header, and a stream
   variant that reads Server-Sent Events and line-delimited JSON frame by frame

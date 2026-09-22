@@ -7,7 +7,7 @@ for the framework the block names, and starter files on request.
 
 ```yaml
 server:
-  framework: chi   # or std-http
+  framework: chi   # or std-http, echo
   name: Pets       # the interface is PetsInterface; defaults to Service
 ```
 
@@ -90,10 +90,11 @@ func (s *Service) ListPets(ctx context.Context, opts *ListPetsServiceRequestOpti
 
 ## HTTP adapter
 
-`HTTPAdapter` turns requests into calls of the service, one `http.HandlerFunc` method per
-operation. Each handler reads the parameters of every location with the runtime codecs, decodes
-the body by the request's `Content-Type`, validates the options when the config asks for it, calls
-the service and writes what it returns.
+`HTTPAdapter` turns requests into calls of the service, one handler method per operation, in
+the shape the framework takes: an `http.HandlerFunc` for chi and std-http, a
+`func(echo.Context) error` for echo. Each handler reads the parameters of every location with the
+runtime codecs, decodes the body by the request's `Content-Type`, validates the options when the
+config asks for it, calls the service and writes what it returns.
 
 ```go
 adapter := NewHTTPAdapter(svc, opts...)
@@ -189,6 +190,7 @@ NewRouter(svc, WithErrorHandler(ErrorHandlerFunc(func(w http.ResponseWriter, r *
 |---|---|---|---|
 | `chi` | github.com/go-chi/chi/v5 | `chi.Router` | `chi.Router` |
 | `std-http` | `http.ServeMux` with the patterns of Go 1.22 | `http.Handler` | `*http.ServeMux` |
+| `echo` | github.com/labstack/echo/v4 | `*echo.Echo` | `*echo.Echo` |
 
 ```go
 router := NewRouter(svc, WithMiddleware(RequestIDMiddleware, RecoverMiddleware))
@@ -198,7 +200,7 @@ http.ListenAndServe(":8080", router)
 On a new router the middleware wraps everything, unknown paths included, so a CORS preflight is
 answered. With `WithRouter(existing)` the routes are registered on the given router and the
 middleware wraps those routes only: in a group of a chi router, around each handler on a
-`ServeMux`.
+`ServeMux`, as the middleware of each route on an Echo.
 
 An operation the router cannot serve is left out with a `route-dropped` warning: a method the
 router does not take, a path it rejects, or a route it cannot hold next to an earlier one.
@@ -221,6 +223,26 @@ slash, one that is not clean (`/a//b`, `/a/../b`), a parameter that does not fil
 an earlier one, or overlaps with it while neither is more specific, `/a/{x}` next to `/{y}/b`; the
 generator drops such routes by the same rules, so `NewRouter` never panics. A `GET` route answers
 `HEAD` requests too.
+
+### echo
+
+Routes write parameters as echo does, `/pets/{id}` as `/pets/:id`, and the handlers read them
+with `c.Param`. A parameter runs to the end of its segment on echo, so a literal prefix is fine,
+`/pets/v{id}`, while a suffix, `{id}.json`, or two parameters in one segment are rejected. A
+literal colon is escaped, `/pets:search` as `/pets\:search`, since echo reads a colon as the
+start of a parameter. A trailing `*` stays and takes the rest of the path. Echo also rejects a
+path without a leading slash, an unclosed brace, a parameter without a name or named twice and `*`
+not last. It replaces an earlier route with a later one of the same method and shape without a
+word, so the generator drops the later one, as for chi.
+
+The handlers have echo's shape, `func (a *HTTPAdapter) ListPets(c echo.Context) error`, and
+write their response through `c.Response()`, so echo's own middleware sees the status. They
+return nil: the error handler writes every failed request, so the responses of an operation are
+the same under every framework. `WithMiddleware` still takes `func(http.Handler) http.Handler`,
+wrapped with `echo.WrapMiddleware`; echo middleware goes on the returned `*echo.Echo` with `Use`,
+or on the Echo `WithRouter` gives. On a new Echo with middleware, an error a handler returns, such
+as echo's own for an unknown path, is given to echo's error handler inside the middleware, so a
+logging or timeout middleware sees the 404 it writes.
 
 ## Scaffolds
 

@@ -1,31 +1,31 @@
 {{- if .IsJSON}}
 		if err := a.opts.JSONDecoder(r.Body, {{.Target}}, {{.IsRequired}}); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			return
+			{{.Return}}
 		}
 {{- else if .IsForm}}
 		if err := {{.Runtime}}.DecodeForm(r.Body, {{.Target}}, {{.IsRequired}}); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			return
+			{{.Return}}
 		}
 {{- else if .IsMultipart}}
 		opts.{{.Field}} = &{{.Type}}{}
 		if err := {{.Runtime}}.DecodeMultipart(r, opts.{{.Field}}, a.opts.MultipartMaxMemory); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			return
+			{{.Return}}
 		}
 {{- else if .IsText}}
 		text, err := {{.Runtime}}.DecodeText(r.Body, {{.IsRequired}})
 		if err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			return
+			{{.Return}}
 		}
 		opts.{{.Field}} = {{.Assign}}
 {{- else if .IsBytes}}
 		data, err := {{.Runtime}}.DecodeBytes(r.Body, {{.IsRequired}})
 		if err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			return
+			{{.Return}}
 		}
 		opts.{{.Field}} = {{.Assign}}
 {{- end}}

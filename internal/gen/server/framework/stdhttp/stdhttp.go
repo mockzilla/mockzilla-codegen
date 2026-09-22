@@ -112,6 +112,10 @@ func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []frame
 	return kept, dropped
 }
 
+func (Framework) Handler(s *gocode.Scope) framework.Handler {
+	return framework.HTTPHandler(s)
+}
+
 func (Framework) PathParam(_ *gocode.Scope, name string) string {
 	return gocode.Call(gocode.Selector("r", "PathValue"), gocode.Quote(wildcard(name)))
 }

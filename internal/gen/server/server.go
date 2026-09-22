@@ -18,6 +18,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/chi"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/echo"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/stdhttp"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
@@ -177,7 +178,7 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 
 // Frameworks lists the frameworks a router can be generated for, by name.
 func Frameworks() map[string]framework.Framework {
-	return map[string]framework.Framework{"chi": chi.Framework{}, "std-http": stdhttp.Framework{}}
+	return map[string]framework.Framework{"chi": chi.Framework{}, "std-http": stdhttp.Framework{}, "echo": echo.Framework{}}
 }
 
 // Templates are the server template set and the framework's, which holds the router.

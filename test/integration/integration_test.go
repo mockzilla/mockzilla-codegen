@@ -46,6 +46,10 @@ var servers = map[string]struct {
 	"std-http": {
 		variant: itest.Variant{Name: "std-http", Config: "server:\n  framework: std-http\n", Init: "%s.NewRouter(nil)"},
 	},
+	"echo": {
+		variant: itest.Variant{Name: "echo", Config: "server:\n  framework: echo\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/labstack/echo/v4"},
+	},
 }
 
 // clientVariant generates the client with its envelopes and its stream methods, the largest of

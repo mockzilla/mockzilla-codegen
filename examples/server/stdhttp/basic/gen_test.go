@@ -64,7 +64,7 @@ func (*service) Ping(context.Context, *PingServiceRequestOptions) (*PingResponse
 func TestRouter(t *testing.T) {
 	t.Parallel()
 
-	servertest.Run(t, NewRouter(&service{pets: map[int]Pet{}}), servertest.Basic)
+	servertest.Run(t, NewRouter(&service{pets: map[int]Pet{}}), servertest.Basic("404 page not found\n"))
 }
 
 func TestMethodNotAllowed(t *testing.T) {
