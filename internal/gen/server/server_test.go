@@ -20,6 +20,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/models"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/chi"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/echo"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/stdhttp"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
@@ -73,7 +74,7 @@ func TestRoutes(t *testing.T) {
 func TestFrameworks(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, map[string]framework.Framework{"chi": chi.Framework{}, "std-http": stdhttp.Framework{}}, Frameworks())
+	assert.Equal(t, map[string]framework.Framework{"chi": chi.Framework{}, "std-http": stdhttp.Framework{}, "echo": echo.Framework{}}, Frameworks())
 }
 
 func TestTemplates(t *testing.T) {
@@ -185,7 +186,9 @@ func TestParts(t *testing.T) {
 }
 
 // TestViewRendersParts compares each part with testdata/<part>.golden, the router of each
-// framework with testdata/server.router.<framework>.golden. UPDATE=1 writes them instead.
+// framework with testdata/server.router.<framework>.golden, and the adapter of each framework
+// with handlers of its own shape with testdata/server.adapter.<framework>.golden. UPDATE=1 writes
+// them instead.
 func TestViewRendersParts(t *testing.T) {
 	t.Parallel()
 
@@ -202,17 +205,24 @@ func TestViewRendersParts(t *testing.T) {
 		})
 	}
 	for _, name := range slices.Sorted(maps.Keys(Frameworks())) {
-		t.Run(string(PartRouter)+" "+name, func(t *testing.T) {
-			t.Parallel()
+		fw := Frameworks()[name]
+		perFramework := []layout.PartID{PartRouter}
+		if fw.Family() == framework.Native {
+			perFramework = append(perFramework, PartAdapter)
+		}
+		for _, part := range perFramework {
+			t.Run(string(part)+" "+name, func(t *testing.T) {
+				t.Parallel()
 
-			m := petModel()
-			opts := allOptions()
-			opts.Framework = Frameworks()[name]
-			g, _ := New(m, opts)
-			got := fixture{m: m, g: g, cfg: scaffoldConfig}.render(t, PartRouter)
+				m := petModel()
+				opts := allOptions()
+				opts.Framework = fw
+				g, _ := New(m, opts)
+				got := fixture{m: m, g: g, cfg: scaffoldConfig}.render(t, part)
 
-			assertGolden(t, filepath.Join("testdata", string(PartRouter)+"."+name+".golden"), got)
-		})
+				assertGolden(t, filepath.Join("testdata", string(part)+"."+name+".golden"), got)
+			})
+		}
 	}
 }
 

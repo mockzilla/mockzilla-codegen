@@ -75,7 +75,10 @@ func NewHTTPAdapter(svc {{.Service}}, opts ...ServerOption) *HTTPAdapter {
 {{- range $op := .Operations}}
 
 // {{.Name}} handles {{.Method}} {{.Path}}.
-func (a *HTTPAdapter) {{.Name}}(w {{$.HTTP}}.ResponseWriter, r *{{$.HTTP}}.Request) {
+func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
+{{- if $.Handler.Prologue}}
+	{{$.Handler.Prologue}}
+{{- end}}
 	opts := &{{.Options}}{RawRequest: r}
 {{- if .HasQuery}}
 	query := r.URL.Query()
@@ -85,7 +88,7 @@ func (a *HTTPAdapter) {{.Name}}(w {{$.HTTP}}.ResponseWriter, r *{{$.HTTP}}.Reque
 {{- range .Params}}
 	if err := {{$.Runtime}}.{{.Decoder}}({{.Source}}, {{$.Runtime}}.Param{Name: {{.Name}}, Style: {{$.Runtime}}.{{.Style}}, IsExplode: {{.IsExplode}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}}, {{.Target}}); err != nil {
 		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorParse, OperationID: {{$op.ID}}, ParamName: {{.Name}}, ParamLocation: {{.Location}}, Err: err})
-		return
+		{{$.Handler.Return}}
 	}
 {{- end}}
 {{- end}}
@@ -98,21 +101,21 @@ func (a *HTTPAdapter) {{.Name}}(w {{$.HTTP}}.ResponseWriter, r *{{$.HTTP}}.Reque
 	case "":
 {{- if .IsBodyRequired}}
 		a.failDecode(w, r, {{.ID}}, {{$.Runtime}}.ErrBodyEmpty)
-		return
+		{{$.Handler.Return}}
 {{- end}}
 	default:
 {{- range .Wildcards}}
 {{- template "server/body.tmpl" .}}
 {{- else}}
 		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorDecode, OperationID: {{.ID}}, Status: {{$.HTTP}}.StatusUnsupportedMediaType, Err: {{$.Runtime}}.ContentTypeError(contentType)})
-		return
+		{{$.Handler.Return}}
 {{- end}}
 	}
 {{- end}}
 {{- if $.IsRequestValidated}}
 	if err := opts.Validate(); err != nil {
 		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorValidation, OperationID: {{.ID}}, Err: err})
-		return
+		{{$.Handler.Return}}
 	}
 {{- end}}
 
@@ -121,17 +124,20 @@ func (a *HTTPAdapter) {{.Name}}(w {{$.HTTP}}.ResponseWriter, r *{{$.HTTP}}.Reque
 {{- range .Errors}}
 		if {{.Var}}, ok := {{$.Runtime}}.AsError[{{.Type}}](err); ok {
 			a.opts.ErrorHandler.HandleError(w, r, {{.Status}}, {{.Var}})
-			return
+			{{$.Handler.Return}}
 		}
 {{- end}}
 		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorService, OperationID: {{.ID}}, Err: err})
-		return
+		{{$.Handler.Return}}
 	}
 	if res == nil {
 		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorService, OperationID: {{.ID}}, Err: {{$.Runtime}}.ErrNoResponse})
-		return
+		{{$.Handler.Return}}
 	}
 	a.write(w, r, {{.ID}}, res)
+{{- if $.Handler.Epilogue}}
+	{{$.Handler.Epilogue}}
+{{- end}}
 }
 {{- end}}
 

@@ -36,21 +36,23 @@ type Request struct {
 }
 
 // Basic are the requests of the basic example, in an order that creates a pet before it reads
-// and deletes it.
-var Basic = []Request{
-	{Name: "Create a pet", Method: "POST", Path: "/pets", Body: `{"id":1,"name":"Rex"}`, ContentType: "application/json", WantStatus: 201, WantBody: `{"id":1,"name":"Rex"}`, WantHeaders: map[string]string{"Location": "/pets/1", "Content-Type": "application/json"}},
-	{Name: "Get the pet", Path: "/pets/1", WantBody: `{"id":1,"name":"Rex"}`},
-	{Name: "List with a limit", Path: "/pets?limit=0", WantBody: `[]`},
-	{Name: "No such pet", Path: "/pets/2", WantStatus: 404},
-	{Name: "A path parameter that is not a number", Path: "/pets/x", WantStatus: 400, WantBody: `{"error":"invalid path parameter \"id\": invalid parameter value: \"x\" is no int"}`},
-	{Name: "An error as text when the client asks for it", Path: "/pets/x", Headers: http.Header{"Accept": {"text/plain"}}, WantStatus: 400, WantBody: `invalid path parameter "id": invalid parameter value: "x" is no int`, WantHeaders: map[string]string{"Content-Type": "text/plain; charset=utf-8"}},
-	{Name: "A body in another media type", Method: "POST", Path: "/pets", Body: `<pet/>`, ContentType: "application/xml", WantStatus: 415, WantBody: `{"error":"invalid request body: unsupported content type: application/xml"}`},
-	{Name: "A required body left out", Method: "POST", Path: "/pets", WantStatus: 400, WantBody: `{"error":"invalid request body: request body is required"}`},
-	{Name: "A body that is not JSON", Method: "POST", Path: "/pets", Body: `{`, ContentType: "application/json", WantStatus: 400, WantBody: `{"error":"invalid request body: unexpected end of JSON input"}`},
-	{Name: "The service fails", Method: "POST", Path: "/pets", Body: `{"id":2,"name":"boom"}`, ContentType: "application/json", WantStatus: 500, WantBody: `{"error":"internal server error"}`},
-	{Name: "Delete the pet", Method: "DELETE", Path: "/pets/1", WantStatus: 204},
-	{Name: "Text response", Path: "/ping", WantBody: `pong`},
-	{Name: "Unknown route", Path: "/nope", WantStatus: 404, WantBody: "404 page not found\n"},
+// and deletes it. notFound is the body the framework answers an unknown path with.
+func Basic(notFound string) []Request {
+	return []Request{
+		{Name: "Create a pet", Method: "POST", Path: "/pets", Body: `{"id":1,"name":"Rex"}`, ContentType: "application/json", WantStatus: 201, WantBody: `{"id":1,"name":"Rex"}`, WantHeaders: map[string]string{"Location": "/pets/1", "Content-Type": "application/json"}},
+		{Name: "Get the pet", Path: "/pets/1", WantBody: `{"id":1,"name":"Rex"}`},
+		{Name: "List with a limit", Path: "/pets?limit=0", WantBody: `[]`},
+		{Name: "No such pet", Path: "/pets/2", WantStatus: 404},
+		{Name: "A path parameter that is not a number", Path: "/pets/x", WantStatus: 400, WantBody: `{"error":"invalid path parameter \"id\": invalid parameter value: \"x\" is no int"}`},
+		{Name: "An error as text when the client asks for it", Path: "/pets/x", Headers: http.Header{"Accept": {"text/plain"}}, WantStatus: 400, WantBody: `invalid path parameter "id": invalid parameter value: "x" is no int`, WantHeaders: map[string]string{"Content-Type": "text/plain; charset=utf-8"}},
+		{Name: "A body in another media type", Method: "POST", Path: "/pets", Body: `<pet/>`, ContentType: "application/xml", WantStatus: 415, WantBody: `{"error":"invalid request body: unsupported content type: application/xml"}`},
+		{Name: "A required body left out", Method: "POST", Path: "/pets", WantStatus: 400, WantBody: `{"error":"invalid request body: request body is required"}`},
+		{Name: "A body that is not JSON", Method: "POST", Path: "/pets", Body: `{`, ContentType: "application/json", WantStatus: 400, WantBody: `{"error":"invalid request body: unexpected end of JSON input"}`},
+		{Name: "The service fails", Method: "POST", Path: "/pets", Body: `{"id":2,"name":"boom"}`, ContentType: "application/json", WantStatus: 500, WantBody: `{"error":"internal server error"}`},
+		{Name: "Delete the pet", Method: "DELETE", Path: "/pets/1", WantStatus: 204},
+		{Name: "Text response", Path: "/ping", WantBody: `pong`},
+		{Name: "Unknown route", Path: "/nope", WantStatus: 404, WantBody: notFound},
+	}
 }
 
 // Bodies are the requests of the bodies example, each body decoded by its media type.
