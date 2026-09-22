@@ -79,6 +79,15 @@ func TestConflicts(t *testing.T) {
 	}, dropped)
 }
 
+func TestHandler(t *testing.T) {
+	t.Parallel()
+
+	f := &layout.File{Path: "/work/gen.go", Package: "api"}
+	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
+
+	assert.Equal(t, framework.Handler{Signature: "(w http.ResponseWriter, r *http.Request)", Return: "return"}, Framework{}.Handler(s))
+}
+
 func TestPathParam(t *testing.T) {
 	t.Parallel()
 

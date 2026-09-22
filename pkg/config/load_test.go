@@ -190,7 +190,7 @@ func TestParse(t *testing.T) {
 			name:    "Invalid values are a validation error",
 			src:     "server: {framework: gin}\n",
 			wantErr: ErrInvalid,
-			wantMsg: `invalid config: server.framework: "gin" is not one of chi, std-http`,
+			wantMsg: `invalid config: server.framework: "gin" is not one of chi, std-http, echo`,
 		},
 	}
 

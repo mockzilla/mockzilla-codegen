@@ -76,7 +76,7 @@ test-parse: ## Parse every spec in testdata/specs; SPEC=, SPECS= narrow it
 	SPEC='$(SPEC)' SPECS='$(SPECS)' go test -tags parse -count=1 -timeout 60m -v ./test/parse
 
 .PHONY: test-integration
-test-integration: ## Generate, build and test every spec in testdata/specs; SPEC=, SPECS= narrow it, FRAMEWORKS= picks the server variants (chi, std-http), CLIENT=1 adds the client variant, MCP=1 the MCP variant
+test-integration: ## Generate, build and test every spec in testdata/specs; SPEC=, SPECS= narrow it, FRAMEWORKS= picks the server variants (chi, std-http, echo), CLIENT=1 adds the client variant, MCP=1 the MCP variant
 	SPEC='$(SPEC)' SPECS='$(SPECS)' $(if $(FRAMEWORKS),FRAMEWORKS='$(FRAMEWORKS)') $(if $(CLIENT),CLIENT='$(CLIENT)') $(if $(MCP),MCP='$(MCP)') go test -tags integration -count=1 -timeout 120m -v ./test/integration
 
 .PHONY: test-integration-clear

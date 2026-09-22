@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
@@ -32,9 +33,9 @@ var (
 	bytesType  = gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}
 )
 
-// handlerLocals are the variables a generated handler declares; a typed error variable never
-// takes one of them.
-var handlerLocals = []string{"a", "w", "r", "opts", "query", "res", "err", "ok", "text", "data", "contentType"}
+// handlerLocals are the variables a generated handler declares, c being the context of a Native
+// framework; a typed error variable never takes one of them.
+var handlerLocals = []string{"a", "c", "w", "r", "opts", "query", "res", "err", "ok", "text", "data", "contentType"}
 
 // decoders are the runtime functions that read a parameter, by location.
 var decoders = map[string]string{
@@ -49,7 +50,8 @@ type ErrorsView struct {
 	Runtime string
 }
 
-// AdapterView is the data of the adapter part. Service is the interface, as the file writes it.
+// AdapterView is the data of the adapter part. Service is the interface, as the file writes it;
+// Handler is the shape of the handlers the framework takes.
 type AdapterView struct {
 	Service             string
 	Runtime             string
@@ -58,6 +60,7 @@ type AdapterView struct {
 	MaxMemory           int64
 	IsRequestValidated  bool
 	IsResponseValidated bool
+	Handler             framework.Handler
 	Operations          []HandlerView
 }
 
@@ -104,7 +107,7 @@ type ParamView struct {
 // BodyView is one media type of the request body. MediaType is quoted, in lower case and without
 // parameters; OperationID is quoted; Target is the address of the options field; Type is the
 // struct a multipart form fills; Assign is the expression that turns text or data, the decoded
-// body, into the field's type.
+// body, into the field's type; Return is the statement that leaves the handler.
 type BodyView struct {
 	Kind        string
 	MediaType   string
@@ -120,12 +123,15 @@ type BodyView struct {
 	Target      string
 	Type        string
 	Assign      string
+	Return      string
 }
 
-// bodyAt is what the bodies of one operation share.
+// bodyAt is what the bodies of one operation share: the operation, and the statement that leaves
+// its handler.
 type bodyAt struct {
 	id         string
 	isRequired bool
+	ret        string
 	scope      *gocode.Scope
 }
 
@@ -156,6 +162,7 @@ func adapterView(g *Generator, s *gocode.Scope) *AdapterView {
 		MaxMemory:           g.opts.MultipartMaxMemory,
 		IsRequestValidated:  g.opts.ValidateRequest,
 		IsResponseValidated: g.opts.ValidateResponse,
+		Handler:             g.opts.Framework.Handler(s),
 	}
 	if v.MaxMemory <= 0 {
 		v.MaxMemory = runtime.DefaultMultipartMemory
@@ -183,7 +190,7 @@ func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope) HandlerVi
 	}
 
 	v.IsBodyRequired = op.Spec.Body != nil && op.Spec.Body.Required
-	at := bodyAt{id: v.ID, isRequired: v.IsBodyRequired, scope: s}
+	at := bodyAt{id: v.ID, isRequired: v.IsBodyRequired, ret: g.opts.Framework.Handler(s).Return, scope: s}
 	fields := operation.BodyFields(op.Bodies, g.opts.Namer)
 	seen := []string{""}
 	for i, c := range op.Bodies {
@@ -245,6 +252,7 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 		IsRequired:  at.isRequired,
 		Field:       field,
 		Target:      gocode.AddressOf(gocode.Selector("opts", field)),
+		Return:      at.ret,
 	}
 	t := operation.BodyType(c)
 	base, isPointer := t, false
