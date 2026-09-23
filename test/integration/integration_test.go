@@ -50,6 +50,50 @@ var servers = map[string]struct {
 		variant: itest.Variant{Name: "echo", Config: "server:\n  framework: echo\n", Init: "%s.NewRouter(nil)"},
 		deps:    []string{"github.com/labstack/echo/v4"},
 	},
+	"echo-v5": {
+		variant: itest.Variant{Name: "echo-v5", Config: "server:\n  framework: echo-v5\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/labstack/echo/v5"},
+	},
+	"gin": {
+		variant: itest.Variant{Name: "gin", Config: "server:\n  framework: gin\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/gin-gonic/gin"},
+	},
+	"gorilla-mux": {
+		variant: itest.Variant{Name: "gorilla-mux", Config: "server:\n  framework: gorilla-mux\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/gorilla/mux"},
+	},
+	"fiber": {
+		variant: itest.Variant{Name: "fiber", Config: "server:\n  framework: fiber\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/gofiber/fiber/v3", "github.com/valyala/fasthttp/fasthttpadaptor"},
+	},
+	"fasthttp": {
+		variant: itest.Variant{Name: "fasthttp", Config: "server:\n  framework: fasthttp\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/fasthttp/router", "github.com/valyala/fasthttp/fasthttpadaptor"},
+	},
+	"hertz": {
+		variant: itest.Variant{Name: "hertz", Config: "server:\n  framework: hertz\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/cloudwego/hertz/pkg/app/server"},
+	},
+	"beego": {
+		variant: itest.Variant{Name: "beego", Config: "server:\n  framework: beego\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/beego/beego/v2/server/web"},
+	},
+	"goframe": {
+		variant: itest.Variant{Name: "goframe", Config: "server:\n  framework: goframe\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/gogf/gf/v2/net/ghttp"},
+	},
+	"go-zero": {
+		variant: itest.Variant{Name: "go-zero", Config: "server:\n  framework: go-zero\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/zeromicro/go-zero/rest"},
+	},
+	"iris": {
+		variant: itest.Variant{Name: "iris", Config: "server:\n  framework: iris\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/kataras/iris/v12"},
+	},
+	"kratos": {
+		variant: itest.Variant{Name: "kratos", Config: "server:\n  framework: kratos\n", Init: "%s.NewRouter(nil)"},
+		deps:    []string{"github.com/go-kratos/kratos/v2/transport/http"},
+	},
 }
 
 // clientVariant generates the client with its envelopes and its stream methods, the largest of
@@ -65,8 +109,8 @@ var (
 
 // TestIntegration generates every spec in testdata/specs with the models variant, one per
 // framework FRAMEWORKS names, chi by default, the client variant when CLIENT is set and the MCP
-// variant when MCP is set, then builds and tests the result. It fails on an unlisted failure and on a listed spec that passes
-// now.
+// variant when MCP is set, then builds and tests the result. It fails on an unlisted failure and
+// on a listed spec that passes now.
 func TestIntegration(t *testing.T) {
 	t.Parallel()
 

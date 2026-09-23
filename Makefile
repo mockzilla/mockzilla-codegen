@@ -69,14 +69,14 @@ examples: ## Regenerate the golden examples, those under examples/plugin from wi
 .PHONY: examples-check
 examples-check: ## Fail when the golden examples are stale, do not build or fail their tests
 	go test -count=1 -run '^TestExamples' ./pkg/codegen
-	cd examples && go build ./... && go vet ./... && go test -count=1 ./...
+	cd examples && go build ./... && go vet ./... && GIN_MODE=release go test -count=1 ./...
 
 .PHONY: test-parse
 test-parse: ## Parse every spec in testdata/specs; SPEC=, SPECS= narrow it
 	SPEC='$(SPEC)' SPECS='$(SPECS)' go test -tags parse -count=1 -timeout 60m -v ./test/parse
 
 .PHONY: test-integration
-test-integration: ## Generate, build and test every spec in testdata/specs; SPEC=, SPECS= narrow it, FRAMEWORKS= picks the server variants (chi, std-http, echo), CLIENT=1 adds the client variant, MCP=1 the MCP variant
+test-integration: ## Generate, build and test every spec in testdata/specs; SPEC=, SPECS= narrow it, FRAMEWORKS= picks the server variants (chi, std-http, echo, or any of docs/server.md's routers), CLIENT=1 adds the client variant, MCP=1 the MCP variant
 	SPEC='$(SPEC)' SPECS='$(SPECS)' $(if $(FRAMEWORKS),FRAMEWORKS='$(FRAMEWORKS)') $(if $(CLIENT),CLIENT='$(CLIENT)') $(if $(MCP),MCP='$(MCP)') go test -tags integration -count=1 -timeout 120m -v ./test/integration
 
 .PHONY: test-integration-clear

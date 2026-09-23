@@ -1,0 +1,54 @@
+// WithRouter registers the routes on r instead of a new Router.
+func WithRouter(r {{.Framework}}.Router) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = r
+	}
+}
+
+// NewRouter registers every operation on a go-zero router, which rest.WithRouter gives a rest
+// server. On a new router the middleware WithMiddleware adds wraps everything, unknown paths too;
+// on the router WithRouter gives it, the middleware wraps each generated route and nothing else.
+func NewRouter(svc {{.Service}}, opts ...{{.Option}}) {{.Framework}}.Router {
+	o := {{.NewOptions}}(opts...)
+{{- if .Routes}}
+	adapter := {{.NewAdapter}}(svc, opts...)
+{{- end}}
+	wrap := func(h {{.Packages.http}}.Handler) {{.Packages.http}}.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(r {{.Framework}}.Router, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
+{{- range .Routes}}
+		handle(r, "{{.HTTPMethod}}", {{.Pattern}}, route({{$.Packages.http}}.HandlerFunc(adapter.{{.Operation}})))
+{{- end}}
+{{- block "server.router-extra" .}}{{end}}
+	}
+
+	if r, _ := o.Router.({{.Framework}}.Router); r != nil {
+		register(r, wrap)
+		return r
+	}
+	r := {{.Packages.router}}.NewRouter()
+	register(r, func(h {{.Packages.http}}.Handler) {{.Packages.http}}.Handler { return h })
+	return wrappedRouter{Router: r, handler: wrap(r)}
+}
+
+// wrappedRouter is a router served through the middleware.
+type wrappedRouter struct {
+	{{.Framework}}.Router
+	handler {{.Packages.http}}.Handler
+}
+
+func (r wrappedRouter) ServeHTTP(w {{.Packages.http}}.ResponseWriter, req *{{.Packages.http}}.Request) {
+	r.handler.ServeHTTP(w, req)
+}
+
+// handle registers h on r. The route passed the checks of the generator, so an error is a bug of
+// it.
+func handle(r {{.Framework}}.Router, method, path string, h {{.Packages.http}}.Handler) {
+	if err := r.Handle(method, path, h); err != nil {
+		panic(err)
+	}
+}

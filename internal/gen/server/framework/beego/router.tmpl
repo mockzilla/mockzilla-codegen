@@ -1,0 +1,54 @@
+// WithRouter registers the routes on r instead of a new ControllerRegister.
+func WithRouter(r *{{.Framework}}.ControllerRegister) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = r
+	}
+}
+
+// NewRouter registers every operation on a beego ControllerRegister. On a new one the middleware
+// WithMiddleware adds wraps everything, unknown paths too; on the one WithRouter gives it, the
+// middleware wraps each generated route and nothing else.
+func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.ControllerRegister {
+	o := {{.NewOptions}}(opts...)
+{{- if .Routes}}
+	adapter := {{.NewAdapter}}(svc, opts...)
+{{- end}}
+	wrap := func(h {{.Packages.http}}.Handler) {{.Packages.http}}.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(r *{{.Framework}}.ControllerRegister, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
+{{- range .Routes}}
+		r.AddMethod("{{.HTTPMethod}}", {{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(adapter.{{.Operation}}))))
+{{- end}}
+{{- block "server.router-extra" .}}{{end}}
+	}
+
+	if r, _ := o.Router.(*{{.Framework}}.ControllerRegister); r != nil {
+		register(r, wrap)
+		return r
+	}
+	r := {{.Framework}}.NewControllerRegister()
+	register(r, wrap)
+	r.Any("/*", handle(wrap({{.Packages.http}}.NotFoundHandler())))
+	return r
+}
+
+// handle serves h as a beego handler, with the path parameters beego found on the request.
+// Beego reads a form body before the handler, so the form goes back into the body for h.
+func handle(h {{.Packages.http}}.Handler) {{.Framework}}.HandleFunc {
+	return func(c *{{.Packages.bcontext}}.Context) {
+		r := c.Request
+		for key, value := range c.Input.Params() {
+			if len(key) > 1 && key[0] == ':' {
+				r.SetPathValue(key[1:], value)
+			}
+		}
+		if r.PostForm != nil && {{.Packages.strings}}.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+			r.Body = {{.Packages.io}}.NopCloser({{.Packages.strings}}.NewReader(r.PostForm.Encode()))
+		}
+		h.ServeHTTP(c.ResponseWriter, r)
+	}
+}

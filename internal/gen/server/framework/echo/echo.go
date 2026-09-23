@@ -9,11 +9,7 @@ package echo
 
 import (
 	"embed"
-	"fmt"
 	"io/fs"
-	"regexp"
-	"slices"
-	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
@@ -25,8 +21,8 @@ const importPath = "github.com/labstack/echo/v4"
 //go:embed *.tmpl
 var templates embed.FS
 
-// paramSegment is a segment that ends in one parameter, with a literal prefix or without.
-var paramSegment = regexp.MustCompile(`^[^{}]*\{([^{}]*)\}$`)
+// pattern writes routes as echo takes them.
+var pattern = framework.Colon{Literal: framework.Escaping(":"), Name: framework.Same, Wildcard: "*", IsPrefixAllowed: true}
 
 var _ framework.Framework = Framework{}
 
@@ -49,38 +45,9 @@ func (Framework) Imports() []gomodel.Import {
 // a colon as the start of a parameter. A parameter runs to the end of its segment on echo, so a
 // path fails when one has a suffix or shares a segment with another; it also fails on a path
 // without a leading slash, an unclosed brace, a parameter without a name or named twice, and a
-// wildcard that is not last.
+// wildcard that is not a segment of its own, last.
 func (Framework) RoutePattern(_, path string) (string, error) {
-	switch {
-	case !strings.HasPrefix(path, "/"):
-		return "", fmt.Errorf("%w: it must begin with /", framework.ErrPattern)
-	case strings.Count(path, "{") != strings.Count(path, "}"):
-		return "", fmt.Errorf("%w: a { has no }", framework.ErrPattern)
-	}
-	if i := strings.Index(path, "*"); i >= 0 && i != len(path)-1 {
-		return "", fmt.Errorf("%w: * must be last", framework.ErrPattern)
-	}
-
-	segments := strings.Split(path[1:], "/")
-	var names []string
-	for i, seg := range segments {
-		if !strings.ContainsAny(seg, "{}") {
-			segments[i] = literal(seg)
-			continue
-		}
-		m := paramSegment.FindStringSubmatch(seg)
-		switch {
-		case m == nil:
-			return "", fmt.Errorf("%w: a parameter must end its segment, unlike %s", framework.ErrPattern, seg)
-		case m[1] == "":
-			return "", fmt.Errorf("%w: a parameter has no name", framework.ErrPattern)
-		case slices.Contains(names, m[1]):
-			return "", fmt.Errorf("%w: parameter %q is named twice", framework.ErrPattern, m[1])
-		}
-		names = append(names, m[1])
-		segments[i] = literal(strings.TrimSuffix(seg, "{"+m[1]+"}")) + ":" + m[1]
-	}
-	return "/" + strings.Join(segments, "/"), nil
+	return pattern.Pattern(path)
 }
 
 // Conflicts drops every route that has the method and shape of an earlier one: a repeat of it,
@@ -107,9 +74,4 @@ func (Framework) PathParam(_ *gocode.Scope, name string) string {
 
 func (Framework) Templates() fs.FS {
 	return templates
-}
-
-// literal writes a piece of the path echo takes as it is, with every colon escaped.
-func literal(s string) string {
-	return strings.ReplaceAll(s, ":", `\:`)
 }

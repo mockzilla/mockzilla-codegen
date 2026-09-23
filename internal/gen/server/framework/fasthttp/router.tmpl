@@ -1,0 +1,61 @@
+// WithRouter registers the routes on r instead of a new Router.
+func WithRouter(r *{{.Framework}}.Router) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = r
+	}
+}
+
+// NewRouter registers every operation on a fasthttp router. On a new router the middleware
+// WithMiddleware adds wraps everything, unknown paths and OPTIONS requests too, which the router
+// leaves to the routes; on the router WithRouter gives it, the middleware wraps each generated
+// route and nothing else.
+func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Router {
+	o := {{.NewOptions}}(opts...)
+{{- if .Routes}}
+	adapter := {{.NewAdapter}}(svc, opts...)
+{{- end}}
+	wrap := func(h {{.Packages.http}}.Handler) {{.Packages.http}}.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(r *{{.Framework}}.Router, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
+{{- range .Routes}}
+		r.{{.HTTPMethod}}({{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(adapter.{{.Operation}}))))
+{{- end}}
+{{- block "server.router-extra" .}}{{end}}
+	}
+
+	if r, _ := o.Router.(*{{.Framework}}.Router); r != nil {
+		register(r, wrap)
+		return r
+	}
+	r := {{.Framework}}.New()
+	r.HandleOPTIONS = false
+	register(r, wrap)
+	r.NotFound = handle(wrap({{.Packages.http}}.NotFoundHandler()))
+	r.MethodNotAllowed = handle(wrap({{.Packages.http}}.HandlerFunc(methodNotAllowed)))
+	return r
+}
+
+// handle serves h as a fasthttp handler, with the path parameters the router found on the
+// request.
+func handle(h {{.Packages.http}}.Handler) {{.Packages.fasthttp}}.RequestHandler {
+	return func(ctx *{{.Packages.fasthttp}}.RequestCtx) {
+		{{.Packages.fasthttpadaptor}}.NewFastHTTPHandler({{.Packages.http}}.HandlerFunc(func(w {{.Packages.http}}.ResponseWriter, r *{{.Packages.http}}.Request) {
+			ctx.VisitUserValues(func(key []byte, value any) {
+				if s, ok := value.(string); ok {
+					r.SetPathValue(string(key), s)
+				}
+			})
+			h.ServeHTTP(w, r)
+		}))(ctx)
+	}
+}
+
+// methodNotAllowed answers a known path asked with a method it does not take; the router sets
+// the Allow header before.
+func methodNotAllowed(w {{.Packages.http}}.ResponseWriter, _ *{{.Packages.http}}.Request) {
+	w.WriteHeader({{.Packages.http}}.StatusMethodNotAllowed)
+}

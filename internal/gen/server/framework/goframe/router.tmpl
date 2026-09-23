@@ -1,0 +1,59 @@
+// WithRouter registers the routes on s instead of a new Server.
+func WithRouter(s *{{.Framework}}.Server) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = s
+	}
+}
+
+// NewRouter registers every operation on a GoFrame server. On a new server, named after a fresh
+// id since GoFrame keeps its servers by name, the middleware WithMiddleware adds wraps
+// everything, unknown paths too; on the server WithRouter gives it, the middleware wraps each
+// generated route and nothing else. The routes are bound when the server starts.
+func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Server {
+	o := {{.NewOptions}}(opts...)
+{{- if .Routes}}
+	adapter := {{.NewAdapter}}(svc, opts...)
+{{- end}}
+	wrap := func(h {{.Packages.http}}.Handler) {{.Packages.http}}.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(s *{{.Framework}}.Server, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
+{{- range .Routes}}
+		s.BindHandler({{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(adapter.{{.Operation}}))))
+{{- end}}
+{{- block "server.router-extra" .}}{{end}}
+	}
+
+	if s, _ := o.Router.(*{{.Framework}}.Server); s != nil {
+		register(s, wrap)
+		return s
+	}
+	s := {{.Framework}}.GetServer({{.Packages.guid}}.S())
+	register(s, wrap)
+	s.BindStatusHandler({{.Packages.http}}.StatusNotFound, notFound(wrap({{.Packages.http}}.NotFoundHandler())))
+	return s
+}
+
+// handle serves h as a GoFrame handler, with the path parameters GoFrame found on the request.
+// The response goes to the client as h writes it, past GoFrame's buffer, so a status without a
+// body stays without one.
+func handle(h {{.Packages.http}}.Handler) {{.Framework}}.HandlerFunc {
+	return func(r *{{.Framework}}.Request) {
+		for name, value := range r.GetRouterMap() {
+			r.Request.SetPathValue(name, value)
+		}
+		h.ServeHTTP(r.Response.Writer, r.Request)
+	}
+}
+
+// notFound serves h for a request no route took; a 404 a route wrote stays as it is.
+func notFound(h {{.Packages.http}}.Handler) {{.Framework}}.HandlerFunc {
+	return func(r *{{.Framework}}.Request) {
+		if r.GetServeHandler() == nil {
+			handle(h)(r)
+		}
+	}
+}

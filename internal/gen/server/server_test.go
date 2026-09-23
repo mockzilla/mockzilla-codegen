@@ -19,8 +19,19 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/models"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/beego"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/chi"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/echo"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/echov5"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/fasthttp"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/fiber"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/gin"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/goframe"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/gorillamux"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/gozero"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/hertz"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/iris"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/kratos"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/stdhttp"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
@@ -74,7 +85,22 @@ func TestRoutes(t *testing.T) {
 func TestFrameworks(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, map[string]framework.Framework{"chi": chi.Framework{}, "std-http": stdhttp.Framework{}, "echo": echo.Framework{}}, Frameworks())
+	assert.Equal(t, map[string]framework.Framework{
+		"beego":       beego.Framework{},
+		"chi":         chi.Framework{},
+		"echo":        echo.Framework{},
+		"echo-v5":     echov5.Framework{},
+		"fasthttp":    fasthttp.Framework{},
+		"fiber":       fiber.Framework{},
+		"gin":         gin.Framework{},
+		"goframe":     goframe.Framework{},
+		"gorilla-mux": gorillamux.Framework{},
+		"go-zero":     gozero.Framework{},
+		"hertz":       hertz.Framework{},
+		"iris":        iris.Framework{},
+		"kratos":      kratos.Framework{},
+		"std-http":    stdhttp.Framework{},
+	}, Frameworks())
 }
 
 func TestTemplates(t *testing.T) {
@@ -209,6 +235,9 @@ func TestViewRendersParts(t *testing.T) {
 		perFramework := []layout.PartID{PartRouter}
 		if fw.Family() == framework.Native {
 			perFramework = append(perFramework, PartAdapter)
+		}
+		if ownsMain(fw) {
+			perFramework = append(perFramework, layout.PartScaffoldMain)
 		}
 		for _, part := range perFramework {
 			t.Run(string(part)+" "+name, func(t *testing.T) {

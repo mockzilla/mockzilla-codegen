@@ -1,0 +1,11 @@
+spec: {path: api.yaml}
+package: scaffolds
+server:
+  framework: hertz
+  name: Todo
+  scaffold:
+    service: ./service.go
+    middleware: ./middleware.go
+    main: ./cmd/server/main.go
+    port: 9000
+    timeout: 5s

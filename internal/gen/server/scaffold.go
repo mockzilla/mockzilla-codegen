@@ -44,15 +44,20 @@ type ScaffoldMiddlewareView struct {
 
 // ScaffoldMainView is the data of the main scaffold. Middleware lists the middleware
 // expressions main passes, empty without the middleware scaffold; Timeout is a duration
-// expression.
+// expression. HTTP is set for the shared template, which serves with an http.Server; Framework
+// and Packages for the template of a framework that serves in its own way, as in the router's
+// view.
 type ScaffoldMainView struct {
 	Context        string
 	HTTP           string
+	Framework      string
+	Packages       map[string]string
 	Slog           string
 	OS             string
 	Signal         string
 	Syscall        string
 	NewRouter      string
+	WithRouter     string
 	NewService     string
 	WithMiddleware string
 	Middleware     []string
@@ -95,16 +100,24 @@ func scaffoldMainView(g *Generator, s *gocode.Scope) *ScaffoldMainView {
 	timePkg := s.Import(gomodel.Import{Path: "time"})
 	v := &ScaffoldMainView{
 		Context:        s.Import(gomodel.Import{Path: "context"}),
-		HTTP:           s.Import(gomodel.Import{Path: "net/http"}),
 		Slog:           s.Import(gomodel.Import{Path: "log/slog"}),
 		OS:             s.Import(gomodel.Import{Path: "os"}),
 		Signal:         s.Import(gomodel.Import{Path: "os/signal"}),
 		Syscall:        s.Import(gomodel.Import{Path: "syscall"}),
 		NewRouter:      s.Symbol(PartRouter, "NewRouter"),
+		WithRouter:     s.Symbol(PartRouter, "WithRouter"),
 		NewService:     s.Symbol(layout.PartScaffoldService, "New"+g.opts.Name),
 		WithMiddleware: s.Symbol(PartAdapter, "WithMiddleware"),
 		Port:           g.opts.Port,
 		Timeout:        gocode.Duration(g.opts.Timeout, timePkg),
+	}
+	if fw := g.opts.Framework; ownsMain(fw) {
+		if uses(fw, mainTemplate, ".Framework") {
+			v.Framework = s.Import(fw.Imports()[0])
+		}
+		v.Packages = packages(fw, s, mainTemplate)
+	} else {
+		v.HTTP = s.Import(gomodel.Import{Path: "net/http"})
 	}
 	if !g.opts.Scaffold.Middleware {
 		return v

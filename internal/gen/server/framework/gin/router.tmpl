@@ -1,0 +1,47 @@
+// WithRouter registers the routes on e instead of a new Engine.
+func WithRouter(e *{{.Framework}}.Engine) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = e
+	}
+}
+
+// NewRouter registers every operation on a gin Engine. On a new Engine the middleware
+// WithMiddleware adds wraps everything, unknown paths too; on the Engine WithRouter gives it, the
+// middleware wraps each generated route and nothing else.
+func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Engine {
+	o := {{.NewOptions}}(opts...)
+{{- if .Routes}}
+	adapter := {{.NewAdapter}}(svc, opts...)
+{{- end}}
+	wrap := func(h {{.Packages.http}}.Handler) {{.Packages.http}}.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(e *{{.Framework}}.Engine, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
+{{- range .Routes}}
+		e.{{.HTTPMethod}}({{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(adapter.{{.Operation}}))))
+{{- end}}
+{{- block "server.router-extra" .}}{{end}}
+	}
+
+	if e, _ := o.Router.(*{{.Framework}}.Engine); e != nil {
+		register(e, wrap)
+		return e
+	}
+	e := {{.Framework}}.New()
+	register(e, wrap)
+	e.NoRoute(handle(wrap({{.Packages.http}}.NotFoundHandler())))
+	return e
+}
+
+// handle serves h as a gin handler, with the path parameters gin found on the request.
+func handle(h {{.Packages.http}}.Handler) {{.Framework}}.HandlerFunc {
+	return func(c *{{.Framework}}.Context) {
+		for _, p := range c.Params {
+			c.Request.SetPathValue(p.Key, p.Value)
+		}
+		h.ServeHTTP(c.Writer, c.Request)
+	}
+}
