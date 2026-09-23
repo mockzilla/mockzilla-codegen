@@ -1,0 +1,301 @@
+package api
+
+import (
+	"io"
+	"net/http"
+
+	echo "github.com/labstack/echo/v5"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+)
+
+// ServerOptions is what the adapter and the router are set up with. Router is the router the
+// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
+// writes the response of a failed request; JSONDecoder reads JSON bodies.
+type ServerOptions struct {
+	Router             any
+	Middleware         []func(http.Handler) http.Handler
+	ErrorHandler       runtime.ErrorHandler
+	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
+	MultipartMaxMemory int64
+}
+
+// ServerOption sets one field of ServerOptions.
+type ServerOption func(*ServerOptions)
+
+// NewServerOptions applies opts to the defaults.
+func NewServerOptions(opts ...ServerOption) *ServerOptions {
+	o := &ServerOptions{
+		ErrorHandler:       runtime.DefaultErrorHandler{},
+		JSONDecoder:        runtime.DecodeJSON,
+		MultipartMaxMemory: 8388608,
+	}
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o
+}
+
+// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithErrorHandler sets what writes the response of a failed request.
+func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
+	return func(o *ServerOptions) {
+		o.ErrorHandler = h
+	}
+}
+
+// WithJSONDecoder sets what reads JSON bodies. isRequired says whether an empty body is an error.
+func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error) ServerOption {
+	return func(o *ServerOptions) {
+		o.JSONDecoder = decode
+	}
+}
+
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
+// disk.
+func WithMultipartMaxMemory(n int64) ServerOption {
+	return func(o *ServerOptions) {
+		o.MultipartMaxMemory = n
+	}
+}
+
+// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+type HTTPAdapter struct {
+	svc  PetsInterface
+	opts *ServerOptions
+}
+
+// responseData is what every response data type gives the adapter.
+type responseData interface {
+	StatusCode() int
+	Header() http.Header
+	Payload() any
+	ContentType() string
+}
+
+// NewHTTPAdapter returns the adapter of svc.
+func NewHTTPAdapter(svc PetsInterface, opts ...ServerOption) *HTTPAdapter {
+	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+}
+
+// ListPets handles GET /pets.
+func (a *HTTPAdapter) ListPets(c *echo.Context) error {
+	w, r := c.Response(), c.Request()
+	opts := &ListPetsServiceRequestOptions{RawRequest: r}
+	query := r.URL.Query()
+	opts.Query = &ListPetsQuery{}
+	if err := runtime.DecodeQuery(query, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Limit); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "limit", ParamLocation: "query", Err: err})
+		return nil
+	}
+	if err := runtime.DecodeQuery(query, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.Query.Filter); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "filter", ParamLocation: "query", Err: err})
+		return nil
+	}
+	opts.Headers = &ListPetsHeaders{}
+	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Trace", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: true}, &opts.Headers.XTrace); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "X-Trace", ParamLocation: "header", Err: err})
+		return nil
+	}
+	opts.Cookies = &ListPetsCookies{}
+	if err := runtime.DecodeCookie(r.Cookies(), runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.Cookies.Session); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "session", ParamLocation: "cookie", Err: err})
+		return nil
+	}
+	if err := opts.Validate(); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "ListPets", Err: err})
+		return nil
+	}
+
+	res, err := a.svc.ListPets(r.Context(), opts)
+	if err != nil {
+		if problem, ok := runtime.AsError[Problem](err); ok {
+			a.opts.ErrorHandler.HandleError(w, r, 500, problem)
+			return nil
+		}
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: err})
+		return nil
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: runtime.ErrNoResponse})
+		return nil
+	}
+	a.write(w, r, "ListPets", res)
+	return nil
+}
+
+// CreatePet handles POST /pets.
+func (a *HTTPAdapter) CreatePet(c *echo.Context) error {
+	w, r := c.Response(), c.Request()
+	opts := &CreatePetServiceRequestOptions{RawRequest: r}
+	switch contentType := runtime.ContentType(r.Header); contentType {
+	case "application/json":
+		if err := a.opts.JSONDecoder(r.Body, &opts.BodyJSON, true); err != nil {
+			a.failDecode(w, r, "CreatePet", err)
+			return nil
+		}
+	case "application/x-www-form-urlencoded":
+		if err := runtime.DecodeForm(r.Body, &opts.BodyForm, true); err != nil {
+			a.failDecode(w, r, "CreatePet", err)
+			return nil
+		}
+	case "multipart/form-data":
+		opts.BodyMultipart = &Upload{}
+		if err := runtime.DecodeMultipart(r, opts.BodyMultipart, a.opts.MultipartMaxMemory); err != nil {
+			a.failDecode(w, r, "CreatePet", err)
+			return nil
+		}
+	case "text/plain":
+		text, err := runtime.DecodeText(r.Body, true)
+		if err != nil {
+			a.failDecode(w, r, "CreatePet", err)
+			return nil
+		}
+		opts.BodyText = text
+	case "text/markdown":
+		text, err := runtime.DecodeText(r.Body, true)
+		if err != nil {
+			a.failDecode(w, r, "CreatePet", err)
+			return nil
+		}
+		opts.BodyMarkdown = runtime.Ptr(Note(text))
+	case "image/png":
+		data, err := runtime.DecodeBytes(r.Body, true)
+		if err != nil {
+			a.failDecode(w, r, "CreatePet", err)
+			return nil
+		}
+		opts.BodyPng = data
+	case "application/xml":
+	case "":
+		a.failDecode(w, r, "CreatePet", runtime.ErrBodyEmpty)
+		return nil
+	default:
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "CreatePet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return nil
+	}
+	if err := opts.Validate(); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "CreatePet", Err: err})
+		return nil
+	}
+
+	res, err := a.svc.CreatePet(r.Context(), opts)
+	if err != nil {
+		if problem, ok := runtime.AsError[Problem](err); ok {
+			a.opts.ErrorHandler.HandleError(w, r, 400, problem)
+			return nil
+		}
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreatePet", Err: err})
+		return nil
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreatePet", Err: runtime.ErrNoResponse})
+		return nil
+	}
+	a.write(w, r, "CreatePet", res)
+	return nil
+}
+
+// DeletePet handles DELETE /pets/{id}.
+func (a *HTTPAdapter) DeletePet(c *echo.Context) error {
+	w, r := c.Response(), c.Request()
+	opts := &DeletePetServiceRequestOptions{RawRequest: r}
+	opts.PathParams = &DeletePetPathParams{}
+	if err := runtime.DecodePath(c.Param("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "DeletePet", ParamName: "id", ParamLocation: "path", Err: err})
+		return nil
+	}
+	switch contentType := runtime.ContentType(r.Header); contentType {
+	case "application/json":
+		if err := a.opts.JSONDecoder(r.Body, &opts.Body, false); err != nil {
+			a.failDecode(w, r, "DeletePet", err)
+			return nil
+		}
+	case "":
+	default:
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "DeletePet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return nil
+	}
+	if err := opts.Validate(); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "DeletePet", Err: err})
+		return nil
+	}
+
+	res, err := a.svc.DeletePet(r.Context(), opts)
+	if err != nil {
+		if problem, ok := runtime.AsError[Problem](err); ok {
+			a.opts.ErrorHandler.HandleError(w, r, 404, problem)
+			return nil
+		}
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "DeletePet", Err: err})
+		return nil
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "DeletePet", Err: runtime.ErrNoResponse})
+		return nil
+	}
+	a.write(w, r, "DeletePet", res)
+	return nil
+}
+
+// Ping handles GET /ping.
+func (a *HTTPAdapter) Ping(c *echo.Context) error {
+	w, r := c.Response(), c.Request()
+	opts := &PingServiceRequestOptions{RawRequest: r}
+	switch contentType := runtime.ContentType(r.Header); contentType {
+	case "application/json":
+		if err := a.opts.JSONDecoder(r.Body, &opts.Body, false); err != nil {
+			a.failDecode(w, r, "Ping", err)
+			return nil
+		}
+	case "":
+	default:
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "Ping", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return nil
+	}
+	if err := opts.Validate(); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "Ping", Err: err})
+		return nil
+	}
+
+	res, err := a.svc.Ping(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Ping", Err: err})
+		return nil
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Ping", Err: runtime.ErrNoResponse})
+		return nil
+	}
+	a.write(w, r, "Ping", res)
+	return nil
+}
+
+// fail answers a request the handler could not serve.
+func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
+}
+
+// failDecode answers a request whose body could not be read.
+func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
+	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
+}
+
+// write writes the response of the service, once it passes the checks of the spec.
+func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
+	if err := runtime.ValidateResponse(res.Payload()); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+		return
+	}
+	if res.ContentType() != "" {
+		w.Header().Set("Content-Type", res.ContentType())
+	}
+	if err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
+	}
+}

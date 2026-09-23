@@ -105,12 +105,12 @@ func TestValidate(t *testing.T) {
 		{
 			name:   "Server needs a framework",
 			edit:   func(c *Config) { c.Server = &Server{} },
-			issues: []Issue{{Key: "server.framework", Message: "required, one of chi, std-http, echo"}},
+			issues: []Issue{{Key: "server.framework", Message: "required, one of beego, chi, echo, echo-v5, fasthttp, fiber, gin, go-zero, goframe, gorilla-mux, hertz, iris, kratos, std-http"}},
 		},
 		{
 			name:   "Unknown framework",
-			edit:   func(c *Config) { c.Server = &Server{Framework: "gin"} },
-			issues: []Issue{{Key: "server.framework", Message: `"gin" is not one of chi, std-http, echo`}},
+			edit:   func(c *Config) { c.Server = &Server{Framework: "express"} },
+			issues: []Issue{{Key: "server.framework", Message: `"express" is not one of beego, chi, echo, echo-v5, fasthttp, fiber, gin, go-zero, goframe, gorilla-mux, hertz, iris, kratos, std-http`}},
 		},
 		{
 			name:   "The main scaffold needs the service scaffold",
@@ -187,12 +187,12 @@ func TestValidate(t *testing.T) {
 			name: "Every problem is listed at once",
 			edit: func(c *Config) {
 				c.Package = ""
-				c.Server = &Server{Framework: "gin"}
+				c.Server = &Server{Framework: "express"}
 				c.Output.Files = map[string][]string{"a.go": {"nope"}}
 			},
 			issues: []Issue{
 				{Key: "package", Message: `"" is not a valid Go package name`},
-				{Key: "server.framework", Message: `"gin" is not one of chi, std-http, echo`},
+				{Key: "server.framework", Message: `"express" is not one of beego, chi, echo, echo-v5, fasthttp, fiber, gin, go-zero, goframe, gorilla-mux, hertz, iris, kratos, std-http`},
 				{Key: `output.files["a.go"]`, Message: `invalid selector "nope", want a form like models, models.types or plugin.<name>.<part>`},
 			},
 		},

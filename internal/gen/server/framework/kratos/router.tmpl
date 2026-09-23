@@ -1,0 +1,35 @@
+// WithRouter registers the routes on s instead of a new Server.
+func WithRouter(s *{{.Framework}}.Server) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = s
+	}
+}
+
+// NewRouter registers every operation on a kratos HTTP server. On a new server the middleware
+// WithMiddleware adds wraps everything as the server's filters, unknown paths too; on the server
+// WithRouter gives it, the middleware wraps each generated route as its filters and nothing
+// else.
+func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Server {
+	o := {{.NewOptions}}(opts...)
+{{- if .Routes}}
+	adapter := {{.NewAdapter}}(svc, opts...)
+{{- end}}
+	filters := make([]{{.Framework}}.FilterFunc, len(o.Middleware))
+	for i, mw := range o.Middleware {
+		filters[i] = mw
+	}
+	register := func(r *{{.Framework}}.Router) {
+{{- range .Routes}}
+		r.{{.HTTPMethod}}({{.Pattern}}, adapter.{{.Operation}})
+{{- end}}
+{{- block "server.router-extra" .}}{{end}}
+	}
+
+	if s, _ := o.Router.(*{{.Framework}}.Server); s != nil {
+		register(s.Route("/", filters...))
+		return s
+	}
+	s := {{.Framework}}.NewServer({{.Framework}}.Filter(filters...))
+	register(s.Route("/"))
+	return s
+}

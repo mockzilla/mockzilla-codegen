@@ -1,0 +1,78 @@
+openapi: 3.1.0
+info: {title: request bodies, version: "1"}
+paths:
+  /json:
+    post:
+      operationId: postJSON
+      requestBody:
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Note'}}
+      responses:
+        "200":
+          description: echo
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Note'}}
+  /form:
+    post:
+      operationId: postForm
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded: {schema: {$ref: '#/components/schemas/Note'}}
+      responses:
+        "200":
+          description: echo
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Note'}}
+  /upload:
+    post:
+      operationId: upload
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title: {type: string}
+                file: {type: string, format: binary}
+                tags: {type: array, items: {type: string}}
+                meta: {$ref: '#/components/schemas/Note'}
+      responses:
+        "200":
+          description: what came in
+          content:
+            application/json: {schema: {type: object, additionalProperties: true}}
+  /text:
+    post:
+      operationId: postText
+      requestBody:
+        content:
+          text/plain: {schema: {type: string}}
+          application/octet-stream: {}
+      responses:
+        "200":
+          description: echo
+          content:
+            text/plain: {schema: {type: string}}
+  /any:
+    post:
+      operationId: postAny
+      requestBody:
+        content:
+          application/xml: {schema: {type: string}}
+          text/xml: {schema: {type: string}}
+          '*/*': {}
+      responses:
+        "200":
+          description: which field took the body
+          content:
+            text/plain: {schema: {type: string}}
+components:
+  schemas:
+    Note:
+      type: object
+      required: [text]
+      properties:
+        text: {type: string}
+        stars: {type: integer}

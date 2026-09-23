@@ -10,6 +10,7 @@ package server
 
 import (
 	"embed"
+	"io/fs"
 	"slices"
 	"strings"
 	"time"
@@ -17,8 +18,19 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/beego"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/chi"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/echo"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/echov5"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/fasthttp"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/fiber"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/gin"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/goframe"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/gorillamux"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/gozero"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/hertz"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/iris"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/kratos"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework/stdhttp"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
@@ -178,11 +190,35 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 
 // Frameworks lists the frameworks a router can be generated for, by name.
 func Frameworks() map[string]framework.Framework {
-	return map[string]framework.Framework{"chi": chi.Framework{}, "std-http": stdhttp.Framework{}, "echo": echo.Framework{}}
+	return map[string]framework.Framework{
+		"beego":       beego.Framework{},
+		"chi":         chi.Framework{},
+		"echo":        echo.Framework{},
+		"echo-v5":     echov5.Framework{},
+		"fasthttp":    fasthttp.Framework{},
+		"fiber":       fiber.Framework{},
+		"gin":         gin.Framework{},
+		"goframe":     goframe.Framework{},
+		"gorilla-mux": gorillamux.Framework{},
+		"go-zero":     gozero.Framework{},
+		"hertz":       hertz.Framework{},
+		"iris":        iris.Framework{},
+		"kratos":      kratos.Framework{},
+		"std-http":    stdhttp.Framework{},
+	}
 }
 
-// Templates are the server template set and the framework's, which holds the router.
+// mainTemplate is the template a framework whose server is not an http.Server gives the main
+// scaffold in place of the shared one.
+const mainTemplate = "scaffold-main.tmpl"
+
+// Templates are the server template set and the framework's, which holds the router and, for a
+// framework that serves in its own way, the main scaffold.
 func Templates(fw framework.Framework) []render.Set {
+	own := map[layout.PartID]string{PartRouter: "router.tmpl"}
+	if ownsMain(fw) {
+		own[layout.PartScaffoldMain] = mainTemplate
+	}
 	return []render.Set{
 		{
 			Name: "server",
@@ -197,8 +233,14 @@ func Templates(fw framework.Framework) []render.Set {
 			},
 			Blocks: []string{BlockServiceHeader, BlockRequestOptionsExtra, BlockResponseDataExtra},
 		},
-		{Name: fw.Name(), FS: fw.Templates(), Parts: map[layout.PartID]string{PartRouter: "router.tmpl"}, Blocks: []string{BlockRouterExtra}},
+		{Name: fw.Name(), FS: fw.Templates(), Parts: own, Blocks: []string{BlockRouterExtra}},
 	}
+}
+
+// ownsMain reports whether fw brings the template of the main scaffold.
+func ownsMain(fw framework.Framework) bool {
+	_, err := fs.Stat(fw.Templates(), mainTemplate)
+	return err == nil
 }
 
 // ReservedField reports whether name is a field the request options declare themselves, so an

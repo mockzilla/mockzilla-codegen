@@ -6,9 +6,11 @@
 package framework
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
@@ -53,4 +55,166 @@ func TestConflictsByShape(t *testing.T) {
 		{Route: again, Reason: "repeats the route of GetPet"},
 		{Route: renamed, Reason: "names its path parameters otherwise than GetPet at /pets/{id}"},
 	}, dropped)
+}
+
+func TestConflictsByKey(t *testing.T) {
+	t.Parallel()
+
+	get := Route{Operation: "GetPet", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/:id"}
+	slash := Route{Operation: "GetPetSlash", Method: "GET", Path: "/pets/{id}/", Pattern: "/pets/:id/"}
+	again := Route{Operation: "GetPetAgain", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/:id"}
+	renamed := Route{Operation: "GetAnimal", Method: "GET", Path: "/pets/{animalId}", Pattern: "/pets/:animalId"}
+
+	kept, dropped := ConflictsByKey([]Route{get, slash, again, renamed}, func(r Route) string {
+		return r.Method + " " + strings.TrimSuffix(Shape(r.Path), "/")
+	})
+
+	assert.Equal(t, []Route{get}, kept)
+	assert.Equal(t, []Conflict{
+		{Route: slash, Reason: "matches the same requests as GetPet at /pets/{id}"},
+		{Route: again, Reason: "repeats the route of GetPet"},
+		{Route: renamed, Reason: "names its path parameters otherwise than GetPet at /pets/{id}"},
+	}, dropped)
+}
+
+func TestStaticFirst(t *testing.T) {
+	t.Parallel()
+
+	files := Route{Operation: "Files", Path: "/files/*"}
+	pet := Route{Operation: "Pet", Path: "/pets/{id}"}
+	photo := Route{Operation: "Photo", Path: "/pets/{id}/photo"}
+	newPet := Route{Operation: "NewPet", Path: "/pets/new"}
+	index := Route{Operation: "Index", Path: "/files/index"}
+	root := Route{Operation: "Root", Path: "/"}
+	in := []Route{files, pet, photo, newPet, index, root}
+
+	assert.Equal(t, []Route{root, newPet, index, pet, photo, files}, StaticFirst(in))
+	assert.Equal(t, []Route{files, pet, photo, newPet, index, root}, in, "the routes given stay as they are")
+}
+
+func TestIdentifier(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "An identifier stays", in: "petId_2", want: "petId_2"},
+		{name: "Other characters become underscores", in: "pet-id.v1", want: "pet_id_v1"},
+		{name: "A leading digit gets an underscore", in: "1st", want: "_1st"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, Identifier(tc.in))
+		})
+	}
+}
+
+func TestCheck(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		path    string
+		wantErr string
+	}{
+		{name: "A path with parameters and a wildcard", path: "/pets/{id}/*"},
+		{name: "No leading slash", path: "pets", wantErr: "the router rejects the path: it must begin with /"},
+		{name: "Unclosed brace", path: "/pets/{id", wantErr: "the router rejects the path: a { has no }"},
+		{name: "Wildcard not last", path: "/files/*/meta", wantErr: "the router rejects the path: * must be last"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := Check(tc.path)
+
+			if tc.wantErr != "" {
+				require.ErrorIs(t, err, ErrPattern)
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestColonPattern(t *testing.T) {
+	t.Parallel()
+
+	escaping := Colon{Literal: Escaping(":"), Name: Same, Wildcard: "*", IsPrefixAllowed: true}
+	rejecting := Colon{Literal: Rejecting(":*"), Name: Identifier, Wildcard: "*rest"}
+	tests := []struct {
+		name    string
+		colon   Colon
+		path    string
+		want    string
+		wantErr string
+	}{
+		{name: "Parameters and a prefix, with a colon escaped", colon: escaping, path: "/pets:search/v{id}/{photo-id}", want: `/pets\:search/v:id/:photo-id`},
+		{name: "The wildcard", colon: escaping, path: "/files/*", want: "/files/*"},
+		{name: "The root", colon: escaping, path: "/", want: "/"},
+		{name: "A name made an identifier and the wildcard named", colon: rejecting, path: "/pets/{pet-id}/*", want: "/pets/:pet_id/*rest"},
+		{name: "No leading slash", colon: escaping, path: "pets", wantErr: "the router rejects the path: it must begin with /"},
+		{name: "A parameter with a suffix", colon: escaping, path: "/pets/{id}.json", wantErr: "the router rejects the path: a parameter must end its segment, unlike {id}.json"},
+		{name: "Two parameters in one segment", colon: escaping, path: "/pets/{a}{b}", wantErr: "the router rejects the path: a parameter must end its segment, unlike {a}{b}"},
+		{name: "A prefix where none is allowed", colon: rejecting, path: "/pets/v{id}", wantErr: "the router rejects the path: a parameter must fill its segment, unlike v{id}"},
+		{name: "A parameter without a name", colon: escaping, path: "/pets/{}", wantErr: "the router rejects the path: a parameter has no name"},
+		{name: "A parameter named twice", colon: escaping, path: "/pets/{id}/{id}", wantErr: `the router rejects the path: parameter "id" is named twice`},
+		{name: "A literal the router rejects", colon: rejecting, path: "/pets:search", wantErr: "the router rejects the path: : is read as the start of a parameter in pets:search"},
+		{name: "A prefix the router rejects", colon: rejecting, path: "/a*b/{id}", wantErr: "the router rejects the path: * must be last"},
+		{name: "A literal before a parameter the router rejects", colon: Colon{Literal: Rejecting("v"), Name: Same, IsPrefixAllowed: true}, path: "/pets/v{id}", wantErr: "the router rejects the path: v is read as the start of a parameter in v"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := tc.colon.Pattern(tc.path)
+
+			if tc.wantErr != "" {
+				require.ErrorIs(t, err, ErrPattern)
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestBrace(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		path    string
+		want    string
+		wantErr string
+	}{
+		{name: "Parameters stay", path: "/pets/{id}/photos/{photo-id}.jpg", want: "/pets/{id}/photos/{photo-id}.jpg"},
+		{name: "The wildcard", path: "/files/*", want: "/files/{rest:.*}"},
+		{name: "Unclosed brace", path: "/pets/{id", wantErr: "the router rejects the path: a { has no }"},
+		{name: "Wildcard with a prefix", path: "/files*", wantErr: "the router rejects the path: * must be a segment of its own"},
+		{name: "A parameter without a name", path: "/pets/{}", wantErr: "the router rejects the path: a parameter has no name"},
+		{name: "A parameter with a colon", path: "/pets/{id:x}", wantErr: `the router rejects the path: parameter "id:x" holds a colon`},
+		{name: "A parameter named twice", path: "/pets/{id}/{id}", wantErr: `the router rejects the path: parameter "id" is named twice`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := Brace(tc.path, "{rest:.*}")
+
+			if tc.wantErr != "" {
+				require.ErrorIs(t, err, ErrPattern)
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
 }

@@ -1,0 +1,63 @@
+package api
+
+import (
+	"io"
+	"net/http"
+	"strings"
+
+	"github.com/beego/beego/v2/server/web"
+	bcontext "github.com/beego/beego/v2/server/web/context"
+)
+
+// WithRouter registers the routes on r instead of a new ControllerRegister.
+func WithRouter(r *web.ControllerRegister) ServerOption {
+	return func(o *ServerOptions) {
+		o.Router = r
+	}
+}
+
+// NewRouter registers every operation on a beego ControllerRegister. On a new one the middleware
+// WithMiddleware adds wraps everything, unknown paths too; on the one WithRouter gives it, the
+// middleware wraps each generated route and nothing else.
+func NewRouter(svc PetsInterface, opts ...ServerOption) *web.ControllerRegister {
+	o := NewServerOptions(opts...)
+	adapter := NewHTTPAdapter(svc, opts...)
+	wrap := func(h http.Handler) http.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(r *web.ControllerRegister, route func(http.Handler) http.Handler) {
+		r.AddMethod("GET", "/pets", handle(route(http.HandlerFunc(adapter.ListPets))))
+		r.AddMethod("POST", "/pets", handle(route(http.HandlerFunc(adapter.CreatePet))))
+		r.AddMethod("DELETE", "/pets/:id", handle(route(http.HandlerFunc(adapter.DeletePet))))
+		r.AddMethod("GET", "/ping", handle(route(http.HandlerFunc(adapter.Ping))))
+	}
+
+	if r, _ := o.Router.(*web.ControllerRegister); r != nil {
+		register(r, wrap)
+		return r
+	}
+	r := web.NewControllerRegister()
+	register(r, wrap)
+	r.Any("/*", handle(wrap(http.NotFoundHandler())))
+	return r
+}
+
+// handle serves h as a beego handler, with the path parameters beego found on the request.
+// Beego reads a form body before the handler, so the form goes back into the body for h.
+func handle(h http.Handler) web.HandleFunc {
+	return func(c *bcontext.Context) {
+		r := c.Request
+		for key, value := range c.Input.Params() {
+			if len(key) > 1 && key[0] == ':' {
+				r.SetPathValue(key[1:], value)
+			}
+		}
+		if r.PostForm != nil && strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+			r.Body = io.NopCloser(strings.NewReader(r.PostForm.Encode()))
+		}
+		h.ServeHTTP(c.ResponseWriter, r)
+	}
+}

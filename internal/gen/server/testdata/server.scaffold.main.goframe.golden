@@ -1,0 +1,47 @@
+package main
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"example.com/work/api"
+	"example.com/work/mw"
+	"example.com/work/svc"
+	"github.com/gogf/gf/v2/net/ghttp"
+)
+
+func main() {
+	if err := run(); err != nil {
+		slog.Error("server stopped", "error", err)
+		os.Exit(1)
+	}
+}
+
+// run serves on port 9090 until the process is told to stop, then lets the requests in
+// flight finish.
+func run() error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	s := ghttp.GetServer()
+	s.SetPort(9090)
+	s.SetReadTimeout(45 * time.Second)
+	api.NewRouter(svc.NewPets(), api.WithRouter(s), api.WithMiddleware(
+		mw.RequestIDMiddleware,
+		mw.RecoverMiddleware,
+		mw.LoggingMiddleware,
+		mw.CORSMiddleware,
+		mw.TimeoutMiddleware(45*time.Second),
+	))
+
+	if err := s.Start(); err != nil {
+		return err
+	}
+	slog.Info("listening", "addr", s.GetListenedAddress())
+	<-ctx.Done()
+	return s.Shutdown()
+}

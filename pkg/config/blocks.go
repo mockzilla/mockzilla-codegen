@@ -72,7 +72,7 @@ type ModelValidation struct {
 
 // Server controls server generation.
 type Server struct {
-	Framework          string           `yaml:"framework" enum:"chi,std-http,echo" desc:"HTTP framework to generate for."`
+	Framework          string           `yaml:"framework" enum:"beego,chi,echo,echo-v5,fasthttp,fiber,gin,go-zero,goframe,gorilla-mux,hertz,iris,kratos,std-http" desc:"HTTP framework to generate for."`
 	Name               string           `yaml:"name" desc:"Name of the service interface. Defaults to Service."`
 	Validation         ServerValidation `yaml:"validation" desc:"Checks the server runs on requests and responses."`
 	MultipartMaxMemory ByteSize         `yaml:"multipart-max-memory" desc:"Memory for multipart forms before spilling to disk. Defaults to 32MB."`

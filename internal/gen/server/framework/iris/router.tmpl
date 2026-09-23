@@ -1,0 +1,56 @@
+// WithRouter registers the routes on app instead of a new Application.
+func WithRouter(app *{{.Framework}}.Application) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = app
+	}
+}
+
+// NewRouter registers every operation on an iris Application. A new Application is built, ready
+// to serve, keeps the status a handler writes as it is and answers unknown paths with an empty
+// 404; the middleware WithMiddleware adds wraps everything on it, unknown paths too. The
+// Application WithRouter gives it is left for its owner to build, and the middleware wraps each
+// generated route and nothing else.
+func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Application {
+	o := {{.NewOptions}}(opts...)
+{{- if .Routes}}
+	adapter := {{.NewAdapter}}(svc, opts...)
+{{- end}}
+	wrap := func(h {{.Packages.http}}.Handler) {{.Packages.http}}.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(app *{{.Framework}}.Application, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
+{{- range .Routes}}
+		app.{{.Method}}({{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(adapter.{{.Operation}}))))
+{{- end}}
+{{- block "server.router-extra" .}}{{end}}
+	}
+
+	if app, _ := o.Router.(*{{.Framework}}.Application); app != nil {
+		register(app, wrap)
+		return app
+	}
+	app := {{.Framework}}.New()
+	app.Configure({{.Framework}}.WithoutAutoFireStatusCode)
+	app.WrapRouter(func(w {{.Packages.http}}.ResponseWriter, r *{{.Packages.http}}.Request, router {{.Packages.http}}.HandlerFunc) {
+		wrap(router).ServeHTTP(w, r)
+	})
+	register(app, func(h {{.Packages.http}}.Handler) {{.Packages.http}}.Handler { return h })
+	if err := app.Build(); err != nil {
+		panic(err)
+	}
+	return app
+}
+
+// handle serves h as an iris handler, with the path parameters iris found on the request.
+func handle(h {{.Packages.http}}.Handler) {{.Framework}}.Handler {
+	return func(c {{.Framework}}.Context) {
+		r := c.Request()
+		c.Params().Visit(func(name, value string) {
+			r.SetPathValue(name, value)
+		})
+		h.ServeHTTP(c.ResponseWriter(), r)
+	}
+}

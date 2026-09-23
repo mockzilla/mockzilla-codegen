@@ -185,6 +185,11 @@ user-context:
 | `server.router-extra` | in the router's registration, after the routes | the router |
 
 In `server.router-extra`, a chi route goes on `r`; a std-http route on `mux`, its handler wrapped
-with `route`; an echo route on `e`, with `m...` as its middleware. An unknown block is a config error that lists the blocks. The blocks inside a struct or a function
-start after the line before them, so their text begins with a newline. `user-context` is
+with `route`; an echo route on `e`, with `m...` as its middleware; a kratos route on `r`, a kratos
+router. On the other frameworks the route goes on the router the `register` closure of
+`router.tmpl` names, `e` for gin, `app` for fiber and iris, `r` for gorilla-mux, fasthttp, beego
+and go-zero, `h` for hertz and `s` for goframe, and its handler is an `http.Handler` wrapped as
+`handle(route(h))`, or `route(h)` alone on gorilla-mux and go-zero. An unknown block is a config
+error that lists the blocks. The blocks inside a struct or a function start after the line before
+them, so their text begins with a newline. `user-context` is
 available as `.User` in every block and as `API.UserContext` to plugins.

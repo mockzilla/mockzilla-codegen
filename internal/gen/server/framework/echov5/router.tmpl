@@ -1,0 +1,49 @@
+// WithRouter registers the routes on e instead of a new Echo.
+func WithRouter(e *{{.Framework}}.Echo) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = e
+	}
+}
+
+// NewRouter registers every operation on an Echo. On a new Echo the middleware WithMiddleware
+// adds wraps everything, unknown paths too; on the Echo WithRouter gives it, the middleware wraps
+// each generated route and nothing else.
+func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Echo {
+	o := {{.NewOptions}}(opts...)
+{{- if .Routes}}
+	adapter := {{.NewAdapter}}(svc, opts...)
+{{- end}}
+	middleware := make([]{{.Framework}}.MiddlewareFunc, len(o.Middleware))
+	for i, mw := range o.Middleware {
+		middleware[i] = {{.Framework}}.WrapMiddleware(mw)
+	}
+	register := func(e *{{.Framework}}.Echo, m ...{{.Framework}}.MiddlewareFunc) {
+{{- range .Routes}}
+		e.{{.HTTPMethod}}({{.Pattern}}, adapter.{{.Operation}}, m...)
+{{- end}}
+{{- block "server.router-extra" .}}{{end}}
+	}
+
+	e, _ := o.Router.(*{{.Framework}}.Echo)
+	if e == nil {
+		e = {{.Framework}}.New()
+		if len(middleware) > 0 {
+			e.Use(append(middleware, answerErrors)...)
+		}
+		register(e)
+		return e
+	}
+	register(e, middleware...)
+	return e
+}
+
+// answerErrors gives an error a handler returns, such as the one of an unknown path, to echo's
+// error handler inside the middleware, so the middleware sees the response it writes.
+func answerErrors(next {{.Framework}}.HandlerFunc) {{.Framework}}.HandlerFunc {
+	return func(c *{{.Framework}}.Context) error {
+		if err := next(c); err != nil {
+			c.Echo().HTTPErrorHandler(c, err)
+		}
+		return nil
+	}
+}
