@@ -1,0 +1,14 @@
+spec: {path: api.yaml}
+output:
+  file: ./api/gen.go
+  files:
+    ./models/models.go: [models]
+    ./api/errors.go: [server.errors]
+    ./api/router.go: [server.router]
+server:
+  framework: goframe
+  name: Books
+  scaffold:
+    service: ./books/service.go
+    middleware: ./books/middleware.go
+    main: ./cmd/books/main.go

@@ -1,0 +1,5 @@
+spec: {path: api.yaml}
+package: bodies
+server:
+  framework: iris
+  multipart-max-memory: 1MB

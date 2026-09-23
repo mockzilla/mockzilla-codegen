@@ -1,0 +1,59 @@
+openapi: 3.1.0
+info: {title: basics, version: "1"}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      parameters:
+        - {name: limit, in: query, schema: {type: integer}}
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Pet'}}}
+    post:
+      operationId: createPet
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+      responses:
+        "201":
+          description: created
+          headers:
+            Location: {schema: {type: string}}
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+  /pets/{id}:
+    get:
+      operationId: getPet
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+        "404": {description: no such pet}
+    delete:
+      operationId: deletePet
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        "204": {description: gone}
+  /ping:
+    get:
+      operationId: ping
+      responses:
+        "200":
+          description: pong
+          content:
+            text/plain: {schema: {type: string}}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: integer}
+        name: {type: string}

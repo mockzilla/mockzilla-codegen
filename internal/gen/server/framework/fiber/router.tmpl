@@ -1,0 +1,52 @@
+// WithRouter registers the routes on app instead of a new App.
+func WithRouter(app *{{.Framework}}.App) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = app
+	}
+}
+
+// NewRouter registers every operation on a fiber App. On a new App the middleware
+// WithMiddleware adds wraps everything, and a request no route takes, by path or by method, is
+// a 404 through it; on the App WithRouter gives it, the middleware wraps each generated route
+// and nothing else.
+func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.App {
+	o := {{.NewOptions}}(opts...)
+{{- if .Routes}}
+	adapter := {{.NewAdapter}}(svc, opts...)
+{{- end}}
+	wrap := func(h {{.Packages.http}}.Handler) {{.Packages.http}}.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(app *{{.Framework}}.App, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
+{{- range .Routes}}
+		app.{{.Method}}({{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(adapter.{{.Operation}}))))
+{{- end}}
+{{- block "server.router-extra" .}}{{end}}
+	}
+
+	if app, _ := o.Router.(*{{.Framework}}.App); app != nil {
+		register(app, wrap)
+		return app
+	}
+	app := {{.Framework}}.New()
+	register(app, wrap)
+	app.Use(handle(wrap({{.Packages.http}}.NotFoundHandler())))
+	return app
+}
+
+// handle serves h as a fiber handler, with the path parameters fiber found on the request. The
+// request is copied out of fiber's, whose strings live for the request alone.
+func handle(h {{.Packages.http}}.Handler) {{.Framework}}.Handler {
+	return func(c {{.Framework}}.Ctx) error {
+		{{.Packages.fasthttpadaptor}}.NewFastHTTPHandler({{.Packages.http}}.HandlerFunc(func(w {{.Packages.http}}.ResponseWriter, r *{{.Packages.http}}.Request) {
+			for _, name := range c.Route().Params {
+				r.SetPathValue(name, {{.Packages.strings}}.Clone(c.Params(name)))
+			}
+			h.ServeHTTP(w, r)
+		}))(c.RequestCtx())
+		return nil
+	}
+}

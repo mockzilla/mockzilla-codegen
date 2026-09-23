@@ -1,0 +1,66 @@
+package api
+
+import (
+	"net/http"
+
+	"github.com/gogf/gf/v2/net/ghttp"
+	"github.com/gogf/gf/v2/util/guid"
+)
+
+// WithRouter registers the routes on s instead of a new Server.
+func WithRouter(s *ghttp.Server) ServerOption {
+	return func(o *ServerOptions) {
+		o.Router = s
+	}
+}
+
+// NewRouter registers every operation on a GoFrame server. On a new server, named after a fresh
+// id since GoFrame keeps its servers by name, the middleware WithMiddleware adds wraps
+// everything, unknown paths too; on the server WithRouter gives it, the middleware wraps each
+// generated route and nothing else. The routes are bound when the server starts.
+func NewRouter(svc PetsInterface, opts ...ServerOption) *ghttp.Server {
+	o := NewServerOptions(opts...)
+	adapter := NewHTTPAdapter(svc, opts...)
+	wrap := func(h http.Handler) http.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(s *ghttp.Server, route func(http.Handler) http.Handler) {
+		s.BindHandler("GET:/pets", handle(route(http.HandlerFunc(adapter.ListPets))))
+		s.BindHandler("POST:/pets", handle(route(http.HandlerFunc(adapter.CreatePet))))
+		s.BindHandler("DELETE:/pets/{id}", handle(route(http.HandlerFunc(adapter.DeletePet))))
+		s.BindHandler("GET:/ping", handle(route(http.HandlerFunc(adapter.Ping))))
+	}
+
+	if s, _ := o.Router.(*ghttp.Server); s != nil {
+		register(s, wrap)
+		return s
+	}
+	s := ghttp.GetServer(guid.S())
+	register(s, wrap)
+	s.BindStatusHandler(http.StatusNotFound, notFound(wrap(http.NotFoundHandler())))
+	return s
+}
+
+// handle serves h as a GoFrame handler, with the path parameters GoFrame found on the request.
+// The response goes to the client as h writes it, past GoFrame's buffer, so a status without a
+// body stays without one.
+func handle(h http.Handler) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		for name, value := range r.GetRouterMap() {
+			r.Request.SetPathValue(name, value)
+		}
+		h.ServeHTTP(r.Response.Writer, r.Request)
+	}
+}
+
+// notFound serves h for a request no route took; a 404 a route wrote stays as it is.
+func notFound(h http.Handler) ghttp.HandlerFunc {
+	return func(r *ghttp.Request) {
+		if r.GetServeHandler() == nil {
+			handle(h)(r)
+		}
+	}
+}

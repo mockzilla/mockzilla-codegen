@@ -1,0 +1,30 @@
+openapi: 3.1.0
+info: {title: scaffolds, version: "1"}
+paths:
+  /todos:
+    get:
+      operationId: listTodos
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Todo'}}}
+    post:
+      operationId: createTodo
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Todo'}}
+      responses:
+        "201":
+          description: created
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Todo'}}
+components:
+  schemas:
+    Todo:
+      type: object
+      required: [title]
+      properties:
+        title: {type: string}
+        done: {type: boolean}

@@ -1,0 +1,33 @@
+func main() {
+	if err := run(); err != nil {
+		{{.Slog}}.Error("server stopped", "error", err)
+		{{.OS}}.Exit(1)
+	}
+}
+
+// run serves on port {{.Port}} until the process is told to stop, then lets the requests in
+// flight finish.
+func run() error {
+	ctx, stop := {{.Signal}}.NotifyContext({{.Context}}.Background(), {{.OS}}.Interrupt, {{.Syscall}}.SIGTERM)
+	defer stop()
+
+	app := {{.Framework}}.New({{.Framework}}.Config{ReadTimeout: {{.Timeout}}})
+	{{.NewRouter}}({{.NewService}}(), {{.WithRouter}}(app){{if .Middleware}}, {{.WithMiddleware}}(
+{{- range .Middleware}}
+		{{.}},
+{{- end}}
+	){{end}})
+
+	errs := make(chan error, 1)
+	go func() {
+		{{.Slog}}.Info("listening", "addr", ":{{.Port}}")
+		errs <- app.Listen(":{{.Port}}", {{.Framework}}.ListenConfig{DisableStartupMessage: true})
+	}()
+
+	select {
+	case err := <-errs:
+		return err
+	case <-ctx.Done():
+	}
+	return app.ShutdownWithTimeout({{.Timeout}})
+}

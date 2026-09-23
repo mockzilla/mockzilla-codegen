@@ -1,0 +1,43 @@
+// WithRouter registers the routes on r instead of a new Router.
+func WithRouter(r *{{.Framework}}.Router) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = r
+	}
+}
+
+// NewRouter registers every operation on a gorilla/mux Router. On a new Router the middleware
+// WithMiddleware adds wraps everything, unknown paths too; on the Router WithRouter gives it, the
+// middleware wraps each generated route and nothing else.
+func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Router {
+	o := {{.NewOptions}}(opts...)
+{{- if .Routes}}
+	adapter := {{.NewAdapter}}(svc, opts...)
+{{- end}}
+	wrap := func(h {{.Packages.http}}.Handler) {{.Packages.http}}.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(r *{{.Framework}}.Router, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
+{{- range .Routes}}
+		r.Handle({{.Pattern}}, route({{$.Packages.http}}.HandlerFunc(adapter.{{.Operation}}))).Methods("{{.HTTPMethod}}")
+{{- end}}
+{{- block "server.router-extra" .}}{{end}}
+	}
+
+	if r, _ := o.Router.(*{{.Framework}}.Router); r != nil {
+		register(r, wrap)
+		return r
+	}
+	r := {{.Framework}}.NewRouter()
+	register(r, wrap)
+	r.NotFoundHandler = wrap({{.Packages.http}}.NotFoundHandler())
+	r.MethodNotAllowedHandler = wrap({{.Packages.http}}.HandlerFunc(methodNotAllowed))
+	return r
+}
+
+// methodNotAllowed answers a known path asked with a method it does not take, as mux does.
+func methodNotAllowed(w {{.Packages.http}}.ResponseWriter, _ *{{.Packages.http}}.Request) {
+	w.WriteHeader({{.Packages.http}}.StatusMethodNotAllowed)
+}

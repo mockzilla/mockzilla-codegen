@@ -1,0 +1,166 @@
+// Copyright (c) 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+// Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+// permission notice shall be included in all copies or substantial portions of the Software.
+
+package basic
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/fasthttp/router"
+	"github.com/mockzilla/mockzilla-codegen/examples/server/fasthttp/internal/fasthttptest"
+	"github.com/mockzilla/mockzilla-codegen/examples/server/internal/servertest"
+	"github.com/valyala/fasthttp"
+)
+
+var errBoom = errors.New("boom")
+
+// service keeps pets in memory.
+type service struct {
+	pets map[int]Pet
+}
+
+func (s *service) ListPets(_ context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error) {
+	var pets ListPetsResponse200
+	for _, p := range s.pets {
+		pets = append(pets, p)
+	}
+	if opts.Query.Limit != nil && *opts.Query.Limit < len(pets) {
+		pets = pets[:*opts.Query.Limit]
+	}
+	return NewListPetsResponseData(pets), nil
+}
+
+func (s *service) CreatePet(_ context.Context, opts *CreatePetServiceRequestOptions) (*CreatePetResponseData, error) {
+	if opts.Body.Name == "boom" {
+		return nil, errBoom
+	}
+	s.pets[opts.Body.ID] = *opts.Body
+	return NewCreatePetResponseData(opts.Body).WithTypedHeaders(CreatePetResponse201Headers{Location: new("/pets/1")}), nil
+}
+
+func (s *service) GetPet(_ context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error) {
+	p, ok := s.pets[opts.PathParams.ID]
+	if !ok {
+		return NewGetPetResponseData404(), nil
+	}
+	return NewGetPetResponseData200(&p), nil
+}
+
+func (s *service) DeletePet(_ context.Context, opts *DeletePetServiceRequestOptions) (*DeletePetResponseData, error) {
+	delete(s.pets, opts.PathParams.ID)
+	return NewDeletePetResponseData(), nil
+}
+
+func (*service) Ping(context.Context, *PingServiceRequestOptions) (*PingResponseData, error) {
+	return NewPingResponseData(new("pong")), nil
+}
+
+func TestRouter(t *testing.T) {
+	t.Parallel()
+
+	servertest.Run(t, fasthttptest.Handler((NewRouter(&service{pets: map[int]Pet{}})).Handler), servertest.Basic("404 page not found\n"))
+}
+
+func TestMethodNotAllowed(t *testing.T) {
+	t.Parallel()
+
+	rec := httptest.NewRecorder()
+	fasthttptest.Handler((NewRouter(&service{pets: map[int]Pet{}})).Handler).ServeHTTP(rec, httptest.NewRequest("PUT", "/ping", nil))
+
+	assert.Equal(t, 405, rec.Code)
+	assert.Equal(t, "", rec.Body.String())
+	assert.Equal(t, "GET, OPTIONS", rec.Header().Get("Allow"))
+}
+
+func TestWithRouterAndMiddleware(t *testing.T) {
+	t.Parallel()
+
+	var seen []string
+	tag := func(name string) func(http.Handler) http.Handler {
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				seen = append(seen, name)
+				next.ServeHTTP(w, r)
+			})
+		}
+	}
+	own := router.New()
+	own.GET("/health", func(ctx *fasthttp.RequestCtx) { ctx.SetStatusCode(http.StatusNoContent) })
+	r := NewRouter(&service{pets: map[int]Pet{}}, WithRouter(own), WithMiddleware(tag("outer"), tag("inner")))
+	require.Same(t, own, r)
+	router := fasthttptest.Handler(r.Handler)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest("GET", "/ping", nil))
+	assert.Equal(t, 200, rec.Code)
+	assert.Equal(t, []string{"outer", "inner"}, seen)
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest("GET", "/health", nil))
+	assert.Equal(t, 204, rec.Code)
+	assert.Equal(t, []string{"outer", "inner"}, seen, "the middleware wraps the generated routes only")
+}
+
+func TestMiddlewareOnNewRouter(t *testing.T) {
+	t.Parallel()
+
+	var seen []string
+	tag := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			seen = append(seen, strings.Clone(r.URL.Path))
+			next.ServeHTTP(w, r)
+		})
+	}
+	router := fasthttptest.Handler((NewRouter(&service{pets: map[int]Pet{}}, WithMiddleware(tag))).Handler)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest("GET", "/ping", nil))
+	assert.Equal(t, 200, rec.Code)
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest("GET", "/nope", nil))
+	assert.Equal(t, 404, rec.Code)
+	assert.Equal(t, []string{"/ping", "/nope"}, seen, "the middleware wraps unknown paths of a new router too")
+}
+
+func TestErrorHandler(t *testing.T) {
+	t.Parallel()
+
+	handler := ErrorHandlerFunc(func(w http.ResponseWriter, _ *http.Request, status int, err error) {
+		var herr *HandlerError
+		require.ErrorAs(t, err, &herr)
+		w.Header().Set("X-Kind", herr.Kind.String())
+		w.Header().Set("X-Operation", herr.OperationID)
+		w.WriteHeader(status)
+	})
+	router := fasthttptest.Handler((NewRouter(&service{pets: map[int]Pet{}}, WithErrorHandler(handler))).Handler)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest("GET", "/pets/x", nil))
+
+	assert.Equal(t, 400, rec.Code)
+	assert.Equal(t, "parse", rec.Header().Get("X-Kind"))
+	assert.Equal(t, "GetPet", rec.Header().Get("X-Operation"))
+}
+
+func TestAdapterAlone(t *testing.T) {
+	t.Parallel()
+
+	adapter := NewHTTPAdapter(&service{pets: map[int]Pet{}})
+	rec := httptest.NewRecorder()
+
+	adapter.Ping(rec, httptest.NewRequest("GET", "/ping", nil))
+
+	assert.Equal(t, 200, rec.Code)
+	assert.Equal(t, "pong", rec.Body.String())
+}

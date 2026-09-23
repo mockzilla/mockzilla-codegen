@@ -1,0 +1,30 @@
+openapi: 3.1.0
+info: {title: split packages, version: "1"}
+paths:
+  /books/{isbn}:
+    get:
+      operationId: getBook
+      parameters:
+        - {name: isbn, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Book'}}
+        "404":
+          description: no such book
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Problem'}}
+components:
+  schemas:
+    Book:
+      type: object
+      required: [isbn, title]
+      properties:
+        isbn: {type: string}
+        title: {type: string}
+    Problem:
+      type: object
+      required: [detail]
+      properties:
+        detail: {type: string}

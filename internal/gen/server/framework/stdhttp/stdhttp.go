@@ -15,7 +15,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"unicode"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
@@ -51,8 +50,9 @@ func (Framework) Imports() []gomodel.Import {
 	return []gomodel.Import{{Path: importPath}}
 }
 
-// RoutePattern writes METHOD /path with each parameter as a wildcard, a trailing * as the
-// wildcard {rest...} and a trailing slash as {$}, so the route matches the path exactly. It fails
+// RoutePattern writes METHOD /path with each parameter as a wildcard named as an identifier, a
+// trailing * as the wildcard {rest...} and a trailing slash as {$}, so the route matches the path
+// exactly. It fails
 // on what ServeMux panics on: a path without a leading slash, one that is not clean, a parameter
 // that does not fill its segment or has no name, and two wildcards of one name.
 func (Framework) RoutePattern(method, oasPath string) (string, error) {
@@ -77,7 +77,7 @@ func (Framework) RoutePattern(method, oasPath string) (string, error) {
 		case !wildcardSegment.MatchString(seg):
 			return "", fmt.Errorf("%w: a parameter must fill its segment, unlike %s", framework.ErrPattern, seg)
 		default:
-			name := wildcard(seg[1 : len(seg)-1])
+			name := framework.Identifier(seg[1 : len(seg)-1])
 			if name == "" {
 				return "", fmt.Errorf("%w: a parameter has no name", framework.ErrPattern)
 			}
@@ -117,29 +117,11 @@ func (Framework) Handler(s *gocode.Scope) framework.Handler {
 }
 
 func (Framework) PathParam(_ *gocode.Scope, name string) string {
-	return gocode.Call(gocode.Selector("r", "PathValue"), gocode.Quote(wildcard(name)))
+	return gocode.Call(gocode.Selector("r", "PathValue"), gocode.Quote(framework.Identifier(name)))
 }
 
 func (Framework) Templates() fs.FS {
 	return templates
-}
-
-// wildcard is the name a path parameter has on the mux. ServeMux takes Go identifiers, so any
-// other character becomes an underscore, and a leading digit gets one in front.
-func wildcard(name string) string {
-	var b strings.Builder
-	for i, c := range name {
-		switch {
-		case unicode.IsLetter(c) || c == '_' || (i > 0 && unicode.IsDigit(c)):
-			b.WriteRune(c)
-		case unicode.IsDigit(c):
-			b.WriteRune('_')
-			b.WriteRune(c)
-		default:
-			b.WriteRune('_')
-		}
-	}
-	return b.String()
 }
 
 // cleanPath is the path as ServeMux cleans it, which keeps a trailing slash.

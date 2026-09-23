@@ -1,0 +1,8 @@
+spec: {path: api.yaml}
+package: errors
+models:
+  error-mapping:
+    Problem: detail
+server:
+  framework: kratos
+  validation: {request: true, response: true}

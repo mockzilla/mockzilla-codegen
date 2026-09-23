@@ -173,9 +173,20 @@
         "framework": {
           "description": "HTTP framework to generate for.",
           "enum": [
+            "beego",
             "chi",
-            "std-http",
-            "echo"
+            "echo",
+            "echo-v5",
+            "fasthttp",
+            "fiber",
+            "gin",
+            "go-zero",
+            "goframe",
+            "gorilla-mux",
+            "hertz",
+            "iris",
+            "kratos",
+            "std-http"
           ],
           "type": "string"
         },

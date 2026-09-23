@@ -1,0 +1,101 @@
+// Copyright (c) 2026 Mockzilla
+// SPDX-License-Identifier: MIT
+// Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
+// permission notice shall be included in all copies or substantial portions of the Software.
+
+package iris
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
+	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/layout"
+)
+
+func TestFramework(t *testing.T) {
+	t.Parallel()
+
+	fw := Framework{}
+
+	assert.Equal(t, "iris", fw.Name())
+	assert.Equal(t, framework.NetHTTP, fw.Family())
+	assert.Equal(t, []gomodel.Import{{Path: "github.com/kataras/iris/v12"}, {Path: "net/http"}}, fw.Imports())
+	_, err := fw.Templates().Open("router.tmpl")
+	require.NoError(t, err)
+}
+
+func TestRoutePattern(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		path    string
+		want    string
+		wantErr string
+	}{
+		{name: "Parameters are named as identifiers", path: "/pets/{id}/photos/{photo-id}", want: "/pets/{id}/photos/{photo_id}"},
+		{name: "A wildcard becomes a path parameter", path: "/files/*", want: "/files/{rest:path}"},
+		{name: "The root", path: "/", want: "/"},
+		{name: "A trailing slash", path: "/pets/", want: "/pets/"},
+		{name: "A literal colon", path: "/pets:search", want: "/pets:search"},
+		{name: "No leading slash", path: "pets", wantErr: "the router rejects the path: it must begin with /"},
+		{name: "Unclosed brace", path: "/pets/{id", wantErr: "the router rejects the path: a { has no }"},
+		{name: "Wildcard not last", path: "/files/*/meta", wantErr: "the router rejects the path: * must be last"},
+		{name: "Wildcard with a prefix", path: "/files*", wantErr: "the router rejects the path: a parameter must fill its segment, unlike files*"},
+		{name: "A parameter with a prefix", path: "/pets/v{id}", wantErr: "the router rejects the path: a parameter must fill its segment, unlike v{id}"},
+		{name: "A parameter with a suffix", path: "/pets/{id}.json", wantErr: "the router rejects the path: a parameter must fill its segment, unlike {id}.json"},
+		{name: "A parameter without a name", path: "/pets/{}", wantErr: "the router rejects the path: a parameter has no name"},
+		{name: "A parameter named twice", path: "/pets/{id}/{id}", wantErr: `the router rejects the path: parameter "id" is named twice`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := Framework{}.RoutePattern("GET", tc.path)
+
+			if tc.wantErr != "" {
+				require.ErrorIs(t, err, framework.ErrPattern)
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestConflicts(t *testing.T) {
+	t.Parallel()
+
+	get := framework.Route{Operation: "GetPet", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/{id}"}
+	renamed := framework.Route{Operation: "GetAnimal", Method: "GET", Path: "/pets/{petId}", Pattern: "/pets/{petId}"}
+
+	kept, dropped := Framework{}.Conflicts([]framework.Route{get, renamed})
+
+	assert.Equal(t, []framework.Route{get}, kept)
+	assert.Equal(t, []framework.Conflict{{Route: renamed, Reason: "names its path parameters otherwise than GetPet at /pets/{id}"}}, dropped)
+}
+
+func TestHandler(t *testing.T) {
+	t.Parallel()
+
+	f := &layout.File{Path: "/work/gen.go", Package: "api"}
+	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
+
+	assert.Equal(t, framework.Handler{Signature: "(w http.ResponseWriter, r *http.Request)", Return: "return"}, Framework{}.Handler(s))
+}
+
+func TestPathParam(t *testing.T) {
+	t.Parallel()
+
+	f := &layout.File{Path: "/work/gen.go", Package: "api"}
+	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
+
+	assert.Equal(t, `r.PathValue("pet_id")`, Framework{}.PathParam(s, "pet-id"))
+	assert.Empty(t, s.Imports.Decl())
+}

@@ -1,0 +1,29 @@
+func main() {
+	if err := run(); err != nil {
+		{{.Slog}}.Error("server stopped", "error", err)
+		{{.OS}}.Exit(1)
+	}
+}
+
+// run serves on port {{.Port}} until the process is told to stop, then lets the requests in
+// flight finish.
+func run() error {
+	ctx, stop := {{.Signal}}.NotifyContext({{.Context}}.Background(), {{.OS}}.Interrupt, {{.Syscall}}.SIGTERM)
+	defer stop()
+
+	s := {{.Framework}}.GetServer()
+	s.SetPort({{.Port}})
+	s.SetReadTimeout({{.Timeout}})
+	{{.NewRouter}}({{.NewService}}(), {{.WithRouter}}(s){{if .Middleware}}, {{.WithMiddleware}}(
+{{- range .Middleware}}
+		{{.}},
+{{- end}}
+	){{end}})
+
+	if err := s.Start(); err != nil {
+		return err
+	}
+	{{.Slog}}.Info("listening", "addr", s.GetListenedAddress())
+	<-ctx.Done()
+	return s.Shutdown()
+}

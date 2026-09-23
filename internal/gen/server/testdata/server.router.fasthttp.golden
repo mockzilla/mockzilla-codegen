@@ -1,0 +1,69 @@
+package api
+
+import (
+	"net/http"
+
+	"github.com/fasthttp/router"
+	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/fasthttpadaptor"
+)
+
+// WithRouter registers the routes on r instead of a new Router.
+func WithRouter(r *router.Router) ServerOption {
+	return func(o *ServerOptions) {
+		o.Router = r
+	}
+}
+
+// NewRouter registers every operation on a fasthttp router. On a new router the middleware
+// WithMiddleware adds wraps everything, unknown paths and OPTIONS requests too, which the router
+// leaves to the routes; on the router WithRouter gives it, the middleware wraps each generated
+// route and nothing else.
+func NewRouter(svc PetsInterface, opts ...ServerOption) *router.Router {
+	o := NewServerOptions(opts...)
+	adapter := NewHTTPAdapter(svc, opts...)
+	wrap := func(h http.Handler) http.Handler {
+		for i := len(o.Middleware) - 1; i >= 0; i-- {
+			h = o.Middleware[i](h)
+		}
+		return h
+	}
+	register := func(r *router.Router, route func(http.Handler) http.Handler) {
+		r.GET("/pets", handle(route(http.HandlerFunc(adapter.ListPets))))
+		r.POST("/pets", handle(route(http.HandlerFunc(adapter.CreatePet))))
+		r.DELETE("/pets/{id}", handle(route(http.HandlerFunc(adapter.DeletePet))))
+		r.GET("/ping", handle(route(http.HandlerFunc(adapter.Ping))))
+	}
+
+	if r, _ := o.Router.(*router.Router); r != nil {
+		register(r, wrap)
+		return r
+	}
+	r := router.New()
+	r.HandleOPTIONS = false
+	register(r, wrap)
+	r.NotFound = handle(wrap(http.NotFoundHandler()))
+	r.MethodNotAllowed = handle(wrap(http.HandlerFunc(methodNotAllowed)))
+	return r
+}
+
+// handle serves h as a fasthttp handler, with the path parameters the router found on the
+// request.
+func handle(h http.Handler) fasthttp.RequestHandler {
+	return func(ctx *fasthttp.RequestCtx) {
+		fasthttpadaptor.NewFastHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx.VisitUserValues(func(key []byte, value any) {
+				if s, ok := value.(string); ok {
+					r.SetPathValue(string(key), s)
+				}
+			})
+			h.ServeHTTP(w, r)
+		}))(ctx)
+	}
+}
+
+// methodNotAllowed answers a known path asked with a method it does not take; the router sets
+// the Allow header before.
+func methodNotAllowed(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusMethodNotAllowed)
+}
