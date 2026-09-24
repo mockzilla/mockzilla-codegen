@@ -1,6 +1,6 @@
 ---
 name: code-style
-description: "Go code-style gate for the codegen repo. MUST run before declaring any feature, phase or task complete, and before every `gh pr create` (or any pull-request creation). Reviews the changed `.go` files and templates against the project's Go style rules (comments, tests, naming, errors, structs, argument count, blank lines, file structure, sugar wrappers, no printing, package names, determinism, logic-free templates, package state, public-repo hygiene) and blocks completion until violations are fixed or explicitly overridden. Also invoke on request: 'style gate', 'check go style', 'lint go', 'code-style review'."
+description: "Go code-style gate for the codegen repo. MUST run before declaring any feature, phase or task complete, and before every `gh pr create` (or any pull-request creation). Reviews the changed `.go` files and templates against the project's Go style rules (comments, tests, naming, errors, structs, argument count, blank lines, file structure, sugar wrappers, no printing, package names, determinism, logic-free templates, package state, public-repo hygiene, any over interface{}) and blocks completion until violations are fixed or explicitly overridden. Also invoke on request: 'style gate', 'check go style', 'lint go', 'code-style review'."
 ---
 
 # Code Style
@@ -17,7 +17,7 @@ that rule 16 (public repo) applies to every file and every commit message.
 Two layers, in precedence order:
 
 1. **Uber Go Style Guide** - the baseline (digest under "Baseline").
-2. **Project rules** (1-16) - override or supplement the baseline.
+2. **Project rules** (1-17) - override or supplement the baseline.
 
 On conflict the project rule wins.
 
@@ -257,6 +257,11 @@ The public packages expose our own types, never a dependency's.
 This repository is public. Never name private repositories, internal services, accounts, buckets or
 deployment details anywhere: code, comments, docs, examples, test fixtures, commit messages, PR
 titles and bodies. Describe consumers by role ("downstream consumers").
+
+### 17. `any`, never `interface{}`
+
+Write `any` for the empty interface everywhere: Go source, templates and the code they generate.
+revive `use-any` enforces it in `make lint`; templates and generated output are a manual check.
 
 ## Updating this skill
 
