@@ -4,7 +4,11 @@ SHELL := /bin/bash
 PKG ?= ./...
 RUN ?=
 MIN_COVERAGE ?= 100
-GOLANGCI ?= golangci-lint
+# golangci-lint must be built with a Go at least as new as the go directive in go.mod; bump the two
+# together.
+GOLANGCI_VERSION ?= v2.14.0
+GOLANGCI ?= bin/golangci-lint
+GOLANGCI_ARCHIVE := golangci-lint-$(GOLANGCI_VERSION:v%=%)-$(shell go env GOOS)-$(shell go env GOARCH)
 
 .PHONY: help
 help: ## List targets
@@ -31,16 +35,24 @@ cover: ## Write coverage.out and coverage.html
 cover-check: cover ## Fail when a package is below MIN_COVERAGE (default 100)
 	go run ./scripts/covercheck -profile coverage.out -min $(MIN_COVERAGE) -ignore .covignore
 
+.PHONY: lint-tools
+lint-tools: ## Install golangci-lint GOLANGCI_VERSION into bin/ unless that version is there
+	@if ! $(GOLANGCI) --version 2>/dev/null | grep -q 'version $(GOLANGCI_VERSION:v%=%) '; then \
+		mkdir -p bin; \
+		curl -sSfL https://github.com/golangci/golangci-lint/releases/download/$(GOLANGCI_VERSION)/$(GOLANGCI_ARCHIVE).tar.gz \
+			| tar -xz -C bin --strip-components=1 $(GOLANGCI_ARCHIVE)/golangci-lint; \
+	fi
+
 .PHONY: lint
-lint: ## Run golangci-lint
+lint: lint-tools ## Run golangci-lint
 	$(GOLANGCI) run ./...
 
 .PHONY: lint-fix
-lint-fix: ## Run golangci-lint and apply fixes
+lint-fix: lint-tools ## Run golangci-lint and apply fixes
 	$(GOLANGCI) run --fix ./...
 
 .PHONY: fmt
-fmt: ## Format code (gofumpt, goimports)
+fmt: lint-tools ## Format code (gofumpt, goimports)
 	$(GOLANGCI) fmt ./...
 
 .PHONY: tidy

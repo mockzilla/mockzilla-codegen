@@ -85,6 +85,7 @@ linters:
         - name: unexported-return
         - name: unreachable-code
         - name: unused-parameter
+        - name: use-any
         - name: var-declaration
         - name: var-naming
   exclusions:
@@ -99,6 +100,23 @@ linters:
       - path: _test\.go
         linters:
           - gosec
+      # The integration harness runs go and the generated binaries by design.
+      - path: ^internal/itest/
+        linters:
+          - gosec
+        text: "^G204:"
+      # maxMemory bounds what stays in memory; the size of the body is the server's job, as with
+      # every other decoder here.
+      - path: ^pkg/runtime/body\.go
+        linters:
+          - gosec
+        text: "^G120:"
+      # These are request cookies written by the client; Secure, HttpOnly and SameSite only exist on
+      # Set-Cookie.
+      - path: ^pkg/runtime/params\.go
+        linters:
+          - gosec
+        text: "^G124:"
       # Generated code imports it as runtime, like other OpenAPI generators do.
       - path: ^pkg/runtime/
         linters:
