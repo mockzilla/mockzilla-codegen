@@ -1,0 +1,14 @@
+# The oapi-codegen config this example starts from. codegen.yml next to it is its translation.
+# yaml-language-server: $schema=https://raw.githubusercontent.com/oapi-codegen/oapi-codegen/v2.8.0/configuration-schema.json
+package: petstore
+output: gen.go
+generate:
+  models: true
+  chi-server: true
+  strict-server: true
+  client: true
+output-options:
+  exclude-tags: [admin]
+  client-type-name: PetClient
+compatibility:
+  always-prefix-enum-values: true

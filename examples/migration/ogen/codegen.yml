@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../../config.schema.json
+# Translation of ogen.yml and the ogen command line, see docs/migration/ogen.md.
+spec:
+  path: api.yaml                # the spec argument of the ogen command
+  filter:
+    include:
+      paths: [/pets, '/pets/{id}']  # generator.filters.path_regex, as the paths it matched
+package: petstore               # --package
+models:
+  error-mapping: {Error: message}  # generator.convenient_errors: the service returns an Error
+server:
+  framework: std-http           # paths/server, on the standard library's router
+client: {}                      # paths/client
+output:
+  file: ./gen.go                # --target, as one file

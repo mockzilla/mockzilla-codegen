@@ -1,0 +1,94 @@
+openapi: 3.0.3
+info: {title: petstore, version: "1"}
+tags:
+  - {name: pets}
+  - {name: admin}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      tags: [pets]
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, format: int32, minimum: 1}}
+        - {name: status, in: query, schema: {$ref: '#/components/schemas/Status'}}
+      responses:
+        "200":
+          description: the pets
+          content:
+            application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Pet'}}}
+        default:
+          description: error
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Error'}}
+    post:
+      operationId: createPet
+      tags: [pets]
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/NewPet'}}
+      responses:
+        "201":
+          description: created
+          headers:
+            Location: {schema: {type: string}}
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+        default:
+          description: error
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Error'}}
+  /pets/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
+    get:
+      operationId: getPet
+      tags: [pets]
+      responses:
+        "200":
+          description: the pet
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+        "404":
+          description: no such pet
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Error'}}
+    delete:
+      operationId: deletePet
+      tags: [pets]
+      responses:
+        "204": {description: deleted}
+  /admin/stats:
+    get:
+      operationId: getStats
+      tags: [admin]
+      responses:
+        "200":
+          description: pets per status
+          content:
+            application/json: {schema: {type: object, additionalProperties: {type: integer}}}
+components:
+  schemas:
+    Status:
+      type: string
+      enum: [available, pending, sold]
+    NewPet:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, minLength: 1, x-oapi-codegen-extra-tags: {db: name}}
+        tag: {type: string, nullable: true}
+        status: {$ref: '#/components/schemas/Status'}
+    Pet:
+      allOf:
+        - $ref: '#/components/schemas/NewPet'
+        - type: object
+          required: [id]
+          properties:
+            id: {type: integer, format: int64}
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: {type: integer}
+        message: {type: string}
