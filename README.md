@@ -38,7 +38,8 @@ go tool mockzilla-codegen generate -c codegen.yml
 
 The executable is `mockzilla-codegen`. [Getting started](docs/getting-started.md) covers the
 install, the commands, checking generated files in CI and the runtime version guard. Go 1.26 or
-newer.
+newer. Coming from oapi-codegen, oapi-codegen-dd or ogen: [migration](docs/migration.md) maps
+their configs, extensions and generated code to this one.
 
 ## Configuration
 

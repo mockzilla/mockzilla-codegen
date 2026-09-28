@@ -1,0 +1,11 @@
+# The ogen config this example starts from, run as
+#   ogen --config ogen.yml --target ./petstore --package petstore --clean api.yaml
+# codegen.yml next to it is its translation.
+parser:
+  infer_types: true
+generator:
+  features:
+    disable: [ogen/otel]
+  filters:
+    path_regex: ^/pets
+  convenient_errors: on

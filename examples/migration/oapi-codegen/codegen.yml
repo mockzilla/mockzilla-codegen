@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../../../config.schema.json
+# Translation of oapi-codegen.yaml, see docs/migration/oapi-codegen.md.
+spec:
+  path: api.yaml                # the spec argument of the oapi-codegen command
+  filter:
+    exclude: {tags: [admin]}    # output-options.exclude-tags
+package: petstore
+naming:
+  enum-prefix: true             # compatibility.always-prefix-enum-values, the default here
+models:
+  error-mapping: {Error: message}  # no oapi-codegen key: the service returns an Error as a Go error
+server:
+  framework: chi                # generate.chi-server; the shape is the strict server's
+client:
+  name: PetClient               # output-options.client-type-name
+  with-response: true           # the ClientWithResponses methods
+output:
+  file: ./gen.go                # output
