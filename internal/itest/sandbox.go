@@ -22,15 +22,15 @@ const (
 	codegenModule = "github.com/mockzilla/mockzilla-codegen"
 )
 
-// Sandbox is the Go module in Dir that generated packages are built in. It replaces the codegen
-// module with Repo, so generated code imports the runtime of the tree under test.
+// Sandbox is the Go module in Dir that generated packages are built in. It replaces the
+// mockzilla-codegen module with Repo, so generated code imports the runtime of the tree under test.
 type Sandbox struct {
 	Dir  string
 	Repo string
 }
 
-// BuildTool builds the codegen CLI from Repo into the sandbox and returns its path. VCS stamping
-// is off so the binary, and the cache keyed by its hash, change only with the code.
+// BuildTool builds the mockzilla-codegen CLI from Repo into the sandbox and returns its path. VCS
+// stamping is off so the binary, and the cache keyed by its hash, change only with the code.
 func (s Sandbox) BuildTool(ctx context.Context, run Command) (string, error) {
 	tool := filepath.Join(s.Dir, "bin", toolName)
 	if out, err := run(ctx, s.Repo, "go", "build", "-buildvcs=false", "-o", tool, toolPackage); err != nil {

@@ -275,7 +275,7 @@ A `const` sets the type of a field and is checked by validation. It makes no con
 
 ## Coming from oapi-codegen
 
-| Schema | oapi-codegen | codegen |
+| Schema | oapi-codegen | mockzilla-codegen |
 |---|---|---|
 | `number` without a format, or with an unknown one | `float32` | `float64` |
 | `string` with format `uuid` | `uuid.UUID` | `string`, checked by validation |

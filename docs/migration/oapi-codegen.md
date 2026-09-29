@@ -7,10 +7,10 @@ walks through.
 
 ## The command
 
-| oapi-codegen | codegen |
+| oapi-codegen | mockzilla-codegen |
 |---|---|
-| `oapi-codegen -config cfg.yaml api.yaml` | `mockzilla-codegen generate -c codegen.yml`, the spec path from `spec.path` or as the last argument |
-| `//go:generate go tool oapi-codegen -config cfg.yaml ../api.yaml` | `//go:generate go tool mockzilla-codegen generate -c ../codegen.yml` |
+| `oapi-codegen -config cfg.yaml api.yaml` | `mockzilla-codegen generate -c codegen.yaml`, the spec path from `spec.path` or as the last argument |
+| `//go:generate go tool oapi-codegen -config cfg.yaml ../api.yaml` | `//go:generate go tool mockzilla-codegen generate -c ../codegen.yaml` |
 | `oapi-codegen -version` | `mockzilla-codegen version` |
 | the command line flags | none; everything is in the config |
 
@@ -22,7 +22,7 @@ The output is written on every run, so remove the old generated file first, or p
 Unknown keys are errors, so start from the table and add what the first run asks for. A key
 without a row here has no equivalent; the [notes](#what-has-no-key) below say what to do instead.
 
-| oapi-codegen | codegen |
+| oapi-codegen | mockzilla-codegen |
 |---|---|
 | `package` | `package` |
 | `output` | `output.file` |
@@ -91,7 +91,7 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
 Every extension oapi-codegen documents keeps its meaning, apart from these
 ([extensions](../extensions.md)):
 
-| oapi-codegen | codegen |
+| oapi-codegen | mockzilla-codegen |
 |---|---|
 | `x-enum-varnames`, `x-enumNames` | `x-enum-names` |
 | `x-omitzero` | none; `omitzero` is written next to `omitempty` where a struct needs it |
@@ -103,7 +103,7 @@ Every extension oapi-codegen documents keeps its meaning, apart from these
 
 ### Server
 
-| oapi-codegen | codegen |
+| oapi-codegen | mockzilla-codegen |
 |---|---|
 | `ServerInterface`, methods `(w http.ResponseWriter, r *http.Request, params P)` | `ServiceInterface`, methods `(ctx, *<Op>ServiceRequestOptions) (*<Op>ResponseData, error)` |
 | `StrictServerInterface`, methods `(ctx, <Op>RequestObject) (<Op>ResponseObject, error)` | the same interface; `<Op>RequestObject.Params.Limit` is `opts.Query.Limit`, `.Body` is `opts.Body` |
@@ -122,7 +122,7 @@ once, which oapi-codegen leaves to the project.
 
 ### Client
 
-| oapi-codegen | codegen |
+| oapi-codegen | mockzilla-codegen |
 |---|---|
 | `NewClient(server, WithHTTPClient(c), WithRequestEditorFn(fn))` | `NewClient(baseURL, WithHTTPClient(c), WithRequestEditor(fn))`; the type is named by `client.name` |
 | `Client.<Op>(ctx, params, body, reqEditors...)` returning `*http.Response` | `<Op>(ctx, opts)` returns the success body, and an error for any other status ([methods](../client.md#methods)); `<Op>Request(ctx, opts)` builds the request without sending it |
@@ -156,7 +156,7 @@ mapping. Beyond it:
 
 `goapi-gen` is a hard fork of `oapi-codegen` v1 for chi, with a flat config file:
 
-| goapi-gen | codegen |
+| goapi-gen | mockzilla-codegen |
 |---|---|
 | `output` | `output.file` |
 | `package` | `package` |
@@ -171,7 +171,7 @@ mapping. Beyond it:
 
 Its extensions:
 
-| goapi-gen | codegen |
+| goapi-gen | mockzilla-codegen |
 |---|---|
 | `x-go-type` with `type`, `import`, `alias` | `x-go-type` with the type, `x-go-type-import` with `{path, name}` |
 | `x-go-type-external` | the same two |

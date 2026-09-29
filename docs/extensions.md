@@ -1,10 +1,10 @@
 # Extensions
 
-Extensions change what codegen writes for one schema, property or parameter.
+Extensions change what mockzilla-codegen writes for one schema, property or parameter.
 
 | Extension | Where | Effect |
 |---|---|---|
-| `x-go-type` | schema | the Go type to use instead of the one codegen picks |
+| `x-go-type` | schema | the Go type to use instead of the one mockzilla-codegen picks |
 | `x-go-type-import` | next to `x-go-type` | the package of that type: a path, or `{path, name}` to import it under a name |
 | `x-go-type-name` | schema | the name of the type the schema declares |
 | `x-go-name` | schema, property, parameter | the name of the type, field or parameter field |

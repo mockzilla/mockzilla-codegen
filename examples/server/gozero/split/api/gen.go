@@ -12,7 +12,8 @@ import (
 	"github.com/zeromicro/go-zero/rest/pathvar"
 )
 
-// Fails to compile when the runtime package does not match the codegen version that wrote this file.
+// Fails to compile when the runtime package does not match the mockzilla-codegen version that
+// wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 // BooksInterface is what the generated handlers call. Implement it with the business logic.

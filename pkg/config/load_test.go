@@ -21,14 +21,14 @@ func TestLoad(t *testing.T) {
 
 	dir := filepath.Join(t.TempDir(), "services", "pet-store")
 	require.NoError(t, os.MkdirAll(dir, 0o750))
-	path := filepath.Join(dir, "codegen.yml")
-	require.NoError(t, os.WriteFile(path, []byte("spec: {path: ./openapi.yml}\n"), 0o600))
+	path := filepath.Join(dir, "codegen.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("spec: {path: ./openapi.yaml}\n"), 0o600))
 
 	cfg, err := Load(path)
 
 	require.NoError(t, err)
 	assert.Equal(t, &Config{
-		Spec:    Spec{Path: "./openapi.yml", Prune: new(true)},
+		Spec:    Spec{Path: "./openapi.yaml", Prune: new(true)},
 		Package: "petstore",
 		Header:  defaultHeader,
 		Naming:  Naming{EnumPrefix: new(true)},
@@ -36,13 +36,13 @@ func TestLoad(t *testing.T) {
 		Output:  Output{File: "./gen.go", Format: new(true)},
 		dir:     dir,
 	}, cfg)
-	assert.Equal(t, filepath.Join(dir, "openapi.yml"), cfg.Resolve(cfg.Spec.Path))
+	assert.Equal(t, filepath.Join(dir, "openapi.yaml"), cfg.Resolve(cfg.Spec.Path))
 }
 
 func TestLoadMissingFile(t *testing.T) {
 	t.Parallel()
 
-	_, err := Load(filepath.Join(t.TempDir(), "codegen.yml"))
+	_, err := Load(filepath.Join(t.TempDir(), "codegen.yaml"))
 
 	require.ErrorIs(t, err, ErrRead)
 	assert.ErrorIs(t, err, fs.ErrNotExist)
@@ -51,7 +51,7 @@ func TestLoadMissingFile(t *testing.T) {
 func TestParse(t *testing.T) {
 	t.Parallel()
 
-	full, readErr := os.ReadFile(filepath.Join("testdata", "full.yml"))
+	full, readErr := os.ReadFile(filepath.Join("testdata", "full.yaml"))
 	require.NoError(t, readErr)
 
 	tests := []struct {
@@ -89,8 +89,8 @@ func TestParse(t *testing.T) {
 			src:  string(full),
 			want: &Config{
 				Spec: Spec{
-					Path:     "./openapi.yml",
-					Overlays: []string{"./overlays/go-names.yml"},
+					Path:     "./openapi.yaml",
+					Overlays: []string{"./overlays/go-names.yaml"},
 					Filter: Filter{
 						Include: FilterSet{
 							Paths:            []string{"/pets"},
@@ -217,7 +217,7 @@ func TestReadmeShowsTheFullExample(t *testing.T) {
 
 	readme, err := os.ReadFile(filepath.Join("..", "..", "README.md"))
 	require.NoError(t, err)
-	full, err := os.ReadFile(filepath.Join("testdata", "full.yml"))
+	full, err := os.ReadFile(filepath.Join("testdata", "full.yaml"))
 	require.NoError(t, err)
 
 	assert.Contains(t, string(readme), "```yaml\n"+string(full)+"```\n")
