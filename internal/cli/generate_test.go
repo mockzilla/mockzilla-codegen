@@ -48,7 +48,7 @@ func project(t *testing.T, cfg string) string {
 
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "api.yaml"), []byte(petSpec), 0o600))
-	path := filepath.Join(dir, "codegen.yml")
+	path := filepath.Join(dir, "codegen.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(cfg), 0o600))
 	return path
 }
@@ -231,7 +231,7 @@ func TestGenerateFailures(t *testing.T) {
 func TestGenerateMissingConfig(t *testing.T) {
 	t.Parallel()
 
-	code, _, stderr := run(t, "generate", "-c", filepath.Join(t.TempDir(), "codegen.yml"))
+	code, _, stderr := run(t, "generate", "-c", filepath.Join(t.TempDir(), "codegen.yaml"))
 
 	assert.Equal(t, ExitFail, code)
 	assert.Contains(t, stderr, "mockzilla-codegen: read config: open ")

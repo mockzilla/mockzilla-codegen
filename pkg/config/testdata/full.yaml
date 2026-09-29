@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla-codegen/main/config.schema.json
 spec:
-  path: ./openapi.yml
-  overlays: [./overlays/go-names.yml]
+  path: ./openapi.yaml
+  overlays: [./overlays/go-names.yaml]
   filter:
     include:
       paths: [/pets]

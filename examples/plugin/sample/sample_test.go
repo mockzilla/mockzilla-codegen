@@ -25,7 +25,7 @@ import (
 func TestExamples(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := config.Load(filepath.Join("..", "basic", "codegen.yml"))
+	cfg, err := config.Load(filepath.Join("..", "basic", "codegen.yaml"))
 	require.NoError(t, err)
 	res, err := codegen.Generate(context.Background(), cfg, codegen.WithPlugins(sample.Plugin{}))
 	require.NoError(t, err)

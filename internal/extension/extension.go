@@ -3,7 +3,7 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Package extension reads the x-* extensions codegen knows into typed values.
+// Package extension reads the x-* extensions mockzilla-codegen knows into typed values.
 package extension
 
 import (

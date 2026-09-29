@@ -21,11 +21,11 @@ func TestResolve(t *testing.T) {
 		path string
 		want string
 	}{
-		{name: "Relative path joins the config dir", dir: "/work/api", path: "./openapi.yml", want: "/work/api/openapi.yml"},
+		{name: "Relative path joins the config dir", dir: "/work/api", path: "./openapi.yaml", want: "/work/api/openapi.yaml"},
 		{name: "Parent path leaves the config dir", dir: "/work/api", path: "../specs/a.yml", want: "/work/specs/a.yml"},
 		{name: "Absolute path stays", dir: "/work/api", path: "/specs/a.yml", want: "/specs/a.yml"},
 		{name: "URL stays", dir: "/work/api", path: "https://example.com/a.yml", want: "https://example.com/a.yml"},
-		{name: "Empty dir leaves the path relative", dir: "", path: "./openapi.yml", want: "openapi.yml"},
+		{name: "Empty dir leaves the path relative", dir: "", path: "./openapi.yaml", want: "openapi.yaml"},
 	}
 
 	for _, tc := range tests {

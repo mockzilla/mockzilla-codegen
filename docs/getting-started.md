@@ -31,9 +31,9 @@ compile (see [Runtime guard](#runtime-guard)).
 Put the spec and a config next to each other:
 
 ```yaml
-# codegen.yml
+# codegen.yaml
 spec:
-  path: ./openapi.yml
+  path: ./openapi.yaml
 output:
   file: ./api/gen.go
 ```
@@ -50,16 +50,16 @@ This writes `api/gen.go` in package `api`. Paths in the config are relative to t
 To run it from `go generate`, add this line to any Go file of the package:
 
 ```go
-//go:generate go tool mockzilla-codegen generate -c ../codegen.yml
+//go:generate go tool mockzilla-codegen generate -c ../codegen.yaml
 ```
 
 ## Commands
 
-`mockzilla-codegen generate [-c codegen.yml] [-dry-run | -check] [-v] [spec]`
+`mockzilla-codegen generate [-c codegen.yaml] [-dry-run | -check] [-v] [spec]`
 
 | Flag | Meaning |
 |---|---|
-| `-c` | Config file. Defaults to `codegen.yml` in the current folder. |
+| `-c` | Config file. Defaults to `codegen.yaml` in the current folder. |
 | `-dry-run` | Print every file, its package, its parts and whether it would be written. Write nothing. |
 | `-check` | Write nothing. Exit 1 and list the generated files that are missing or differ from a new run. |
 | `-v` | Also print info diagnostics, and the table of files written. |
@@ -100,8 +100,9 @@ A generated file that imports the runtime package has this line:
 const _ = runtime.SupportsGeneratorV2
 ```
 
-Each release of codegen writes code for one level of the runtime API, and the runtime declares the
-levels it supports. When the runtime your module requires does not support the level of the code,
-the build stops on this line with `undefined: runtime.SupportsGeneratorV2`. Generate again with the
-version your `go.mod` requires, or update the requirement to the version that generated the code.
-With `go tool` both come from the same line of `go.mod`, so this does not happen.
+Each release of mockzilla-codegen writes code for one level of the runtime API, and the runtime
+declares the levels it supports. When the runtime your module requires does not support the level
+of the code, the build stops on this line with `undefined: runtime.SupportsGeneratorV2`. Generate
+again with the version your `go.mod` requires, or update the requirement to the version that
+generated the code. With `go tool` both come from the same line of `go.mod`, so this does not
+happen.

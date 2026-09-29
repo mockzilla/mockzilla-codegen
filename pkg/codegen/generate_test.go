@@ -59,9 +59,9 @@ func examples(t *testing.T) []string {
 	t.Helper()
 
 	root := filepath.Join("..", "..", "examples")
-	paths, err := filepath.Glob(filepath.Join(root, "*", "*", "codegen.yml"))
+	paths, err := filepath.Glob(filepath.Join(root, "*", "*", "codegen.yaml"))
 	require.NoError(t, err)
-	nested, err := filepath.Glob(filepath.Join(root, "*", "*", "*", "codegen.yml"))
+	nested, err := filepath.Glob(filepath.Join(root, "*", "*", "*", "codegen.yaml"))
 	require.NoError(t, err)
 	paths = slices.DeleteFunc(append(paths, nested...), func(p string) bool { return strings.HasPrefix(exampleName(p), "plugin/") })
 	require.NotEmpty(t, paths)

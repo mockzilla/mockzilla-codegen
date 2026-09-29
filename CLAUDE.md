@@ -1,4 +1,4 @@
-# codegen
+# mockzilla-codegen
 
 Generates Go models, HTTP servers, clients and MCP tools from OpenAPI 3.0, 3.1 and 3.2 specs.
 Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33f/libopenapi, which only
@@ -28,7 +28,7 @@ Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33f/libop
 - Run the `code-style` skill before declaring work done and before opening a PR.
 - Every `.go` file starts with the MIT license header (copyright line, SPDX tag, and the MIT
   condition that the notice stays in every copy), then a blank line. Copy it from any existing file;
-  the exact text is the goheader template in `.golangci.yml`, which enforces it.
+  the exact text is the goheader template in `.golangci.yaml`, which enforces it.
 - Library code never logs or prints; it returns errors and diagnostics. Only `cmd/` prints.
 - Output must be deterministic: sort before ranging over maps, never use libopenapi hashes for names
   or ordering.

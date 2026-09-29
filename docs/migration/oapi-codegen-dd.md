@@ -9,15 +9,15 @@ guide walks through. A project still on v2 of the fork follows the
 
 ## The command
 
-| oapi-codegen-dd | codegen |
+| oapi-codegen-dd | mockzilla-codegen |
 |---|---|
-| `oapi-codegen --config cfg.yaml api.yaml` | `mockzilla-codegen generate -c codegen.yml`, the spec path from `spec.path` or as the last argument |
+| `oapi-codegen --config cfg.yaml api.yaml` | `mockzilla-codegen generate -c codegen.yaml`, the spec path from `spec.path` or as the last argument |
 | `go run github.com/doordash-oss/oapi-codegen-dd/v3/cmd/oapi-codegen ...` | `go tool mockzilla-codegen generate ...` ([getting started](../getting-started.md)) |
 | `oapi-codegen --version` | `mockzilla-codegen version` |
 
 ## Config
 
-| oapi-codegen-dd | codegen |
+| oapi-codegen-dd | mockzilla-codegen |
 |---|---|
 | `package` | `package` |
 | `copyright-header` | `header` |
@@ -84,7 +84,7 @@ service implementation moves as it is. What differs:
 
 ### Client
 
-| oapi-codegen-dd | codegen |
+| oapi-codegen-dd | mockzilla-codegen |
 |---|---|
 | `NewDefaultClient(baseURL, opts...)`, `NewClient(runtime.APIClient)` | `NewClient(baseURL, opts...)`; `WithHTTPClient` takes anything with `Do` ([client](../client.md#client)) |
 | `<Op>(ctx, options, reqEditors...)` returning `*<Op>Response` | `<Op>(ctx, opts)` returning the success body, an error otherwise ([methods](../client.md#methods)) |
@@ -103,7 +103,7 @@ s := server.NewMCPServer("petstore", "1.0.0", server.WithToolCapabilities(true))
 api.NewMCPTools(s, api.WithClient(client))
 server.ServeStdio(s)
 
-// codegen
+// mockzilla-codegen
 s := mcp.NewServer(&mcp.Implementation{Name: "petstore", Version: "1.0.0"}, nil)
 api.NewMCPTools(client).Register(s)
 s.Run(ctx, &mcp.StdioTransport{})
