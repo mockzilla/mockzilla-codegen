@@ -22,7 +22,7 @@ const (
 func Schema() ([]byte, error) {
 	root := typeSchema(reflect.TypeFor[Config]())
 	root["$schema"] = schemaDraft
-	root["title"] = "codegen config"
+	root["title"] = "mockzilla-codegen config"
 
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)

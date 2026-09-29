@@ -1,4 +1,4 @@
-# codegen
+# mockzilla-codegen
 
 Generate Go models, HTTP servers, clients and MCP tools from OpenAPI 3.0, 3.1 and 3.2 specs.
 
@@ -33,7 +33,7 @@ Status: early development. The config format and the generated API may still cha
 
 ```sh
 go get -tool github.com/mockzilla/mockzilla-codegen/cmd/mockzilla-codegen
-go tool mockzilla-codegen generate -c codegen.yml
+go tool mockzilla-codegen generate -c codegen.yaml
 ```
 
 The executable is `mockzilla-codegen`. [Getting started](docs/getting-started.md) covers the
@@ -52,8 +52,8 @@ Every key, with example values:
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla-codegen/main/config.schema.json
 spec:
-  path: ./openapi.yml
-  overlays: [./overlays/go-names.yml]
+  path: ./openapi.yaml
+  overlays: [./overlays/go-names.yaml]
   filter:
     include:
       paths: [/pets]

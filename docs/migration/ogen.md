@@ -1,31 +1,31 @@
 # Migrating from ogen
 
-For projects on `github.com/ogen-go/ogen`. ogen and codegen read the same specs and both generate
-a typed server and client with validation, but the generated code has a different shape: ogen
-wraps optional values, codegen uses pointers; ogen returns response sum types, codegen response
-data. The config pair in [examples/migration/ogen](../../examples/migration/ogen) is the one this
-guide walks through.
+For projects on `github.com/ogen-go/ogen`. ogen and mockzilla-codegen read the same specs and both
+generate a typed server and client with validation, but the generated code has a different shape:
+ogen wraps optional values, mockzilla-codegen uses pointers; ogen returns response sum types,
+mockzilla-codegen response data. The config pair in
+[examples/migration/ogen](../../examples/migration/ogen) is the one this guide walks through.
 
 ## The command
 
-ogen is driven by flags, with an optional config file. Everything moves into `codegen.yml`.
+ogen is driven by flags, with an optional config file. Everything moves into `codegen.yaml`.
 
-| ogen | codegen |
+| ogen | mockzilla-codegen |
 |---|---|
-| `ogen --target ./api --package api --clean api.yaml` | `mockzilla-codegen generate -c codegen.yml` with `output.file: ./api/gen.go` and `package: api` |
-| `--config ogen.yml` | `-c codegen.yml`; the spec path from `spec.path` or as the last argument |
+| `ogen --target ./api --package api --clean api.yaml` | `mockzilla-codegen generate -c codegen.yaml` with `output.file: ./api/gen.go` and `package: api` |
+| `--config ogen.yaml` | `-c codegen.yaml`; the spec path from `spec.path` or as the last argument |
 | `--clean` | none needed: every file the config names is written on every run. Delete the `oas_*_gen.go` files once |
 | `--initialisms`, `--initialisms-extra` | `naming.initialisms`, added to the built-in set; the set cannot be replaced |
 | `--strict` | none |
 | `--debug.*`, `--cpuprofile`, `--memprofile` | none; `-v` prints info diagnostics and the files written |
 
 ogen writes one file per concern, `oas_client_gen.go`, `oas_server_gen.go`, `oas_schemas_gen.go`
-and so on. codegen writes one file, or the files `output.files` names
+and so on. mockzilla-codegen writes one file, or the files `output.files` names
 ([output files](../../README.md#output-files)).
 
 ## Config
 
-| ogen | codegen |
+| ogen | mockzilla-codegen |
 |---|---|
 | `parser.infer_types` | always: a schema without `type` is read from its keywords ([type mapping](../types.md#type-mapping)) |
 | `parser.allow_remote`, `depth_limit`, `authentication_schemes`, `allow_cross_type_constraints`, `disallow_duplicate_method_paths` | none |
@@ -49,7 +49,7 @@ and so on. codegen writes one file, or the files `output.files` names
 
 ## Extensions
 
-| ogen | codegen |
+| ogen | mockzilla-codegen |
 |---|---|
 | `x-ogen-name` on a schema | `x-go-type-name` |
 | `x-ogen-name` on a property | `x-go-name` |
@@ -67,7 +67,7 @@ The full list is in [extensions](../extensions.md).
 
 ### Server
 
-| ogen | codegen |
+| ogen | mockzilla-codegen |
 |---|---|
 | `Handler` interface, methods `(ctx, params <Op>Params) (<Op>Res, error)` | `ServiceInterface`, methods `(ctx, *<Op>ServiceRequestOptions) (*<Op>ResponseData, error)` ([service interface](../server.md#service-interface)) |
 | `<Op>Params` with every parameter | `opts.PathParams`, `opts.Query`, `opts.Headers`, `opts.Cookies`, one struct per location |
@@ -83,7 +83,7 @@ The full list is in [extensions](../extensions.md).
 
 ### Client
 
-| ogen | codegen |
+| ogen | mockzilla-codegen |
 |---|---|
 | `NewClient(serverURL, opts...)`, with a `SecuritySource` when the spec has security | `NewClient(baseURL, opts...)`; credentials go in a `WithRequestEditor` ([client](../client.md#client)) |
 | `Invoker` interface | `<Name>Interface` |
@@ -95,7 +95,7 @@ The full list is in [extensions](../extensions.md).
 
 ### Types
 
-| ogen | codegen |
+| ogen | mockzilla-codegen |
 |---|---|
 | `OptString`, `OptInt`, `OptPet` | `*string`, `*int`, `*Pet`; `.Get()` becomes a nil check, `.Set = true` becomes `new(v)` ([pointers](../types.md#pointers)) |
 | `NilString`, `OptNilString` | `*string` for both; `null` and absent are one state |

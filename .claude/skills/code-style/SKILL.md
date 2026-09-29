@@ -1,6 +1,6 @@
 ---
 name: code-style
-description: "Go code-style gate for the codegen repo. MUST run before declaring any feature, phase or task complete, and before every `gh pr create` (or any pull-request creation). Reviews the changed `.go` files and templates against the project's Go style rules (comments, tests, naming, errors, structs, argument count, blank lines, file structure, sugar wrappers, no printing, package names, determinism, logic-free templates, package state, public-repo hygiene, any over interface{}) and blocks completion until violations are fixed or explicitly overridden. Also invoke on request: 'style gate', 'check go style', 'lint go', 'code-style review'."
+description: "Go code-style gate for the mockzilla-codegen repo. MUST run before declaring any feature, phase or task complete, and before every `gh pr create` (or any pull-request creation). Reviews the changed `.go` files and templates against the project's Go style rules (comments, tests, naming, errors, structs, argument count, blank lines, file structure, sugar wrappers, no printing, package names, determinism, logic-free templates, package state, public-repo hygiene, any over interface{}) and blocks completion until violations are fixed or explicitly overridden. Also invoke on request: 'style gate', 'check go style', 'lint go', 'code-style review'."
 ---
 
 # Code Style

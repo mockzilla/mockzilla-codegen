@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../../../config.schema.json
-# Translation of ogen.yml and the ogen command line, see docs/migration/ogen.md.
+# Translation of ogen.yaml and the ogen command line, see docs/migration/ogen.md.
 spec:
   path: api.yaml                # the spec argument of the ogen command
   filter:

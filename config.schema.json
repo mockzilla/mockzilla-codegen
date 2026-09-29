@@ -429,6 +429,6 @@
       "type": "object"
     }
   },
-  "title": "codegen config",
+  "title": "mockzilla-codegen config",
   "type": "object"
 }

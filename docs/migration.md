@@ -15,7 +15,7 @@ translation, sits next to each guide's generated output in `examples/migration/`
 
 1. Add the CLI to the module, `go get -tool github.com/mockzilla/mockzilla-codegen/cmd/mockzilla-codegen`
    ([getting started](getting-started.md)). The old tool can stay until the build is green again.
-2. Write `codegen.yml` next to the spec from the guide's table. Unknown keys are errors that name
+2. Write `codegen.yaml` next to the spec from the guide's table. Unknown keys are errors that name
    their path, so a key that did not carry over is caught on the first run, not silently ignored.
 3. Keep the spec. Every version from 3.0 to 3.2 is read, and the `x-go-*` and `x-oapi-codegen-*`
    extensions the spec already carries keep working ([extensions](extensions.md)). An extension

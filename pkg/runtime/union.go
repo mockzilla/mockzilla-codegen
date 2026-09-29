@@ -60,7 +60,7 @@ func Into[T any](dst *T) func(data []byte) error {
 }
 
 // UnmarshalUnion decodes data into the variants of u it matches: one for oneOf, every match for
-// anyOf. docs/types.md in the codegen repository has the order variants are tried in.
+// anyOf. docs/types.md in the mockzilla-codegen repository has the order variants are tried in.
 func UnmarshalUnion(data []byte, u Union) error {
 	kind := JSONKind(data)
 	switch kind {

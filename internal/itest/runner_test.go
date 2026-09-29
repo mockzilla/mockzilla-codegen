@@ -188,10 +188,10 @@ func TestRunnerRun(t *testing.T) {
 			name: "Config file cannot be written",
 			prepare: func(t *testing.T, sandbox string) {
 				t.Helper()
-				require.NoError(t, os.MkdirAll(filepath.Join(sandbox, "specs", "models", "b", "codegen.yml"), 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(sandbox, "specs", "models", "b", "codegen.yaml"), 0o755))
 			},
 			want: func(sandbox string) []Result {
-				p := filepath.Join(sandbox, "specs", "models", "b", "codegen.yml")
+				p := filepath.Join(sandbox, "specs", "models", "b", "codegen.yaml")
 				return []Result{pass(0), fail(1, StageGenerate, "open "+p+": is a directory", 0), pass(2)}
 			},
 			wantBuilds:   1,
@@ -292,7 +292,7 @@ func TestRunnerRunWritesConfig(t *testing.T) {
 	r.Run(t.Context(), jobs)
 
 	dir := filepath.Join(sandbox, "specs", "chi", "s3_0_pets")
-	data, err := os.ReadFile(filepath.Join(dir, "codegen.yml"))
+	data, err := os.ReadFile(filepath.Join(dir, "codegen.yaml"))
 	require.NoError(t, err)
 	assert.Equal(t, "package: s3_0_pets\noutput:\n  file: ./gen.go\nserver: {}\n", string(data))
 	data, err = os.ReadFile(filepath.Join(sandbox, "check", "batch0", "check_test.go"))
@@ -327,8 +327,8 @@ func TestInit(t *testing.T) {
 }
 `, string(data))
 	assert.Equal(t, []call{
-		{Dir: dir, Name: "/bin/codegen", Args: []string{"generate", "-c", "codegen.yml", "/specs/3.0/pets.yml"}},
-		{Dir: filepath.Join(sandbox, "specs", "chi", "s3_1_pets"), Name: "/bin/codegen", Args: []string{"generate", "-c", "codegen.yml", "/specs/3.1/pets.yml"}},
+		{Dir: dir, Name: "/bin/codegen", Args: []string{"generate", "-c", "codegen.yaml", "/specs/3.0/pets.yml"}},
+		{Dir: filepath.Join(sandbox, "specs", "chi", "s3_1_pets"), Name: "/bin/codegen", Args: []string{"generate", "-c", "codegen.yaml", "/specs/3.1/pets.yml"}},
 		{Dir: sandbox, Name: "go", Args: []string{"build", "./specs/chi/s3_0_pets", "./specs/chi/s3_1_pets"}},
 		{Dir: sandbox, Name: "go", Args: []string{"test", "-count=1", "-json", "./check/batch0"}},
 	}, f.calls)

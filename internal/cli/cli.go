@@ -3,7 +3,7 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Package cli is the codegen command line. It is the only place that prints.
+// Package cli is the mockzilla-codegen command line. It is the only place that prints.
 package cli
 
 import (
@@ -30,10 +30,10 @@ const (
 const usage = `Usage: mockzilla-codegen <command> [flags]
 
 Commands:
-  generate [-c codegen.yml] [-dry-run | -check] [-v] [spec]
+  generate [-c codegen.yaml] [-dry-run | -check] [-v] [spec]
             Generate the files the config lists. A spec argument replaces spec.path.
   schema    Print the JSON schema of the config file.
-  version   Print the codegen version.
+  version   Print the mockzilla-codegen version.
 `
 
 // Run runs the command line with args, the program name left out, and returns the exit code.

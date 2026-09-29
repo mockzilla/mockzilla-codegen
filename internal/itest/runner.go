@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	configFile  = "codegen.yml"
+	configFile  = "codegen.yaml"
 	checkFolder = "check"
 	checkTest   = "TestInit"
 )

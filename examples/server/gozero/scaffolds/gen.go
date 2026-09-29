@@ -12,7 +12,8 @@ import (
 	"github.com/zeromicro/go-zero/rest/router"
 )
 
-// Fails to compile when the runtime package does not match the codegen version that wrote this file.
+// Fails to compile when the runtime package does not match the mockzilla-codegen version that
+// wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 type TodoSchema struct {

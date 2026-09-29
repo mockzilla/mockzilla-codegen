@@ -42,7 +42,7 @@ func generate(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	var gf generateFlags
 	set := flag.NewFlagSet("generate", flag.ContinueOnError)
 	set.SetOutput(stderr)
-	set.StringVar(&gf.configPath, "c", "codegen.yml", "config file")
+	set.StringVar(&gf.configPath, "c", "codegen.yaml", "config file")
 	set.BoolVar(&gf.isDryRun, "dry-run", false, "print the files and what would happen to each, write nothing")
 	set.BoolVar(&gf.isCheck, "check", false, "exit 1 when a generated file is missing or differs")
 	set.BoolVar(&gf.isVerbose, "v", false, "also print info diagnostics and the files written")
