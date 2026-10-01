@@ -52,11 +52,15 @@ var templates embed.FS
 
 // The blocks of the server templates a config may override.
 const (
-	BlockServiceHeader       = "server.service-header"
-	BlockRequestOptionsExtra = "server.request-options-extra"
-	BlockResponseDataExtra   = "server.response-data-extra"
-	BlockRouterExtra         = "server.router-extra"
+	blockServiceHeader       = "server.service-header"
+	blockRequestOptionsExtra = "server.request-options-extra"
+	blockResponseDataExtra   = "server.response-data-extra"
+	blockRouterExtra         = "server.router-extra"
 )
+
+// mainTemplate is the template a framework whose server is not an http.Server gives the main
+// scaffold in place of the shared one.
+const mainTemplate = "scaffold-main.tmpl"
 
 // Options are the settings of the server generator. Name is the base of the interface name.
 // Scaffold flags say which scaffold files the config asks for. ExtraFields are added to the
@@ -156,11 +160,11 @@ func (g *Generator) Parts() []layout.Part {
 		parts = append(parts, layout.Part{ID: layout.PartScaffoldMiddleware})
 	}
 	if g.opts.Scaffold.Main {
-		uses := []layout.PartID{PartAdapter, PartRouter, layout.PartScaffoldService}
+		mainUses := []layout.PartID{PartAdapter, PartRouter, layout.PartScaffoldService}
 		if g.opts.Scaffold.Middleware {
-			uses = append(uses, layout.PartScaffoldMiddleware)
+			mainUses = append(mainUses, layout.PartScaffoldMiddleware)
 		}
-		parts = append(parts, layout.Part{ID: layout.PartScaffoldMain, Uses: uses, Package: "main"})
+		parts = append(parts, layout.Part{ID: layout.PartScaffoldMain, Uses: mainUses, Package: "main"})
 	}
 	return parts
 }
@@ -205,10 +209,6 @@ func Frameworks() map[string]framework.Framework {
 	}
 }
 
-// mainTemplate is the template a framework whose server is not an http.Server gives the main
-// scaffold in place of the shared one.
-const mainTemplate = "scaffold-main.tmpl"
-
 // Templates are the server template set and the framework's, which holds the router and, for a
 // framework that serves in its own way, the main scaffold.
 func Templates(fw framework.Framework) []render.Set {
@@ -228,22 +228,22 @@ func Templates(fw framework.Framework) []render.Set {
 				layout.PartScaffoldMiddleware: "scaffold-middleware.tmpl",
 				layout.PartScaffoldMain:       "scaffold-main.tmpl",
 			},
-			Blocks: []string{BlockServiceHeader, BlockRequestOptionsExtra, BlockResponseDataExtra},
+			Blocks: []string{blockServiceHeader, blockRequestOptionsExtra, blockResponseDataExtra},
 		},
-		{Name: fw.Name(), FS: fw.Templates(), Parts: own, Blocks: []string{BlockRouterExtra}},
+		{Name: fw.Name(), FS: fw.Templates(), Parts: own, Blocks: []string{blockRouterExtra}},
 	}
-}
-
-// ownsMain reports whether fw brings the template of the main scaffold.
-func ownsMain(fw framework.Framework) bool {
-	_, err := fs.Stat(fw.Templates(), mainTemplate)
-	return err == nil
 }
 
 // ReservedField reports whether name is a field the request options declare themselves, so an
 // extra field cannot take it: a parameter group, a body field, RawRequest or the Validate method.
 func ReservedField(name string) bool {
 	return name == "RawRequest" || name == "Validate" || strings.HasPrefix(name, "Body") || operation.IsGroupField(name)
+}
+
+// ownsMain reports whether fw brings the template of the main scaffold.
+func ownsMain(fw framework.Framework) bool {
+	_, err := fs.Stat(fw.Templates(), mainTemplate)
+	return err == nil
 }
 
 // routes lists the operations the router serves, without those the framework rejects.

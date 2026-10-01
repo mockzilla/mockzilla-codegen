@@ -71,6 +71,12 @@ type candidate struct {
 	selectors []string
 }
 
+// scaffold is a starter file the config asks for, and the part that fills it.
+type scaffold struct {
+	rel  string
+	part PartID
+}
+
 // Plan puts every part in the file whose selector matches it most closely, output.file when
 // none does, then names the package and import path of every folder.
 func Plan(cfg *config.Config, parts []Part, mod Module) (*Layout, error) {
@@ -81,11 +87,6 @@ func Plan(cfg *config.Config, parts []Part, mod Module) (*Layout, error) {
 // them is not an error yet; Plan reports it once every part is known.
 func Draft(cfg *config.Config, parts []Part, mod Module) (*Layout, error) {
 	return plan(cfg, parts, mod, false)
-}
-
-// FileOf returns the file that holds p, or nil for a part the layout does not know.
-func (l *Layout) FileOf(p PartID) *File {
-	return l.byPart[p]
 }
 
 func plan(cfg *config.Config, parts []Part, mod Module, isStrict bool) (*Layout, error) {
@@ -113,6 +114,11 @@ func plan(cfg *config.Config, parts []Part, mod Module, isStrict bool) (*Layout,
 		return nil, err
 	}
 	return l, nil
+}
+
+// FileOf returns the file that holds p, or nil for a part the layout does not know.
+func (l *Layout) FileOf(p PartID) *File {
+	return l.byPart[p]
 }
 
 // assign places every part and returns the selectors that placed one.
@@ -231,12 +237,6 @@ func candidates(cfg *config.Config) (*File, []candidate) {
 		list = append(list, candidate{file: f, selectors: []string{string(sc.part)}})
 	}
 	return def, list
-}
-
-// scaffold is a starter file the config asks for, and the part that fills it.
-type scaffold struct {
-	rel  string
-	part PartID
 }
 
 // scaffolds lists the scaffold files server.scaffold names, in a fixed order.
