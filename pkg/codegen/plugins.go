@@ -19,6 +19,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
+	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/render"
 )
 
@@ -143,11 +144,11 @@ func (ps *pluginSet) reserveField(plugin string, f FieldSpec) error {
 }
 
 // contribute shows every plugin the API and keeps what each gives. It returns the parts the
-// plugins add.
-func (ps *pluginSet) contribute(shown *API) ([]layout.Part, error) {
+// plugins add. show is called once per plugin, so that none sees what another did to its API.
+func (ps *pluginSet) contribute(show func() *API) ([]layout.Part, error) {
 	var parts []layout.Part
 	for _, p := range ps.list {
-		c, err := p.Contribute(shown)
+		c, err := p.Contribute(show())
 		if err != nil {
 			return nil, fmt.Errorf("%w %s: %w", ErrPlugin, p.Name(), err)
 		}
@@ -209,9 +210,10 @@ func (ps *pluginSet) replaceScaffold(plugin string, kind ScaffoldKind, src sourc
 	return nil
 }
 
-// describe is what a plugin sees of the code g generates, as lay places it.
+// describe is what a plugin sees of the code g generates, as lay places it. The value shares
+// nothing with the model, the config or the value of another call.
 func describe(g *generation, lay *layout.Layout) *API {
-	out := &API{Package: g.cfg.Package, UserContext: g.cfg.UserContext}
+	out := &API{Package: lay.Package, UserContext: copyMap(g.cfg.UserContext)}
 	for _, d := range g.m.Decls {
 		out.Types = append(out.Types, typeRef(gomodel.DeclRef{Decl: d}, lay))
 	}
@@ -223,33 +225,37 @@ func describe(g *generation, lay *layout.Layout) *API {
 		}
 	}
 	for _, op := range g.m.Operations {
-		out.Operations = append(out.Operations, describeOperation(g, op, lay, routed[op.Name]))
+		out.Operations = append(out.Operations, describeOperation(g.namer, op, lay, routed[op.Name]))
 	}
 	return out
 }
 
-func describeOperation(g *generation, op *gomodel.Operation, lay *layout.Layout, isRouted bool) Operation {
+// describeOperation leaves empty the types of a part lay does not hold: the config asks for no
+// server, no client or no envelopes.
+func describeOperation(namer *naming.Namer, op *gomodel.Operation, lay *layout.Layout, isRouted bool) Operation {
 	o := Operation{
 		ID:         op.Name,
 		Method:     op.Spec.Method,
 		Path:       op.Spec.Path,
 		Summary:    op.Spec.Summary,
-		Tags:       op.Spec.Tags,
+		Tags:       slices.Clone(op.Spec.Tags),
 		HasOptions: len(op.Params)+len(op.Bodies) > 0,
 		IsRouted:   isRouted,
 		Success:    success(op, lay),
 	}
-	if g.srv != nil {
-		f := lay.FileOf(server.PartService)
-		o.RequestOptions = TypeRef{Name: g.namer.ServiceRequestOptions(op.Name), Package: f.Package, ImportPath: f.ImportPath}
-		o.ResponseData = TypeRef{Name: g.namer.ResponseData(op.Name), Package: f.Package, ImportPath: f.ImportPath}
+	if f := lay.FileOf(server.PartService); f != nil {
+		o.RequestOptions = TypeRef{Name: namer.ServiceRequestOptions(op.Name), Package: f.Package, ImportPath: f.ImportPath}
+		o.ResponseData = TypeRef{Name: namer.ResponseData(op.Name), Package: f.Package, ImportPath: f.ImportPath}
 	}
-	if g.cl != nil && !op.Spec.IsWebhook {
-		f := lay.FileOf(client.PartOptions)
-		o.ClientRequestOptions = TypeRef{Name: g.namer.ClientRequestOptions(op.Name), Package: f.Package, ImportPath: f.ImportPath}
-		if f = lay.FileOf(client.PartResponses); f != nil {
-			o.ClientResponse = TypeRef{Name: g.namer.ClientResponse(op.Name), Package: f.Package, ImportPath: f.ImportPath}
-		}
+	if op.Spec.IsWebhook {
+		return o
+	}
+
+	if f := lay.FileOf(client.PartOptions); f != nil {
+		o.ClientRequestOptions = TypeRef{Name: namer.ClientRequestOptions(op.Name), Package: f.Package, ImportPath: f.ImportPath}
+	}
+	if f := lay.FileOf(client.PartResponses); f != nil {
+		o.ClientResponse = TypeRef{Name: namer.ClientResponse(op.Name), Package: f.Package, ImportPath: f.ImportPath}
 	}
 	return o
 }
@@ -283,4 +289,30 @@ func typeRef(t gomodel.Type, lay *layout.Layout) TypeRef {
 		ref.Package, ref.ImportPath = gocode.ImportName(leaf.Import.Path, leaf.Import.Alias), leaf.Import.Path
 	}
 	return ref
+}
+
+// copyMap copies m with the maps and lists in it, of the kinds YAML decodes to. A value of
+// another kind, which only Go code can put there, stays shared.
+func copyMap[K comparable](m map[K]any) map[K]any {
+	out := make(map[K]any, len(m))
+	for k, v := range m {
+		out[k] = copyValue(v)
+	}
+	return out
+}
+
+func copyValue(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		return copyMap(x)
+	case map[any]any:
+		return copyMap(x)
+	case []any:
+		out := make([]any, len(x))
+		for i, e := range x {
+			out[i] = copyValue(e)
+		}
+		return out
+	}
+	return v
 }
