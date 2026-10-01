@@ -224,8 +224,8 @@ An operation the router cannot serve is left out with a `route-dropped` warning:
 router does not take, a path it rejects, or a route it cannot hold next to an earlier one. Every
 router takes `GET`, `PUT`, `POST`, `DELETE`, `OPTIONS`, `HEAD`, `PATCH` and `TRACE`; std-http
 takes any other method too, such as `QUERY` and the `additionalOperations` of OpenAPI 3.2. Every
-router rejects a path without a leading slash, an unclosed brace, a parameter without a name or
-named twice, and a `*` that is not a segment of its own at the end; the sections below name what
+router rejects a path without a leading slash, an unclosed brace and a parameter without a name or
+named twice, and every router but std-http a `*` that is not last; the sections below name what
 each rejects on top, and how each writes its routes.
 
 ### chi
@@ -239,13 +239,16 @@ shape, is dropped, since chi keys parameters by position.
 
 Routes are `ServeMux` patterns such as `GET /pets/{id}`, and the handlers read parameters with
 `r.PathValue`. A parameter name that is no Go identifier is written with underscores, `{pet-id}`
-as `{pet_id}`. A trailing `*` becomes `{rest...}`, which takes the rest of the path, and a trailing
-slash becomes `{$}`, so `/pets/` matches itself alone. `ServeMux` rejects a path without a leading
-slash, one that is not clean (`/a//b`, `/a/../b`), a parameter that does not fill its segment
-(`{id}.json`) and two wildcards of one name. It panics on a route that matches the same requests as
-an earlier one, or overlaps with it while neither is more specific, `/a/{x}` next to `/{y}/b`; the
-generator drops such routes by the same rules, so `NewRouter` never panics. A `GET` route answers
-`HEAD` requests too.
+as `{pet_id}`. A `*` as the last segment becomes `{rest...}`, which takes the rest of the path; its
+name gets an underscore, `{rest_...}`, for as long as a parameter of the path has it. A `*`
+anywhere else is a literal star. A trailing slash becomes `{$}`, so `/pets/` matches itself alone.
+`ServeMux` redirects a request for either kind of path without its last slash, `/files` for
+`/files/*`, to the path with it, with a 307, unless a route that does not end in `*` matches the
+request. It rejects a path without a leading slash, one that is not clean (`/a//b`, `/a/../b`), a
+parameter that does not fill its segment (`{id}.json`) and two wildcards of one name. It panics on
+a route that matches the same requests as an earlier one, or overlaps with it while neither is more
+specific, `/a/{x}` next to `/{y}/b`; the generator drops such routes by the same rules, so
+`NewRouter` never panics. A `GET` route answers `HEAD` requests too.
 
 ### echo
 

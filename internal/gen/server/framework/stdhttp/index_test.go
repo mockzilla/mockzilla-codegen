@@ -15,7 +15,7 @@ func TestIndex(t *testing.T) {
 	t.Parallel()
 
 	x := newIndex()
-	kept := routes("GET /a/{x...}", "GET /pets", "GET /pets/{id}", "GET /{rest...}", "POST /pets/{id}")
+	kept := routesOf("GET /a/{x...}", "GET /pets", "GET /pets/{id}", "GET /{rest...}", "POST /pets/{id}")
 	var patterns []pattern
 	for _, r := range kept {
 		patterns = append(patterns, parse(r.Pattern))
