@@ -156,6 +156,21 @@ func TestOptionsFrom(t *testing.T) {
 				OperationSuffixes:  []string{"RequestOptions", "ToolInput"},
 			},
 		},
+		{
+			name: "Imports are passed on",
+			cfg: &config.Config{
+				Naming:  config.Naming{Initialisms: []string{"PSP"}},
+				Imports: []config.Import{{Package: "github.com/google/uuid"}, {Package: "embed", Alias: "_"}},
+			},
+			want: Options{
+				IntType:      "int",
+				Descriptions: true,
+				EnumPrefix:   true,
+				Namer:        n,
+				IsValidated:  true,
+				Imports:      []config.Import{{Package: "github.com/google/uuid"}, {Package: "embed", Alias: "_"}},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

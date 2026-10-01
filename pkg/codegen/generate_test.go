@@ -6,8 +6,11 @@
 package codegen
 
 import (
+	"cmp"
 	"context"
 	"errors"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"slices"
@@ -42,6 +45,23 @@ components:
         name: {type: string}
 `
 
+// hostSpec has an x-go-type of every form that names a package without an x-go-type-import, on
+// properties and on a component.
+const hostSpec = `openapi: 3.1.0
+info: {title: hosts, version: "1"}
+paths: {}
+components:
+  schemas:
+    Host:
+      type: object
+      properties:
+        home: {type: string, x-go-type: url.URL}
+        mirrors: {type: array, x-go-type: '[]url.URL'}
+        owner: {type: string, x-go-type: tn.ID}
+        query: {$ref: '#/components/schemas/Query'}
+    Query: {type: string, x-go-type: url.Values}
+`
+
 var errParse = errors.New("parse failed")
 
 // failingParse reads specs like the real provider but fails to parse them.
@@ -72,6 +92,28 @@ func examples(t *testing.T) []string {
 func exampleName(path string) string {
 	rel, _ := filepath.Rel(filepath.Join("..", "..", "examples"), filepath.Dir(path))
 	return filepath.ToSlash(rel)
+}
+
+// importLines lists the import lines of every file of res, by its folder and name.
+func importLines(t *testing.T, res *Result) map[string][]string {
+	t.Helper()
+
+	out := make(map[string][]string, len(res.Files))
+	for _, f := range res.Files {
+		parsed, err := parser.ParseFile(token.NewFileSet(), "", f.Content, parser.ImportsOnly)
+		require.NoError(t, err)
+
+		var lines []string
+		for _, imp := range parsed.Imports {
+			line := imp.Path.Value
+			if imp.Name != nil {
+				line = imp.Name.Name + " " + line
+			}
+			lines = append(lines, line)
+		}
+		out[filepath.Base(filepath.Dir(f.Path))+"/"+filepath.Base(f.Path)] = lines
+	}
+	return out
 }
 
 // TestExamples compares every example with a fresh run. UPDATE=1 writes the run instead.
@@ -304,6 +346,181 @@ templates:
 	assert.Contains(t, content, "\n\n// Owned by platform.\n\n// ServiceInterface is what")
 	assert.Contains(t, content, "\tOwner      string // platform\n\tRawRequest *http.Request\n")
 	assert.Contains(t, content, "\tBody    any\n\t// The owner is named in header.tmpl\n\n\tcontentType string\n")
+}
+
+// TestGenerateImports lists packages in the config. A file imports one when its code names it,
+// in the text of a block, of a replaced scaffold or of an x-go-type.
+func TestGenerateImports(t *testing.T) {
+	t.Parallel()
+
+	const (
+		base      = "package: api\noutput:\n  file: ./api/gen.go\n  files: {./models/models.go: [models.types]}\n"
+		ofChi     = `chi "github.com/go-chi/chi/v5"`
+		ofRuntime = `"github.com/mockzilla/mockzilla-codegen/pkg/runtime"`
+		ofModels  = `"example.com/work/models"`
+	)
+	tests := []struct {
+		name    string
+		cfg     string
+		spec    string
+		plugins []Plugin
+		want    map[string][]string
+		has     string
+		unused  []Diagnostic
+		wantErr error
+		wantMsg string
+	}{
+		{
+			name: "Block names two of three listed packages",
+			cfg: base + "server: {framework: chi}\n" +
+				"imports: [{package: net/netip}, {package: example.com/shop/tenant, alias: tn}, {package: math/big}]\n" +
+				"templates: {server.request-options-extra: \"Remote netip.Addr\\nTenant tn.ID\"}\n",
+			want: map[string][]string{
+				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, `"net/netip"`, `tn "example.com/shop/tenant"`, ofModels, ofChi, ofRuntime},
+				"models/models.go": nil,
+			},
+			unused: []Diagnostic{{
+				Severity: SeverityWarning,
+				Code:     "import-unused",
+				Message:  "imports[2]: no generated file refers to big, so math/big is not imported",
+			}},
+		},
+		{
+			name: "Import under _ goes into every file, scaffolds too",
+			cfg: base + "server: {framework: chi, scaffold: {service: ./api/service.go, main: ./cmd/main.go}}\n" +
+				"imports: [{package: embed, alias: _}]\n",
+			want: map[string][]string{
+				"api/gen.go":       {`"context"`, `_ "embed"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
+				"api/service.go":   {`"context"`, `_ "embed"`, `"errors"`},
+				"cmd/main.go":      {`"context"`, `_ "embed"`, `"log/slog"`, `"net/http"`, `"os"`, `"os/signal"`, `"syscall"`, `"time"`, `"example.com/work/api"`},
+				"models/models.go": {`_ "embed"`},
+			},
+		},
+		{
+			name: "Path listed under _ and under its name",
+			cfg: base + "server: {framework: chi}\nimports: [{package: embed, alias: _}, {package: embed}]\n" +
+				"templates: {server.request-options-extra: Files embed.FS}\n",
+			want: map[string][]string{
+				"api/gen.go":       {`"context"`, `"embed"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
+				"models/models.go": {`_ "embed"`},
+			},
+		},
+		{
+			name: "Path under _ and under a name no code names keeps its _ import",
+			cfg:  base + "server: {framework: chi}\nimports: [{package: example.com/shop/models, alias: _}, {package: example.com/shop/models}]\n",
+			want: map[string][]string{
+				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, `_ "example.com/shop/models"`, ofModels, ofChi, ofRuntime},
+				"models/models.go": {`_ "example.com/shop/models"`},
+			},
+			unused: []Diagnostic{{
+				Severity: SeverityWarning,
+				Code:     "import-unused",
+				Message:  "imports[1]: no generated file refers to models, so example.com/shop/models is not imported",
+			}},
+		},
+		{
+			name: "Listed package a block names keeps its name, the generator's of that name gets a number",
+			cfg: base + "server: {framework: chi}\nimports: [{package: example.com/shop/models}]\n" +
+				"templates: {server.request-options-extra: Owner models.Owner}\n",
+			want: map[string][]string{
+				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, `"example.com/shop/models"`, `models2 "example.com/work/models"`, ofChi, ofRuntime},
+				"models/models.go": nil,
+			},
+		},
+		{
+			name: "Listed package no code names changes no name",
+			cfg:  base + "server: {framework: chi}\nimports: [{package: example.com/shop/models}, {package: example.com/shop/context}]\n",
+			want: map[string][]string{
+				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
+				"models/models.go": nil,
+			},
+			unused: []Diagnostic{
+				{Severity: SeverityWarning, Code: "import-unused", Message: "imports[0]: no generated file refers to models, so example.com/shop/models is not imported"},
+				{Severity: SeverityWarning, Code: "import-unused", Message: "imports[1]: no generated file refers to context, so example.com/shop/context is not imported"},
+			},
+		},
+		{
+			name: "Listed alias of a package the generator imports is its name in the generated code too",
+			cfg:  base + "server: {framework: chi}\nimports: [{package: net/http, alias: web}]\n",
+			want: map[string][]string{
+				"api/gen.go":       {`"context"`, `"io"`, `web "net/http"`, ofModels, ofChi, ofRuntime},
+				"models/models.go": nil,
+			},
+			has: "\tRawRequest *web.Request\n",
+		},
+		{
+			name: "x-go-type names listed packages",
+			cfg:  "package: api\noutput: {file: ./api/gen.go}\nimports: [{package: net/url}, {package: example.com/shop/tenant, alias: tn}]\n",
+			spec: hostSpec,
+			want: map[string][]string{"api/gen.go": {`"net/url"`, `tn "example.com/shop/tenant"`}},
+		},
+		{
+			name: "Listed folder of the output is imported only by the file that names it",
+			cfg: base + "server: {framework: chi}\nimports: [{package: example.com/work/api}, {package: example.com/work/models}]\n" +
+				"templates: {server.request-options-extra: First models.Pet}\n",
+			want: map[string][]string{
+				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
+				"models/models.go": nil,
+			},
+			unused: []Diagnostic{{
+				Severity: SeverityWarning,
+				Code:     "import-unused",
+				Message:  "imports[0]: no generated file refers to api, so example.com/work/api is not imported",
+			}},
+		},
+		{
+			name: "Replaced scaffold names a listed package",
+			cfg: base + "server: {framework: chi, name: Pets, scaffold: {service: ./api/service.go}}\n" +
+				"imports: [{package: example.com/shop/tenant, alias: tn}, {package: example.com/shop/errors}]\n",
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: func(*API) (*Contribution, error) {
+				return &Contribution{Scaffolds: map[ScaffoldKind]string{ScaffoldService: "\ntype {{.Name}} struct{ Tenant tn.ID }\n"}}, nil
+			}}},
+			want: map[string][]string{
+				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
+				"api/service.go":   {`tn "example.com/shop/tenant"`},
+				"models/models.go": nil,
+			},
+			unused: []Diagnostic{{
+				Severity: SeverityWarning,
+				Code:     "import-unused",
+				Message:  "imports[1]: no generated file refers to errors, so example.com/shop/errors is not imported",
+			}},
+		},
+		{
+			name: "Block names the listed folder it is written in",
+			cfg: base + "server: {framework: chi}\nimports: [{package: example.com/work/api}]\n" +
+				"templates: {server.request-options-extra: Self api.Pet}\n",
+			wantErr: layout.ErrImportCycle,
+			wantMsg: "import cycle: api -> api (server.service uses example.com/work/api)",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg, err := config.Parse([]byte(tc.cfg), workDir(t))
+			require.NoError(t, err)
+
+			res, err := Generate(context.Background(), cfg, WithSpec([]byte(cmp.Or(tc.spec, storeSpec))), WithPlugins(tc.plugins...))
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				require.EqualError(t, err, tc.wantMsg)
+				return
+			}
+			require.NoError(t, err)
+			var unused []Diagnostic
+			for _, d := range res.Diagnostics {
+				if d.Code == "import-unused" {
+					unused = append(unused, d)
+				}
+			}
+			assert.Equal(t, tc.want, importLines(t, res))
+			assert.Equal(t, tc.unused, unused)
+			assert.Contains(t, string(res.Files[0].Content), tc.has)
+		})
+	}
 }
 
 func TestGenerationRenderErrors(t *testing.T) {

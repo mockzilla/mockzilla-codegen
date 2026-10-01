@@ -52,7 +52,7 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
 | `compatibility.apply-chi-middleware-first-to-last`, `apply-gorilla-middleware-first-to-last` | the default: `WithMiddleware` wraps outermost first |
 | `compatibility.disable-flatten-additional-properties` | none: an object without properties is a map |
 | `compatibility.disable-required-readonly-as-pointer` | the default: a required `readOnly` field is a plain value with `omitempty` |
-| `additional-imports` | `imports`, same `package` and `alias` |
+| `additional-imports` | [`imports`](../plugins.md#imports), same `package` and `alias`; no `.` alias |
 | `import-mapping` | none, see below |
 
 ## What has no key

@@ -72,6 +72,7 @@ type generation struct {
 	engine  *render.Engine
 	files   []File
 	imports map[layout.PartID][]string
+	named   map[string]bool
 }
 
 // Generate reads the spec cfg names, or the one WithSpec gives, and returns the files to write.
@@ -268,6 +269,7 @@ func (g *generation) templates() (map[string]string, error) {
 // plugin's code can use a folder that imports its own, which the layout could not know.
 func (g *generation) render() error {
 	g.imports = make(map[layout.PartID][]string)
+	g.named = make(map[string]bool)
 	for _, f := range g.lay.Files {
 		content, err := g.file(f)
 		if err != nil {
@@ -279,28 +281,62 @@ func (g *generation) render() error {
 		}
 		g.files = append(g.files, File{Path: f.Path, Package: f.Package, Parts: parts, Kind: FileKind(f.Kind), Content: content})
 	}
+
+	g.reportUnusedImports()
 	return g.lay.CheckImports(g.imports)
 }
 
+// file renders f with the imports of the config on offer. An offer no part took, which cost
+// another import its name, is taken back and f rendered again: an unused entry changes nothing.
 func (g *generation) file(f *layout.File) ([]byte, error) {
-	s := gocode.NewScope(f, g.lay)
+	offers := g.cfg.Imports
+	for {
+		s := gocode.NewScope(f, g.lay)
+		for _, imp := range offers {
+			s.Imports.Offer(imp.Package, imp.Alias)
+		}
+		data, err := g.parts(f, s)
+		if err != nil {
+			return nil, err
+		}
+
+		idle := s.Imports.Idle()
+		if len(idle) > 0 {
+			// An import under _ is no offer: it stays when the path is also listed under a name.
+			offers = slices.DeleteFunc(slices.Clone(offers), func(imp config.Import) bool {
+				return imp.Name() != "" && slices.Contains(idle, imp.Package)
+			})
+			continue
+		}
+
+		for _, imp := range g.cfg.Imports {
+			if _, ok := s.Imports.Name(imp.Package); ok {
+				g.named[imp.Package] = true
+			}
+		}
+		data.Imports = s.Imports.Decl()
+		data.Guard = s.RuntimeGuard()
+		return g.engine.RenderFile(data)
+	}
+}
+
+// parts renders the parts of f. A part that names an import on offer takes it.
+func (g *generation) parts(f *layout.File, s *gocode.Scope) (render.FileData, error) {
 	data := render.FileData{Header: g.cfg.Header, Package: f.Package}
 	for _, part := range f.Parts {
 		out, err := g.part(part, s)
 		if err != nil {
-			return nil, err
+			return render.FileData{}, err
 		}
 		data.Parts = append(data.Parts, string(out))
 		if g.plugins.sources[part].isScaffold {
 			// The view imports what the built-in template writes, which the replacement may not.
 			s.Imports.Trim([]byte(strings.Join(data.Parts, "\n")))
 		}
+		s.Imports.Take(out)
 		g.imports[part] = s.Imports.Paths()
 	}
-
-	data.Imports = s.Imports.Decl()
-	data.Guard = s.RuntimeGuard()
-	return g.engine.RenderFile(data)
+	return data, nil
 }
 
 // part renders one part of the file of s: a plugin's from its source, else a built-in one from
@@ -330,4 +366,19 @@ func (g *generation) view(part layout.PartID, s *gocode.Scope) any {
 		return g.mc.View(part, s)
 	}
 	return g.gen.View(part, s)
+}
+
+// reportUnusedImports warns about every import of the config that no file has under its name.
+// One under _ is in every file.
+func (g *generation) reportUnusedImports() {
+	for i, imp := range g.cfg.Imports {
+		if imp.Name() == "" || g.named[imp.Package] {
+			continue
+		}
+		g.diags.Append(diag.Diagnostic{
+			Severity: diag.Warning,
+			Code:     diag.CodeImportUnused,
+			Message:  fmt.Sprintf("imports[%d]: no generated file refers to %s, so %s is not imported", i, imp.Name(), imp.Package),
+		})
+	}
 }
