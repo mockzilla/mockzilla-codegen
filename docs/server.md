@@ -201,7 +201,7 @@ NewRouter(svc, WithErrorHandler(ErrorHandlerFunc(func(w http.ResponseWriter, r *
 | `hertz` | github.com/cloudwego/hertz | `*server.Hertz` | `*server.Hertz` |
 | `iris` | github.com/kataras/iris/v12 | `*iris.Application` | `*iris.Application` |
 | `kratos` | github.com/go-kratos/kratos/v2/transport/http | `*http.Server` of kratos | `*http.Server` of kratos |
-| `std-http` | `http.ServeMux` with the patterns of Go 1.22 | `http.Handler` | `*http.ServeMux` |
+| `std-http` | `http.ServeMux` with method and wildcard patterns | `http.Handler` | `*http.ServeMux` |
 
 ```go
 router := NewRouter(svc, WithMiddleware(RequestIDMiddleware, RecoverMiddleware))

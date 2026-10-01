@@ -3,8 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Package stdhttp is the router for http.ServeMux of the standard library, with the method and
-// wildcard patterns of Go 1.22.
+// Package stdhttp is the router for http.ServeMux of the standard library, with its method and
+// wildcard patterns.
 package stdhttp
 
 import (
@@ -97,8 +97,8 @@ func (Framework) RoutePattern(method, oasPath string) (string, error) {
 }
 
 // Conflicts drops every route a ServeMux panics on, next to the earlier ones or alone. It asks a
-// ServeMux of the generator's own Go release, so GODEBUG=httpmuxgo121=1, which switches the
-// patterns of Go 1.22 off, leaves every route in.
+// ServeMux of the generator's own Go release, so GODEBUG=httpmuxgo121=1, which switches method
+// and wildcard patterns off, leaves every route in.
 func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
 	var kept []framework.Route
 	var dropped []framework.Conflict
