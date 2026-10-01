@@ -58,7 +58,11 @@ func (Framework) Imports() []gomodel.Import {
 // or a suffix or shares a segment with another; a path also fails with a wildcard, which go-zero
 // has none of, when it is not clean, without a leading slash, with an unclosed brace, a literal
 // segment that begins with a colon, and a parameter without a name or named twice.
-func (Framework) RoutePattern(_, oasPath string) (string, error) {
+func (Framework) RoutePattern(method, oasPath string) (string, error) {
+	if err := framework.CheckMethod(method); err != nil {
+		return "", err
+	}
+
 	if strings.Contains(oasPath, "*") {
 		return "", fmt.Errorf("%w: the router has no wildcard", framework.ErrPattern)
 	}

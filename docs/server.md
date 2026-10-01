@@ -222,6 +222,8 @@ their own shape instead, see below.
 
 An operation the router cannot serve is left out with a `route-dropped` warning: a method the
 router does not take, a path it rejects, or a route it cannot hold next to an earlier one. Every
+router takes `GET`, `PUT`, `POST`, `DELETE`, `OPTIONS`, `HEAD`, `PATCH` and `TRACE`; std-http
+takes any other method too, such as `QUERY` and the `additionalOperations` of OpenAPI 3.2. Every
 router rejects a path without a leading slash, an unclosed brace, a parameter without a name or
 named twice, and a `*` that is not a segment of its own at the end; the sections below name what
 each rejects on top, and how each writes its routes.

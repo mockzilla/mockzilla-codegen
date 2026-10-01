@@ -48,6 +48,10 @@ func (Framework) Imports() []gomodel.Import {
 // of its own, last, a parameter without a name or named twice, and a literal colon, star or at
 // sign, which GoFrame reads as the start of a parameter or of a domain.
 func (Framework) RoutePattern(method, path string) (string, error) {
+	if err := framework.CheckMethod(method); err != nil {
+		return "", err
+	}
+
 	if err := framework.Check(path); err != nil {
 		return "", err
 	}
