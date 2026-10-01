@@ -8,6 +8,7 @@ package naming
 import (
 	"go/token"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -28,4 +29,33 @@ func Package(dir string) string {
 		return fallbackPackage
 	}
 	return name
+}
+
+// ImportName returns the name the package at an import path has by the usual layout of module
+// paths: a major version suffix (v2) and a go- prefix are not part of the name, nor is anything
+// after a dot (yaml.v3). It is empty when what is left is no Go name.
+func ImportName(path string) string {
+	elems := strings.Split(path, "/")
+	name := elems[len(elems)-1]
+	if isMajorVersion(name) && len(elems) > 1 {
+		name = elems[len(elems)-2]
+	}
+	name = strings.TrimPrefix(name, "go-")
+	name, _, _ = strings.Cut(name, ".")
+	name = strings.Map(func(r rune) rune {
+		if r == '_' || 'a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' || '0' <= r && r <= '9' {
+			return r
+		}
+		return -1
+	}, name)
+
+	if !token.IsIdentifier(name) || name == "_" {
+		return ""
+	}
+	return name
+}
+
+func isMajorVersion(elem string) bool {
+	n, err := strconv.Atoi(strings.TrimPrefix(elem, "v"))
+	return strings.HasPrefix(elem, "v") && err == nil && n > 1
 }

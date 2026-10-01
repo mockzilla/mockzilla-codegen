@@ -6,6 +6,7 @@
 package gocode
 
 import (
+	"cmp"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -13,6 +14,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 )
 
 // An import under blank or dot has no name: the first only runs the package, the second lets the
@@ -20,18 +23,30 @@ import (
 const (
 	blank = "_"
 	dot   = "."
+
+	// fallbackName is the name of a package whose path gives none.
+	fallbackName = "pkg"
 )
 
 // ImportSet holds the imports of one file: the name each is used under, and the ones under _ or .
-// that have none.
+// that have none. A path on offer holds its name, and the file does not import it yet; it is
+// denied when another path asked for that name and got a number.
 type ImportSet struct {
 	names   map[string]string
 	paths   map[string]string
 	unnamed map[string]string
+	offered map[string]bool
+	denied  map[string]bool
 }
 
 func NewImportSet() *ImportSet {
-	return &ImportSet{names: make(map[string]string), paths: make(map[string]string), unnamed: make(map[string]string)}
+	return &ImportSet{
+		names:   make(map[string]string),
+		paths:   make(map[string]string),
+		unnamed: make(map[string]string),
+		offered: make(map[string]bool),
+		denied:  make(map[string]bool),
+	}
 }
 
 // Add imports path and returns the name code uses for it. want is the preferred name; empty means
@@ -47,12 +62,16 @@ func (s *ImportSet) Add(path, want string) string {
 	}
 
 	if name, ok := s.names[path]; ok {
+		delete(s.offered, path)
 		return name
 	}
 
 	base := ImportName(path, want)
 	name := base
 	for i := 2; s.paths[name] != ""; i++ {
+		if holder := s.paths[name]; s.offered[holder] {
+			s.denied[holder] = true
+		}
 		name = base + strconv.Itoa(i)
 	}
 	s.names[path] = name
@@ -60,9 +79,57 @@ func (s *ImportSet) Add(path, want string) string {
 	return name
 }
 
+// Offer holds for path the name Add would give it, for code the file may get from elsewhere. The
+// file imports path once Add asks for it or Take finds the name in that code. With _ or . as
+// want the path is imported right away.
+func (s *ImportSet) Offer(path, want string) {
+	if want == blank || want == dot {
+		s.Add(path, want)
+		return
+	}
+
+	if _, isNamed := s.names[path]; !isNamed {
+		s.Add(path, want)
+		s.offered[path] = true
+	}
+}
+
+// Take imports every path on offer whose name src, declarations of the file, refers to.
+func (s *ImportSet) Take(src []byte) {
+	if len(s.offered) == 0 {
+		return
+	}
+
+	used, _ := packageNames(src)
+	maps.DeleteFunc(s.offered, func(path string, _ bool) bool { return used[s.names[path]] })
+}
+
+// Idle lists, sorted, the paths that are still on offer and denied their name to another path:
+// without them the file would name its imports otherwise.
+func (s *ImportSet) Idle() []string {
+	var idle []string
+	for path := range s.denied {
+		if s.offered[path] {
+			idle = append(idle, path)
+		}
+	}
+	slices.Sort(idle)
+	return idle
+}
+
+// Name is the name path is imported under. It has none when the file imports it under _ or .
+// alone, has it on offer, or does not import it.
+func (s *ImportSet) Name(path string) (string, bool) {
+	if s.offered[path] {
+		return "", false
+	}
+	name, ok := s.names[path]
+	return name, ok
+}
+
 // Has reports whether path is imported, under a name or without one.
 func (s *ImportSet) Has(path string) bool {
-	_, isNamed := s.names[path]
+	_, isNamed := s.Name(path)
 	_, isUnnamed := s.unnamed[path]
 	return isNamed || isUnnamed
 }
@@ -70,12 +137,14 @@ func (s *ImportSet) Has(path string) bool {
 // Paths lists what is imported, sorted.
 func (s *ImportSet) Paths() []string {
 	all := slices.AppendSeq(slices.Collect(maps.Keys(s.names)), maps.Keys(s.unnamed))
+	all = slices.DeleteFunc(all, func(path string) bool { return !s.Has(path) })
 	slices.Sort(all)
 	return slices.Compact(all)
 }
 
 // Trim takes out every import whose name src, the code of the file, does not refer to. An import
-// under _ or . has no name to look for and stays. Nothing is taken out when src is no Go code.
+// under _ or . has no name to look for and stays, and a path on offer is no import yet. Nothing
+// is taken out when src is no Go code.
 func (s *ImportSet) Trim(src []byte) {
 	used, ok := packageNames(src)
 	if !ok {
@@ -83,7 +152,7 @@ func (s *ImportSet) Trim(src []byte) {
 	}
 
 	for _, path := range slices.Sorted(maps.Keys(s.names)) {
-		if name := s.names[path]; !used[name] {
+		if name := s.names[path]; !used[name] && !s.offered[path] {
 			delete(s.names, path)
 			delete(s.paths, name)
 		}
@@ -126,7 +195,7 @@ func (s *ImportSet) Decl() string {
 // makes _ needless, while . stays next to it.
 func (s *ImportSet) specs(path string) []string {
 	quoted := strconv.Quote(path)
-	name, isNamed := s.names[path]
+	name, isNamed := s.Name(path)
 
 	var out []string
 	if alias, ok := s.unnamed[path]; ok && (alias == dot || !isNamed) {
@@ -145,38 +214,7 @@ func (s *ImportSet) specs(path string) []string {
 // ImportName is the name path is imported under: alias when given, else the package name guessed
 // from the path.
 func ImportName(path, alias string) string {
-	if alias != "" {
-		return alias
-	}
-	return guessName(path)
-}
-
-// guessName follows the usual layout of module paths: a major version suffix (v2) and a go-
-// prefix are not part of the name, nor is anything after a dot (yaml.v3).
-func guessName(path string) string {
-	elems := strings.Split(path, "/")
-	name := elems[len(elems)-1]
-	if isMajorVersion(name) && len(elems) > 1 {
-		name = elems[len(elems)-2]
-	}
-	name = strings.TrimPrefix(name, "go-")
-	name, _, _ = strings.Cut(name, ".")
-	name = strings.Map(func(r rune) rune {
-		if r == '_' || 'a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' || '0' <= r && r <= '9' {
-			return r
-		}
-		return -1
-	}, name)
-
-	if !token.IsIdentifier(name) || name == blank {
-		return "pkg"
-	}
-	return name
-}
-
-func isMajorVersion(elem string) bool {
-	n, err := strconv.Atoi(strings.TrimPrefix(elem, "v"))
-	return strings.HasPrefix(elem, "v") && err == nil && n > 1
+	return cmp.Or(alias, naming.ImportName(path), fallbackName)
 }
 
 func lastElem(path string) string {

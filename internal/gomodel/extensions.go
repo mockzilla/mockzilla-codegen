@@ -6,12 +6,14 @@
 package gomodel
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/extension"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 // extReader parses the extensions of each place once, so its warnings come out once. Places are
@@ -46,15 +48,19 @@ func (r *extReader) goName(set extension.Set, name string) string {
 }
 
 // goType is the type x-go-type names. A name with a dot is a type of the package x-go-type-import
-// gives, else of the standard library package the dot follows; anything else is written as is.
-func goType(t *extension.Type) Type {
+// gives, else of the one of imports with that name, else of the standard library package the dot
+// follows; anything else is written as is.
+func goType(t *extension.Type, imports []config.Import) Type {
 	qual, name, isQualified := strings.Cut(t.Name, ".")
 	if !isQualified || strings.ContainsAny(t.Name, "*[]{}() ") || strings.Contains(name, ".") {
 		return Builtin{Name: t.Name}
 	}
-	path := t.Path
-	if path == "" {
-		path = qual
+
+	if t.Path != "" {
+		return Qualified{Import: Import{Path: t.Path, Alias: t.Alias}, Name: name}
 	}
-	return Qualified{Import: Import{Path: path, Alias: t.Alias}, Name: name}
+	if i := slices.IndexFunc(imports, func(listed config.Import) bool { return listed.Name() == qual }); i >= 0 {
+		return Qualified{Import: Import{Path: imports[i].Package, Alias: qual}, Name: name}
+	}
+	return Qualified{Import: Import{Path: qual, Alias: t.Alias}, Name: name}
 }

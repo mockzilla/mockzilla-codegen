@@ -74,9 +74,71 @@ func TestValidate(t *testing.T) {
 			issues: []Issue{{Key: "package", Message: `"func" is not a valid Go package name`}},
 		},
 		{
+			name: "Imports under the name of the path, an alias and _ pass",
+			edit: func(c *Config) {
+				c.Imports = []Import{
+					{Package: "github.com/google/uuid"},
+					{Package: "example.com/shop/tenant", Alias: "tn"},
+					{Package: "example.com/9lives", Alias: "lives"},
+					{Package: "embed", Alias: "_"},
+					{Package: "embed"},
+					{Package: "net/http/pprof", Alias: "_"},
+				}
+			},
+		},
+		{
 			name:   "Import needs a package",
 			edit:   func(c *Config) { c.Imports = []Import{{Package: "a"}, {Alias: "b"}} },
 			issues: []Issue{{Key: "imports[1].package", Message: "required"}},
+		},
+		{
+			name: "Import under . is not supported",
+			edit: func(c *Config) { c.Imports = []Import{{Package: "example.com/dsl", Alias: "."}} },
+			issues: []Issue{{
+				Key:     "imports[0].alias",
+				Message: `"." is not supported: Go rejects a file that imports a package without using it, and under . the use cannot be checked`,
+			}},
+		},
+		{
+			name: "Import alias that is no identifier",
+			edit: func(c *Config) {
+				c.Imports = []Import{{Package: "example.com/a", Alias: "shop-models"}, {Package: "example.com/b", Alias: "type"}}
+			},
+			issues: []Issue{
+				{Key: "imports[0].alias", Message: `"shop-models" is not a valid Go identifier`},
+				{Key: "imports[1].alias", Message: `"type" is not a valid Go identifier`},
+			},
+		},
+		{
+			name:   "Import path that gives no name needs an alias",
+			edit:   func(c *Config) { c.Imports = []Import{{Package: "example.com/9lives"}} },
+			issues: []Issue{{Key: "imports[0].alias", Message: `required, "example.com/9lives" does not end in a Go name`}},
+		},
+		{
+			name: "Import path listed twice under a name, or twice under _",
+			edit: func(c *Config) {
+				c.Imports = []Import{{Package: "embed", Alias: "_"}, {Package: "example.com/a"}, {Package: "embed", Alias: "_"}, {Package: "example.com/a", Alias: "b"}}
+			},
+			issues: []Issue{
+				{Key: "imports[2].package", Message: `"embed" is already listed in imports[0]`},
+				{Key: "imports[3].package", Message: `"example.com/a" is already listed in imports[1]`},
+			},
+		},
+		{
+			name: "Two imports with one name",
+			edit: func(c *Config) {
+				c.Imports = []Import{
+					{Package: "example.com/a/models"},
+					{Package: "embed", Alias: "_"},
+					{Package: "example.com/b/models"},
+					{Package: "net/http/pprof", Alias: "_"},
+					{Package: "example.com/c", Alias: "models"},
+				}
+			},
+			issues: []Issue{
+				{Key: "imports[2].alias", Message: `"models" is the name of imports[0] too, name one of them differently`},
+				{Key: "imports[4].alias", Message: `"models" is the name of imports[0] too, name one of them differently`},
+			},
 		},
 		{
 			name:   "Simplify without optional properties passes",

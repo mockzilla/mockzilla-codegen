@@ -140,6 +140,7 @@ A func in `Funcs` replaces one of the same name, `expr` and `import` included, i
 that plugin only. So a plugin can pass a whole library of funcs, and a func the generator gains
 later never changes what a plugin's template calls. `Funcs` has to be a map `text/template` takes:
 a name is an identifier, and a value is a func that returns one value, or one value and an error.
+A template can run more than once for a file, so a func has to answer the same each time.
 
 The rules for the built-in templates apply: decide everything in Go and keep the template to
 `range` and `if` over the data.
@@ -277,3 +278,43 @@ These are config errors:
 - a value without text, and `{file: }` without a path
 - text that can only be a path, such as `./header.tmpl` or `templates/header.txt`: it would be
   written into the code as it is, so the error asks for `{file: ./header.tmpl}`
+
+### Imports
+
+The text of a block is Go code the generator did not write, so it cannot know which packages that
+code needs. List them under `imports`:
+
+```yaml
+imports:
+  - package: github.com/google/uuid
+  - {package: example.com/shop/tenant, alias: tn}
+templates:
+  server.request-options-extra: |
+    TraceID uuid.UUID
+    Tenant  tn.ID
+```
+
+The file that holds the request options now imports `github.com/google/uuid`, and
+`example.com/shop/tenant` as `tn`. A generated file imports a listed package when its code names
+it, and leaves it out otherwise, so one list serves every file. A package that an
+[`x-go-type`](extensions.md#x-go-type) names is listed the same way.
+
+- The name is the `alias`, else the one the path gives: its last element, without a major version
+  (`chi` for `github.com/go-chi/chi/v5`), a `go-` prefix or what follows a dot (`yaml` for
+  `gopkg.in/yaml.v3`). A package named otherwise needs the alias.
+- In a file that names a listed package, the name is that package's. Another package the
+  generator imports under the same name gets a number there, such as `models2`.
+- A listed package the generator imports too goes by the listed name in the generated code. So
+  an alias for such a package must not be a name that code gives a variable, like `ctx` or `r`.
+- With `alias: _` every generated file imports the package, for its side effects.
+- An entry that no file names changes nothing, and is reported as an `import-unused` warning.
+
+These are config errors:
+
+- an entry without `package`
+- an alias that is no Go identifier
+- `alias: .`: Go rejects a file that imports a package without using it, and under `.` the use
+  cannot be checked
+- a path that is listed twice under a name, or twice under `_`
+- two entries with one name
+- a path that gives no name, such as `example.com/9lives`, without an alias

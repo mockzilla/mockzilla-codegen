@@ -31,12 +31,12 @@
       "type": "string"
     },
     "imports": {
-      "description": "Extra imports added to every generated file.",
+      "description": "Packages that template overrides and x-go-type refer to. A generated file imports one when its code names it.",
       "items": {
         "additionalProperties": false,
         "properties": {
           "alias": {
-            "description": "Import alias. Empty means none.",
+            "description": "Name the code refers to the package by. Defaults to the name the path gives. With _ every generated file imports the package, for its side effects.",
             "type": "string"
           },
           "package": {

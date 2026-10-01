@@ -4,13 +4,16 @@ package gotype
 
 import (
 	"net/netip"
+	"net/url"
 	"time"
 )
 
 type Host struct {
-	Address *netip.Addr       `json:"address,omitempty"`
-	Timeout *time.Duration    `json:"timeout,omitempty"`
-	Labels  map[string]string `json:"labels,omitempty"`
+	Address  *netip.Addr       `json:"address,omitempty"`
+	Timeout  *time.Duration    `json:"timeout,omitempty"`
+	Labels   map[string]string `json:"labels,omitempty"`
+	Homepage *url.URL          `json:"homepage,omitempty"`
+	Mirrors  []url.URL         `json:"mirrors,omitempty"`
 }
 
 type Port = uint16

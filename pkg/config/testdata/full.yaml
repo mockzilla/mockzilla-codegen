@@ -23,6 +23,7 @@ naming:
   enum-prefix: true
 imports:
   - package: github.com/google/uuid
+  - {package: example.com/shop/tenant, alias: tn}
 models:
   int-type: int64
   descriptions: false
@@ -50,7 +51,7 @@ mcp:
   default-skip: false
 templates:
   server.service-header: {file: ./templates/header.tmpl}
-  server.request-options-extra: Tenant string
+  server.request-options-extra: Tenant tn.ID
 user-context:
   owner: platform
 output:
