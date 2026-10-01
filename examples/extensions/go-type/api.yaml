@@ -16,6 +16,12 @@ components:
         labels:
           type: object
           x-go-type: 'map[string]string'
+        homepage:
+          type: string
+          x-go-type: url.URL
+        mirrors:
+          type: array
+          x-go-type: '[]url.URL'
     Port:
       type: integer
       x-go-type: uint16

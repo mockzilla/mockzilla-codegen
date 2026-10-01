@@ -120,6 +120,10 @@ func TestScopeRuntimeGuard(t *testing.T) {
 	s := NewScope(l.FileOf(gomodel.PartParams), l)
 	assert.Empty(t, s.RuntimeGuard())
 
+	s.Import(gomodel.Import{Path: gomodel.RuntimePath, Alias: "_"})
+	assert.Empty(t, s.RuntimeGuard(), "a file that only runs the runtime names nothing of it")
+	assert.Equal(t, `import _ "github.com/mockzilla/mockzilla-codegen/pkg/runtime"`, s.Imports.Decl())
+
 	s.Imports.Add("example.com/runtime", "")
 	s.Import(gomodel.Import{Path: gomodel.RuntimePath})
 	assert.Equal(t, "runtime2.SupportsGeneratorV2", s.RuntimeGuard())

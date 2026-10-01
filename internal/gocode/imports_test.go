@@ -142,16 +142,54 @@ func TestImportSetDecl(t *testing.T) {
 	}
 }
 
+func TestImportSetName(t *testing.T) {
+	t.Parallel()
+
+	s := NewImportSet()
+	s.Add("time", "clock")
+	s.Add("example.com/a/models", "")
+	s.Add("example.com/b/models", "")
+	s.Add("embed", "_")
+	s.Add("example.com/dsl", ".")
+	s.Offer("github.com/google/uuid", "")
+
+	tests := []struct {
+		name   string
+		path   string
+		want   string
+		wantOK bool
+	}{
+		{name: "Path under the name it asked for", path: "time", want: "clock", wantOK: true},
+		{name: "Path under a numbered name", path: "example.com/b/models", want: "models2", wantOK: true},
+		{name: "Path under _ has none", path: "embed"},
+		{name: "Path under . has none", path: "example.com/dsl"},
+		{name: "Path on offer has none yet", path: "github.com/google/uuid"},
+		{name: "Path that is not imported has none", path: "fmt"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := s.Name(tc.path)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantOK, ok)
+		})
+	}
+}
+
 func TestImportSetHas(t *testing.T) {
 	t.Parallel()
 
 	s := NewImportSet()
 	s.Add("time", "")
 	s.Add("embed", "_")
+	s.Offer("github.com/google/uuid", "")
 
 	assert.True(t, s.Has("time"))
 	assert.True(t, s.Has("embed"))
 	assert.False(t, s.Has("fmt"))
+	assert.False(t, s.Has("github.com/google/uuid"))
 }
 
 func TestImportSetPaths(t *testing.T) {
@@ -164,6 +202,7 @@ func TestImportSetPaths(t *testing.T) {
 	s.Add("embed", "_")
 	s.Add("example.com/a", ".")
 	s.Add("example.com/a", "")
+	s.Offer("github.com/google/uuid", "")
 	assert.Equal(t, []string{"embed", "example.com/a", "time"}, s.Paths())
 }
 
@@ -232,4 +271,210 @@ func TestImportSetTrimFreesTheName(t *testing.T) {
 
 	assert.Equal(t, "models", s.Add("example.com/b/models", ""))
 	assert.Equal(t, `import "example.com/b/models"`, s.Decl())
+}
+
+func TestImportSetOffer(t *testing.T) {
+	t.Parallel()
+
+	const (
+		uuid   = "github.com/google/uuid"
+		tenant = "example.com/shop/tenant"
+		pet    = "\ntype Pet struct {\n\tID     uuid.UUID\n\tTenant tn.ID\n}\n"
+	)
+	tests := []struct {
+		name string
+		do   func(s *ImportSet)
+		want string
+	}{
+		{
+			name: "Path on offer is not imported",
+			do:   func(s *ImportSet) { s.Offer(uuid, "") },
+			want: "",
+		},
+		{
+			name: "Code that names a path on offer imports it, and no other",
+			do: func(s *ImportSet) {
+				s.Offer(uuid, "")
+				s.Offer(tenant, "tn")
+				s.Offer("math/big", "")
+				s.Take([]byte(pet))
+			},
+			want: "import (\n\ttn \"example.com/shop/tenant\"\n\t\"github.com/google/uuid\"\n)",
+		},
+		{
+			name: "Add imports a path on offer under the name it holds",
+			do: func(s *ImportSet) {
+				s.Offer(tenant, "tn")
+				s.Add(tenant, "")
+			},
+			want: `import tn "example.com/shop/tenant"`,
+		},
+		{
+			name: "Name on offer gives another path a number",
+			do: func(s *ImportSet) {
+				s.Offer("example.com/shop/models", "")
+				s.Add("example.com/work/models", "")
+			},
+			want: `import models2 "example.com/work/models"`,
+		},
+		{
+			name: "Offer under _ or . is imported right away",
+			do: func(s *ImportSet) {
+				s.Offer("embed", "_")
+				s.Offer("example.com/dsl", ".")
+			},
+			want: "import (\n\t_ \"embed\"\n\n\t. \"example.com/dsl\"\n)",
+		},
+		{
+			name: "Offer of an imported path leaves it imported",
+			do: func(s *ImportSet) {
+				s.Add("time", "")
+				s.Offer("time", "clock")
+			},
+			want: `import "time"`,
+		},
+		{
+			name: "Offer made twice stays an offer",
+			do: func(s *ImportSet) {
+				s.Offer(uuid, "")
+				s.Offer(uuid, "")
+			},
+			want: "",
+		},
+		{
+			name: "Parameter with the name on offer imports nothing",
+			do: func(s *ImportSet) {
+				s.Offer(uuid, "")
+				s.Take([]byte("\nfunc Text(uuid struct{ Text string }) string { return uuid.Text }\n"))
+			},
+			want: "",
+		},
+		{
+			name: "Code that does not parse imports nothing",
+			do: func(s *ImportSet) {
+				s.Offer(uuid, "")
+				s.Take([]byte("\ntype Pet struct{ ID uuid.UUID\n"))
+			},
+			want: "",
+		},
+		{
+			name: "Take without an offer changes nothing",
+			do: func(s *ImportSet) {
+				s.Add("time", "")
+				s.Take([]byte(pet))
+			},
+			want: `import "time"`,
+		},
+		{
+			name: "Trim leaves a path on offer alone, named in the code or not",
+			do: func(s *ImportSet) {
+				s.Offer(uuid, "")
+				s.Offer("example.com/shop/models", "")
+				s.Trim([]byte(pet))
+				s.Add("example.com/work/models", "")
+				s.Take([]byte(pet))
+			},
+			want: "import (\n\tmodels2 \"example.com/work/models\"\n\t\"github.com/google/uuid\"\n)",
+		},
+		{
+			name: "Path on offer that is also under _ stays under _",
+			do: func(s *ImportSet) {
+				s.Offer("embed", "")
+				s.Add("embed", "_")
+			},
+			want: `import _ "embed"`,
+		},
+		{
+			name: "Path offered under _ takes a name when Add asks for one",
+			do: func(s *ImportSet) {
+				s.Offer("embed", "_")
+				s.Add("embed", "")
+			},
+			want: `import "embed"`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := NewImportSet()
+			tc.do(s)
+			assert.Equal(t, tc.want, s.Decl())
+		})
+	}
+}
+
+func TestImportSetIdle(t *testing.T) {
+	t.Parallel()
+
+	const (
+		shop = "example.com/shop/models"
+		work = "example.com/work/models"
+	)
+	tests := []struct {
+		name string
+		do   func(s *ImportSet)
+		want []string
+	}{
+		{
+			name: "Nothing on offer",
+			do:   func(s *ImportSet) { s.Add(work, "") },
+		},
+		{
+			name: "Path on offer whose name nothing else asked for",
+			do: func(s *ImportSet) {
+				s.Offer(shop, "")
+				s.Add("time", "")
+			},
+		},
+		{
+			name: "Paths on offer that gave other paths a number",
+			do: func(s *ImportSet) {
+				s.Offer("example.com/shop/time", "")
+				s.Offer(shop, "")
+				s.Offer("example.com/shop/errors", "")
+				s.Offer("example.com/shop/tenant", "")
+				s.Add(work, "")
+				s.Add("errors", "")
+				s.Add("time", "")
+			},
+			want: []string{"example.com/shop/errors", shop, "example.com/shop/time"},
+		},
+		{
+			name: "Path on offer under the number another path would have got",
+			do: func(s *ImportSet) {
+				s.Add(work, "")
+				s.Offer(shop, "models2")
+				s.Add("example.com/more/models", "")
+			},
+			want: []string{shop},
+		},
+		{
+			name: "Path that code took after it gave another path a number",
+			do: func(s *ImportSet) {
+				s.Offer(shop, "")
+				s.Add(work, "")
+				s.Take([]byte("\nvar _ models.Owner\n"))
+			},
+		},
+		{
+			name: "Path that Add took after it gave another path a number",
+			do: func(s *ImportSet) {
+				s.Offer(shop, "")
+				s.Add(work, "")
+				s.Add(shop, "")
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := NewImportSet()
+			tc.do(s)
+			assert.Equal(t, tc.want, s.Idle())
+		})
+	}
 }

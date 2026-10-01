@@ -49,12 +49,6 @@ type Naming struct {
 	EnumPrefix  *bool    `yaml:"enum-prefix" desc:"Prefix enum constants with their type name. Defaults to true."`
 }
 
-// Import is one extra import for generated files.
-type Import struct {
-	Package string `yaml:"package" desc:"Import path."`
-	Alias   string `yaml:"alias" desc:"Import alias. Empty means none."`
-}
-
 // Models controls model generation.
 type Models struct {
 	IntType      string            `yaml:"int-type" enum:"int,int32,int64" desc:"Go type for integers without a format. Defaults to int."`

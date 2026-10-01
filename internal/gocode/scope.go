@@ -75,12 +75,14 @@ func (s *Scope) Qualified(expr string, imp gomodel.Import) string {
 }
 
 // RuntimeGuard returns the constant a file that imports the runtime refers to, so a runtime too
-// old or too new for the file fails to compile. It is empty when the file does not import it.
+// old or too new for the file fails to compile. It is empty when the file does not import it
+// under a name: its code then uses nothing of the runtime.
 func (s *Scope) RuntimeGuard() string {
-	if !s.Imports.Has(gomodel.RuntimePath) {
+	name, ok := s.Imports.Name(gomodel.RuntimePath)
+	if !ok {
 		return ""
 	}
-	return s.Imports.Add(gomodel.RuntimePath, "") + ".SupportsGeneratorV" + strconv.Itoa(generatorLevel)
+	return name + ".SupportsGeneratorV" + strconv.Itoa(generatorLevel)
 }
 
 // decl qualifies a declaration placed in another folder with that folder's package.
