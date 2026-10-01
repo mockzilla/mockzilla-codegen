@@ -46,7 +46,11 @@ func (Framework) Imports() []gomodel.Import {
 // rejects or misreads: a path without a leading slash, an unclosed brace, a wildcard that is not
 // a segment of its own, last, a parameter without a name, one whose name holds a colon, and a
 // parameter named twice.
-func (Framework) RoutePattern(_, oasPath string) (string, error) {
+func (Framework) RoutePattern(method, oasPath string) (string, error) {
+	if err := framework.CheckMethod(method); err != nil {
+		return "", err
+	}
+
 	if oasPath != path.Clean(oasPath) {
 		return "", fmt.Errorf("%w: it is not a clean path", framework.ErrPattern)
 	}

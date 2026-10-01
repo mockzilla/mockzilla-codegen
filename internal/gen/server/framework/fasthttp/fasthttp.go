@@ -55,7 +55,11 @@ func (Framework) Imports() []gomodel.Import {
 // path without a leading slash, an unclosed brace, a wildcard that is not a segment of its own,
 // last, two parameters with nothing between them, a parameter without a name, one whose name
 // holds a colon, which starts a regular expression, and a parameter named twice.
-func (Framework) RoutePattern(_, path string) (string, error) {
+func (Framework) RoutePattern(method, path string) (string, error) {
+	if err := framework.CheckMethod(method); err != nil {
+		return "", err
+	}
+
 	if strings.Contains(path, "}{") {
 		return "", fmt.Errorf("%w: two parameters must have a character between them", framework.ErrPattern)
 	}

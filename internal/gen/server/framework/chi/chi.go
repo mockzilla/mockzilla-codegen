@@ -43,7 +43,11 @@ func (Framework) Imports() []gomodel.Import {
 // RoutePattern keeps the path as it is, since chi writes parameters as {name} too and takes the
 // method as a call of its own. It fails on what chi panics on: a path without a leading slash, an
 // unclosed brace, a parameter named twice, or a wildcard that is not last.
-func (Framework) RoutePattern(_, path string) (string, error) {
+func (Framework) RoutePattern(method, path string) (string, error) {
+	if err := framework.CheckMethod(method); err != nil {
+		return "", err
+	}
+
 	switch {
 	case !strings.HasPrefix(path, "/"):
 		return "", fmt.Errorf("%w: it must begin with /", framework.ErrPattern)

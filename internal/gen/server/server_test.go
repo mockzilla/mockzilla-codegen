@@ -74,6 +74,52 @@ func TestNew(t *testing.T) {
 	}, diags)
 }
 
+func TestNewLeavesTheMethodToTheFramework(t *testing.T) {
+	t.Parallel()
+
+	m := &gomodel.Model{Operations: []*gomodel.Operation{
+		{Name: "Search", Spec: &spec.Operation{Method: "QUERY", Path: "/search", Origin: spec.Origin{Pointer: "/paths/~1search/query"}}},
+		{Name: "Purge", Spec: &spec.Operation{Method: "PURGE", Path: "/search", Origin: spec.Origin{Pointer: "/paths/~1search/additionalOperations/PURGE"}}},
+	}}
+
+	tests := []struct {
+		name       string
+		fw         framework.Framework
+		wantRoutes []framework.Route
+		wantDiags  []diag.Diagnostic
+	}{
+		{
+			name: "ServeMux takes any method",
+			fw:   stdhttp.Framework{},
+			wantRoutes: []framework.Route{
+				{Operation: "Search", Method: "QUERY", Path: "/search", Pattern: "QUERY /search"},
+				{Operation: "Purge", Method: "PURGE", Path: "/search", Pattern: "PURGE /search"},
+			},
+		},
+		{
+			name: "chi takes the methods it has a function for",
+			fw:   chi.Framework{},
+			wantDiags: []diag.Diagnostic{
+				{Severity: diag.Warning, Code: "route-dropped", Pointer: "/paths/~1search/query", Message: "Search is not routed: the router does not take the method QUERY"},
+				{Severity: diag.Warning, Code: "route-dropped", Pointer: "/paths/~1search/additionalOperations/PURGE", Message: "Purge is not routed: the router does not take the method PURGE"},
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			opts := allOptions()
+			opts.Framework = tc.fw
+
+			g, diags := New(m, opts)
+
+			assert.Equal(t, tc.wantRoutes, g.routes)
+			assert.Equal(t, tc.wantDiags, diags)
+		})
+	}
+}
+
 func TestRoutes(t *testing.T) {
 	t.Parallel()
 
