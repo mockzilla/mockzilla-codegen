@@ -247,8 +247,9 @@ anywhere else is a literal star. A trailing slash becomes `{$}`, so `/pets/` mat
 request. It rejects a path without a leading slash, one that is not clean (`/a//b`, `/a/../b`), a
 parameter that does not fill its segment (`{id}.json`) and two wildcards of one name. It panics on
 a route that matches the same requests as an earlier one, or overlaps with it while neither is more
-specific, `/a/{x}` next to `/{y}/b`; the generator drops such routes by the same rules, so
-`NewRouter` never panics. A `GET` route answers `HEAD` requests too.
+specific, `/a/{x}` next to `/{y}/b`. The generator registers the routes on a `ServeMux` of its own
+first and drops each one that panics there, so `NewRouter` never panics. A `GET` route answers
+`HEAD` requests too.
 
 ### echo
 
