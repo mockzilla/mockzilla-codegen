@@ -304,7 +304,8 @@ it, and leaves it out otherwise, so one list serves every file. A package that a
   `gopkg.in/yaml.v3`). A package named otherwise needs the alias.
 - In a file that names a listed package, the name is that package's. Another package the
   generator imports under the same name gets a number there, such as `models2`.
-- A listed package the generator imports too goes by the listed name in the generated code.
+- A listed package the generator imports too goes by the listed name in the generated code. So
+  an alias for such a package must not be a name that code gives a variable, like `ctx` or `r`.
 - With `alias: _` every generated file imports the package, for its side effects.
 - An entry that no file names changes nothing, and is reported as an `import-unused` warning.
 
