@@ -23,7 +23,7 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) {{.Framework}}.Handler {
 {{- range .Routes}}
 		mux.Handle({{.Pattern}}, route({{$.Framework}}.HandlerFunc(adapter.{{.Operation}})))
 {{- end}}
-{{- block "server.router-extra" .}}{{end}}
+{{- override "server.router-extra" .}}
 	}
 
 	if mux, _ := o.Router.(*{{.Framework}}.ServeMux); mux != nil {

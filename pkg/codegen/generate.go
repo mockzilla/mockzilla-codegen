@@ -30,9 +30,6 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
-// templateExt marks a templates value that names a file instead of holding the text.
-const templateExt = ".tmpl"
-
 type FileKind int
 
 const (
@@ -219,11 +216,17 @@ func (g *generation) place() error {
 	return err
 }
 
-// load loads the templates and the block overrides of the config.
+// load loads the templates and the block overrides of the config. The blocks of the server are
+// named also when the config asks for none, so that an override of one says what it needs.
 func (g *generation) load() error {
 	sets := []render.Set{models.Templates()}
+	needs := make(map[string]string)
 	if g.srv != nil {
 		sets = append(sets, server.Templates(g.srv.Framework())...)
+	} else {
+		for _, block := range server.Blocks() {
+			needs[block] = "server"
+		}
 	}
 	if g.cl != nil {
 		sets = append(sets, client.Templates())
@@ -237,24 +240,26 @@ func (g *generation) load() error {
 	}
 
 	isFormat := g.cfg.Output.Format == nil || *g.cfg.Output.Format
-	g.engine, err = render.New(sets, render.Options{Templates: overrides, Format: isFormat})
+	g.engine, err = render.New(sets, render.Options{Templates: overrides, Needs: needs, Format: isFormat})
 	return err
 }
 
-// templates returns the block overrides of the config, with a value that names a .tmpl file
-// replaced by that file's text.
+// templates returns the text of every block override of the config: the one it holds, or that
+// of the file it names.
 func (g *generation) templates() (map[string]string, error) {
 	out := make(map[string]string, len(g.cfg.Templates))
 	for _, name := range slices.Sorted(maps.Keys(g.cfg.Templates)) {
-		text := g.cfg.Templates[name]
-		if strings.HasSuffix(text, templateExt) {
-			data, err := os.ReadFile(g.cfg.Resolve(text))
-			if err != nil {
-				return nil, fmt.Errorf("%w: templates.%s: %w", ErrTemplateFile, name, err)
-			}
-			text = string(data)
+		t := g.cfg.Templates[name]
+		out[name] = t.Text
+		if t.File == "" {
+			continue
 		}
-		out[name] = text
+
+		data, err := os.ReadFile(g.cfg.Resolve(t.File))
+		if err != nil {
+			return nil, fmt.Errorf("%w: templates.%s: %w", ErrTemplateFile, name, err)
+		}
+		out[name] = string(data)
 	}
 	return out, nil
 }

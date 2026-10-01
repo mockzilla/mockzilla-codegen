@@ -21,6 +21,10 @@ var (
 	intTypes        = enumOf(reflect.TypeFor[Models](), "IntType")
 	selectorGroups  = []string{"models", "server", "client", "mcp", "plugin"}
 	selectorSegment = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
+
+	// templatePath matches template text that can only be a path: one word of path characters
+	// with a slash in it. No text a block takes looks like that.
+	templatePath = regexp.MustCompile(`^[\w.-]*(/[\w.-]+)+$`)
 )
 
 func checkPackage(key, name string) []Issue {
@@ -81,6 +85,31 @@ func checkMCP(m *MCP, cl *Client) []Issue {
 		return nil
 	}
 	return []Issue{{Key: "mcp", Message: "needs a client block"}}
+}
+
+func checkTemplates(templates map[string]Template) []Issue {
+	var issues []Issue
+	for _, name := range slices.Sorted(maps.Keys(templates)) {
+		if problem := templateProblem(templates[name]); problem != "" {
+			issues = append(issues, Issue{Key: "templates." + name, Message: problem})
+		}
+	}
+	return issues
+}
+
+// templateProblem is what is wrong with t, if anything. A template says by its form whether it
+// is text or a file, so text that can only be a path is a file that is not given as one.
+func templateProblem(t Template) string {
+	text := strings.TrimSpace(t.Text)
+	switch {
+	case t.File != "" && t.Text != "":
+		return "takes the text or a file, not both"
+	case t.File == "" && text == "":
+		return "is empty, want the text or {file: <path>}"
+	case templatePath.MatchString(text):
+		return fmt.Sprintf("%q is a path, want {file: %s}", text, text)
+	}
+	return ""
 }
 
 func checkEnum(key, value string, allowed []string) []Issue {

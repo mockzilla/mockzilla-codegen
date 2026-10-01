@@ -17,7 +17,7 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) {{.Framework}}.Router {
 {{- range .Routes}}
 		r.{{.Method}}({{.Pattern}}, adapter.{{.Operation}})
 {{- end}}
-{{- block "server.router-extra" .}}{{end}}
+{{- override "server.router-extra" .}}
 	}
 
 	router, _ := o.Router.({{.Framework}}.Router)

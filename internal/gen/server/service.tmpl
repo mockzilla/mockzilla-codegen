@@ -1,4 +1,6 @@
-{{block "server.service-header" .}}{{end}}// {{.Name}} is what the generated handlers call. Implement it with the business logic.
+{{with override "server.service-header" .}}{{.}}
+
+{{end}}// {{.Name}} is what the generated handlers call. Implement it with the business logic.
 type {{.Name}} interface {
 {{- range .Operations}}
 {{- with .Doc}}
@@ -17,7 +19,7 @@ type {{.Options}} struct {
 {{- end}}
 	{{.Name}} {{.Type}}
 {{- end}}
-{{- block "server.request-options-extra" .}}{{end}}
+{{- override "server.request-options-extra" .}}
 	RawRequest *{{$.HTTP}}.Request
 }
 
@@ -41,7 +43,7 @@ type {{.Data}} struct {
 	Status  int
 	Headers {{$.HTTP}}.Header
 	Body    any
-{{- block "server.response-data-extra" .}}{{end}}
+{{- override "server.response-data-extra" .}}
 
 	contentType string
 }

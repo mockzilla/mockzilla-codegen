@@ -129,9 +129,12 @@ func TestParse(t *testing.T) {
 						Timeout:    Duration(45 * time.Second),
 					},
 				},
-				Client:      &Client{Name: "PetClient", Timeout: Duration(5 * time.Second), WithResponse: true, Streaming: true},
-				MCP:         &MCP{},
-				Templates:   map[string]string{},
+				Client: &Client{Name: "PetClient", Timeout: Duration(5 * time.Second), WithResponse: true, Streaming: true},
+				MCP:    &MCP{},
+				Templates: map[string]Template{
+					"server.service-header":        {File: "./templates/header.tmpl"},
+					"server.request-options-extra": {Text: "Tenant string"},
+				},
 				UserContext: map[string]any{"owner": "platform"},
 				Output: Output{
 					File:     "./api/gen.go",
@@ -191,6 +194,25 @@ func TestParse(t *testing.T) {
 			src:     "server: {framework: express}\n",
 			wantErr: ErrInvalid,
 			wantMsg: `invalid config: server.framework: "express" is not one of beego, chi, echo, echo-v5, fasthttp, fiber, gin, go-zero, goframe, gorilla-mux, hertz, iris, kratos, std-http`,
+		},
+		{
+			name:    "Template that is a path and no file is a validation error",
+			src:     "templates: {server.service-header: ./header.tmpl, server.router-extra: }\n",
+			wantErr: ErrInvalid,
+			wantMsg: `invalid config: templates.server.router-extra: is empty, want the text or {file: <path>}; ` +
+				`templates.server.service-header: "./header.tmpl" is a path, want {file: ./header.tmpl}`,
+		},
+		{
+			name:    "Unknown key in a template is listed with its path",
+			src:     "templates: {server.service-header: {fiel: ./header.tmpl}}\n",
+			wantErr: ErrUnknownKey,
+			wantMsg: "unknown config key: templates.server.service-header.fiel",
+		},
+		{
+			name:    "List where a template belongs is a decode error",
+			src:     "templates: {server.service-header: [a]}\n",
+			wantErr: ErrDecode,
+			wantMsg: "decode config: yaml: construct errors: line 1: cannot construct !!seq into config.template",
 		},
 	}
 

@@ -127,6 +127,51 @@ func TestValidate(t *testing.T) {
 			edit: func(c *Config) { c.MCP, c.Client = &MCP{}, &Client{} },
 		},
 		{
+			name: "Templates as text and as a file pass",
+			edit: func(c *Config) {
+				c.Templates = map[string]Template{
+					"server.service-header":        {File: "./templates/header.txt"},
+					"server.request-options-extra": {Text: "tenant.Info"},
+					"server.response-data-extra":   {Text: "// see templates/data.tmpl"},
+					"server.router-extra":          {Text: "r.Get(\"/health\", health)\nr.Get(\"/ready\", ready)\n"},
+				}
+			},
+		},
+		{
+			name: "Template without text or a file",
+			edit: func(c *Config) {
+				c.Templates = map[string]Template{"server.service-header": {}, "server.router-extra": {Text: " \n\t"}}
+			},
+			issues: []Issue{
+				{Key: "templates.server.router-extra", Message: "is empty, want the text or {file: <path>}"},
+				{Key: "templates.server.service-header", Message: "is empty, want the text or {file: <path>}"},
+			},
+		},
+		{
+			name: "Template with text and a file",
+			edit: func(c *Config) {
+				c.Templates = map[string]Template{"server.service-header": {Text: "// Owned by platform.", File: "./header.tmpl"}}
+			},
+			issues: []Issue{{Key: "templates.server.service-header", Message: "takes the text or a file, not both"}},
+		},
+		{
+			name: "Template text that is a path",
+			edit: func(c *Config) {
+				c.Templates = map[string]Template{
+					"server.service-header":        {Text: "./header.tmpl"},
+					"server.request-options-extra": {Text: "templates/fields.txt"},
+					"server.response-data-extra":   {Text: "/etc/fields\n"},
+					"server.router-extra":          {Text: "../routes.tmpl"},
+				}
+			},
+			issues: []Issue{
+				{Key: "templates.server.request-options-extra", Message: `"templates/fields.txt" is a path, want {file: templates/fields.txt}`},
+				{Key: "templates.server.response-data-extra", Message: `"/etc/fields" is a path, want {file: /etc/fields}`},
+				{Key: "templates.server.router-extra", Message: `"../routes.tmpl" is a path, want {file: ../routes.tmpl}`},
+				{Key: "templates.server.service-header", Message: `"./header.tmpl" is a path, want {file: ./header.tmpl}`},
+			},
+		},
+		{
 			name: "Two output files that clean to the same path",
 			edit: func(c *Config) {
 				c.Output.Files = map[string][]string{"./api/a.go": {"models"}, "api/a.go": {"server"}}

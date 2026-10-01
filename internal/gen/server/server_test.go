@@ -193,6 +193,7 @@ func TestTemplates(t *testing.T) {
 	assert.Equal(t, "chi", sets[1].Name)
 	assert.Equal(t, map[layout.PartID]string{PartRouter: "router.tmpl"}, sets[1].Parts)
 	assert.Equal(t, []string{"server.router-extra"}, sets[1].Blocks)
+	assert.Equal(t, slices.Concat(sets[0].Blocks, sets[1].Blocks), Blocks())
 	_, err := render.New(sets, render.Options{})
 	require.NoError(t, err)
 }
@@ -221,26 +222,73 @@ func TestReservedField(t *testing.T) {
 	}
 }
 
-// TestBlocks overrides every block with text that reads the user-context.
+// TestBlocks overrides every block with text that reads the user-context, written with and
+// without blank space around it.
 func TestBlocks(t *testing.T) {
 	t.Parallel()
 
-	m := petModel()
-	g, _ := New(m, allOptions())
-	f := fixture{m: m, g: g, cfg: scaffoldConfig, templates: map[string]string{
-		blockServiceHeader:       "// Owned by {{.User.owner}}.\n",
-		blockRequestOptionsExtra: "\n\tOwner string // {{.User.owner}}",
-		blockResponseDataExtra:   "\n\tOwner string // {{.User.owner}}",
-		blockRouterExtra:         "\n\t\tr.Get(\"/owner\", {{.User.handler}})",
-	}}
+	tests := []struct {
+		name      string
+		templates map[string]string
+	}{
+		{
+			name: "Text alone",
+			templates: map[string]string{
+				blockServiceHeader:       "// Owned by {{.User.owner}}.",
+				blockRequestOptionsExtra: "Owner string // {{.User.owner}}",
+				blockResponseDataExtra:   "Owner string // {{.User.owner}}",
+				blockRouterExtra:         `r.Get("/owner", {{.User.handler}})`,
+			},
+		},
+		{
+			name: "Text with line breaks around it",
+			templates: map[string]string{
+				blockServiceHeader:       "// Owned by {{.User.owner}}.\n",
+				blockRequestOptionsExtra: "\n\tOwner string // {{.User.owner}}",
+				blockResponseDataExtra:   "\n\tOwner string // {{.User.owner}}\n\n",
+				blockRouterExtra:         "\n\t\tr.Get(\"/owner\", {{.User.handler}})\n",
+			},
+		},
+	}
 
-	service := string(f.render(t, PartService))
-	router := string(f.render(t, PartRouter))
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	assert.Contains(t, service, "// Owned by platform.\n// PetsInterface is what")
-	assert.Contains(t, service, "\tTrace            *trace.Span\n\tOwner            string // platform\n\tRawRequest       *http.Request\n")
-	assert.Contains(t, service, "\tBody    any\n\tOwner   string // platform\n\n\tcontentType string\n")
-	assert.Contains(t, router, "r.Get(\"/ping\", adapter.Ping)\n\t\tr.Get(\"/owner\", ownerHandler)\n\t}\n")
+			m := petModel()
+			g, _ := New(m, allOptions())
+			f := fixture{m: m, g: g, cfg: scaffoldConfig, templates: tc.templates}
+
+			service := string(f.render(t, PartService))
+			router := string(f.render(t, PartRouter))
+
+			assert.Contains(t, service, ")\n\n// Owned by platform.\n\n// PetsInterface is what")
+			assert.Contains(t, service, "\tTrace            *trace.Span\n\tOwner            string // platform\n\tRawRequest       *http.Request\n")
+			assert.Contains(t, service, "\tBody    any\n\tOwner   string // platform\n\n\tcontentType string\n")
+			assert.Contains(t, router, "r.Get(\"/ping\", adapter.Ping)\n\t\tr.Get(\"/owner\", ownerHandler)\n\t}\n")
+		})
+	}
+}
+
+// TestBlocksOfEveryFramework overrides the block every router template has.
+func TestBlocksOfEveryFramework(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range slices.Sorted(maps.Keys(Frameworks())) {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			m := petModel()
+			opts := allOptions()
+			opts.Framework = Frameworks()[name]
+			g, _ := New(m, opts)
+			f := fixture{m: m, g: g, cfg: scaffoldConfig, templates: map[string]string{blockRouterExtra: "// The routes of {{.User.owner}} end here."}}
+
+			router := string(f.render(t, PartRouter))
+
+			assert.Contains(t, router, ")\n\t\t// The routes of platform end here.\n\t}\n")
+		})
+	}
 }
 
 func TestParts(t *testing.T) {
