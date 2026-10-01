@@ -22,7 +22,6 @@ func TestBodyView(t *testing.T) {
 	blob := &gomodel.Decl{Name: "Blob", Part: gomodel.PartTypes, Kind: gomodel.KindDefined, Target: gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}}
 	m := &gomodel.Model{Decls: []*gomodel.Decl{pet, blob}}
 	g, _ := New(m, allOptions())
-	at := bodyAt{id: `"Op"`, isRequired: true, ret: "return", scope: fixture{m: m, g: g, cfg: scaffoldConfig}.scope(t, PartAdapter)}
 	view := func(v BodyView) BodyView {
 		v.Runtime, v.OperationID, v.IsRequired, v.Field, v.Target, v.Return = "runtime", `"Op"`, true, "Body", "&opts.Body", "return"
 		return v
@@ -102,6 +101,9 @@ func TestBodyView(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
+			// bodyView imports into the scope, so each subtest has its own.
+			at := bodyAt{id: `"Op"`, isRequired: true, ret: "return", scope: fixture{m: m, g: g, cfg: scaffoldConfig}.scope(t, PartAdapter)}
 
 			assert.Equal(t, tc.want, bodyView(tc.content, "Body", at))
 		})
