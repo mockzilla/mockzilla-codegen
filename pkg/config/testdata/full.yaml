@@ -48,7 +48,9 @@ client:
   streaming: true
 mcp:
   default-skip: false
-templates: {}
+templates:
+  server.service-header: {file: ./templates/header.tmpl}
+  server.request-options-extra: Tenant string
 user-context:
   owner: platform
 output:

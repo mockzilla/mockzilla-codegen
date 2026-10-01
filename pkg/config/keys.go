@@ -32,6 +32,12 @@ func walk(n *yaml.Node, t reflect.Type, path string) []string {
 	switch {
 	case n.Kind == yaml.MappingNode && t.Kind() == reflect.Struct:
 		unknown = walkStruct(n, t, path)
+	case n.Kind == yaml.MappingNode && t.Kind() == reflect.Map:
+		for i := 0; i < len(n.Content); i += 2 {
+			if key := n.Content[i]; key.ShortTag() != mergeTag {
+				unknown = append(unknown, walk(n.Content[i+1], t.Elem(), path+"."+key.Value)...)
+			}
+		}
 	case n.Kind == yaml.SequenceNode && t.Kind() == reflect.Slice:
 		for i, item := range n.Content {
 			unknown = append(unknown, walk(item, t.Elem(), path+"["+strconv.Itoa(i)+"]")...)

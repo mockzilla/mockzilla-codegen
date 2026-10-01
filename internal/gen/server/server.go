@@ -234,6 +234,11 @@ func Templates(fw framework.Framework) []render.Set {
 	}
 }
 
+// Blocks lists the blocks of the server templates a config may override, whatever the framework.
+func Blocks() []string {
+	return []string{blockServiceHeader, blockRequestOptionsExtra, blockResponseDataExtra, blockRouterExtra}
+}
+
 // ReservedField reports whether name is a field the request options declare themselves, so an
 // extra field cannot take it: a parameter group, a body field, RawRequest or the Validate method.
 func ReservedField(name string) bool {

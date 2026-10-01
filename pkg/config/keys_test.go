@@ -56,6 +56,16 @@ func TestWalk(t *testing.T) {
 			src:  "user-context: {any: {thing: 1}}\ntemplates: {header: x}\noutput: {files: {./a.go: [models]}}\n",
 		},
 		{
+			name: "Unknown key in a block inside a map",
+			src:  "templates: {server.service-header: {fiel: a}, server.router-extra: {file: b}}\n",
+			want: []string{"templates.server.service-header.fiel"},
+		},
+		{
+			name: "Merge key in a map of blocks is left to the decoder",
+			src:  "user-context: {base: &b {server.service-header: {fiel: a}}}\ntemplates: {<<: *b, server.router-extra: {file: b, nope: 1}}\n",
+			want: []string{"templates.server.router-extra.nope"},
+		},
+		{
 			name: "Alias is checked where it is used",
 			src:  "user-context: {base: &s {framework: chi, nope: 1}}\nserver: *s\n",
 			want: []string{"server.nope"},

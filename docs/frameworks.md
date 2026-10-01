@@ -110,11 +110,12 @@ unknown paths too; on a given router it wraps the generated routes and nothing e
 templates keep a `wrap` closure that folds the middleware over an `http.Handler`, pass it to the
 `register` closure as `route`, and on a new router also give the framework's not-found and
 method-not-allowed handlers `wrap(http.NotFoundHandler())` and the like, so a middleware sees
-those answers. The routes sit in the `register` closure, and the block `server.router-extra`
-comes right after them, so a config can add routes with the same names. Templates hold no logic
-beyond `range` and `if` on the view's fields; anything else is computed in Go, or is plain Go in
-the template, such as `handle`. An import the template needs and the view does not offer is a
-reason to add it to `Imports`, never to call.
+those answers. The routes sit in the `register` closure, and
+`{{- override "server.router-extra" .}}` comes right after them: it writes the text a config
+gives that block, on lines of its own, so a config can add routes with the same names. Templates
+hold no logic beyond `range` and `if` on the view's fields; anything else is computed in Go, or
+is plain Go in the template, such as `handle`. An import the template needs and the view does not
+offer is a reason to add it to `Imports`, never to call.
 
 ## The main scaffold
 
