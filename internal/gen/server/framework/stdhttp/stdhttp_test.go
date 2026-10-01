@@ -20,6 +20,8 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
 )
 
+const tie = ": both match some request and neither is more specific"
+
 func TestFramework(t *testing.T) {
 	t.Parallel()
 
@@ -142,55 +144,61 @@ func TestConflicts(t *testing.T) {
 			name:        "A repeat",
 			routes:      routesOf("GET /pets/{id}", "GET /pets/{id}"),
 			wantKept:    []string{"GET /pets/{id}"},
-			wantReasons: []string{"matches the same requests as Op1 at /pets/{id}"},
+			wantReasons: []string{"conflicts with Op1 at /pets/{id}" + tie},
 		},
 		{
 			name:        "Parameters named otherwise",
 			routes:      routesOf("GET /pets/{id}", "GET /pets/{petId}", "GET /files/{path...}", "GET /files/{rest...}"),
 			wantKept:    []string{"GET /pets/{id}", "GET /files/{path...}"},
-			wantReasons: []string{"matches the same requests as Op1 at /pets/{id}", "matches the same requests as Op3 at /files/{path...}"},
+			wantReasons: []string{"conflicts with Op1 at /pets/{id}" + tie, "conflicts with Op3 at /files/{path...}" + tie},
 		},
 		{
 			name:        "A HEAD route repeats a GET one",
 			routes:      routesOf("HEAD /pets", "GET /pets", "GET /pets"),
 			wantKept:    []string{"HEAD /pets", "GET /pets"},
-			wantReasons: []string{"matches the same requests as Op2 at /pets"},
+			wantReasons: []string{"conflicts with Op2 at /pets" + tie},
 		},
 		{
 			name:        "The ambiguous pair of the net/http docs",
 			routes:      routesOf("GET /a/{x}", "GET /{y}/b"),
 			wantKept:    []string{"GET /a/{x}"},
-			wantReasons: []string{"overlaps with Op1 at /a/{x}, and neither is more specific"},
+			wantReasons: []string{"conflicts with Op1 at /a/{x}" + tie},
 		},
 		{
 			name:        "Ambiguous in the middle",
 			routes:      routesOf("GET /a/{x}/c", "GET /{y}/b/{z}", "GET /{y}/b/c"),
 			wantKept:    []string{"GET /a/{x}/c"},
-			wantReasons: []string{"overlaps with Op1 at /a/{x}/c, and neither is more specific", "overlaps with Op1 at /a/{x}/c, and neither is more specific"},
+			wantReasons: []string{"conflicts with Op1 at /a/{x}/c" + tie, "conflicts with Op1 at /a/{x}/c" + tie},
 		},
 		{
 			name:        "Ambiguous with the rest of the path",
 			routes:      routesOf("GET /a/{x...}", "GET /{y}/b/c", "GET /{y}/b/{z...}"),
 			wantKept:    []string{"GET /a/{x...}"},
-			wantReasons: []string{"overlaps with Op1 at /a/{x...}, and neither is more specific", "overlaps with Op1 at /a/{x...}, and neither is more specific"},
+			wantReasons: []string{"conflicts with Op1 at /a/{x...}" + tie, "conflicts with Op1 at /a/{x...}" + tie},
 		},
 		{
 			name:        "A GET route matches HEAD requests too",
 			routes:      routesOf("GET /a/{x}", "HEAD /{y}/b"),
 			wantKept:    []string{"GET /a/{x}"},
-			wantReasons: []string{"overlaps with Op1 at /a/{x}, and neither is more specific"},
+			wantReasons: []string{"conflicts with Op1 at /a/{x}" + tie},
 		},
 		{
 			name:        "A literal with a closing brace, escaped or not",
 			routes:      routesOf("GET /a}b", "GET /{id}", "GET /a%7Db"),
 			wantKept:    []string{"GET /a}b", "GET /{id}"},
-			wantReasons: []string{"matches the same requests as Op1 at /a}b"},
+			wantReasons: []string{"conflicts with Op1 at /a}b" + tie},
 		},
 		{
-			name:        "The earliest conflicting route is named, whether it takes the rest or not",
-			routes:      routesOf("GET /a/{x...}", "GET /b/{x}", "GET /{y}/c"),
-			wantKept:    []string{"GET /a/{x...}", "GET /b/{x}"},
-			wantReasons: []string{"overlaps with Op1 at /a/{x...}, and neither is more specific"},
+			name:        "The earlier of two conflicting routes is named",
+			routes:      routesOf("GET /pets", "GET /a/{x...}", "GET /b/{x}", "GET /{y}/c"),
+			wantKept:    []string{"GET /pets", "GET /a/{x...}", "GET /b/{x}"},
+			wantReasons: []string{"conflicts with Op2 at /a/{x...}" + tie},
+		},
+		{
+			name:        "A pattern ServeMux rejects, alone and after a kept route",
+			routes:      routesOf("GET /pets/{id", "GET /pets", "GET /pets/{}"),
+			wantKept:    []string{"GET /pets"},
+			wantReasons: []string{"ServeMux rejects the pattern GET /pets/{id", "ServeMux rejects the pattern GET /pets/{}"},
 		},
 		{
 			name:     "Nothing",

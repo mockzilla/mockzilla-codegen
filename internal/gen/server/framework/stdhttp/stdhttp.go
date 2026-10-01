@@ -3,14 +3,15 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Package stdhttp is the router for http.ServeMux of the standard library, with the method and
-// wildcard patterns of Go 1.22.
+// Package stdhttp is the router for http.ServeMux of the standard library, with its method and
+// wildcard patterns.
 package stdhttp
 
 import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"path"
 	"regexp"
 	"slices"
@@ -95,20 +96,19 @@ func (Framework) RoutePattern(method, oasPath string) (string, error) {
 	return method + " /" + strings.Join(segments, "/"), nil
 }
 
-// Conflicts drops every route ServeMux panics on next to an earlier one: a route that matches the
-// same requests as it, or one that overlaps with it while neither is more specific.
+// Conflicts drops every route a ServeMux panics on, next to the earlier ones or alone. It asks a
+// ServeMux of the generator's own Go release, so GODEBUG=httpmuxgo121=1, which switches method
+// and wildcard patterns off, leaves every route in.
 func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
 	var kept []framework.Route
 	var dropped []framework.Conflict
-	x := newIndex()
+	mux := http.NewServeMux()
 	for _, r := range routes {
-		p := parse(r.Pattern)
-		if reason := x.conflict(p, kept); reason != "" {
-			dropped = append(dropped, framework.Conflict{Route: r, Reason: reason})
+		if register(mux, r.Pattern) {
+			kept = append(kept, r)
 			continue
 		}
-		x.add(p)
-		kept = append(kept, r)
+		dropped = append(dropped, framework.Conflict{Route: r, Reason: reason(r, kept)})
 	}
 	return kept, dropped
 }
@@ -151,4 +151,25 @@ func restName(taken []string) string {
 		name += "_"
 	}
 	return name
+}
+
+// reason is why ServeMux panics on r: the earliest kept route it conflicts with, or its pattern
+// alone. Kept routes never conflict with each other, so on a mux that holds r the first of them
+// to panic is that route.
+func reason(r framework.Route, kept []framework.Route) string {
+	mux := http.NewServeMux()
+	register(mux, r.Pattern)
+	for _, k := range kept {
+		if !register(mux, k.Pattern) {
+			return "conflicts with " + k.Operation + " at " + k.Path + ": both match some request and neither is more specific"
+		}
+	}
+	return "ServeMux rejects the pattern " + r.Pattern
+}
+
+// register reports whether mux takes the pattern, which Handle tells by a panic alone.
+func register(mux *http.ServeMux, pattern string) (isTaken bool) {
+	defer func() { isTaken = recover() == nil }()
+	mux.Handle(pattern, http.NotFoundHandler())
+	return true
 }
