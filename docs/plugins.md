@@ -147,14 +147,15 @@ The rules for the built-in templates apply: decide everything in Go and keep the
 ## The API
 
 `Contribute` sees the generated code once names are resolved and files are laid out. The struct
-only ever gains fields.
+only ever gains fields. Each plugin gets its own copy, down to the nested maps and lists of
+`UserContext`. What a plugin changes in it reaches no other plugin, no template and not the config.
 
 ```go
 type API struct {
-	Package     string         // package of output.file
+	Package     string         // package of output.file, as package or output.packages names it
 	Operations  []Operation    // every operation and webhook, in spec order
 	Types       []TypeRef      // every declared model type
-	UserContext map[string]any // the config's user-context
+	UserContext map[string]any // a copy of the config's user-context
 }
 
 type Operation struct {

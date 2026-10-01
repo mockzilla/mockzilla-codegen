@@ -201,7 +201,7 @@ func (g *generation) place() error {
 		if draftErr != nil {
 			return draftErr
 		}
-		added, addErr := g.plugins.contribute(describe(g, draft))
+		added, addErr := g.plugins.contribute(func() *API { return describe(g, draft) })
 		if addErr != nil {
 			return addErr
 		}

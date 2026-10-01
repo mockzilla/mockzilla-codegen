@@ -101,7 +101,8 @@ func (k ScaffoldKind) String() string {
 
 // API is what a plugin sees of the generated code once names are resolved: the package of the
 // default output file, every operation, every declared type and the config's user-context. It
-// only ever gains fields.
+// only ever gains fields. Each plugin gets a copy of its own, so a change to it reaches nothing
+// else.
 type API struct {
 	Package     string
 	Operations  []Operation

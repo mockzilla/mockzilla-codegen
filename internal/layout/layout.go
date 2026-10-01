@@ -58,9 +58,11 @@ type File struct {
 	Kind       FileKind
 }
 
-// Layout holds the files that got at least one part, sorted by path.
+// Layout holds the files that got at least one part, sorted by path. Package is the package of
+// output.file, which is not among them when every part went elsewhere.
 type Layout struct {
-	Files []*File
+	Files   []*File
+	Package string
 
 	byPart map[PartID]*File
 }
@@ -189,14 +191,18 @@ func (l *Layout) collect(def *File, cands []candidate) {
 	slices.SortFunc(l.Files, func(a, b *File) int { return cmp.Compare(a.Path, b.Path) })
 }
 
-// name sets the package and import path of every file. output.packages wins, then package for
-// the folder of output.file, then the folder name.
+// name sets the package and import path of every file, and the package of output.file.
+// output.packages wins, then package for the folder of output.file, then the folder name.
 func (l *Layout) name(cfg *config.Config, mod Module) error {
-	names := make(map[string]string, len(cfg.Output.Packages))
+	names := make(map[string]string, len(cfg.Output.Packages)+1)
 	for dir, pkg := range cfg.Output.Packages {
 		names[resolve(cfg, dir)] = pkg
 	}
 	defDir := filepath.Dir(resolve(cfg, cfg.Output.File))
+	if _, ok := names[defDir]; !ok {
+		names[defDir] = cmp.Or(cfg.Package, naming.Package(defDir))
+	}
+	l.Package = names[defDir]
 
 	dirs := make([]string, 0, len(l.Files))
 	for _, f := range l.Files {
@@ -216,8 +222,6 @@ func (l *Layout) name(cfg *config.Config, mod Module) error {
 		case f.Package != "":
 		case ok:
 			f.Package = pkg
-		case dir == defDir:
-			f.Package = cmp.Or(cfg.Package, naming.Package(dir))
 		default:
 			f.Package = naming.Package(dir)
 		}
