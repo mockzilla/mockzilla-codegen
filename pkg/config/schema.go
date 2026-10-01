@@ -38,6 +38,10 @@ func typeSchema(t reflect.Type) map[string]any {
 		return map[string]any{"type": []string{"integer", "string"}, "minimum": 0, "pattern": byteSizePattern}
 	case reflect.TypeFor[Duration]():
 		return map[string]any{"type": "string", "pattern": durationPattern}
+	case reflect.TypeFor[Template]():
+		file := structSchema(t)
+		file["required"] = []string{"file"}
+		return map[string]any{"oneOf": []any{map[string]any{"type": "string"}, file}}
 	}
 
 	switch t.Kind() {

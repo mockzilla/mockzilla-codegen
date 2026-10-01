@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -30,13 +29,6 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/render"
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
-
-// templateExt ends a templates value of one line that names a file instead of holding the text.
-const templateExt = ".tmpl"
-
-// templatePath matches a templates value that can only be a path: one word of path characters
-// with a slash in it. No text a block takes looks like that.
-var templatePath = regexp.MustCompile(`^[\w.-]*(/[\w.-]+)+$`)
 
 type FileKind int
 
@@ -252,32 +244,22 @@ func (g *generation) load() error {
 	return err
 }
 
-// templates returns the block overrides of the config, with a value that names a file replaced
-// by that file's text. A value that can only be a path and names no file is a config error: its
-// own text would be written into the code.
+// templates returns the text of every block override of the config: the one it holds, or that
+// of the file it names.
 func (g *generation) templates() (map[string]string, error) {
 	out := make(map[string]string, len(g.cfg.Templates))
-	var issues []config.Issue
 	for _, name := range slices.Sorted(maps.Keys(g.cfg.Templates)) {
-		text := g.cfg.Templates[name]
-		switch value := strings.TrimSpace(text); {
-		case strings.HasSuffix(value, templateExt) && !strings.Contains(value, "\n"):
-			data, err := os.ReadFile(g.cfg.Resolve(value))
-			if err != nil {
-				return nil, fmt.Errorf("%w: templates.%s: %w", ErrTemplateFile, name, err)
-			}
-			text = string(data)
-		case templatePath.MatchString(value):
-			issues = append(issues, config.Issue{
-				Key:     "templates." + name,
-				Message: fmt.Sprintf("%q is a path, and a template file has to end in %s", value, templateExt),
-			})
+		t := g.cfg.Templates[name]
+		out[name] = t.Text
+		if t.File == "" {
+			continue
 		}
-		out[name] = text
-	}
 
-	if len(issues) > 0 {
-		return nil, &config.ValidationError{Issues: issues}
+		data, err := os.ReadFile(g.cfg.Resolve(t.File))
+		if err != nil {
+			return nil, fmt.Errorf("%w: templates.%s: %w", ErrTemplateFile, name, err)
+		}
+		out[name] = string(data)
 	}
 	return out, nil
 }

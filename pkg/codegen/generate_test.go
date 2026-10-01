@@ -207,18 +207,17 @@ func TestGenerateErrors(t *testing.T) {
 		},
 		{
 			name:    "Template override file that is missing",
-			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: ./header.tmpl}\n",
+			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: {file: ./header.tmpl}}\n",
 			wantErr: ErrTemplateFile,
 		},
 		{
-			name: "Template override that is a path of another ending",
-			cfg: "server: {framework: chi}\ntemplates:\n  server.service-header: ./header.gotmpl\n  server.router-extra: ../routes.txt\n" +
-				"  server.request-options-extra: templates/fields.txt\n  server.response-data-extra: |\n    /etc/fields\n",
+			name: "Template override whose text is a path",
+			cfg:  "server: {framework: chi}\n",
+			edit: func(cfg *config.Config) {
+				cfg.Templates = map[string]config.Template{"server.service-header": {Text: "./header.tmpl"}}
+			},
 			wantErr: config.ErrInvalid,
-			wantMsg: `invalid config: templates.server.request-options-extra: "templates/fields.txt" is a path, and a template file has to end in .tmpl; ` +
-				`templates.server.response-data-extra: "/etc/fields" is a path, and a template file has to end in .tmpl; ` +
-				`templates.server.router-extra: "../routes.txt" is a path, and a template file has to end in .tmpl; ` +
-				`templates.server.service-header: "./header.gotmpl" is a path, and a template file has to end in .tmpl`,
+			wantMsg: `invalid config: templates.server.service-header: "./header.tmpl" is a path, want {file: ./header.tmpl}`,
 		},
 		{
 			name:    "Template override that reads a key the user-context does not have",
@@ -282,24 +281,19 @@ func TestModelOfUnknownFramework(t *testing.T) {
 	require.ErrorIs(t, g.model(context.Background()), ErrFramework)
 }
 
-// TestGenerateTemplateOverrides overrides one block from a file, named in a YAML block, one with
-// a line of text and one with lines of text, the last of which ends like the name of a file. All
-// read the user-context.
+// TestGenerateTemplateOverrides overrides one block from a file and two with text, the second of
+// which ends like the name of a file. The first two read the user-context.
 func TestGenerateTemplateOverrides(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "header.tmpl"), []byte("// Owned by {{.User.owner}}.\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "header.txt"), []byte("// Owned by {{.User.owner}}.\n"), 0o600))
 	cfg, err := config.Parse([]byte(`server: {framework: chi}
 user-context: {owner: platform}
 templates:
-  server.service-header: >
-    ./header.tmpl
+  server.service-header: {file: ./header.txt}
   server.request-options-extra: "Owner string // {{.User.owner}}"
-  server.response-data-extra: |-
-    // Owner is {{.User.owner}}, as
-    // said in header.tmpl
-    Owner string // see header.tmpl
+  server.response-data-extra: // The owner is named in header.tmpl
 `), dir)
 	require.NoError(t, err)
 
@@ -309,7 +303,7 @@ templates:
 	content := string(res.Files[0].Content)
 	assert.Contains(t, content, "\n\n// Owned by platform.\n\n// ServiceInterface is what")
 	assert.Contains(t, content, "\tOwner      string // platform\n\tRawRequest *http.Request\n")
-	assert.Contains(t, content, "\tBody    any\n\t// Owner is platform, as\n\t// said in header.tmpl\n\tOwner string // see header.tmpl\n\n\tcontentType string\n")
+	assert.Contains(t, content, "\tBody    any\n\t// The owner is named in header.tmpl\n\n\tcontentType string\n")
 }
 
 func TestGenerationRenderErrors(t *testing.T) {

@@ -231,12 +231,13 @@ Main (`ScaffoldMain`):
 ## Template overrides
 
 Without a plugin, the config can replace a closed list of blocks in the built-in templates, which
-are empty until it does. A value is the template text. A value of one line that ends in `.tmpl`
-is the path of a file that holds the text, relative to the config:
+are empty until it does. A value is the template text. To keep the text in a file, write
+`{file: <path>}`, with the path relative to the config. The form of the value alone says which of
+the two it is: a text is never read as a path, whatever it looks like.
 
 ```yaml
 templates:
-  server.service-header: ./templates/header.tmpl
+  server.service-header: {file: ./templates/header.tmpl}
   server.request-options-extra: Tenant string
   server.router-extra: |
     r.Get("/health", health)
@@ -273,5 +274,6 @@ These are config errors:
 
 - a block that does not exist, with the list of those that do
 - a `server` block in a config without `server`
-- a value that can only be a path, such as `./header.txt` or `templates/header.txt`, and does not
-  end in `.tmpl`: it would be taken as the text and written into the code
+- a value without text, and `{file: }` without a path
+- text that can only be a path, such as `./header.tmpl` or `templates/header.txt`: it would be
+  written into the code as it is, so the error asks for `{file: ./header.tmpl}`
