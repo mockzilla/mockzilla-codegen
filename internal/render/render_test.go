@@ -103,6 +103,11 @@ func TestRenderSource(t *testing.T) {
 			want: `PET "Pet"`,
 		},
 		{
+			name: "Own func in place of the engine's",
+			src:  Source{Name: "plugin.sample.register", Text: `{{quote .}} {{lower .}}`, Funcs: template.FuncMap{"quote": strings.ToUpper}},
+			want: "PET pet",
+		},
+		{
 			name:    "Text that does not parse",
 			src:     Source{Name: "plugin.sample.register", Text: `{{if}}`},
 			wantErr: ErrTemplate,

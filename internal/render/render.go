@@ -37,7 +37,8 @@ type Set struct {
 }
 
 // Source is a template given as text, such as a plugin's, with the funcs it may call on top of
-// the engine's. Name names it in errors.
+// the engine's. Funcs has passed CheckFuncs; one named like a func of the engine replaces it.
+// Name names the template in errors.
 type Source struct {
 	Name  string
 	Text  string
