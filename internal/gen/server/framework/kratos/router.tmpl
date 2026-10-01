@@ -22,7 +22,7 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Server {
 {{- range .Routes}}
 		r.{{.HTTPMethod}}({{.Pattern}}, adapter.{{.Operation}})
 {{- end}}
-{{- block "server.router-extra" .}}{{end}}
+{{- override "server.router-extra" .}}
 	}
 
 	if s, _ := o.Router.(*{{.Framework}}.Server); s != nil {

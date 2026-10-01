@@ -144,6 +144,10 @@ a name is an identifier, and a value is a func that returns one value, or one va
 The rules for the built-in templates apply: decide everything in Go and keep the template to
 `range` and `if` over the data.
 
+A key that a map does not have is an error, where `text/template` alone writes `<no value>` into
+the code: `{{.owner}}` fails on a `UserContext` without `owner`. Ask for a key that may be
+missing with `index`, as in `{{with index . "owner"}}// Owned by {{.}}.{{end}}`.
+
 ## The API
 
 `Contribute` sees the generated code once names are resolved and files are laid out. The struct
@@ -224,16 +228,24 @@ Main (`ScaffoldMain`):
 
 ## Template overrides
 
-Without a plugin, the config can replace a closed list of blocks in the built-in templates. A
-value is the template text, or the path of a `.tmpl` file relative to the config:
+Without a plugin, the config can replace a closed list of blocks in the built-in templates, which
+are empty until it does. A value is the template text. A value of one line that ends in `.tmpl`
+is the path of a file that holds the text, relative to the config:
 
 ```yaml
 templates:
   server.service-header: ./templates/header.tmpl
-  server.request-options-extra: "\n\tTenant string"
+  server.request-options-extra: Tenant string
+  server.router-extra: |
+    r.Get("/health", health)
+    r.Get("/owner", {{.User.handler}})
 user-context:
-  owner: platform
+  handler: ownerHandler
 ```
+
+The text of a block goes on lines of its own, without the blank lines around it, so it needs no
+line break at its start or its end. `server.service-header` is followed by a blank line, which
+keeps it out of the comment of the interface. A block whose text comes out empty adds nothing.
 
 | Block | Where | Data |
 |---|---|---|
@@ -247,7 +259,15 @@ with `route`; an echo route on `e`, with `m...` as its middleware; a kratos rout
 router. On the other frameworks the route goes on the router the `register` closure of
 `router.tmpl` names, `e` for gin, `app` for fiber and iris, `r` for gorilla-mux, fasthttp, beego
 and go-zero, `h` for hertz and `s` for goframe, and its handler is an `http.Handler` wrapped as
-`handle(route(h))`, or `route(h)` alone on gorilla-mux and go-zero. An unknown block is a config
-error that lists the blocks. The blocks inside a struct or a function start after the line before
-them, so their text begins with a newline. `user-context` is
-available as `.User` in every block and as `API.UserContext` to plugins.
+`handle(route(h))`, or `route(h)` alone on gorilla-mux and go-zero.
+
+`user-context` is available as `.User` in every block and as `API.UserContext` to plugins. A key
+it does not have is an error: `{{.User.team}}` fails in a config that sets no `team`. Ask for a
+key that may be missing with `index`, as in `{{if index .User "team"}}`.
+
+These are config errors:
+
+- a block that does not exist, with the list of those that do
+- a `server` block in a config without `server`
+- a value that starts with `./` or `../` and does not end in `.tmpl`: it would be taken as the
+  text and written into the code

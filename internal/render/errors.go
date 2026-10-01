@@ -13,3 +13,13 @@ var (
 	ErrExecute     = errors.New("render")
 	ErrFunc        = errors.New("template func")
 )
+
+// overrideError is how a block override failed, kept apart from what the template that ran the
+// override adds to it.
+type overrideError struct {
+	err error
+}
+
+func (e *overrideError) Error() string {
+	return e.err.Error()
+}

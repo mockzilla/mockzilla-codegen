@@ -23,7 +23,7 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Engine {
 {{- range .Routes}}
 		e.{{.HTTPMethod}}({{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(adapter.{{.Operation}}))))
 {{- end}}
-{{- block "server.router-extra" .}}{{end}}
+{{- override "server.router-extra" .}}
 	}
 
 	if e, _ := o.Router.(*{{.Framework}}.Engine); e != nil {

@@ -163,6 +163,7 @@ func TestGenerateErrors(t *testing.T) {
 		setup   func(t *testing.T, dir string)
 		opts    []Option
 		wantErr error
+		wantMsg string
 	}{
 		{
 			name:    "Invalid config",
@@ -195,11 +196,32 @@ func TestGenerateErrors(t *testing.T) {
 			name:    "Template override of an unknown block",
 			cfg:     "templates: {models.struct: x}\n",
 			wantErr: config.ErrInvalid,
+			wantMsg: "invalid config: templates.models.struct: unknown block; the blocks are " +
+				"server.request-options-extra, server.response-data-extra, server.router-extra, server.service-header",
+		},
+		{
+			name:    "Template override of a server block without a server",
+			cfg:     "templates: {server.service-header: x}\n",
+			wantErr: config.ErrInvalid,
+			wantMsg: "invalid config: templates.server.service-header: needs a server block",
 		},
 		{
 			name:    "Template override file that is missing",
 			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: ./header.tmpl}\n",
 			wantErr: ErrTemplateFile,
+		},
+		{
+			name:    "Template override that is a path of another ending",
+			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: ./header.gotmpl, server.router-extra: ../routes.txt}\n",
+			wantErr: config.ErrInvalid,
+			wantMsg: `invalid config: templates.server.router-extra: "../routes.txt" is a path, and a template file has to end in .tmpl; ` +
+				`templates.server.service-header: "./header.gotmpl" is a path, and a template file has to end in .tmpl`,
+		},
+		{
+			name:    "Template override that reads a key the user-context does not have",
+			cfg:     "server: {framework: chi}\nuser-context: {owner: platform}\ntemplates: {server.service-header: \"// Owned by {{.User.team}}.\"}\n",
+			wantErr: render.ErrExecute,
+			wantMsg: `./gen.go: render: template: server.service-header:1:19: executing "server.service-header" at <.User.team>: map has no entry for key "team"`,
 		},
 	}
 
@@ -224,6 +246,9 @@ func TestGenerateErrors(t *testing.T) {
 			res, err := Generate(context.Background(), cfg, opts...)
 
 			require.ErrorIs(t, err, tc.wantErr)
+			if tc.wantMsg != "" {
+				require.EqualError(t, err, tc.wantMsg)
+			}
 			assert.Nil(t, res)
 		})
 	}
@@ -242,23 +267,32 @@ func TestModelOfUnknownFramework(t *testing.T) {
 	require.ErrorIs(t, g.model(context.Background()), ErrFramework)
 }
 
-// TestGenerateTemplateOverrides overrides a block inline and one from a file, both reading the
-// user-context.
+// TestGenerateTemplateOverrides overrides one block from a file, one with a line of text and one
+// with lines of text, the last of which ends like the name of a file. All read the user-context.
 func TestGenerateTemplateOverrides(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "header.tmpl"), []byte("// Owned by {{.User.owner}}.\n"), 0o600))
-	cfg, err := config.Parse([]byte("server: {framework: chi}\nuser-context: {owner: platform}\n"+
-		"templates: {server.service-header: ./header.tmpl, server.request-options-extra: \"\\n\\tOwner string // {{.User.owner}}\"}\n"), dir)
+	cfg, err := config.Parse([]byte(`server: {framework: chi}
+user-context: {owner: platform}
+templates:
+  server.service-header: ./header.tmpl
+  server.request-options-extra: "Owner string // {{.User.owner}}"
+  server.response-data-extra: |-
+    // Owner is {{.User.owner}}, as
+    // said in header.tmpl
+    Owner string // see header.tmpl
+`), dir)
 	require.NoError(t, err)
 
 	res, err := Generate(context.Background(), cfg, WithSpec([]byte(storeSpec)))
 
 	require.NoError(t, err)
 	content := string(res.Files[0].Content)
-	assert.Contains(t, content, "// Owned by platform.\n// ServiceInterface is what")
+	assert.Contains(t, content, "\n\n// Owned by platform.\n\n// ServiceInterface is what")
 	assert.Contains(t, content, "\tOwner      string // platform\n\tRawRequest *http.Request\n")
+	assert.Contains(t, content, "\tBody    any\n\t// Owner is platform, as\n\t// said in header.tmpl\n\tOwner string // see header.tmpl\n\n\tcontentType string\n")
 }
 
 func TestGenerationRenderErrors(t *testing.T) {

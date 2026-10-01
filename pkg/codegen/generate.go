@@ -30,7 +30,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
-// templateExt marks a templates value that names a file instead of holding the text.
+// templateExt ends a templates value of one line that names a file instead of holding the text.
 const templateExt = ".tmpl"
 
 type FileKind int
@@ -219,11 +219,17 @@ func (g *generation) place() error {
 	return err
 }
 
-// load loads the templates and the block overrides of the config.
+// load loads the templates and the block overrides of the config. The blocks of the server are
+// named also when the config asks for none, so that an override of one says what it needs.
 func (g *generation) load() error {
 	sets := []render.Set{models.Templates()}
+	needs := make(map[string]string)
 	if g.srv != nil {
 		sets = append(sets, server.Templates(g.srv.Framework())...)
+	} else {
+		for _, block := range server.Blocks() {
+			needs[block] = "server"
+		}
 	}
 	if g.cl != nil {
 		sets = append(sets, client.Templates())
@@ -237,24 +243,36 @@ func (g *generation) load() error {
 	}
 
 	isFormat := g.cfg.Output.Format == nil || *g.cfg.Output.Format
-	g.engine, err = render.New(sets, render.Options{Templates: overrides, Format: isFormat})
+	g.engine, err = render.New(sets, render.Options{Templates: overrides, Needs: needs, Format: isFormat})
 	return err
 }
 
-// templates returns the block overrides of the config, with a value that names a .tmpl file
-// replaced by that file's text.
+// templates returns the block overrides of the config, with a value that names a file replaced
+// by that file's text. A value that starts as a path and names no file is a config error: its
+// own text would be written into the code.
 func (g *generation) templates() (map[string]string, error) {
 	out := make(map[string]string, len(g.cfg.Templates))
+	var issues []config.Issue
 	for _, name := range slices.Sorted(maps.Keys(g.cfg.Templates)) {
 		text := g.cfg.Templates[name]
-		if strings.HasSuffix(text, templateExt) {
+		switch {
+		case strings.HasSuffix(text, templateExt) && !strings.Contains(text, "\n"):
 			data, err := os.ReadFile(g.cfg.Resolve(text))
 			if err != nil {
 				return nil, fmt.Errorf("%w: templates.%s: %w", ErrTemplateFile, name, err)
 			}
 			text = string(data)
+		case strings.HasPrefix(text, "./"), strings.HasPrefix(text, "../"):
+			issues = append(issues, config.Issue{
+				Key:     "templates." + name,
+				Message: fmt.Sprintf("%q is a path, and a template file has to end in %s", text, templateExt),
+			})
 		}
 		out[name] = text
+	}
+
+	if len(issues) > 0 {
+		return nil, &config.ValidationError{Issues: issues}
 	}
 	return out, nil
 }
