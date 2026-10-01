@@ -6,6 +6,7 @@
 package render
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"text/template"
@@ -15,6 +16,47 @@ import (
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
+
+func TestCheckFuncs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		funcs   template.FuncMap
+		wantMsg string
+	}{
+		{name: "No funcs"},
+		{name: "Funcs a template takes", funcs: template.FuncMap{"shout": strings.ToUpper, "atoi": strconv.Atoi, "quote": strconv.Quote}},
+		{name: "Name that is no identifier", funcs: template.FuncMap{"to-upper": strings.ToUpper}, wantMsg: `template func: function name "to-upper" is not a valid identifier`},
+		{name: "Value that is no func", funcs: template.FuncMap{"shout": "loud"}, wantMsg: "template func: value for shout not a function"},
+		{name: "Func without a result", funcs: template.FuncMap{"shout": func(string) {}}, wantMsg: "template func: function shout has 0 return values; should be 1 or 2"},
+		{
+			name:    "Func whose second result is no error",
+			funcs:   template.FuncMap{"cut": func(s string) (string, bool) { return s, true }},
+			wantMsg: "template func: invalid function signature for cut: second return value should be error; is bool",
+		},
+		{
+			name:    "First of several by name",
+			funcs:   template.FuncMap{"zip": 1, "shout": strings.ToUpper, "cut": 2, "walk": 3, "pad": 4, "join": 5, "trim": 6, "wrap": 7, "fold": 8, "mask": 9, "sum": 10, "tail": 11},
+			wantMsg: "template func: value for cut not a function",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := CheckFuncs(tc.funcs)
+
+			if tc.wantMsg == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, ErrFunc)
+			assert.EqualError(t, err, tc.wantMsg)
+		})
+	}
+}
 
 func TestFuncs(t *testing.T) {
 	t.Parallel()
