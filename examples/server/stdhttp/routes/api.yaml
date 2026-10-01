@@ -29,3 +29,38 @@ paths:
         responses:
           "204":
             description: Dropped.
+  /pets/:
+    get:
+      operationId: listPets
+      summary: List the pets, at a path that ends in a slash.
+      responses:
+        "200":
+          description: The pets.
+          content:
+            text/plain:
+              schema: {type: string}
+  /pets/{pet-id}:
+    get:
+      operationId: getPet
+      summary: Get a pet by a parameter whose name is no Go identifier.
+      parameters:
+        - name: pet-id
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        "200":
+          description: The pet.
+          content:
+            text/plain:
+              schema: {type: string}
+  /files/*:
+    get:
+      operationId: getFile
+      summary: Get a file at any depth below the path.
+      responses:
+        "200":
+          description: The file.
+          content:
+            text/plain:
+              schema: {type: string}

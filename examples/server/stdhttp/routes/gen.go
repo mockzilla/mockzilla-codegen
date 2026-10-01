@@ -14,11 +14,21 @@ import (
 // wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
+type GetPetPathParams struct {
+	PetID string `json:"pet-id"`
+}
+
 type SearchRequestBody struct {
 	Text string `json:"text"`
 }
 
 type SearchResponse200 = string
+
+type ListPetsResponse200 = string
+
+type GetPetResponse200 = string
+
+type GetFileResponse200 = string
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
@@ -26,6 +36,12 @@ type ServiceInterface interface {
 	Search(ctx context.Context, opts *SearchServiceRequestOptions) (*SearchResponseData, error)
 	// Drop the search cache.
 	PurgeSearch(ctx context.Context, opts *PurgeSearchServiceRequestOptions) (*PurgeSearchResponseData, error)
+	// List the pets, at a path that ends in a slash.
+	ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error)
+	// Get a pet by a parameter whose name is no Go identifier.
+	GetPet(ctx context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error)
+	// Get a file at any depth below the path.
+	GetFile(ctx context.Context, opts *GetFileServiceRequestOptions) (*GetFileResponseData, error)
 }
 
 // SearchServiceRequestOptions is what Search receives. RawRequest is the request as it came in.
@@ -139,6 +155,175 @@ func (r *PurgeSearchResponseData) Payload() any {
 
 // ContentType is the media type the body is written as, empty for the default of its Go type.
 func (r *PurgeSearchResponseData) ContentType() string {
+	return r.contentType
+}
+
+// ListPetsServiceRequestOptions is what ListPets receives. RawRequest is the request as it came in.
+type ListPetsServiceRequestOptions struct {
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *ListPetsServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// ListPetsResponseData is what ListPets returns: the status, the headers and the body of the response.
+type ListPetsResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewListPetsResponseData returns the response data of status 200 with body as text/plain.
+func NewListPetsResponseData(body *ListPetsResponse200) *ListPetsResponseData {
+	return &ListPetsResponseData{Status: 200, Body: body, contentType: "text/plain"}
+}
+
+// WithStatus sets the status code.
+func (r *ListPetsResponseData) WithStatus(code int) *ListPetsResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *ListPetsResponseData) WithHeaders(h http.Header) *ListPetsResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *ListPetsResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *ListPetsResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *ListPetsResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *ListPetsResponseData) ContentType() string {
+	return r.contentType
+}
+
+// GetPetServiceRequestOptions is what GetPet receives. RawRequest is the request as it came in.
+type GetPetServiceRequestOptions struct {
+	PathParams *GetPetPathParams
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *GetPetServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// GetPetResponseData is what GetPet returns: the status, the headers and the body of the response.
+type GetPetResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewGetPetResponseData returns the response data of status 200 with body as text/plain.
+func NewGetPetResponseData(body *GetPetResponse200) *GetPetResponseData {
+	return &GetPetResponseData{Status: 200, Body: body, contentType: "text/plain"}
+}
+
+// WithStatus sets the status code.
+func (r *GetPetResponseData) WithStatus(code int) *GetPetResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *GetPetResponseData) WithHeaders(h http.Header) *GetPetResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *GetPetResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *GetPetResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *GetPetResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *GetPetResponseData) ContentType() string {
+	return r.contentType
+}
+
+// GetFileServiceRequestOptions is what GetFile receives. RawRequest is the request as it came in.
+type GetFileServiceRequestOptions struct {
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *GetFileServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// GetFileResponseData is what GetFile returns: the status, the headers and the body of the response.
+type GetFileResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewGetFileResponseData returns the response data of status 200 with body as text/plain.
+func NewGetFileResponseData(body *GetFileResponse200) *GetFileResponseData {
+	return &GetFileResponseData{Status: 200, Body: body, contentType: "text/plain"}
+}
+
+// WithStatus sets the status code.
+func (r *GetFileResponseData) WithStatus(code int) *GetFileResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *GetFileResponseData) WithHeaders(h http.Header) *GetFileResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *GetFileResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *GetFileResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *GetFileResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *GetFileResponseData) ContentType() string {
 	return r.contentType
 } // The error types the handlers use, as the runtime declares them.
 type (
@@ -276,6 +461,59 @@ func (a *HTTPAdapter) PurgeSearch(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "PurgeSearch", res)
 }
 
+// ListPets handles GET /pets/.
+func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
+	opts := &ListPetsServiceRequestOptions{RawRequest: r}
+
+	res, err := a.svc.ListPets(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "ListPets", res)
+}
+
+// GetPet handles GET /pets/{pet-id}.
+func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
+	opts := &GetPetServiceRequestOptions{RawRequest: r}
+	opts.PathParams = &GetPetPathParams{}
+	if err := runtime.DecodePath(r.PathValue("pet_id"), runtime.Param{Name: "pet-id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.PetID); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetPet", ParamName: "pet-id", ParamLocation: "path", Err: err})
+		return
+	}
+
+	res, err := a.svc.GetPet(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPet", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPet", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "GetPet", res)
+}
+
+// GetFile handles GET /files/*.
+func (a *HTTPAdapter) GetFile(w http.ResponseWriter, r *http.Request) {
+	opts := &GetFileServiceRequestOptions{RawRequest: r}
+
+	res, err := a.svc.GetFile(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetFile", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetFile", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "GetFile", res)
+}
+
 // fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
@@ -316,6 +554,9 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) http.Handler {
 	register := func(mux *http.ServeMux, route func(http.Handler) http.Handler) {
 		mux.Handle("QUERY /search", route(http.HandlerFunc(adapter.Search)))
 		mux.Handle("PURGE /search", route(http.HandlerFunc(adapter.PurgeSearch)))
+		mux.Handle("GET /pets/{$}", route(http.HandlerFunc(adapter.ListPets)))
+		mux.Handle("GET /pets/{pet_id}", route(http.HandlerFunc(adapter.GetPet)))
+		mux.Handle("GET /files/{rest...}", route(http.HandlerFunc(adapter.GetFile)))
 	}
 
 	if mux, _ := o.Router.(*http.ServeMux); mux != nil {
