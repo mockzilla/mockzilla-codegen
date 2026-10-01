@@ -46,19 +46,23 @@ func TestRoutePattern(t *testing.T) {
 		{name: "The root matches itself alone", path: "/", want: "GET /{$}"},
 		{name: "A trailing slash matches itself alone", path: "/pets/", want: "GET /pets/{$}"},
 		{name: "A trailing * takes the rest of the path", path: "/files/*", want: "GET /files/{rest...}"},
+		{name: "A parameter named like the rest", path: "/{rest}/*", want: "GET /{rest}/{rest_...}"},
+		{name: "Parameters named like the rest and its next name", path: "/{rest_}/{rest}/*", want: "GET /{rest_}/{rest}/{rest__...}"},
 		{name: "A * elsewhere is a literal", path: "/files/*/meta", want: "GET /files/*/meta"},
 		{name: "A parameter name that is no identifier", path: "/pets/{pet-id}/{1st}/{a b}", want: "GET /pets/{pet_id}/{_1st}/{a_b}"},
 		{name: "An escaped literal", path: "/a%20b/{id}", want: "GET /a%20b/{id}"},
+		{name: "A literal with a closing brace", path: "/a}b/{id}", want: "GET /a}b/{id}"},
 		{name: "No leading slash", path: "pets", wantErr: "the router rejects the path: it must begin with /"},
 		{name: "An empty segment", path: "/pets//photos", wantErr: "the router rejects the path: it is not a clean path"},
 		{name: "A dot segment", path: "/pets/../photos", wantErr: "the router rejects the path: it is not a clean path"},
 		{name: "A parameter with a suffix", path: "/pets/{id}.json", wantErr: "the router rejects the path: a parameter must fill its segment, unlike {id}.json"},
 		{name: "Two parameters in one segment", path: "/pets/{a}{b}", wantErr: "the router rejects the path: a parameter must fill its segment, unlike {a}{b}"},
-		{name: "Unclosed brace", path: "/pets/{id", wantErr: "the router rejects the path: a parameter must fill its segment, unlike {id"},
+		{name: "A parameter in double braces", path: "/cards/{{id}}", wantErr: "the router rejects the path: a parameter must fill its segment, unlike {{id}}"},
+		{name: "Unclosed brace", path: "/pets/{id", wantErr: "the router rejects the path: a { has no }"},
+		{name: "Unclosed brace after a closed one", path: "/pets/}{", wantErr: "the router rejects the path: a { has no }"},
 		{name: "A parameter without a name", path: "/pets/{}", wantErr: "the router rejects the path: a parameter has no name"},
 		{name: "A parameter named twice", path: "/pets/{id}/{id}", wantErr: `the router rejects the path: the wildcard "id" is named twice`},
 		{name: "Two parameters with one wildcard name", path: "/pets/{a-b}/{a_b}", wantErr: `the router rejects the path: the wildcard "a_b" is named twice`},
-		{name: "A parameter named like the rest", path: "/{rest}/*", wantErr: `the router rejects the path: the wildcard "rest" is named twice`},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -126,59 +130,65 @@ func TestConflicts(t *testing.T) {
 	}{
 		{
 			name:     "Routes that differ in method or segment count",
-			routes:   routes("GET /pets", "POST /pets", "GET /pets/{id}", "DELETE /pets/{petId}", "HEAD /pets/{id}", "GET /pets/{id}/{$}"),
+			routes:   routesOf("GET /pets", "POST /pets", "GET /pets/{id}", "DELETE /pets/{petId}", "HEAD /pets/{id}", "GET /pets/{id}/{$}"),
 			wantKept: []string{"GET /pets", "POST /pets", "GET /pets/{id}", "DELETE /pets/{petId}", "HEAD /pets/{id}", "GET /pets/{id}/{$}"},
 		},
 		{
 			name:     "A literal is more specific than a wildcard, and both than the rest",
-			routes:   routes("GET /pets/{id}", "GET /pets/mine", "GET /pets/{rest...}", "GET /{rest...}", "GET /{$}"),
+			routes:   routesOf("GET /pets/{id}", "GET /pets/mine", "GET /pets/{rest...}", "GET /{rest...}", "GET /{$}"),
 			wantKept: []string{"GET /pets/{id}", "GET /pets/mine", "GET /pets/{rest...}", "GET /{rest...}", "GET /{$}"},
 		},
 		{
 			name:        "A repeat",
-			routes:      routes("GET /pets/{id}", "GET /pets/{id}"),
+			routes:      routesOf("GET /pets/{id}", "GET /pets/{id}"),
 			wantKept:    []string{"GET /pets/{id}"},
 			wantReasons: []string{"matches the same requests as Op1 at /pets/{id}"},
 		},
 		{
 			name:        "Parameters named otherwise",
-			routes:      routes("GET /pets/{id}", "GET /pets/{petId}", "GET /files/{path...}", "GET /files/{rest...}"),
+			routes:      routesOf("GET /pets/{id}", "GET /pets/{petId}", "GET /files/{path...}", "GET /files/{rest...}"),
 			wantKept:    []string{"GET /pets/{id}", "GET /files/{path...}"},
 			wantReasons: []string{"matches the same requests as Op1 at /pets/{id}", "matches the same requests as Op3 at /files/{path...}"},
 		},
 		{
 			name:        "A HEAD route repeats a GET one",
-			routes:      routes("HEAD /pets", "GET /pets", "GET /pets"),
+			routes:      routesOf("HEAD /pets", "GET /pets", "GET /pets"),
 			wantKept:    []string{"HEAD /pets", "GET /pets"},
 			wantReasons: []string{"matches the same requests as Op2 at /pets"},
 		},
 		{
 			name:        "The ambiguous pair of the net/http docs",
-			routes:      routes("GET /a/{x}", "GET /{y}/b"),
+			routes:      routesOf("GET /a/{x}", "GET /{y}/b"),
 			wantKept:    []string{"GET /a/{x}"},
 			wantReasons: []string{"overlaps with Op1 at /a/{x}, and neither is more specific"},
 		},
 		{
 			name:        "Ambiguous in the middle",
-			routes:      routes("GET /a/{x}/c", "GET /{y}/b/{z}", "GET /{y}/b/c"),
+			routes:      routesOf("GET /a/{x}/c", "GET /{y}/b/{z}", "GET /{y}/b/c"),
 			wantKept:    []string{"GET /a/{x}/c"},
 			wantReasons: []string{"overlaps with Op1 at /a/{x}/c, and neither is more specific", "overlaps with Op1 at /a/{x}/c, and neither is more specific"},
 		},
 		{
 			name:        "Ambiguous with the rest of the path",
-			routes:      routes("GET /a/{x...}", "GET /{y}/b/c", "GET /{y}/b/{z...}"),
+			routes:      routesOf("GET /a/{x...}", "GET /{y}/b/c", "GET /{y}/b/{z...}"),
 			wantKept:    []string{"GET /a/{x...}"},
 			wantReasons: []string{"overlaps with Op1 at /a/{x...}, and neither is more specific", "overlaps with Op1 at /a/{x...}, and neither is more specific"},
 		},
 		{
 			name:        "A GET route matches HEAD requests too",
-			routes:      routes("GET /a/{x}", "HEAD /{y}/b"),
+			routes:      routesOf("GET /a/{x}", "HEAD /{y}/b"),
 			wantKept:    []string{"GET /a/{x}"},
 			wantReasons: []string{"overlaps with Op1 at /a/{x}, and neither is more specific"},
 		},
 		{
+			name:        "A literal with a closing brace, escaped or not",
+			routes:      routesOf("GET /a}b", "GET /{id}", "GET /a%7Db"),
+			wantKept:    []string{"GET /a}b", "GET /{id}"},
+			wantReasons: []string{"matches the same requests as Op1 at /a}b"},
+		},
+		{
 			name:        "The earliest conflicting route is named, whether it takes the rest or not",
-			routes:      routes("GET /a/{x...}", "GET /b/{x}", "GET /{y}/c"),
+			routes:      routesOf("GET /a/{x...}", "GET /b/{x}", "GET /{y}/c"),
 			wantKept:    []string{"GET /a/{x...}", "GET /b/{x}"},
 			wantReasons: []string{"overlaps with Op1 at /a/{x...}, and neither is more specific"},
 		},
@@ -234,9 +244,9 @@ func TestPathParam(t *testing.T) {
 	assert.Empty(t, s.Imports.Decl())
 }
 
-// routes are the routes of the patterns, named Op1, Op2 and so on, with the pattern's path as
+// routesOf are the routes of the patterns, named Op1, Op2 and so on, with the pattern's path as
 // their path.
-func routes(patterns ...string) []framework.Route {
+func routesOf(patterns ...string) []framework.Route {
 	out := make([]framework.Route, len(patterns))
 	for i, p := range patterns {
 		method, path, _ := strings.Cut(p, " ")
