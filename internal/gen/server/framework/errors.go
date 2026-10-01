@@ -7,4 +7,7 @@ package framework
 
 import "errors"
 
-var ErrPattern = errors.New("the router rejects the path")
+var (
+	ErrPattern = errors.New("the router rejects the path")
+	ErrMethod  = errors.New("the router does not take the method")
+)

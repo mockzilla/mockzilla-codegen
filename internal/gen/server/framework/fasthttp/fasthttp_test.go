@@ -71,6 +71,15 @@ func TestRoutePattern(t *testing.T) {
 	}
 }
 
+func TestRoutePatternMethod(t *testing.T) {
+	t.Parallel()
+
+	_, err := Framework{}.RoutePattern("QUERY", "/pets")
+
+	require.EqualError(t, err, "the router does not take the method QUERY")
+	require.ErrorIs(t, err, framework.ErrMethod)
+}
+
 // TestConflicts checks which routes are dropped, by the rules of the router's tree.
 func TestConflicts(t *testing.T) {
 	t.Parallel()

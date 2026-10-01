@@ -42,7 +42,11 @@ func (Framework) Imports() []gomodel.Import {
 // slash, an unclosed brace, a wildcard that is not a segment of its own, last, a parameter
 // without a name, one whose name holds a colon, which starts a regular expression, and a
 // parameter named twice.
-func (Framework) RoutePattern(_, path string) (string, error) {
+func (Framework) RoutePattern(method, path string) (string, error) {
+	if err := framework.CheckMethod(method); err != nil {
+		return "", err
+	}
+
 	return framework.Brace(path, "{rest:.*}")
 }
 

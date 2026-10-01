@@ -45,7 +45,11 @@ func (Framework) Imports() []gomodel.Import {
 // a parameter runs to the end of its segment, so a path fails when one has a suffix or shares a
 // segment with another; it also fails on a path without a leading slash, an unclosed brace, a
 // parameter without a name or named twice, and a wildcard that is not a segment of its own, last.
-func (Framework) RoutePattern(_, path string) (string, error) {
+func (Framework) RoutePattern(method, path string) (string, error) {
+	if err := framework.CheckMethod(method); err != nil {
+		return "", err
+	}
+
 	return pattern.Pattern(path)
 }
 
