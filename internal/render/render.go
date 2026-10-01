@@ -95,20 +95,6 @@ func (e *Engine) RenderPart(part layout.PartID, data any) ([]byte, error) {
 	return e.execute(name, data)
 }
 
-// RenderSource parses src on its own, apart from the sets, and runs it on data.
-func RenderSource(src Source, data any) ([]byte, error) {
-	t, err := template.New(src.Name).Funcs(funcs()).Funcs(src.Funcs).Parse(src.Text)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %w", ErrTemplate, src.Name, err)
-	}
-
-	var b bytes.Buffer
-	if err = t.Execute(&b, data); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrExecute, err)
-	}
-	return b.Bytes(), nil
-}
-
 // RenderFile puts a file together and formats it when the options ask for that.
 func (e *Engine) RenderFile(d FileData) ([]byte, error) {
 	out, err := e.execute(fileTemplate, d)
@@ -181,6 +167,20 @@ func (e *Engine) define(name, text string, blocks []string) string {
 func (e *Engine) execute(name string, data any) ([]byte, error) {
 	var b bytes.Buffer
 	if err := e.tmpl.ExecuteTemplate(&b, name, data); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrExecute, err)
+	}
+	return b.Bytes(), nil
+}
+
+// RenderSource parses src on its own, apart from the sets, and runs it on data.
+func RenderSource(src Source, data any) ([]byte, error) {
+	t, err := template.New(src.Name).Funcs(funcs()).Funcs(src.Funcs).Parse(src.Text)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s: %w", ErrTemplate, src.Name, err)
+	}
+
+	var b bytes.Buffer
+	if err = t.Execute(&b, data); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrExecute, err)
 	}
 	return b.Bytes(), nil

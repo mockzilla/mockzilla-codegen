@@ -32,12 +32,6 @@ var scaffoldParts = map[ScaffoldKind]layout.PartID{
 	ScaffoldMain:       layout.PartScaffoldMain,
 }
 
-// reservations is what every plugin reserves together, in the order the plugins are given.
-type reservations struct {
-	idents []string
-	fields []server.ExtraField
-}
-
 // source is a template a plugin gave: a part of its own with its data, or the replacement of a
 // scaffold template, which runs on the built-in view.
 type source struct {
@@ -49,10 +43,44 @@ type source struct {
 	isScaffold bool
 }
 
+// render runs the template on data. Its expr and import funcs write for the file of s.
+func (src source) render(id layout.PartID, data any, s *gocode.Scope) ([]byte, error) {
+	for _, imp := range src.imports {
+		s.Import(gomodel.Import{Path: imp.Path, Alias: imp.Alias})
+	}
+
+	funcs := make(template.FuncMap, len(src.funcs)+2)
+	maps.Copy(funcs, src.funcs)
+	funcs["expr"] = func(t TypeRef) string {
+		return s.Qualified(t.Name, gomodel.Import{Path: t.ImportPath, Alias: t.Package})
+	}
+	funcs["import"] = func(path string) string { return s.Import(gomodel.Import{Path: path}) }
+
+	out, err := render.RenderSource(render.Source{Name: string(id), Text: src.text, Funcs: funcs}, data)
+	if err != nil {
+		return nil, fmt.Errorf("%w %s: %w", ErrPlugin, src.plugin, err)
+	}
+	return out, nil
+}
+
+// pluginSet is the plugins of one run and what they reserve and give. idents and fields come in
+// the order the plugins are given; sources holds the template of every part they add and of every
+// scaffold they replace.
+type pluginSet struct {
+	list    []Plugin
+	idents  []string
+	fields  []server.ExtraField
+	sources map[layout.PartID]source
+}
+
+func newPluginSet(list []Plugin) pluginSet {
+	return pluginSet{list: list, sources: make(map[layout.PartID]source)}
+}
+
 // reserve checks the plugins' names and collects what they reserve.
-func (g *generation) reserve() error {
+func (ps *pluginSet) reserve() error {
 	var names []string
-	for _, p := range g.opts.plugins {
+	for _, p := range ps.list {
 		name := p.Name()
 		switch {
 		case !segment.MatchString(name):
@@ -63,9 +91,9 @@ func (g *generation) reserve() error {
 		names = append(names, name)
 
 		res := p.Reserve()
-		g.reserved.idents = append(g.reserved.idents, res.Idents...)
+		ps.idents = append(ps.idents, res.Idents...)
 		for _, f := range res.RequestOptionFields {
-			if err := g.reserveField(name, f); err != nil {
+			if err := ps.reserveField(name, f); err != nil {
 				return err
 			}
 		}
@@ -73,7 +101,7 @@ func (g *generation) reserve() error {
 	return nil
 }
 
-func (g *generation) reserveField(plugin string, f FieldSpec) error {
+func (ps *pluginSet) reserveField(plugin string, f FieldSpec) error {
 	switch {
 	case !token.IsIdentifier(f.Name) || !token.IsExported(f.Name):
 		return fmt.Errorf("%w %s: request option field %q is no exported identifier", ErrPlugin, plugin, f.Name)
@@ -81,11 +109,11 @@ func (g *generation) reserveField(plugin string, f FieldSpec) error {
 		return fmt.Errorf("%w %s: request option field %s has no type", ErrPlugin, plugin, f.Name)
 	case server.ReservedField(f.Name):
 		return fmt.Errorf("%w %s: request option field %s is one the request options declare themselves", ErrPlugin, plugin, f.Name)
-	case slices.ContainsFunc(g.reserved.fields, func(x server.ExtraField) bool { return x.Name == f.Name }):
+	case slices.ContainsFunc(ps.fields, func(x server.ExtraField) bool { return x.Name == f.Name }):
 		return fmt.Errorf("%w %s: request option field %s is added twice", ErrPlugin, plugin, f.Name)
 	}
 
-	g.reserved.fields = append(g.reserved.fields, server.ExtraField{
+	ps.fields = append(ps.fields, server.ExtraField{
 		Name:   f.Name,
 		Type:   f.Type.Name,
 		Doc:    f.Doc,
@@ -94,12 +122,11 @@ func (g *generation) reserveField(plugin string, f FieldSpec) error {
 	return nil
 }
 
-// contribute shows every plugin the API, as the draft layout places it, and keeps what each
-// gives. It returns the parts the plugins add.
-func (g *generation) contribute(draft *layout.Layout) ([]layout.Part, error) {
-	shown := g.api(draft)
+// contribute shows every plugin the API and keeps what each gives. It returns the parts the
+// plugins add.
+func (ps *pluginSet) contribute(shown *API) ([]layout.Part, error) {
 	var parts []layout.Part
-	for _, p := range g.opts.plugins {
+	for _, p := range ps.list {
 		c, err := p.Contribute(shown)
 		if err != nil {
 			return nil, fmt.Errorf("%w %s: %w", ErrPlugin, p.Name(), err)
@@ -109,14 +136,14 @@ func (g *generation) contribute(draft *layout.Layout) ([]layout.Part, error) {
 		}
 
 		for _, src := range c.Parts {
-			id, addErr := g.addPart(p.Name(), src, c.Funcs)
+			id, addErr := ps.addPart(p.Name(), src, c.Funcs)
 			if addErr != nil {
 				return nil, addErr
 			}
 			parts = append(parts, layout.Part{ID: id})
 		}
 		for _, kind := range slices.Sorted(maps.Keys(c.Scaffolds)) {
-			if err = g.replaceScaffold(p.Name(), kind, source{text: c.Scaffolds[kind], funcs: c.Funcs}); err != nil {
+			if err = ps.replaceScaffold(p.Name(), kind, source{text: c.Scaffolds[kind], funcs: c.Funcs}); err != nil {
 				return nil, err
 			}
 		}
@@ -124,35 +151,35 @@ func (g *generation) contribute(draft *layout.Layout) ([]layout.Part, error) {
 	return parts, nil
 }
 
-func (g *generation) addPart(plugin string, src PartSource, funcs template.FuncMap) (layout.PartID, error) {
+func (ps *pluginSet) addPart(plugin string, src PartSource, funcs template.FuncMap) (layout.PartID, error) {
 	id := layout.PartID("plugin." + plugin + "." + src.Name)
-	switch _, taken := g.sources[id]; {
+	switch _, taken := ps.sources[id]; {
 	case !segment.MatchString(src.Name):
 		return "", fmt.Errorf("%w %s: the part name %q must match [a-z][a-z0-9]*", ErrPlugin, plugin, src.Name)
 	case taken:
 		return "", fmt.Errorf("%w %s: the part %s is contributed twice", ErrPlugin, plugin, src.Name)
 	}
 
-	g.sources[id] = source{plugin: plugin, text: src.Template, funcs: funcs, imports: src.Imports, data: src.Data}
+	ps.sources[id] = source{plugin: plugin, text: src.Template, funcs: funcs, imports: src.Imports, data: src.Data}
 	return id, nil
 }
 
-func (g *generation) replaceScaffold(plugin string, kind ScaffoldKind, src source) error {
+func (ps *pluginSet) replaceScaffold(plugin string, kind ScaffoldKind, src source) error {
 	id, ok := scaffoldParts[kind]
 	if !ok {
 		return fmt.Errorf("%w %s: %d is no scaffold kind", ErrPlugin, plugin, kind)
 	}
-	if other, taken := g.sources[id]; taken {
+	if other, taken := ps.sources[id]; taken {
 		return fmt.Errorf("%w %s: the %s scaffold is already replaced by %s", ErrPlugin, plugin, kind, other.plugin)
 	}
 
 	src.plugin, src.isScaffold = plugin, true
-	g.sources[id] = src
+	ps.sources[id] = src
 	return nil
 }
 
-// api describes the generated code as lay places it.
-func (g *generation) api(lay *layout.Layout) *API {
+// describe is what a plugin sees of the code g generates, as lay places it.
+func describe(g *generation, lay *layout.Layout) *API {
 	out := &API{Package: g.cfg.Package, UserContext: g.cfg.UserContext}
 	for _, d := range g.m.Decls {
 		out.Types = append(out.Types, typeRef(gomodel.DeclRef{Decl: d}, lay))
@@ -165,12 +192,12 @@ func (g *generation) api(lay *layout.Layout) *API {
 		}
 	}
 	for _, op := range g.m.Operations {
-		out.Operations = append(out.Operations, g.operation(op, lay, routed[op.Name]))
+		out.Operations = append(out.Operations, describeOperation(g, op, lay, routed[op.Name]))
 	}
 	return out
 }
 
-func (g *generation) operation(op *gomodel.Operation, lay *layout.Layout, isRouted bool) Operation {
+func describeOperation(g *generation, op *gomodel.Operation, lay *layout.Layout, isRouted bool) Operation {
 	o := Operation{
 		ID:         op.Name,
 		Method:     op.Spec.Method,
@@ -194,35 +221,6 @@ func (g *generation) operation(op *gomodel.Operation, lay *layout.Layout, isRout
 		}
 	}
 	return o
-}
-
-// part renders one part of the file of s: a plugin's from its source, else a built-in one from
-// its view.
-func (g *generation) part(id layout.PartID, s *gocode.Scope) ([]byte, error) {
-	src, ok := g.sources[id]
-	if !ok {
-		return g.engine.RenderPart(id, g.view(id, s))
-	}
-
-	data := src.data
-	if src.isScaffold {
-		data = g.view(id, s)
-	}
-	for _, imp := range src.imports {
-		s.Import(gomodel.Import{Path: imp.Path, Alias: imp.Alias})
-	}
-	funcs := make(template.FuncMap, len(src.funcs)+2)
-	maps.Copy(funcs, src.funcs)
-	funcs["expr"] = func(t TypeRef) string {
-		return s.Qualified(t.Name, gomodel.Import{Path: t.ImportPath, Alias: t.Package})
-	}
-	funcs["import"] = func(path string) string { return s.Import(gomodel.Import{Path: path}) }
-
-	out, err := render.RenderSource(render.Source{Name: string(id), Text: src.text, Funcs: funcs}, data)
-	if err != nil {
-		return nil, fmt.Errorf("%w %s: %w", ErrPlugin, src.plugin, err)
-	}
-	return out, nil
 }
 
 // success is the first 2xx response of op, as the handlers answer it.
