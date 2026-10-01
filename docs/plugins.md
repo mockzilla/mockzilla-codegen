@@ -55,13 +55,14 @@ starts with `Body`, `RawRequest` or `Validate`. Two plugins cannot add the same 
 
 The type of a field follows the rules of a [`TypeRef`](#the-api). With an import path it is an
 identifier, or a pointer, slice, array, map or channel around one. A package needs its import
-path:
+path and has to be a package name:
 
 ```go
-TypeRef{Name: "func() any"}                                                 // written as it is
-TypeRef{Name: "*Span", Package: "trace", ImportPath: "example.com/trace"}   // *trace.Span
-TypeRef{Name: "Option[Pet]", Package: "opt", ImportPath: "example.com/opt"} // an error
-TypeRef{Name: "*Span", Package: "trace"}                                    // an error: no import path
+TypeRef{Name: "func() any"}                                                    // written as it is
+TypeRef{Name: "*Span", Package: "trace", ImportPath: "example.com/trace"}      // *trace.Span
+TypeRef{Name: "Option[Pet]", Package: "opt", ImportPath: "example.com/opt"}    // an error
+TypeRef{Name: "*Span", Package: "trace"}                                       // an error: no import path
+TypeRef{Name: "*Span", Package: "open-trace", ImportPath: "example.com/trace"} // an error: no package name
 ```
 
 ### Contribute
@@ -77,13 +78,25 @@ type PartSource struct {
 	Name     string   // [a-z][a-z0-9]*
 	Template string   // a text/template
 	Data     any      // what the template runs on
-	Imports  []Import // packages the code needs, {Path, Alias}
+	Imports  []Import // packages the code does not name, {Path, Alias}
 }
 ```
 
 Every part must be placed: list `plugin.<name>.<part>`, `plugin.<name>` or `plugin` in
 `output.files`. A part gets the same header, import declaration, formatting and layout rules as a
 built-in part, and can share a file with any other part.
+
+`Imports` are for the packages the code needs and does not name: one imported for its side
+effects, under `_`, or one whose names the code writes bare, under `.`.
+
+```go
+Imports: []codegen.Import{{Path: "embed", Alias: "_"}}
+```
+
+For a package the code names, call [`import`](#templates) in the template. It returns the name the
+file gave the package, which is not always the package's own: two imports of one file cannot share
+a name, so the second one gets a number, such as `models2`. An alias in `Imports` other than `_`
+and `.` is an identifier and only a wish for that name. An import needs a path.
 
 `Scaffolds` replace the template of a scaffold file the config writes (`ScaffoldService`,
 `ScaffoldMiddleware`, `ScaffoldMain`); a replacement for a scaffold the config does not name is
@@ -108,7 +121,20 @@ var Bodies = map[string]func() any{
 	{{quote .ID}}: func() any { return new({{expr .Body}}) },
 {{- end}}
 }
+
+// Client is what the bodies are sent with.
+var Client = {{$http}}.DefaultClient
 ```
+
+A part can use the types of any package the generator writes, wherever the config places it. That
+placing decides what the part's file imports. When it makes two output folders import each other,
+`Generate` fails with the cycle and the part that closes it, as it does for the built-in parts:
+
+```
+import cycle: api -> models -> api (models.responses uses example.com/work/models, plugin.sample.register uses example.com/work/api)
+```
+
+Move the part to a folder that the folders it uses do not import.
 
 A func in `Funcs` replaces one of the same name, `expr` and `import` included, in the templates of
 that plugin only. So a plugin can pass a whole library of funcs, and a func the generator gains
@@ -157,9 +183,10 @@ type Success struct {
 `ImportPath` of the identifier in it. With an import path, `Name` is an identifier, or a pointer,
 slice, array, map or channel around one (`Pet`, `[]Pet`, `*Pet`, `map[string]Pet`): the package
 goes before that identifier, and a map key or an array length is written as it is. A generic type,
-a func type or a name that is qualified already cannot carry an import path. Without one, the type
-needs no import and `Name` is written as it is (`string`, `func() any`). A type the generator
-declares has no import path when the output is one package outside a module.
+a func type or a name that is qualified already cannot carry an import path. `Package`, when set,
+is the name of the package: an identifier other than `_`. Without an import path, the type needs
+no import and `Name` is written as it is (`string`, `func() any`). A type the generator declares
+has no import path when the output is one package outside a module.
 
 `Expr(from)` writes a type as the package with import path `from` spells it; in a template, `expr`
 does the same for the file being written and adds the import. `expr` fails on a type whose `Name`
@@ -170,7 +197,9 @@ it together in the template: `Page[{{expr .Body}}]`.
 ## Scaffold data
 
 A replacement scaffold template runs on the built-in view. Names are written as the scaffold's
-file spells them; the package fields hold the name each package is imported under.
+file spells them; the package fields hold the name each package is imported under. The file
+imports what the replacement's text names and nothing else of the view, so a replacement can leave
+out any field. Import cycles are checked on those imports too, as for a part.
 
 Service (`ScaffoldService`):
 
