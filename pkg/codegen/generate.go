@@ -61,29 +61,29 @@ type File struct {
 
 // generation is one Generate run.
 type generation struct {
-	cfg      *config.Config
-	opts     options
-	diags    diag.Collector
-	reserved reservations
-	namer    *naming.Namer
-	m        *gomodel.Model
-	gen      *models.Generator
-	srv      *server.Generator
-	cl       *client.Generator
-	mc       *mcp.Generator
-	sources  map[layout.PartID]source
-	lay      *layout.Layout
-	engine   *render.Engine
-	files    []File
+	cfg     *config.Config
+	opts    options
+	diags   diag.Collector
+	plugins pluginSet
+	namer   *naming.Namer
+	m       *gomodel.Model
+	gen     *models.Generator
+	srv     *server.Generator
+	cl      *client.Generator
+	mc      *mcp.Generator
+	lay     *layout.Layout
+	engine  *render.Engine
+	files   []File
 }
 
 // Generate reads the spec cfg names, or the one WithSpec gives, and returns the files to write.
 // cfg must come from config.Load or config.Parse, which fill in the defaults.
 func Generate(ctx context.Context, cfg *config.Config, opts ...Option) (*Result, error) {
-	g := &generation{cfg: cfg, opts: newOptions(opts), sources: make(map[layout.PartID]source)}
+	g := &generation{cfg: cfg, opts: newOptions(opts)}
+	g.plugins = newPluginSet(g.opts.plugins)
 	steps := []func() error{
 		cfg.Validate,
-		g.reserve,
+		g.plugins.reserve,
 		func() error { return g.model(ctx) },
 		g.place,
 		g.load,
@@ -112,7 +112,7 @@ func (g *generation) model(ctx context.Context) error {
 	g.diags.Append(parsed...)
 
 	opts := gomodel.OptionsFrom(g.cfg)
-	opts.Reserved = append(opts.Reserved, g.reserved.idents...)
+	opts.Reserved = append(opts.Reserved, g.plugins.idents...)
 	var built []diag.Diagnostic
 	g.m, built = gomodel.Build(doc, opts)
 	g.diags.Append(built...)
@@ -172,7 +172,7 @@ func (g *generation) serverOptions() (server.Options, error) {
 		Scaffold:           server.Scaffold{Service: s.Scaffold.Service != "", Middleware: s.Scaffold.Middleware != "", Main: s.Scaffold.Main != ""},
 		Port:               s.Scaffold.Port,
 		Timeout:            time.Duration(s.Scaffold.Timeout),
-		ExtraFields:        g.reserved.fields,
+		ExtraFields:        g.plugins.fields,
 		User:               g.cfg.UserContext,
 	}, nil
 }
@@ -200,7 +200,7 @@ func (g *generation) place() error {
 		if draftErr != nil {
 			return draftErr
 		}
-		added, addErr := g.contribute(draft)
+		added, addErr := g.plugins.contribute(describe(g, draft))
 		if addErr != nil {
 			return addErr
 		}
@@ -267,20 +267,6 @@ func (g *generation) render() error {
 	return nil
 }
 
-// view is the template data of part: the server generator's for server parts, the client
-// generator's for client parts, the MCP generator's for MCP parts, else the models'.
-func (g *generation) view(part layout.PartID, s *gocode.Scope) any {
-	switch {
-	case strings.HasPrefix(string(part), "server."):
-		return g.srv.View(part, s)
-	case strings.HasPrefix(string(part), "client."):
-		return g.cl.View(part, s)
-	case strings.HasPrefix(string(part), "mcp."):
-		return g.mc.View(part, s)
-	}
-	return g.gen.View(part, s)
-}
-
 func (g *generation) file(f *layout.File) ([]byte, error) {
 	s := gocode.NewScope(f, g.lay)
 	data := render.FileData{Header: g.cfg.Header, Package: f.Package}
@@ -295,4 +281,33 @@ func (g *generation) file(f *layout.File) ([]byte, error) {
 	data.Imports = s.Imports.Decl()
 	data.Guard = s.RuntimeGuard()
 	return g.engine.RenderFile(data)
+}
+
+// part renders one part of the file of s: a plugin's from its source, else a built-in one from
+// its view.
+func (g *generation) part(id layout.PartID, s *gocode.Scope) ([]byte, error) {
+	src, ok := g.plugins.sources[id]
+	if !ok {
+		return g.engine.RenderPart(id, g.view(id, s))
+	}
+
+	data := src.data
+	if src.isScaffold {
+		data = g.view(id, s)
+	}
+	return src.render(id, data, s)
+}
+
+// view is the template data of part: the server generator's for server parts, the client
+// generator's for client parts, the MCP generator's for MCP parts, else the models'.
+func (g *generation) view(part layout.PartID, s *gocode.Scope) any {
+	switch {
+	case strings.HasPrefix(string(part), "server."):
+		return g.srv.View(part, s)
+	case strings.HasPrefix(string(part), "client."):
+		return g.cl.View(part, s)
+	case strings.HasPrefix(string(part), "mcp."):
+		return g.mc.View(part, s)
+	}
+	return g.gen.View(part, s)
 }

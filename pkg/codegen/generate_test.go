@@ -237,7 +237,7 @@ func TestModelOfUnknownFramework(t *testing.T) {
 	cfg, err := config.Parse([]byte("server: {framework: chi}\n"), t.TempDir())
 	require.NoError(t, err)
 	cfg.Server.Framework = "express"
-	g := &generation{cfg: cfg, opts: newOptions([]Option{WithSpec([]byte(petSpec))}), sources: map[layout.PartID]source{}}
+	g := &generation{cfg: cfg, opts: newOptions([]Option{WithSpec([]byte(petSpec))})}
 
 	require.ErrorIs(t, g.model(context.Background()), ErrFramework)
 }
