@@ -7,6 +7,7 @@ package codegen
 
 import (
 	"fmt"
+	"go/token"
 	"text/template"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
@@ -49,6 +50,8 @@ type Contribution struct {
 // PartSource is one part: its template, the data the template runs on and the imports its code
 // needs. Name matches [a-z][a-z0-9]*. The template may also call expr, which writes a TypeRef as
 // the file spells it, and import, which imports a path and returns the name to qualify with.
+// Imports is for the packages the code does not name, those under _ or .: only import tells the
+// name a package got in the file.
 type PartSource struct {
 	Name     string
 	Template string
@@ -56,10 +59,22 @@ type PartSource struct {
 	Imports  []Import
 }
 
-// Import is a package a generated file imports, under Alias when set.
+// Import is a package a generated file imports. Alias is empty, _, . or the identifier to import
+// it under, which gets a number when another import of the file holds that name.
 type Import struct {
 	Path  string
 	Alias string
+}
+
+// check returns an error for an import without a path, or under an alias Go does not take.
+func (imp Import) check() error {
+	switch {
+	case imp.Path == "":
+		return fmt.Errorf("%w without a path", errImport)
+	case imp.Alias != "" && imp.Alias != "." && !token.IsIdentifier(imp.Alias):
+		return fmt.Errorf("%w of %s: the alias %q is not _, . or an identifier", errImport, imp.Path, imp.Alias)
+	}
+	return nil
 }
 
 // ScaffoldKind names a scaffold file.
@@ -127,8 +142,9 @@ type Success struct {
 
 // TypeRef is a Go type. Name is the type as the package that declares it writes it, Package and
 // ImportPath are those of the identifier in it. With an ImportPath, Name is an identifier, or a
-// pointer, slice, array, map or channel around one, such as []Pet; without one the type needs no
-// import and Name is written as it is, such as func() any.
+// pointer, slice, array, map or channel around one, such as []Pet, and Package, when set, is the
+// package's name; without one the type needs no import and Name is written as it is, such as
+// func() any.
 type TypeRef struct {
 	Name       string
 	Package    string
@@ -144,9 +160,15 @@ func (t TypeRef) Expr(from string) string {
 	return gocode.Qualify(t.Name, t.Package)
 }
 
-// check returns an error when Name cannot be qualified with the package of ImportPath.
+// check returns an error when Name cannot be qualified with the package of ImportPath, or
+// Package is no name to qualify with.
 func (t TypeRef) check() error {
-	if t.ImportPath != "" && !gocode.CanQualify(t.Name) {
+	switch {
+	case t.ImportPath == "":
+		return nil
+	case t.Package != "" && (t.Package == "_" || !token.IsIdentifier(t.Package)):
+		return fmt.Errorf("%w %q of %s: %q is no package name", errTypeRef, t.Name, t.ImportPath, t.Package)
+	case !gocode.CanQualify(t.Name):
 		return fmt.Errorf("%w %q of %s is no identifier, nor a pointer, slice, array, map or channel around one", errTypeRef, t.Name, t.ImportPath)
 	}
 	return nil
