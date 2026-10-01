@@ -46,6 +46,39 @@ import (
 const scaffoldConfig = "output: {file: ./api/gen.go, module: example.com/work}\nserver:\n  framework: chi\n" +
 	"  scaffold: {service: ./svc/service.go, middleware: ./mw/middleware.go, main: ./cmd/server/main.go}\n"
 
+// fixture is a model, its generator, the config that lays the parts out and the block overrides.
+type fixture struct {
+	m         *gomodel.Model
+	g         *Generator
+	cfg       string
+	templates map[string]string
+}
+
+// render renders one part into the file the layout gives it.
+func (f fixture) render(t *testing.T, part layout.PartID) []byte {
+	t.Helper()
+
+	e, err := render.New(Templates(f.g.Framework()), render.Options{Templates: f.templates, Format: true})
+	require.NoError(t, err)
+	s := f.scope(t, part)
+	out, err := e.RenderPart(part, f.g.View(part, s))
+	require.NoError(t, err)
+	got, err := e.RenderFile(render.FileData{Package: s.File.Package, Imports: s.Imports.Decl(), Parts: []string{string(out)}})
+	require.NoError(t, err)
+	return got
+}
+
+// scope is the scope of the file the layout gives part.
+func (f fixture) scope(t *testing.T, part layout.PartID) *gocode.Scope {
+	t.Helper()
+
+	cfg, err := config.Parse([]byte(f.cfg), "/work")
+	require.NoError(t, err)
+	l, err := layout.Plan(cfg, append(models.New(f.m).Parts(), f.g.Parts()...), layout.Module{Path: "example.com/work", Dir: "/work"})
+	require.NoError(t, err)
+	return gocode.NewScope(l.FileOf(part), l)
+}
+
 func TestNew(t *testing.T) {
 	t.Parallel()
 
@@ -195,10 +228,10 @@ func TestBlocks(t *testing.T) {
 	m := petModel()
 	g, _ := New(m, allOptions())
 	f := fixture{m: m, g: g, cfg: scaffoldConfig, templates: map[string]string{
-		BlockServiceHeader:       "// Owned by {{.User.owner}}.\n",
-		BlockRequestOptionsExtra: "\n\tOwner string // {{.User.owner}}",
-		BlockResponseDataExtra:   "\n\tOwner string // {{.User.owner}}",
-		BlockRouterExtra:         "\n\t\tr.Get(\"/owner\", {{.User.handler}})",
+		blockServiceHeader:       "// Owned by {{.User.owner}}.\n",
+		blockRequestOptionsExtra: "\n\tOwner string // {{.User.owner}}",
+		blockResponseDataExtra:   "\n\tOwner string // {{.User.owner}}",
+		blockRouterExtra:         "\n\t\tr.Get(\"/owner\", {{.User.handler}})",
 	}}
 
 	service := string(f.render(t, PartService))
@@ -362,39 +395,6 @@ func allOptions() Options {
 		},
 		User: map[string]any{"owner": "platform", "handler": "ownerHandler"},
 	}
-}
-
-// fixture is a model, its generator, the config that lays the parts out and the block overrides.
-type fixture struct {
-	m         *gomodel.Model
-	g         *Generator
-	cfg       string
-	templates map[string]string
-}
-
-// render renders one part into the file the layout gives it.
-func (f fixture) render(t *testing.T, part layout.PartID) []byte {
-	t.Helper()
-
-	e, err := render.New(Templates(f.g.Framework()), render.Options{Templates: f.templates, Format: true})
-	require.NoError(t, err)
-	s := f.scope(t, part)
-	out, err := e.RenderPart(part, f.g.View(part, s))
-	require.NoError(t, err)
-	got, err := e.RenderFile(render.FileData{Package: s.File.Package, Imports: s.Imports.Decl(), Parts: []string{string(out)}})
-	require.NoError(t, err)
-	return got
-}
-
-// scope is the scope of the file the layout gives part.
-func (f fixture) scope(t *testing.T, part layout.PartID) *gocode.Scope {
-	t.Helper()
-
-	cfg, err := config.Parse([]byte(f.cfg), "/work")
-	require.NoError(t, err)
-	l, err := layout.Plan(cfg, append(models.New(f.m).Parts(), f.g.Parts()...), layout.Module{Path: "example.com/work", Dir: "/work"})
-	require.NoError(t, err)
-	return gocode.NewScope(l.FileOf(part), l)
 }
 
 // petModel is a model with every shape the server writes: parameters of each location, one or
