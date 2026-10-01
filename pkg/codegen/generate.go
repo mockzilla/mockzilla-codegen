@@ -74,6 +74,7 @@ type generation struct {
 	lay     *layout.Layout
 	engine  *render.Engine
 	files   []File
+	imports map[layout.PartID][]string
 }
 
 // Generate reads the spec cfg names, or the one WithSpec gives, and returns the files to write.
@@ -204,6 +205,13 @@ func (g *generation) place() error {
 		if addErr != nil {
 			return addErr
 		}
+
+		// A replaced scaffold uses what its own text names, which only rendering shows.
+		for i, p := range parts {
+			if g.plugins.sources[p.ID].isScaffold {
+				parts[i].Uses = nil
+			}
+		}
 		parts = append(parts, added...)
 	}
 
@@ -251,8 +259,10 @@ func (g *generation) templates() (map[string]string, error) {
 	return out, nil
 }
 
-// render writes every file of the layout.
+// render writes every file of the layout, then checks the imports the parts brought along: a
+// plugin's code can use a folder that imports its own, which the layout could not know.
 func (g *generation) render() error {
+	g.imports = make(map[layout.PartID][]string)
 	for _, f := range g.lay.Files {
 		content, err := g.file(f)
 		if err != nil {
@@ -264,7 +274,7 @@ func (g *generation) render() error {
 		}
 		g.files = append(g.files, File{Path: f.Path, Package: f.Package, Parts: parts, Kind: FileKind(f.Kind), Content: content})
 	}
-	return nil
+	return g.lay.CheckImports(g.imports)
 }
 
 func (g *generation) file(f *layout.File) ([]byte, error) {
@@ -276,6 +286,11 @@ func (g *generation) file(f *layout.File) ([]byte, error) {
 			return nil, err
 		}
 		data.Parts = append(data.Parts, string(out))
+		if g.plugins.sources[part].isScaffold {
+			// The view imports what the built-in template writes, which the replacement may not.
+			s.Imports.Trim([]byte(strings.Join(data.Parts, "\n")))
+		}
+		g.imports[part] = s.Imports.Paths()
 	}
 
 	data.Imports = s.Imports.Decl()

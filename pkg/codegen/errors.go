@@ -14,4 +14,5 @@ var (
 	ErrTemplateFile = errors.New("read template file")
 
 	errTypeRef = errors.New("type")
+	errImport  = errors.New("import")
 )
