@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -32,6 +33,10 @@ import (
 
 // templateExt ends a templates value of one line that names a file instead of holding the text.
 const templateExt = ".tmpl"
+
+// templatePath matches a templates value that can only be a path: one word of path characters
+// with a slash in it. No text a block takes looks like that.
+var templatePath = regexp.MustCompile(`^[\w.-]*(/[\w.-]+)+$`)
 
 type FileKind int
 
@@ -248,24 +253,24 @@ func (g *generation) load() error {
 }
 
 // templates returns the block overrides of the config, with a value that names a file replaced
-// by that file's text. A value that starts as a path and names no file is a config error: its
+// by that file's text. A value that can only be a path and names no file is a config error: its
 // own text would be written into the code.
 func (g *generation) templates() (map[string]string, error) {
 	out := make(map[string]string, len(g.cfg.Templates))
 	var issues []config.Issue
 	for _, name := range slices.Sorted(maps.Keys(g.cfg.Templates)) {
 		text := g.cfg.Templates[name]
-		switch {
-		case strings.HasSuffix(text, templateExt) && !strings.Contains(text, "\n"):
-			data, err := os.ReadFile(g.cfg.Resolve(text))
+		switch value := strings.TrimSpace(text); {
+		case strings.HasSuffix(value, templateExt) && !strings.Contains(value, "\n"):
+			data, err := os.ReadFile(g.cfg.Resolve(value))
 			if err != nil {
 				return nil, fmt.Errorf("%w: templates.%s: %w", ErrTemplateFile, name, err)
 			}
 			text = string(data)
-		case strings.HasPrefix(text, "./"), strings.HasPrefix(text, "../"):
+		case templatePath.MatchString(value):
 			issues = append(issues, config.Issue{
 				Key:     "templates." + name,
-				Message: fmt.Sprintf("%q is a path, and a template file has to end in %s", text, templateExt),
+				Message: fmt.Sprintf("%q is a path, and a template file has to end in %s", value, templateExt),
 			})
 		}
 		out[name] = text

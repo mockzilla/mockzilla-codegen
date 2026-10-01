@@ -23,10 +23,16 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
-const fileTemplate = "render/file.tmpl"
+const (
+	fileTemplate = "render/file.tmpl"
 
-// missingKey makes a key a map does not have an error, where a template would write <no value>.
-const missingKey = "missingkey=error"
+	// missingKey makes a key a map does not have an error, where a template would write noValue.
+	missingKey = "missingkey=error"
+
+	// noValue is what a template writes for a value that is not set, such as a key the config
+	// gives no value.
+	noValue = "<no value>"
+)
 
 //go:embed *.tmpl
 var templates embed.FS
@@ -195,6 +201,7 @@ func (e *Engine) execute(name string, data any) ([]byte, error) {
 // overrideLines is the override func of the templates. It runs the override of block on data and
 // returns its text on lines of its own: a line break, then the text without the blank lines
 // around it. A block the config leaves alone, and an override that writes nothing, give nothing.
+// Text that holds noValue is an error.
 func (e *Engine) overrideLines(block string, data any) (string, error) {
 	t, ok := e.overrides[block]
 	if !ok {
@@ -204,6 +211,9 @@ func (e *Engine) overrideLines(block string, data any) (string, error) {
 	var b bytes.Buffer
 	if err := t.Execute(&b, data); err != nil {
 		return "", &overrideError{err: err}
+	}
+	if strings.Contains(b.String(), noValue) {
+		return "", &overrideError{err: fmt.Errorf("%s: %w", block, ErrNoValue)}
 	}
 
 	// The first line keeps its indent, which shows in output that is not formatted.

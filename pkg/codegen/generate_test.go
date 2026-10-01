@@ -211,10 +211,13 @@ func TestGenerateErrors(t *testing.T) {
 			wantErr: ErrTemplateFile,
 		},
 		{
-			name:    "Template override that is a path of another ending",
-			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: ./header.gotmpl, server.router-extra: ../routes.txt}\n",
+			name: "Template override that is a path of another ending",
+			cfg: "server: {framework: chi}\ntemplates:\n  server.service-header: ./header.gotmpl\n  server.router-extra: ../routes.txt\n" +
+				"  server.request-options-extra: templates/fields.txt\n  server.response-data-extra: |\n    /etc/fields\n",
 			wantErr: config.ErrInvalid,
-			wantMsg: `invalid config: templates.server.router-extra: "../routes.txt" is a path, and a template file has to end in .tmpl; ` +
+			wantMsg: `invalid config: templates.server.request-options-extra: "templates/fields.txt" is a path, and a template file has to end in .tmpl; ` +
+				`templates.server.response-data-extra: "/etc/fields" is a path, and a template file has to end in .tmpl; ` +
+				`templates.server.router-extra: "../routes.txt" is a path, and a template file has to end in .tmpl; ` +
 				`templates.server.service-header: "./header.gotmpl" is a path, and a template file has to end in .tmpl`,
 		},
 		{
@@ -222,6 +225,18 @@ func TestGenerateErrors(t *testing.T) {
 			cfg:     "server: {framework: chi}\nuser-context: {owner: platform}\ntemplates: {server.service-header: \"// Owned by {{.User.team}}.\"}\n",
 			wantErr: render.ErrExecute,
 			wantMsg: `./gen.go: render: template: server.service-header:1:19: executing "server.service-header" at <.User.team>: map has no entry for key "team"`,
+		},
+		{
+			name:    "Template override that writes a key the user-context gives no value",
+			cfg:     "server: {framework: chi}\nuser-context: {owner: }\ntemplates: {server.service-header: \"// Owned by {{.User.owner}}.\"}\n",
+			wantErr: render.ErrNoValue,
+			wantMsg: "./gen.go: render: server.service-header: a value that is not set was written as <no value>",
+		},
+		{
+			name:    "Template override that writes a missing key it asks for with index",
+			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: '// Owned by {{index .User \"owner\"}}.'}\n",
+			wantErr: render.ErrNoValue,
+			wantMsg: "./gen.go: render: server.service-header: a value that is not set was written as <no value>",
 		},
 	}
 
@@ -267,8 +282,9 @@ func TestModelOfUnknownFramework(t *testing.T) {
 	require.ErrorIs(t, g.model(context.Background()), ErrFramework)
 }
 
-// TestGenerateTemplateOverrides overrides one block from a file, one with a line of text and one
-// with lines of text, the last of which ends like the name of a file. All read the user-context.
+// TestGenerateTemplateOverrides overrides one block from a file, named in a YAML block, one with
+// a line of text and one with lines of text, the last of which ends like the name of a file. All
+// read the user-context.
 func TestGenerateTemplateOverrides(t *testing.T) {
 	t.Parallel()
 
@@ -277,7 +293,8 @@ func TestGenerateTemplateOverrides(t *testing.T) {
 	cfg, err := config.Parse([]byte(`server: {framework: chi}
 user-context: {owner: platform}
 templates:
-  server.service-header: ./header.tmpl
+  server.service-header: >
+    ./header.tmpl
   server.request-options-extra: "Owner string // {{.User.owner}}"
   server.response-data-extra: |-
     // Owner is {{.User.owner}}, as

@@ -146,7 +146,9 @@ The rules for the built-in templates apply: decide everything in Go and keep the
 
 A key that a map does not have is an error, where `text/template` alone writes `<no value>` into
 the code: `{{.owner}}` fails on a `UserContext` without `owner`. Ask for a key that may be
-missing with `index`, as in `{{with index . "owner"}}// Owned by {{.}}.{{end}}`.
+missing with `index` under `with` or `if`, as in
+`{{with index . "owner"}}// Owned by {{.}}.{{end}}`. Printed on its own, `index` writes
+`<no value>` for such a key.
 
 ## The API
 
@@ -263,11 +265,13 @@ and go-zero, `h` for hertz and `s` for goframe, and its handler is an `http.Hand
 
 `user-context` is available as `.User` in every block and as `API.UserContext` to plugins. A key
 it does not have is an error: `{{.User.team}}` fails in a config that sets no `team`. Ask for a
-key that may be missing with `index`, as in `{{if index .User "team"}}`.
+key that may be missing with `index` under `if` or `with`, as in `{{if index .User "team"}}`. A
+block that writes `<no value>` all the same is an error too: it prints a key the config gives no
+value, or an `index` on its own.
 
 These are config errors:
 
 - a block that does not exist, with the list of those that do
 - a `server` block in a config without `server`
-- a value that starts with `./` or `../` and does not end in `.tmpl`: it would be taken as the
-  text and written into the code
+- a value that can only be a path, such as `./header.txt` or `templates/header.txt`, and does not
+  end in `.tmpl`: it would be taken as the text and written into the code

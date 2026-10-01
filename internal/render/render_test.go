@@ -151,6 +151,13 @@ func TestRenderPartErrors(t *testing.T) {
 			wantMsg: `render: template: fake.extra:2:12: executing "fake.extra" at <.team>: map has no entry for key "team"`,
 		},
 		{
+			name:    "Key without a value, in an override",
+			part:    "fake.owner",
+			data:    map[string]any{"owner": "platform", "team": nil},
+			wantErr: ErrNoValue,
+			wantMsg: "render: fake.extra: a value that is not set was written as <no value>",
+		},
+		{
 			name:    "Override that runs the template that asks for it",
 			part:    "fake.types",
 			data:    []string{"Pet"},
