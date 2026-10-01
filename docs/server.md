@@ -201,7 +201,7 @@ NewRouter(svc, WithErrorHandler(ErrorHandlerFunc(func(w http.ResponseWriter, r *
 | `hertz` | github.com/cloudwego/hertz | `*server.Hertz` | `*server.Hertz` |
 | `iris` | github.com/kataras/iris/v12 | `*iris.Application` | `*iris.Application` |
 | `kratos` | github.com/go-kratos/kratos/v2/transport/http | `*http.Server` of kratos | `*http.Server` of kratos |
-| `std-http` | `http.ServeMux` with the patterns of Go 1.22 | `http.Handler` | `*http.ServeMux` |
+| `std-http` | `http.ServeMux` with method and wildcard patterns | `http.Handler` | `*http.ServeMux` |
 
 ```go
 router := NewRouter(svc, WithMiddleware(RequestIDMiddleware, RecoverMiddleware))
@@ -247,8 +247,9 @@ anywhere else is a literal star. A trailing slash becomes `{$}`, so `/pets/` mat
 request. It rejects a path without a leading slash, one that is not clean (`/a//b`, `/a/../b`), a
 parameter that does not fill its segment (`{id}.json`) and two wildcards of one name. It panics on
 a route that matches the same requests as an earlier one, or overlaps with it while neither is more
-specific, `/a/{x}` next to `/{y}/b`; the generator drops such routes by the same rules, so
-`NewRouter` never panics. A `GET` route answers `HEAD` requests too.
+specific, `/a/{x}` next to `/{y}/b`. The generator registers the routes on a `ServeMux` of its own
+first and drops each one that panics there, so `NewRouter` never panics. A `GET` route answers
+`HEAD` requests too.
 
 ### echo
 
