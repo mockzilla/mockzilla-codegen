@@ -43,6 +43,10 @@ slash, a wildcard, the same shape twice with other names, a literal next to a pa
 see what panics, what is silently replaced and what the parameter values look like. Every rule
 in `docs/server.md` came from such a run.
 
+`stdhttp` is the one framework whose `Conflicts` holds no rules of its own. Its router is the
+standard library, so it registers the routes on a `ServeMux` and drops each one that panics. The
+generator does not import the other routers, so their rules are written out.
+
 The `framework` package holds what the rules share:
 
 | Helper | Does |
