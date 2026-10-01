@@ -55,16 +55,17 @@ func Qualify(expr, pkg string) string {
 	if pkg == "" {
 		return expr
 	}
-	i := strings.LastIndexFunc(expr, func(r rune) bool { return r != '_' && !unicode.IsLetter(r) && !unicode.IsDigit(r) })
-	return expr[:i+1] + pkg + "." + expr[i+1:]
+	start := len(strings.TrimRightFunc(expr, func(r rune) bool { return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r) }))
+	return expr[:start] + pkg + "." + expr[start:]
 }
 
 // CanQualify reports whether Qualify writes expr right: expr is an identifier, or pointers,
-// slices, arrays, maps and channels around one, and ends with it.
+// slices, arrays, maps and channels around one, and has nothing before the type or after the
+// identifier.
 func CanQualify(expr string) bool {
 	fset := token.NewFileSet()
 	node, err := parser.ParseExprFrom(fset, "", expr, 0)
-	if err != nil {
+	if err != nil || fset.Position(node.Pos()).Offset != 0 {
 		return false
 	}
 
@@ -73,6 +74,10 @@ func CanQualify(expr string) bool {
 		case *ast.StarExpr:
 			node = n.X
 		case *ast.ArrayType:
+			// The parser takes [...]T, which is no type outside a composite literal.
+			if _, isOpen := n.Len.(*ast.Ellipsis); isOpen {
+				return false
+			}
 			node = n.Elt
 		case *ast.MapType:
 			node = n.Value

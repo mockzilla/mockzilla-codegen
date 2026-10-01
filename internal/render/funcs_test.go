@@ -37,7 +37,7 @@ func TestCheckFuncs(t *testing.T) {
 		},
 		{
 			name:    "First of several by name",
-			funcs:   template.FuncMap{"zip": 1, "shout": strings.ToUpper, "cut": 2, "walk": 3},
+			funcs:   template.FuncMap{"zip": 1, "shout": strings.ToUpper, "cut": 2, "walk": 3, "pad": 4, "join": 5, "trim": 6, "wrap": 7, "fold": 8, "mask": 9, "sum": 10, "tail": 11},
 			wantMsg: "template func: value for cut not a function",
 		},
 	}

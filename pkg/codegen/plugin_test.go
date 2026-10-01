@@ -45,7 +45,7 @@ func TestTypeRefCheck(t *testing.T) {
 		wantMsg string
 	}{
 		{name: "Type that needs no import, whatever it is", typ: TypeRef{Name: "func(Pet) Option[Pet]"}},
-		{name: "Package without an import path", typ: TypeRef{Name: "[]Pet", Package: "api"}},
+		{name: "Package without an import path, whatever the type is", typ: TypeRef{Name: "Page[Pet]", Package: "api"}},
 		{name: "Map of slices of pointers", typ: TypeRef{Name: "map[string][]*Pet", Package: "models", ImportPath: "example.com/work/models"}},
 		{
 			name:    "Generic type with an import path",

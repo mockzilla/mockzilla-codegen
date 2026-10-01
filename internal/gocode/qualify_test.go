@@ -76,6 +76,7 @@ func TestQualify(t *testing.T) {
 		{name: "Map key is left as it is", expr: "map[Kind]Pet", pkg: "models", want: "map[Kind]models.Pet"},
 		{name: "Array", expr: "[4]Pet", pkg: "models", want: "[4]models.Pet"},
 		{name: "Channel", expr: "<-chan Pet", pkg: "models", want: "<-chan models.Pet"},
+		{name: "Wide character before the identifier", expr: "\ufeffPet", pkg: "models", want: "\ufeffmodels.Pet"},
 		{name: "No package", expr: "[]Pet", want: "[]Pet"},
 	}
 
@@ -104,6 +105,10 @@ func TestCanQualify(t *testing.T) {
 		{name: "Space before the identifier", expr: "[] Pet", want: true},
 		{name: "Space after the identifier", expr: "Pet "},
 		{name: "Comment after the identifier", expr: "Pet // Pet"},
+		{name: "Line break before the type", expr: "\n*Pet"},
+		{name: "Byte order mark before the type", expr: "\ufeffPet"},
+		{name: "Array of unknown length", expr: "[...]Pet"},
+		{name: "Map without a key", expr: "map[]Pet"},
 		{name: "Generic type", expr: "Option[Pet]"},
 		{name: "Function", expr: "func(Pet)"},
 		{name: "Function that returns the identifier", expr: "func() Pet"},

@@ -28,8 +28,8 @@ type Reservations struct {
 	RequestOptionFields []FieldSpec
 }
 
-// FieldSpec is one field a plugin adds. Name is an exported identifier; Doc is its comment, empty
-// for none.
+// FieldSpec is one field a plugin adds. Name is an exported identifier; Type has an ImportPath
+// when it has a Package; Doc is its comment, empty for none.
 type FieldSpec struct {
 	Name string
 	Type TypeRef

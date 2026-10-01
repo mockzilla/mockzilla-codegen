@@ -54,7 +54,8 @@ the parameter groups (`PathParams`, `Query`, `QueryString`, `Headers`, `Cookies`
 starts with `Body`, `RawRequest` or `Validate`. Two plugins cannot add the same field.
 
 The type of a field follows the rules of a [`TypeRef`](#the-api). With an import path it is an
-identifier, or a pointer, slice, array, map or channel around one:
+identifier, or a pointer, slice, array, map or channel around one. A package needs its import
+path:
 
 ```go
 TypeRef{Name: "func() any"}                                                 // written as it is
@@ -155,14 +156,16 @@ type Success struct {
 `TypeRef` is a Go type: `Name` as the package that declares it writes it, and `Package` and
 `ImportPath` of the identifier in it. With an import path, `Name` is an identifier, or a pointer,
 slice, array, map or channel around one (`Pet`, `[]Pet`, `*Pet`, `map[string]Pet`): the package
-goes before that identifier. A generic type, a func type or a name that is qualified already
-cannot carry an import path. Without one, the type needs no import and `Name` is written as it is
-(`string`, `func() any`). The types of the API have no import path when the output is one package
-outside a module.
+goes before that identifier, and a map key or an array length is written as it is. A generic type,
+a func type or a name that is qualified already cannot carry an import path. Without one, the type
+needs no import and `Name` is written as it is (`string`, `func() any`). A type the generator
+declares has no import path when the output is one package outside a module.
 
 `Expr(from)` writes a type as the package with import path `from` spells it; in a template, `expr`
 does the same for the file being written and adds the import. `expr` fails on a type whose `Name`
-cannot carry its import path.
+cannot carry its import path, in every file, so a template does not start to fail when the output
+is split into packages. `Expr` runs no check. To write a type around one of another package, put
+it together in the template: `Page[{{expr .Body}}]`.
 
 ## Scaffold data
 

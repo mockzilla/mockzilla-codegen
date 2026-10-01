@@ -50,15 +50,14 @@ func (src source) render(id layout.PartID, data any, s *gocode.Scope) ([]byte, e
 		s.Import(gomodel.Import{Path: imp.Path, Alias: imp.Alias})
 	}
 
-	funcs := template.FuncMap{
-		"expr": func(t TypeRef) (string, error) {
-			if err := t.check(); err != nil {
-				return "", err
-			}
-			return s.Qualified(t.Name, gomodel.Import{Path: t.ImportPath, Alias: t.Package}), nil
-		},
-		"import": func(path string) string { return s.Import(gomodel.Import{Path: path}) },
+	funcs := make(template.FuncMap, len(src.funcs)+2)
+	funcs["expr"] = func(t TypeRef) (string, error) {
+		if err := t.check(); err != nil {
+			return "", err
+		}
+		return s.Qualified(t.Name, gomodel.Import{Path: t.ImportPath, Alias: t.Package}), nil
 	}
+	funcs["import"] = func(path string) string { return s.Import(gomodel.Import{Path: path}) }
 	maps.Copy(funcs, src.funcs)
 
 	out, err := render.RenderSource(render.Source{Name: string(id), Text: src.text, Funcs: funcs}, data)
@@ -150,19 +149,22 @@ func (ps *pluginSet) contribute(shown *API) ([]layout.Part, error) {
 		if c == nil {
 			continue
 		}
-		if err = render.CheckFuncs(c.Funcs); err != nil {
+
+		// A copy, so the funcs that are checked here are the ones the templates get.
+		funcs := maps.Clone(c.Funcs)
+		if err = render.CheckFuncs(funcs); err != nil {
 			return nil, fmt.Errorf("%w %s: %w", ErrPlugin, p.Name(), err)
 		}
 
 		for _, src := range c.Parts {
-			id, addErr := ps.addPart(p.Name(), src, c.Funcs)
+			id, addErr := ps.addPart(p.Name(), src, funcs)
 			if addErr != nil {
 				return nil, addErr
 			}
 			parts = append(parts, layout.Part{ID: id})
 		}
 		for _, kind := range slices.Sorted(maps.Keys(c.Scaffolds)) {
-			if err = ps.replaceScaffold(p.Name(), kind, source{text: c.Scaffolds[kind], funcs: c.Funcs}); err != nil {
+			if err = ps.replaceScaffold(p.Name(), kind, source{text: c.Scaffolds[kind], funcs: funcs}); err != nil {
 				return nil, err
 			}
 		}
