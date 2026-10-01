@@ -74,6 +74,19 @@ server: {framework: chi, name: Pets, scaffold: {service: ./api/service.go}}
 user-context: {owner: platform}
 `
 
+// ownedConfig has a user-context value of every shape YAML gives one: a text, a map, a list with
+// a map in it and a map with a key that is no text. The header block writes the text.
+const ownedConfig = `package: api
+output: {file: ./api/gen.go}
+server: {framework: chi}
+templates: {server.service-header: "// Owned by {{.User.owner}}.\n"}
+user-context:
+  owner: platform
+  team: {name: core}
+  tiers: [free, {name: pro}]
+  ports: {8080: http}
+`
+
 const registerTemplate = `// Routes lists the routed operations, {{shout "loudly"}}.
 var Routes = []string{
 {{- range .Routes}}
@@ -289,6 +302,69 @@ func TestGenerateWithPluginOutsideModule(t *testing.T) {
 	assert.Equal(t, TypeRef{Name: "ListPetsServiceRequestOptions", Package: "api"}, p.api.Operations[0].RequestOptions, "no import path without a module")
 	require.Len(t, res.Files, 1)
 	assert.Contains(t, string(res.Files[0].Content), "\nvar Options ListPetsServiceRequestOptions\n")
+}
+
+func TestGenerateWithPluginThatChangesItsAPI(t *testing.T) {
+	t.Parallel()
+
+	dir := workDir(t)
+	run := func(plugins ...Plugin) (*config.Config, *Result) {
+		t.Helper()
+
+		c, err := config.Parse([]byte(ownedConfig), dir)
+		require.NoError(t, err)
+		made, err := Generate(context.Background(), c, WithSpec([]byte(storeSpec)), WithPlugins(plugins...))
+		require.NoError(t, err)
+		return c, made
+	}
+	alone := &fakePlugin{name: "reader"}
+	wantCfg, want := run(alone)
+
+	writer := &fakePlugin{name: "writer", contribute: func(api *API) (*Contribution, error) {
+		api.Package = "changed"
+		api.Operations[0].Tags[0] = "changed"
+		api.Operations[0].Success.Status = 500
+		api.Operations[1].ID = "Changed"
+		api.Operations = api.Operations[:2]
+		api.Types[0].Name = "Changed"
+		api.UserContext["owner"] = "changed"
+		api.UserContext["team"].(map[string]any)["name"] = "changed"
+		api.UserContext["tiers"].([]any)[0] = "changed"
+		api.UserContext["tiers"].([]any)[1].(map[string]any)["name"] = "changed"
+		api.UserContext["ports"].(map[any]any)[8080] = "changed"
+		return nil, nil
+	}}
+	reader := &fakePlugin{name: "reader"}
+	cfg, res := run(writer, reader)
+
+	assert.Equal(t, alone.api, reader.api, "the next plugin sees none of it")
+	assert.Equal(t, wantCfg.UserContext, cfg.UserContext, "nor does the config")
+	assert.Equal(t, want, res, "nor do the templates")
+}
+
+func TestGenerateWithPluginPackage(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		cfg  string
+		want string
+	}{
+		{name: "Package of the config", cfg: "package: pets\noutput: {file: ./api/gen.go}\n", want: "pets"},
+		{name: "Package that output.packages gives the folder of output.file", cfg: "package: pets\noutput: {file: ./api/gen.go, packages: {./api: petapi}}\n", want: "petapi"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			p := &fakePlugin{name: "sample"}
+			_, err := generate(t, tc.cfg, p)
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, p.api.Package)
+		})
+	}
 }
 
 func TestGenerateWithPluginFuncs(t *testing.T) {

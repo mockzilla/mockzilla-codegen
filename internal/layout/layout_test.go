@@ -140,6 +140,31 @@ func TestPlan(t *testing.T) {
 	}
 }
 
+func TestPlanPackage(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		cfg  string
+		want string
+	}{
+		{name: "Package of the config", cfg: "package: pets\noutput: {file: ./api/gen.go}\n", want: "pets"},
+		{name: "output.packages wins over package", cfg: "package: pets\noutput: {file: ./api/gen.go, packages: {./api: petapi}}\n", want: "petapi"},
+		{name: "output.file that holds no part", cfg: "package: pets\noutput: {file: ./api/gen.go, files: {./models/models.go: [models]}}\n", want: "pets"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			l, err := Plan(parseConfig(t, tc.cfg, "/work"), modelParts, workModule)
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, l.Package)
+		})
+	}
+}
+
 func TestDraft(t *testing.T) {
 	t.Parallel()
 
