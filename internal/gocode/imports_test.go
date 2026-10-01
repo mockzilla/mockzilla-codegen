@@ -142,6 +142,42 @@ func TestImportSetDecl(t *testing.T) {
 	}
 }
 
+func TestImportSetName(t *testing.T) {
+	t.Parallel()
+
+	s := NewImportSet()
+	s.Add("time", "clock")
+	s.Add("example.com/a/models", "")
+	s.Add("example.com/b/models", "")
+	s.Add("embed", "_")
+	s.Add("example.com/dsl", ".")
+	s.Offer("github.com/google/uuid", "")
+
+	tests := []struct {
+		name   string
+		path   string
+		want   string
+		wantOK bool
+	}{
+		{name: "Path under the name it asked for", path: "time", want: "clock", wantOK: true},
+		{name: "Path under a numbered name", path: "example.com/b/models", want: "models2", wantOK: true},
+		{name: "Path under _ has none", path: "embed"},
+		{name: "Path under . has none", path: "example.com/dsl"},
+		{name: "Path on offer has none yet", path: "github.com/google/uuid"},
+		{name: "Path that is not imported has none", path: "fmt"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := s.Name(tc.path)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantOK, ok)
+		})
+	}
+}
+
 func TestImportSetHas(t *testing.T) {
 	t.Parallel()
 

@@ -117,9 +117,19 @@ func (s *ImportSet) Idle() []string {
 	return idle
 }
 
+// Name is the name path is imported under. It has none when the file imports it under _ or .
+// alone, has it on offer, or does not import it.
+func (s *ImportSet) Name(path string) (string, bool) {
+	if s.offered[path] {
+		return "", false
+	}
+	name, ok := s.names[path]
+	return name, ok
+}
+
 // Has reports whether path is imported, under a name or without one.
 func (s *ImportSet) Has(path string) bool {
-	_, isNamed := s.nameOf(path)
+	_, isNamed := s.Name(path)
 	_, isUnnamed := s.unnamed[path]
 	return isNamed || isUnnamed
 }
@@ -185,7 +195,7 @@ func (s *ImportSet) Decl() string {
 // makes _ needless, while . stays next to it.
 func (s *ImportSet) specs(path string) []string {
 	quoted := strconv.Quote(path)
-	name, isNamed := s.nameOf(path)
+	name, isNamed := s.Name(path)
 
 	var out []string
 	if alias, ok := s.unnamed[path]; ok && (alias == dot || !isNamed) {
@@ -199,12 +209,6 @@ func (s *ImportSet) specs(path string) []string {
 		quoted = name + " " + quoted
 	}
 	return append(out, quoted)
-}
-
-// nameOf is the name path is imported under. A path on offer is not imported yet.
-func (s *ImportSet) nameOf(path string) (string, bool) {
-	name, ok := s.names[path]
-	return name, ok && !s.offered[path]
 }
 
 // ImportName is the name path is imported under: alias when given, else the package name guessed

@@ -365,6 +365,7 @@ func TestGenerateImports(t *testing.T) {
 		spec    string
 		plugins []Plugin
 		want    map[string][]string
+		has     string
 		unused  []Diagnostic
 		wantErr error
 		wantMsg string
@@ -405,6 +406,19 @@ func TestGenerateImports(t *testing.T) {
 			},
 		},
 		{
+			name: "Path under _ and under a name no code names keeps its _ import",
+			cfg:  base + "server: {framework: chi}\nimports: [{package: example.com/shop/models, alias: _}, {package: example.com/shop/models}]\n",
+			want: map[string][]string{
+				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, `_ "example.com/shop/models"`, ofModels, ofChi, ofRuntime},
+				"models/models.go": {`_ "example.com/shop/models"`},
+			},
+			unused: []Diagnostic{{
+				Severity: SeverityWarning,
+				Code:     "import-unused",
+				Message:  "imports[1]: no generated file refers to models, so example.com/shop/models is not imported",
+			}},
+		},
+		{
 			name: "Listed package a block names keeps its name, the generator's of that name gets a number",
 			cfg: base + "server: {framework: chi}\nimports: [{package: example.com/shop/models}]\n" +
 				"templates: {server.request-options-extra: Owner models.Owner}\n",
@@ -432,6 +446,7 @@ func TestGenerateImports(t *testing.T) {
 				"api/gen.go":       {`"context"`, `"io"`, `web "net/http"`, ofModels, ofChi, ofRuntime},
 				"models/models.go": nil,
 			},
+			has: "\tRawRequest *web.Request\n",
 		},
 		{
 			name: "x-go-type names listed packages",
@@ -503,6 +518,7 @@ func TestGenerateImports(t *testing.T) {
 			}
 			assert.Equal(t, tc.want, importLines(t, res))
 			assert.Equal(t, tc.unused, unused)
+			assert.Contains(t, string(res.Files[0].Content), tc.has)
 		})
 	}
 }

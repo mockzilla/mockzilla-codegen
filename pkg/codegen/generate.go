@@ -72,6 +72,7 @@ type generation struct {
 	engine  *render.Engine
 	files   []File
 	imports map[layout.PartID][]string
+	named   map[string]bool
 }
 
 // Generate reads the spec cfg names, or the one WithSpec gives, and returns the files to write.
@@ -268,6 +269,7 @@ func (g *generation) templates() (map[string]string, error) {
 // plugin's code can use a folder that imports its own, which the layout could not know.
 func (g *generation) render() error {
 	g.imports = make(map[layout.PartID][]string)
+	g.named = make(map[string]bool)
 	for _, f := range g.lay.Files {
 		content, err := g.file(f)
 		if err != nil {
@@ -299,12 +301,22 @@ func (g *generation) file(f *layout.File) ([]byte, error) {
 		}
 
 		idle := s.Imports.Idle()
-		if len(idle) == 0 {
-			data.Imports = s.Imports.Decl()
-			data.Guard = s.RuntimeGuard()
-			return g.engine.RenderFile(data)
+		if len(idle) > 0 {
+			// An import under _ is no offer: it stays when the path is also listed under a name.
+			offers = slices.DeleteFunc(slices.Clone(offers), func(imp config.Import) bool {
+				return imp.Name() != "" && slices.Contains(idle, imp.Package)
+			})
+			continue
 		}
-		offers = slices.DeleteFunc(slices.Clone(offers), func(imp config.Import) bool { return slices.Contains(idle, imp.Package) })
+
+		for _, imp := range g.cfg.Imports {
+			if _, ok := s.Imports.Name(imp.Package); ok {
+				g.named[imp.Package] = true
+			}
+		}
+		data.Imports = s.Imports.Decl()
+		data.Guard = s.RuntimeGuard()
+		return g.engine.RenderFile(data)
 	}
 }
 
@@ -356,17 +368,11 @@ func (g *generation) view(part layout.PartID, s *gocode.Scope) any {
 	return g.gen.View(part, s)
 }
 
-// reportUnusedImports warns about every import of the config that no file has.
+// reportUnusedImports warns about every import of the config that no file has under its name.
+// One under _ is in every file.
 func (g *generation) reportUnusedImports() {
-	imported := make(map[string]bool)
-	for _, paths := range g.imports {
-		for _, path := range paths {
-			imported[path] = true
-		}
-	}
-
 	for i, imp := range g.cfg.Imports {
-		if imported[imp.Package] {
+		if imp.Name() == "" || g.named[imp.Package] {
 			continue
 		}
 		g.diags.Append(diag.Diagnostic{
