@@ -57,6 +57,17 @@ func TestTypeRefCheck(t *testing.T) {
 			typ:     TypeRef{Name: "models.Pet", ImportPath: "example.com/work/models"},
 			wantMsg: `type "models.Pet" of example.com/work/models is no identifier, nor a pointer, slice, array, map or channel around one`,
 		},
+		{name: "Import path without a package", typ: TypeRef{Name: "*Span", ImportPath: "example.com/trace"}},
+		{
+			name:    "Package that is no identifier",
+			typ:     TypeRef{Name: "*Span", Package: "open-trace", ImportPath: "example.com/trace"},
+			wantMsg: `type "*Span" of example.com/trace: "open-trace" is no package name`,
+		},
+		{
+			name:    "Package that no type can be written with",
+			typ:     TypeRef{Name: "*Span", Package: "_", ImportPath: "example.com/trace"},
+			wantMsg: `type "*Span" of example.com/trace: "_" is no package name`,
+		},
 	}
 
 	for _, tc := range tests {
@@ -70,6 +81,47 @@ func TestTypeRefCheck(t *testing.T) {
 				return
 			}
 			require.ErrorIs(t, err, errTypeRef)
+			assert.EqualError(t, err, tc.wantMsg)
+		})
+	}
+}
+
+func TestImportCheck(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		imp     Import
+		wantMsg string
+	}{
+		{name: "Path alone", imp: Import{Path: "net/http"}},
+		{name: "Alias that is an identifier", imp: Import{Path: "net/http", Alias: "nethttp"}},
+		{name: "Import for its side effects", imp: Import{Path: "embed", Alias: "_"}},
+		{name: "Import of the names themselves", imp: Import{Path: "example.com/dsl", Alias: "."}},
+		{name: "No path", imp: Import{Alias: "http"}, wantMsg: "import without a path"},
+		{
+			name:    "Alias with a dash",
+			imp:     Import{Path: "net/http", Alias: "net-http"},
+			wantMsg: `import of net/http: the alias "net-http" is not _, . or an identifier`,
+		},
+		{
+			name:    "Alias that is a keyword",
+			imp:     Import{Path: "example.com/type", Alias: "type"},
+			wantMsg: `import of example.com/type: the alias "type" is not _, . or an identifier`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tc.imp.check()
+
+			if tc.wantMsg == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, errImport)
 			assert.EqualError(t, err, tc.wantMsg)
 		})
 	}

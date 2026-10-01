@@ -19,10 +19,11 @@ const (
 	done
 )
 
-// use is the first part use that makes one folder import another.
+// use is the first thing a part uses that makes one folder import another: a part, or an import
+// path.
 type use struct {
 	part PartID
-	used PartID
+	used string
 }
 
 // cycleFinder walks the imports between folders depth first.
@@ -65,10 +66,9 @@ func (c *cycleFinder) visit(dir string) []string {
 	return nil
 }
 
-// importCycle fails when parts in two folders use each other, directly or through others: Go
+// importCycle fails when edges make folders import each other, directly or through others: Go
 // forbids import cycles.
-func importCycle(files []*File, byPart map[PartID]*File, parts []Part) error {
-	edges := folderEdges(files, byPart, parts)
+func importCycle(files []*File, edges map[string]map[string]use) error {
 	cycle := (&cycleFinder{edges: edges, state: make(map[string]int, len(edges))}).find()
 	if cycle == nil {
 		return nil
@@ -104,15 +104,43 @@ func folderEdges(files []*File, byPart map[PartID]*File, parts []Part) map[strin
 				if target == nil || filepath.Dir(target.Path) == from {
 					continue
 				}
-				to := filepath.Dir(target.Path)
-				if edges[from] == nil {
-					edges[from] = make(map[string]use)
-				}
-				if _, ok := edges[from][to]; !ok {
-					edges[from][to] = use{part: id, used: u}
+				addEdge(edges, from, filepath.Dir(target.Path), use{part: id, used: string(u)})
+			}
+		}
+	}
+	return edges
+}
+
+// importEdges maps each folder to the folders its parts import, by the import paths imports
+// lists for each part. A folder that imports its own path is an edge too.
+func importEdges(files []*File, imports map[PartID][]string) map[string]map[string]use {
+	dirs := make(map[string]string, len(files))
+	for _, f := range files {
+		if f.ImportPath != "" {
+			dirs[f.ImportPath] = filepath.Dir(f.Path)
+		}
+	}
+
+	edges := make(map[string]map[string]use)
+	for _, f := range files {
+		from := filepath.Dir(f.Path)
+		for _, id := range f.Parts {
+			for _, imported := range imports[id] {
+				if to, ok := dirs[imported]; ok {
+					addEdge(edges, from, to, use{part: id, used: imported})
 				}
 			}
 		}
 	}
 	return edges
+}
+
+// addEdge keeps the first use that makes from import to.
+func addEdge(edges map[string]map[string]use, from, to string, u use) {
+	if edges[from] == nil {
+		edges[from] = make(map[string]use)
+	}
+	if _, ok := edges[from][to]; !ok {
+		edges[from][to] = u
+	}
 }

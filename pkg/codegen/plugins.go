@@ -57,7 +57,12 @@ func (src source) render(id layout.PartID, data any, s *gocode.Scope) ([]byte, e
 		}
 		return s.Qualified(t.Name, gomodel.Import{Path: t.ImportPath, Alias: t.Package}), nil
 	}
-	funcs["import"] = func(path string) string { return s.Import(gomodel.Import{Path: path}) }
+	funcs["import"] = func(path string) (string, error) {
+		if err := (Import{Path: path}).check(); err != nil {
+			return "", err
+		}
+		return s.Import(gomodel.Import{Path: path}), nil
+	}
 	maps.Copy(funcs, src.funcs)
 
 	out, err := render.RenderSource(render.Source{Name: string(id), Text: src.text, Funcs: funcs}, data)
@@ -179,6 +184,11 @@ func (ps *pluginSet) addPart(plugin string, src PartSource, funcs template.FuncM
 		return "", fmt.Errorf("%w %s: the part name %q must match [a-z][a-z0-9]*", ErrPlugin, plugin, src.Name)
 	case taken:
 		return "", fmt.Errorf("%w %s: the part %s is contributed twice", ErrPlugin, plugin, src.Name)
+	}
+	for _, imp := range src.Imports {
+		if err := imp.check(); err != nil {
+			return "", fmt.Errorf("%w %s: the part %s: %w", ErrPlugin, plugin, src.Name, err)
+		}
 	}
 
 	ps.sources[id] = source{plugin: plugin, text: src.Template, funcs: funcs, imports: src.Imports, data: src.Data}

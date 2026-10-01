@@ -84,3 +84,68 @@ func TestPlanImportCycles(t *testing.T) {
 		})
 	}
 }
+
+func TestLayoutCheckImports(t *testing.T) {
+	t.Parallel()
+
+	const inAPI, inModels, inTypes = "example.com/work/api", "example.com/work/models", "example.com/work/types"
+	twoFolders := "output:\n  file: ./api/gen.go\n  files: {./models/types.go: [models.types], ./models/enums.go: [models.enums]}\n"
+	tests := []struct {
+		name    string
+		cfg     string
+		mod     Module
+		imports map[PartID][]string
+		wantMsg string
+	}{
+		{
+			name:    "Imports in one direction and of other packages are fine",
+			cfg:     twoFolders,
+			mod:     workModule,
+			imports: map[PartID][]string{"models.params": {"example.com/other", inModels, "time"}, "models.unions": {inModels}},
+		},
+		{
+			name:    "Two folders that import each other form a cycle",
+			cfg:     twoFolders,
+			mod:     workModule,
+			imports: map[PartID][]string{"models.params": {inModels}, "models.unions": {inModels}, "models.enums": {inAPI}},
+			wantMsg: "import cycle: api -> models -> api (models.unions uses example.com/work/models, models.enums uses example.com/work/api)",
+		},
+		{
+			name:    "Cycle through three folders",
+			cfg:     "output:\n  file: ./api/gen.go\n  files: {./models/types.go: [models.types], ./types/enums.go: [models.enums]}\n",
+			mod:     workModule,
+			imports: map[PartID][]string{"models.params": {inModels}, "models.types": {"fmt", inTypes}, "models.enums": {inAPI}},
+			wantMsg: "import cycle: api -> models -> types -> api " +
+				"(models.params uses example.com/work/models, models.types uses example.com/work/types, models.enums uses example.com/work/api)",
+		},
+		{
+			name:    "Part that imports its own package",
+			cfg:     twoFolders,
+			mod:     workModule,
+			imports: map[PartID][]string{"models.enums": {inModels}},
+			wantMsg: "import cycle: models -> models (models.enums uses example.com/work/models)",
+		},
+		{
+			name:    "No import path without a module",
+			cfg:     "output: {file: ./gen.go}\n",
+			imports: map[PartID][]string{"models.types": {"", "fmt"}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			l, err := Plan(parseConfig(t, tc.cfg, "/work"), modelParts, tc.mod)
+			require.NoError(t, err)
+			err = l.CheckImports(tc.imports)
+
+			if tc.wantMsg == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, ErrImportCycle)
+			assert.EqualError(t, err, tc.wantMsg)
+		})
+	}
+}
