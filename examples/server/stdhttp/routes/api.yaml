@@ -1,0 +1,31 @@
+openapi: 3.2.0
+info:
+  title: Routes
+  version: "1.0"
+paths:
+  /search:
+    query:
+      operationId: search
+      summary: Search with the query in the body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: {type: string}
+      responses:
+        "200":
+          description: What was found.
+          content:
+            text/plain:
+              schema: {type: string}
+    additionalOperations:
+      PURGE:
+        operationId: purgeSearch
+        summary: Drop the search cache.
+        responses:
+          "204":
+            description: Dropped.

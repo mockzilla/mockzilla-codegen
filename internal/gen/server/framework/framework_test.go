@@ -113,6 +113,36 @@ func TestIdentifier(t *testing.T) {
 	}
 }
 
+func TestCheckMethod(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		method  string
+		wantErr string
+	}{
+		{name: "A method with a function on every router", method: "GET"},
+		{name: "The last of them", method: "TRACE"},
+		{name: "QUERY of OpenAPI 3.2", method: "QUERY", wantErr: "the router does not take the method QUERY"},
+		{name: "A method a spec adds", method: "PURGE", wantErr: "the router does not take the method PURGE"},
+		{name: "Lower case", method: "get", wantErr: "the router does not take the method get"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := CheckMethod(tc.method)
+
+			if tc.wantErr != "" {
+				require.ErrorIs(t, err, ErrMethod)
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestCheck(t *testing.T) {
 	t.Parallel()
 

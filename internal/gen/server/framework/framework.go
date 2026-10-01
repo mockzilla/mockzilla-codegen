@@ -36,6 +36,9 @@ var (
 	paramSegment = regexp.MustCompile(`^[^{}]*\{([^{}]*)\}$`)
 )
 
+// methods are the HTTP methods a router that has one function per method registers.
+var methods = []string{"GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD", "PATCH", "TRACE"}
+
 // Route is one operation on the router. Pattern is the route as the framework writes it.
 type Route struct {
 	Operation string
@@ -68,7 +71,7 @@ type Framework interface {
 	Family() Family
 	Imports() []gomodel.Import
 	// RoutePattern writes an operation's method and OpenAPI path as the router takes them, or
-	// fails for a path the router rejects.
+	// fails for a method or a path the router rejects.
 	RoutePattern(method, path string) (string, error)
 	// Conflicts drops every route the router cannot hold next to an earlier one, with the reason.
 	Conflicts(routes []Route) ([]Route, []Conflict)
@@ -218,6 +221,15 @@ func Identifier(name string) string {
 		}
 	}
 	return b.String()
+}
+
+// CheckMethod fails on a method a router with one function per method has none for, such as
+// QUERY or one a spec adds on its own.
+func CheckMethod(method string) error {
+	if !slices.Contains(methods, method) {
+		return fmt.Errorf("%w %s", ErrMethod, method)
+	}
+	return nil
 }
 
 // Check fails on what no router takes: a path without a leading slash, a { without its } and a *

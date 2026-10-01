@@ -78,6 +78,41 @@ func TestRoutePattern(t *testing.T) {
 	}
 }
 
+// TestRoutePatternMethod checks that any HTTP token is a method, as for ServeMux.
+func TestRoutePatternMethod(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		method  string
+		want    string
+		wantErr string
+	}{
+		{name: "QUERY of OpenAPI 3.2", method: "QUERY", want: "QUERY /search"},
+		{name: "A method a spec adds", method: "PURGE", want: "PURGE /search"},
+		{name: "The marks a token may hold", method: "M-SEARCH.v1_2~", want: "M-SEARCH.v1_2~ /search"},
+		{name: "A space", method: "GET IT", wantErr: `the router does not take the method "GET IT"`},
+		{name: "A character outside ASCII", method: "GÉT", wantErr: `the router does not take the method "GÉT"`},
+		{name: "No method", method: "", wantErr: `the router does not take the method ""`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := Framework{}.RoutePattern(tc.method, "/search")
+
+			if tc.wantErr != "" {
+				require.ErrorIs(t, err, framework.ErrMethod)
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+			assert.NotPanics(t, func() { http.NewServeMux().Handle(got, http.NotFoundHandler()) })
+		})
+	}
+}
+
 // TestConflicts checks which routes are dropped, and that ServeMux takes the kept ones together
 // and panics on each dropped one next to them.
 func TestConflicts(t *testing.T) {
