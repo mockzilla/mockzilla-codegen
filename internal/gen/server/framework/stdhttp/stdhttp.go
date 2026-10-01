@@ -23,8 +23,6 @@ import (
 
 const (
 	importPath = "net/http"
-	// restName names the wildcard a trailing * becomes.
-	restName = "rest"
 	// methodMarks are the characters a method may hold besides letters and digits.
 	methodMarks = "!#$%&'*+-.^_`|~"
 )
@@ -52,11 +50,9 @@ func (Framework) Imports() []gomodel.Import {
 	return []gomodel.Import{{Path: importPath}}
 }
 
-// RoutePattern writes METHOD /path with each parameter as a wildcard named as an identifier, a
-// trailing * as {rest...} and a trailing slash as {$}, so the route matches the path exactly. It
-// fails on what ServeMux panics on: a method that is no token, a path that has no leading slash
-// or is not clean, a parameter that does not fill its segment or has no name, a wildcard named
-// twice.
+// RoutePattern writes METHOD /path so the route matches the path and nothing else: a parameter as
+// a wildcard named as an identifier, a trailing * as {rest...}, a trailing slash as {$}. It fails
+// on what ServeMux panics on.
 func (Framework) RoutePattern(method, oasPath string) (string, error) {
 	switch {
 	case !isToken(method):
@@ -75,9 +71,10 @@ func (Framework) RoutePattern(method, oasPath string) (string, error) {
 		case seg == "" && isLast:
 			segments[i] = "{$}"
 		case seg == "*" && isLast:
-			segments[i] = "{" + restName + "...}"
-			names = append(names, restName)
-		case !strings.ContainsAny(seg, "{}"):
+			segments[i] = "{" + restName(names) + "...}"
+		case !strings.Contains(seg, "{"):
+		case len(framework.Params(seg)) == 0:
+			return "", fmt.Errorf("%w: a { has no }", framework.ErrPattern)
 		case !wildcardSegment.MatchString(seg):
 			return "", fmt.Errorf("%w: a parameter must fill its segment, unlike %s", framework.ErrPattern, seg)
 		default:
@@ -144,4 +141,14 @@ func cleanPath(p string) string {
 		np += "/"
 	}
 	return np
+}
+
+// restName names the wildcard a trailing * becomes: rest, with an underscore added for as long as
+// a parameter of the path has the name.
+func restName(taken []string) string {
+	name := "rest"
+	for slices.Contains(taken, name) {
+		name += "_"
+	}
+	return name
 }
