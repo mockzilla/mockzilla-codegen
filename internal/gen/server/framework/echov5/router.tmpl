@@ -21,7 +21,7 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Echo {
 {{- range .Routes}}
 		e.{{.HTTPMethod}}({{.Pattern}}, adapter.{{.Operation}}, m...)
 {{- end}}
-{{- block "server.router-extra" .}}{{end}}
+{{- override "server.router-extra" .}}
 	}
 
 	e, _ := o.Router.(*{{.Framework}}.Echo)

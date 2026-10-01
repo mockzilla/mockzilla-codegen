@@ -20,7 +20,8 @@ type field struct {
 func fieldsOf(t reflect.Type) []field {
 	fields := make([]field, 0, t.NumField())
 	for f := range t.Fields() {
-		if !f.IsExported() {
+		key := f.Tag.Get("yaml")
+		if !f.IsExported() || key == "-" {
 			continue
 		}
 
@@ -29,7 +30,7 @@ func fieldsOf(t reflect.Type) []field {
 			enum = strings.Split(tag, ",")
 		}
 		fields = append(fields, field{
-			key:  f.Tag.Get("yaml"),
+			key:  key,
 			desc: f.Tag.Get("desc"),
 			enum: enum,
 			typ:  f.Type,

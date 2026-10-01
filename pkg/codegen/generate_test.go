@@ -163,6 +163,7 @@ func TestGenerateErrors(t *testing.T) {
 		setup   func(t *testing.T, dir string)
 		opts    []Option
 		wantErr error
+		wantMsg string
 	}{
 		{
 			name:    "Invalid config",
@@ -195,11 +196,46 @@ func TestGenerateErrors(t *testing.T) {
 			name:    "Template override of an unknown block",
 			cfg:     "templates: {models.struct: x}\n",
 			wantErr: config.ErrInvalid,
+			wantMsg: "invalid config: templates.models.struct: unknown block; the blocks are " +
+				"server.request-options-extra, server.response-data-extra, server.router-extra, server.service-header",
+		},
+		{
+			name:    "Template override of a server block without a server",
+			cfg:     "templates: {server.service-header: x}\n",
+			wantErr: config.ErrInvalid,
+			wantMsg: "invalid config: templates.server.service-header: needs a server block",
 		},
 		{
 			name:    "Template override file that is missing",
-			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: ./header.tmpl}\n",
+			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: {file: ./header.tmpl}}\n",
 			wantErr: ErrTemplateFile,
+		},
+		{
+			name: "Template override whose text is a path",
+			cfg:  "server: {framework: chi}\n",
+			edit: func(cfg *config.Config) {
+				cfg.Templates = map[string]config.Template{"server.service-header": {Text: "./header.tmpl"}}
+			},
+			wantErr: config.ErrInvalid,
+			wantMsg: `invalid config: templates.server.service-header: "./header.tmpl" is a path, want {file: ./header.tmpl}`,
+		},
+		{
+			name:    "Template override that reads a key the user-context does not have",
+			cfg:     "server: {framework: chi}\nuser-context: {owner: platform}\ntemplates: {server.service-header: \"// Owned by {{.User.team}}.\"}\n",
+			wantErr: render.ErrExecute,
+			wantMsg: `./gen.go: render: template: server.service-header:1:19: executing "server.service-header" at <.User.team>: map has no entry for key "team"`,
+		},
+		{
+			name:    "Template override that writes a key the user-context gives no value",
+			cfg:     "server: {framework: chi}\nuser-context: {owner: }\ntemplates: {server.service-header: \"// Owned by {{.User.owner}}.\"}\n",
+			wantErr: render.ErrNoValue,
+			wantMsg: "./gen.go: render: server.service-header: a value that is not set was written as <no value>",
+		},
+		{
+			name:    "Template override that writes a missing key it asks for with index",
+			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: '// Owned by {{index .User \"owner\"}}.'}\n",
+			wantErr: render.ErrNoValue,
+			wantMsg: "./gen.go: render: server.service-header: a value that is not set was written as <no value>",
 		},
 	}
 
@@ -224,6 +260,9 @@ func TestGenerateErrors(t *testing.T) {
 			res, err := Generate(context.Background(), cfg, opts...)
 
 			require.ErrorIs(t, err, tc.wantErr)
+			if tc.wantMsg != "" {
+				require.EqualError(t, err, tc.wantMsg)
+			}
 			assert.Nil(t, res)
 		})
 	}
@@ -242,23 +281,29 @@ func TestModelOfUnknownFramework(t *testing.T) {
 	require.ErrorIs(t, g.model(context.Background()), ErrFramework)
 }
 
-// TestGenerateTemplateOverrides overrides a block inline and one from a file, both reading the
-// user-context.
+// TestGenerateTemplateOverrides overrides one block from a file and two with text, the second of
+// which ends like the name of a file. The first two read the user-context.
 func TestGenerateTemplateOverrides(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "header.tmpl"), []byte("// Owned by {{.User.owner}}.\n"), 0o600))
-	cfg, err := config.Parse([]byte("server: {framework: chi}\nuser-context: {owner: platform}\n"+
-		"templates: {server.service-header: ./header.tmpl, server.request-options-extra: \"\\n\\tOwner string // {{.User.owner}}\"}\n"), dir)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "header.txt"), []byte("// Owned by {{.User.owner}}.\n"), 0o600))
+	cfg, err := config.Parse([]byte(`server: {framework: chi}
+user-context: {owner: platform}
+templates:
+  server.service-header: {file: ./header.txt}
+  server.request-options-extra: "Owner string // {{.User.owner}}"
+  server.response-data-extra: // The owner is named in header.tmpl
+`), dir)
 	require.NoError(t, err)
 
 	res, err := Generate(context.Background(), cfg, WithSpec([]byte(storeSpec)))
 
 	require.NoError(t, err)
 	content := string(res.Files[0].Content)
-	assert.Contains(t, content, "// Owned by platform.\n// ServiceInterface is what")
+	assert.Contains(t, content, "\n\n// Owned by platform.\n\n// ServiceInterface is what")
 	assert.Contains(t, content, "\tOwner      string // platform\n\tRawRequest *http.Request\n")
+	assert.Contains(t, content, "\tBody    any\n\t// The owner is named in header.tmpl\n\n\tcontentType string\n")
 }
 
 func TestGenerationRenderErrors(t *testing.T) {

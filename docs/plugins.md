@@ -144,6 +144,12 @@ a name is an identifier, and a value is a func that returns one value, or one va
 The rules for the built-in templates apply: decide everything in Go and keep the template to
 `range` and `if` over the data.
 
+A key that a map does not have is an error, where `text/template` alone writes `<no value>` into
+the code: `{{.owner}}` fails on a `UserContext` without `owner`. Ask for a key that may be
+missing with `index` under `with` or `if`, as in
+`{{with index . "owner"}}// Owned by {{.}}.{{end}}`. Printed on its own, `index` writes
+`<no value>` for such a key.
+
 ## The API
 
 `Contribute` sees the generated code once names are resolved and files are laid out. The struct
@@ -224,16 +230,25 @@ Main (`ScaffoldMain`):
 
 ## Template overrides
 
-Without a plugin, the config can replace a closed list of blocks in the built-in templates. A
-value is the template text, or the path of a `.tmpl` file relative to the config:
+Without a plugin, the config can replace a closed list of blocks in the built-in templates, which
+are empty until it does. A value is the template text. To keep the text in a file, write
+`{file: <path>}`, with the path relative to the config. The form of the value alone says which of
+the two it is: a text is never read as a path, whatever it looks like.
 
 ```yaml
 templates:
-  server.service-header: ./templates/header.tmpl
-  server.request-options-extra: "\n\tTenant string"
+  server.service-header: {file: ./templates/header.tmpl}
+  server.request-options-extra: Tenant string
+  server.router-extra: |
+    r.Get("/health", health)
+    r.Get("/owner", {{.User.handler}})
 user-context:
-  owner: platform
+  handler: ownerHandler
 ```
+
+The text of a block goes on lines of its own, without the blank lines around it, so it needs no
+line break at its start or its end. `server.service-header` is followed by a blank line, which
+keeps it out of the comment of the interface. A block whose text comes out empty adds nothing.
 
 | Block | Where | Data |
 |---|---|---|
@@ -247,7 +262,18 @@ with `route`; an echo route on `e`, with `m...` as its middleware; a kratos rout
 router. On the other frameworks the route goes on the router the `register` closure of
 `router.tmpl` names, `e` for gin, `app` for fiber and iris, `r` for gorilla-mux, fasthttp, beego
 and go-zero, `h` for hertz and `s` for goframe, and its handler is an `http.Handler` wrapped as
-`handle(route(h))`, or `route(h)` alone on gorilla-mux and go-zero. An unknown block is a config
-error that lists the blocks. The blocks inside a struct or a function start after the line before
-them, so their text begins with a newline. `user-context` is
-available as `.User` in every block and as `API.UserContext` to plugins.
+`handle(route(h))`, or `route(h)` alone on gorilla-mux and go-zero.
+
+`user-context` is available as `.User` in every block and as `API.UserContext` to plugins. A key
+it does not have is an error: `{{.User.team}}` fails in a config that sets no `team`. Ask for a
+key that may be missing with `index` under `if` or `with`, as in `{{if index .User "team"}}`. A
+block that writes `<no value>` all the same is an error too: it prints a key the config gives no
+value, or an `index` on its own.
+
+These are config errors:
+
+- a block that does not exist, with the list of those that do
+- a `server` block in a config without `server`
+- a value without text, and `{file: }` without a path
+- text that can only be a path, such as `./header.tmpl` or `templates/header.txt`: it would be
+  written into the code as it is, so the error asks for `{file: ./header.tmpl}`

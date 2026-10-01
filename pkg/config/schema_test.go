@@ -78,6 +78,21 @@ func TestTypeSchema(t *testing.T) {
 			want: map[string]any{"type": "string", "pattern": durationPattern},
 		},
 		{
+			name: "Template is its text or the file that holds it",
+			typ:  reflect.TypeFor[Template](),
+			want: map[string]any{"oneOf": []any{
+				map[string]any{"type": "string"},
+				map[string]any{
+					"type":                 "object",
+					"additionalProperties": false,
+					"required":             []string{"file"},
+					"properties": map[string]any{
+						"file": map[string]any{"type": "string", "description": "File that holds the template text, relative to the config."},
+					},
+				},
+			}},
+		},
+		{
 			name: "Slice",
 			typ:  reflect.TypeFor[[]string](),
 			want: map[string]any{"type": "array", "items": map[string]any{"type": "string"}},

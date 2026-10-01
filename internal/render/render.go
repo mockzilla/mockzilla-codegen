@@ -9,26 +9,37 @@ package render
 import (
 	"bytes"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"maps"
 	"slices"
 	"strings"
 	"text/template"
+	"unicode"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
-const fileTemplate = "render/file.tmpl"
+const (
+	fileTemplate = "render/file.tmpl"
+
+	// missingKey makes a key a map does not have an error, where a template would write noValue.
+	missingKey = "missingkey=error"
+
+	// noValue is what a template writes for a value that is not set, such as a key the config
+	// gives no value.
+	noValue = "<no value>"
+)
 
 //go:embed *.tmpl
 var templates embed.FS
 
 // Set is the templates of one generator: the .tmpl files at the root of FS, named Name/<file>
 // once loaded. Parts maps each part to the file that renders it; Blocks lists the blocks a
-// config may override.
+// config may override, which a template writes with the override func.
 type Set struct {
 	Name   string
 	FS     fs.FS
@@ -45,9 +56,12 @@ type Source struct {
 	Funcs template.FuncMap
 }
 
-// Options mirror the config keys the engine reads.
+// Options are what the engine reads of a config. Templates and Format mirror its keys. Needs
+// names, for each block of a generator the config leaves out, the config key that generator
+// needs.
 type Options struct {
 	Templates map[string]string
+	Needs     map[string]string
 	Format    bool
 }
 
@@ -62,17 +76,20 @@ type FileData struct {
 	Parts   []string
 }
 
-// Engine holds every template of a run.
+// Engine holds every template of a run. An override is a template apart from the others: one
+// that could run the template that asks for it would never end.
 type Engine struct {
-	tmpl   *template.Template
-	parts  map[layout.PartID]string
-	format bool
+	tmpl      *template.Template
+	parts     map[layout.PartID]string
+	overrides map[string]*template.Template
+	format    bool
 }
 
 // New loads the templates of every set, then the block overrides. An override of a block no set
 // declares, or one that does not parse, is a config error.
 func New(sets []Set, opts Options) (*Engine, error) {
-	e := &Engine{tmpl: template.New("").Funcs(funcs()), parts: make(map[layout.PartID]string), format: opts.Format}
+	e := &Engine{parts: make(map[layout.PartID]string), overrides: make(map[string]*template.Template), format: opts.Format}
+	e.tmpl = template.New("").Option(missingKey).Funcs(funcs()).Funcs(template.FuncMap{"override": e.overrideLines})
 	var blocks []string
 	for _, set := range slices.Concat([]Set{{Name: "render", FS: templates}}, sets) {
 		if err := e.load(set); err != nil {
@@ -81,7 +98,7 @@ func New(sets []Set, opts Options) (*Engine, error) {
 		blocks = append(blocks, set.Blocks...)
 	}
 
-	if err := e.override(opts.Templates, blocks); err != nil {
+	if err := e.override(opts, blocks); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -131,10 +148,10 @@ func (e *Engine) load(set Set) error {
 	return nil
 }
 
-func (e *Engine) override(texts map[string]string, blocks []string) error {
+func (e *Engine) override(opts Options, blocks []string) error {
 	var issues []config.Issue
-	for _, name := range slices.Sorted(maps.Keys(texts)) {
-		if problem := e.define(name, texts[name], blocks); problem != "" {
+	for _, name := range slices.Sorted(maps.Keys(opts.Templates)) {
+		if problem := e.define(name, opts, blocks); problem != "" {
 			issues = append(issues, config.Issue{Key: "templates." + name, Message: problem})
 		}
 	}
@@ -145,13 +162,17 @@ func (e *Engine) override(texts map[string]string, blocks []string) error {
 	return nil
 }
 
-// define replaces block name with text. It returns what is wrong with the override, if anything.
-func (e *Engine) define(name, text string, blocks []string) string {
-	if !slices.Contains(blocks, name) {
-		return unknownBlock(blocks)
+// define makes the text opts has for block name its override. It returns what is wrong with the
+// override, if anything.
+func (e *Engine) define(name string, opts Options, blocks []string) string {
+	switch key, isLeftOut := opts.Needs[name]; {
+	case isLeftOut:
+		return "needs a " + key + " block"
+	case !slices.Contains(blocks, name):
+		return unknownBlock(slices.Concat(blocks, slices.Collect(maps.Keys(opts.Needs))))
 	}
 
-	t, err := template.New(name).Funcs(funcs()).Parse(text)
+	t, err := template.New(name).Option(missingKey).Funcs(funcs()).Parse(opts.Templates[name])
 	if err != nil {
 		return err.Error()
 	}
@@ -160,22 +181,54 @@ func (e *Engine) define(name, text string, blocks []string) string {
 			return fmt.Sprintf("defines %q; an override replaces its own block only", other.Name())
 		}
 	}
-	// text/template's AddParseTree never returns an error.
-	_, _ = e.tmpl.AddParseTree(name, t.Tree)
+	e.overrides[name] = t
 	return ""
 }
 
 func (e *Engine) execute(name string, data any) ([]byte, error) {
 	var b bytes.Buffer
 	if err := e.tmpl.ExecuteTemplate(&b, name, data); err != nil {
+		// An override that fails says where in its own text, not where a template asked for it.
+		var failed *overrideError
+		if errors.As(err, &failed) {
+			err = failed.err
+		}
 		return nil, fmt.Errorf("%w: %w", ErrExecute, err)
 	}
 	return b.Bytes(), nil
 }
 
+// overrideLines is the override func of the templates. It runs the override of block on data and
+// returns its text on lines of its own: a line break, then the text without the blank lines
+// around it. A block the config leaves alone, and an override that writes nothing, give nothing.
+// Text that holds noValue is an error.
+func (e *Engine) overrideLines(block string, data any) (string, error) {
+	t, ok := e.overrides[block]
+	if !ok {
+		return "", nil
+	}
+
+	var b bytes.Buffer
+	if err := t.Execute(&b, data); err != nil {
+		return "", &overrideError{err: err}
+	}
+	if strings.Contains(b.String(), noValue) {
+		return "", &overrideError{err: fmt.Errorf("%s: %w", block, ErrNoValue)}
+	}
+
+	// The first line keeps its indent, which shows in output that is not formatted.
+	text := strings.TrimRightFunc(b.String(), unicode.IsSpace)
+	blank := len(text) - len(strings.TrimLeftFunc(text, unicode.IsSpace))
+	text = text[strings.LastIndexByte(text[:blank], '\n')+1:]
+	if text == "" {
+		return "", nil
+	}
+	return "\n" + text, nil
+}
+
 // RenderSource parses src on its own, apart from the sets, and runs it on data.
 func RenderSource(src Source, data any) ([]byte, error) {
-	t, err := template.New(src.Name).Funcs(funcs()).Funcs(src.Funcs).Parse(src.Text)
+	t, err := template.New(src.Name).Option(missingKey).Funcs(funcs()).Funcs(src.Funcs).Parse(src.Text)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s: %w", ErrTemplate, src.Name, err)
 	}
@@ -189,7 +242,7 @@ func RenderSource(src Source, data any) ([]byte, error) {
 
 func unknownBlock(blocks []string) string {
 	if len(blocks) == 0 {
-		return "unknown block; no block can be overridden yet"
+		return "unknown block; there is no block to override"
 	}
 	return "unknown block; the blocks are " + strings.Join(slices.Sorted(slices.Values(blocks)), ", ")
 }

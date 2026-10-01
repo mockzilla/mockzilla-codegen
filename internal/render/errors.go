@@ -12,4 +12,15 @@ var (
 	ErrUnknownPart = errors.New("no template for part")
 	ErrExecute     = errors.New("render")
 	ErrFunc        = errors.New("template func")
+	ErrNoValue     = errors.New("a value that is not set was written as <no value>")
 )
+
+// overrideError is how a block override failed, kept apart from what the template that ran the
+// override adds to it.
+type overrideError struct {
+	err error
+}
+
+func (e *overrideError) Error() string {
+	return e.err.Error()
+}

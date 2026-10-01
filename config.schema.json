@@ -418,9 +418,26 @@
     },
     "templates": {
       "additionalProperties": {
-        "type": "string"
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "description": "File that holds the template text, relative to the config.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "file"
+            ],
+            "type": "object"
+          }
+        ]
       },
-      "description": "Template overrides, keyed by block name.",
+      "description": "Template overrides, keyed by block name: the text, or the file that holds it.",
       "type": "object"
     },
     "user-context": {

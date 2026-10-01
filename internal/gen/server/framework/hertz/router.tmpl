@@ -23,7 +23,7 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Hertz {
 {{- range .Routes}}
 		h.{{.HTTPMethod}}({{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(adapter.{{.Operation}}))))
 {{- end}}
-{{- block "server.router-extra" .}}{{end}}
+{{- override "server.router-extra" .}}
 	}
 
 	if h, _ := o.Router.(*{{.Framework}}.Hertz); h != nil {

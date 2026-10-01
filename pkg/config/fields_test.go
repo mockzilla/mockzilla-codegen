@@ -12,9 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// sample has a field a config file sets with an enum, one without, and one the file cannot set.
 type sample struct {
 	Kind  string `yaml:"kind" enum:"a,b" desc:"Which kind."`
 	Count int    `yaml:"count"`
+	Note  string `yaml:"-"`
 }
 
 func TestFieldsOf(t *testing.T) {
