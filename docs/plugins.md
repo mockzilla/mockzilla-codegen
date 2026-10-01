@@ -44,11 +44,25 @@ type FieldSpec struct {
 `Idents` are reserved before the models are named, so a schema called `Routes` becomes
 `RoutesSchema` when a plugin declares `Routes`. List every package-level name the parts and
 scaffolds declare; the built-in scaffold names such as `ErrNotImplemented` are reserved already.
+Each name is a Go identifier. Reserving a name keeps the models away from it and does no more: a
+name that two plugins, or a plugin and the generator, declare in one package is left to the
+compiler.
 
 `RequestOptionFields` go into the request options of every operation, after the parameter groups
 and the bodies and before `RawRequest`. A field cannot take a name the options declare themselves:
 the parameter groups (`PathParams`, `Query`, `QueryString`, `Headers`, `Cookies`), a name that
 starts with `Body`, `RawRequest` or `Validate`. Two plugins cannot add the same field.
+
+The type of a field follows the rules of a [`TypeRef`](#the-api). With an import path it is an
+identifier, or a pointer, slice, array, map or channel around one. A package needs its import
+path:
+
+```go
+TypeRef{Name: "func() any"}                                                 // written as it is
+TypeRef{Name: "*Span", Package: "trace", ImportPath: "example.com/trace"}   // *trace.Span
+TypeRef{Name: "Option[Pet]", Package: "opt", ImportPath: "example.com/opt"} // an error
+TypeRef{Name: "*Span", Package: "trace"}                                    // an error: no import path
+```
 
 ### Contribute
 
@@ -56,7 +70,7 @@ starts with `Body`, `RawRequest` or `Validate`. Two plugins cannot add the same 
 type Contribution struct {
 	Parts     []PartSource            // placed with output.files as plugin.<name>.<part>
 	Scaffolds map[ScaffoldKind]string // replacement templates of the scaffold files
-	Funcs     template.FuncMap        // extra funcs for this plugin's templates only
+	Funcs     template.FuncMap        // funcs for this plugin's templates only
 }
 
 type PartSource struct {
@@ -96,6 +110,11 @@ var Bodies = map[string]func() any{
 }
 ```
 
+A func in `Funcs` replaces one of the same name, `expr` and `import` included, in the templates of
+that plugin only. So a plugin can pass a whole library of funcs, and a func the generator gains
+later never changes what a plugin's template calls. `Funcs` has to be a map `text/template` takes:
+a name is an identifier, and a value is a func that returns one value, or one value and an error.
+
 The rules for the built-in templates apply: decide everything in Go and keep the template to
 `range` and `if` over the data.
 
@@ -134,10 +153,19 @@ type Success struct {
 }
 ```
 
-`TypeRef` is a Go type: `Name` as the package that declares it writes it (`Pet`, `[]Pet`,
-`*Pet`, `func() any`), and `Package` and `ImportPath` of the identifier in it, empty when it needs
-no import. `Expr(from)` writes it as the package with import path `from` spells it; in a template,
-`expr` does the same for the file being written and adds the import.
+`TypeRef` is a Go type: `Name` as the package that declares it writes it, and `Package` and
+`ImportPath` of the identifier in it. With an import path, `Name` is an identifier, or a pointer,
+slice, array, map or channel around one (`Pet`, `[]Pet`, `*Pet`, `map[string]Pet`): the package
+goes before that identifier, and a map key or an array length is written as it is. A generic type,
+a func type or a name that is qualified already cannot carry an import path. Without one, the type
+needs no import and `Name` is written as it is (`string`, `func() any`). A type the generator
+declares has no import path when the output is one package outside a module.
+
+`Expr(from)` writes a type as the package with import path `from` spells it; in a template, `expr`
+does the same for the file being written and adds the import. `expr` fails on a type whose `Name`
+cannot carry its import path, in every file, so a template does not start to fail when the output
+is split into packages. `Expr` runs no check. To write a type around one of another package, put
+it together in the template: `Page[{{expr .Body}}]`.
 
 ## Scaffold data
 
