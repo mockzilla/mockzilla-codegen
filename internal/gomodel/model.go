@@ -94,7 +94,8 @@ type readers struct {
 // IsValidated adds Validate methods, ValidateResponse where responses differ. ErrorMapping maps
 // error type names to the path of their message. IsServer reserves the names of the response
 // constructors of the service contract; HasResponseHeaders declares a struct of the typed headers
-// of every response that has some, which the server and the client envelopes use.
+// of every response that has some, which the server and the client envelopes use. Imports are
+// the packages an x-go-type may name without an x-go-type-import.
 type Options struct {
 	IntType            string
 	Descriptions       bool
@@ -109,6 +110,7 @@ type Options struct {
 	IsServer           bool
 	HasResponseHeaders bool
 	ErrorMapping       map[string]string
+	Imports            []config.Import
 }
 
 // OptionsFrom reads Options from a config. Blocks left out get their defaults.
@@ -124,6 +126,7 @@ func OptionsFrom(cfg *config.Config) Options {
 		IsValidated:      !models.Validation.Skip,
 		ValidateResponse: !models.Validation.Skip && (models.Validation.Response || cfg.Server != nil && cfg.Server.Validation.Response),
 		ErrorMapping:     models.ErrorMapping,
+		Imports:          cfg.Imports,
 	}
 	for _, name := range slices.Sorted(maps.Keys(models.ErrorMapping)) {
 		opts.Reserved = append(opts.Reserved, "New"+name)

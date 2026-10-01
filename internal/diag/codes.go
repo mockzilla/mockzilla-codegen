@@ -38,4 +38,5 @@ const (
 	CodeRouteDropped        = "route-dropped"
 	CodeStreamOnly          = "stream-only"
 	CodeMCPToolName         = "mcp-tool-name"
+	CodeImportUnused        = "import-unused"
 )

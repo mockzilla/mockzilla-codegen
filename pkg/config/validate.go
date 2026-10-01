@@ -34,14 +34,55 @@ func checkPackage(key, name string) []Issue {
 	return []Issue{{Key: key, Message: fmt.Sprintf("%q is not a valid Go package name", name)}}
 }
 
+// checkImports wants every import to be sound on its own and no name twice: code tells two
+// packages apart by their names alone. A path can be listed once under a name and once under _.
 func checkImports(imports []Import) []Issue {
 	var issues []Issue
+	named := make(map[string]int, len(imports))
+	blank := make(map[string]int, len(imports))
+	names := make(map[string]int, len(imports))
 	for i, imp := range imports {
-		if imp.Package == "" {
-			issues = append(issues, Issue{Key: fmt.Sprintf("imports[%d].package", i), Message: "required"})
+		entry := fmt.Sprintf("imports[%d]", i)
+		if key, problem := importProblem(imp); problem != "" {
+			issues = append(issues, Issue{Key: entry + "." + key, Message: problem})
+			continue
+		}
+
+		paths := named
+		if imp.Alias == blankAlias {
+			paths = blank
+		}
+		if first, ok := paths[imp.Package]; ok {
+			issues = append(issues, Issue{Key: entry + ".package", Message: fmt.Sprintf("%q is already listed in imports[%d]", imp.Package, first)})
+			continue
+		}
+		paths[imp.Package] = i
+
+		name := imp.Name()
+		if first, ok := names[name]; ok {
+			issues = append(issues, Issue{Key: entry + ".alias", Message: fmt.Sprintf("%q is the name of imports[%d] too, name one of them differently", name, first)})
+			continue
+		}
+		if name != "" {
+			names[name] = i
 		}
 	}
 	return issues
+}
+
+// importProblem is the key of imp that is wrong and what is wrong with it, if anything.
+func importProblem(imp Import) (key, problem string) {
+	switch {
+	case imp.Package == "":
+		return "package", "required"
+	case imp.Alias == dotAlias:
+		return "alias", `"." is not supported: Go rejects a file that imports a package without using it, and under . the use cannot be checked`
+	case imp.Alias != "" && !token.IsIdentifier(imp.Alias):
+		return "alias", fmt.Sprintf("%q is not a valid Go identifier", imp.Alias)
+	case imp.Alias == "" && imp.Name() == "":
+		return "alias", fmt.Sprintf("required, %q does not end in a Go name", imp.Package)
+	}
+	return "", ""
 }
 
 func checkSimplify(s *Simplify) []Issue {

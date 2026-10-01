@@ -7,8 +7,9 @@ package codegen
 
 import "github.com/mockzilla/mockzilla-codegen/internal/diag"
 
-// Diagnostic is a problem found in the spec. Pointer is a JSON pointer into the prepared spec;
-// File, Line and Col say where it is in the source, Line and Col 0 when unknown.
+// Diagnostic is a problem found in the spec, or in what the config asks of it. Pointer is a JSON
+// pointer into the prepared spec; File, Line and Col say where it is in the source, Line and Col
+// 0 when unknown. A problem that has no place in the spec has none of them.
 type Diagnostic struct {
 	Severity Severity
 	Code     string

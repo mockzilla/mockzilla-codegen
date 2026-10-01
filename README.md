@@ -75,6 +75,7 @@ naming:
   enum-prefix: true
 imports:
   - package: github.com/google/uuid
+  - {package: example.com/shop/tenant, alias: tn}
 models:
   int-type: int64
   descriptions: false
@@ -102,7 +103,7 @@ mcp:
   default-skip: false
 templates:
   server.service-header: {file: ./templates/header.tmpl}
-  server.request-options-extra: Tenant string
+  server.request-options-extra: Tenant tn.ID
 user-context:
   owner: platform
 output:
@@ -120,6 +121,8 @@ Blocks:
   are on when present, even as a bare key (`mcp:`). `mcp` needs `client`.
 - `templates`, `user-context`: overrides of the template blocks a config may replace, and the
   values they see as `.User` ([plugins](docs/plugins.md#template-overrides)).
+- `imports`: the packages that the text of a block or an `x-go-type` names. A generated file
+  imports one when its code refers to it ([imports](docs/plugins.md#imports)).
 - `output`: where the files go. Only this block says where.
 
 ### Output files
