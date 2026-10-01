@@ -50,7 +50,11 @@ func (Framework) Imports() []gomodel.Import {
 // iris, so a path fails when one has a prefix or a suffix or shares a segment with another; a
 // path also fails without a leading slash, with an unclosed brace, a wildcard that is not a
 // segment of its own, last, and a parameter without a name or named twice.
-func (Framework) RoutePattern(_, path string) (string, error) {
+func (Framework) RoutePattern(method, path string) (string, error) {
+	if err := framework.CheckMethod(method); err != nil {
+		return "", err
+	}
+
 	if err := framework.Check(path); err != nil {
 		return "", err
 	}

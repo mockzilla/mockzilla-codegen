@@ -26,7 +26,7 @@ type Framework interface {
 | `Name` | the value of `server.framework`, in kebab case: `std-http` |
 | `Family` | `NetHTTP` when handlers are `http.HandlerFunc`s, `Native` when they have the framework's own shape |
 | `Imports` | every package the framework's templates write, its own module first; the templates get the first as `.Framework` and each as `.Packages.<name>` |
-| `RoutePattern` | the route as the framework writes it, for a method and an OpenAPI path; `framework.ErrPattern` wrapped with the reason for a path the framework rejects |
+| `RoutePattern` | the route as the framework writes it, for a method and an OpenAPI path; `framework.ErrPattern` wrapped with the reason for a path the framework rejects, and `framework.ErrMethod` for a method it has no way to register, which `framework.CheckMethod` answers for a router with one function per method |
 | `Conflicts` | the routes the framework holds together, in the order they are registered, and each route it cannot hold next to an earlier one with the reason |
 | `Handler` | the shape of the adapter's handlers, see below |
 | `PathParam` | the expression that reads a path parameter in a handler |

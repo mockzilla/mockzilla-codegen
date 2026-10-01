@@ -50,9 +50,6 @@ const (
 //go:embed *.tmpl
 var templates embed.FS
 
-// routerMethods are the HTTP methods every router registers.
-var routerMethods = []string{"GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD", "PATCH", "TRACE"}
-
 // The blocks of the server templates a config may override.
 const (
 	BlockServiceHeader       = "server.service-header"
@@ -255,10 +252,6 @@ func routes(ops []*gomodel.Operation, fw framework.Framework) ([]framework.Route
 	var issues []routeIssue
 	for _, op := range ops {
 		if op.Spec.IsWebhook {
-			continue
-		}
-		if !slices.Contains(routerMethods, op.Spec.Method) {
-			issues = append(issues, routeIssue{op: op, reason: "the router does not take the method " + op.Spec.Method})
 			continue
 		}
 		pattern, err := fw.RoutePattern(op.Spec.Method, op.Spec.Path)

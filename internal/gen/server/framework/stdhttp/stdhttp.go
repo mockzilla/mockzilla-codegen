@@ -25,6 +25,8 @@ const (
 	importPath = "net/http"
 	// restName names the wildcard a trailing * becomes.
 	restName = "rest"
+	// methodMarks are the characters a method may hold besides letters and digits.
+	methodMarks = "!#$%&'*+-.^_`|~"
 )
 
 //go:embed *.tmpl
@@ -51,12 +53,14 @@ func (Framework) Imports() []gomodel.Import {
 }
 
 // RoutePattern writes METHOD /path with each parameter as a wildcard named as an identifier, a
-// trailing * as the wildcard {rest...} and a trailing slash as {$}, so the route matches the path
-// exactly. It fails
-// on what ServeMux panics on: a path without a leading slash, one that is not clean, a parameter
-// that does not fill its segment or has no name, and two wildcards of one name.
+// trailing * as {rest...} and a trailing slash as {$}, so the route matches the path exactly. It
+// fails on what ServeMux panics on: a method that is no token, a path that has no leading slash
+// or is not clean, a parameter that does not fill its segment or has no name, a wildcard named
+// twice.
 func (Framework) RoutePattern(method, oasPath string) (string, error) {
 	switch {
+	case !isToken(method):
+		return "", fmt.Errorf("%w %q", framework.ErrMethod, method)
 	case !strings.HasPrefix(oasPath, "/"):
 		return "", fmt.Errorf("%w: it must begin with /", framework.ErrPattern)
 	case oasPath != cleanPath(oasPath):
@@ -122,6 +126,15 @@ func (Framework) PathParam(_ *gocode.Scope, name string) string {
 
 func (Framework) Templates() fs.FS {
 	return templates
+}
+
+// isToken reports whether method is an HTTP token, which is all ServeMux asks of a method.
+func isToken(method string) bool {
+	isRejected := func(r rune) bool {
+		isAlnum := 'a' <= r && r <= 'z' || 'A' <= r && r <= 'Z' || '0' <= r && r <= '9'
+		return !isAlnum && !strings.ContainsRune(methodMarks, r)
+	}
+	return method != "" && !strings.ContainsFunc(method, isRejected)
 }
 
 // cleanPath is the path as ServeMux cleans it, which keeps a trailing slash.
