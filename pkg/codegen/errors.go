@@ -12,4 +12,6 @@ var (
 	ErrFramework    = errors.New("no router for the framework")
 	ErrPlugin       = errors.New("plugin")
 	ErrTemplateFile = errors.New("read template file")
+
+	errTypeRef = errors.New("type")
 )

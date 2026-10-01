@@ -43,18 +43,23 @@ type source struct {
 	isScaffold bool
 }
 
-// render runs the template on data. Its expr and import funcs write for the file of s.
+// render runs the template on data. Its expr and import funcs write for the file of s; a func of
+// the plugin with either name replaces it.
 func (src source) render(id layout.PartID, data any, s *gocode.Scope) ([]byte, error) {
 	for _, imp := range src.imports {
 		s.Import(gomodel.Import{Path: imp.Path, Alias: imp.Alias})
 	}
 
-	funcs := make(template.FuncMap, len(src.funcs)+2)
-	maps.Copy(funcs, src.funcs)
-	funcs["expr"] = func(t TypeRef) string {
-		return s.Qualified(t.Name, gomodel.Import{Path: t.ImportPath, Alias: t.Package})
+	funcs := template.FuncMap{
+		"expr": func(t TypeRef) (string, error) {
+			if err := t.check(); err != nil {
+				return "", err
+			}
+			return s.Qualified(t.Name, gomodel.Import{Path: t.ImportPath, Alias: t.Package}), nil
+		},
+		"import": func(path string) string { return s.Import(gomodel.Import{Path: path}) },
 	}
-	funcs["import"] = func(path string) string { return s.Import(gomodel.Import{Path: path}) }
+	maps.Copy(funcs, src.funcs)
 
 	out, err := render.RenderSource(render.Source{Name: string(id), Text: src.text, Funcs: funcs}, data)
 	if err != nil {
@@ -91,7 +96,13 @@ func (ps *pluginSet) reserve() error {
 		names = append(names, name)
 
 		res := p.Reserve()
+		for _, ident := range res.Idents {
+			if !token.IsIdentifier(ident) {
+				return fmt.Errorf("%w %s: reserved name %q is no identifier", ErrPlugin, name, ident)
+			}
+		}
 		ps.idents = append(ps.idents, res.Idents...)
+
 		for _, f := range res.RequestOptionFields {
 			if err := ps.reserveField(name, f); err != nil {
 				return err
@@ -107,10 +118,15 @@ func (ps *pluginSet) reserveField(plugin string, f FieldSpec) error {
 		return fmt.Errorf("%w %s: request option field %q is no exported identifier", ErrPlugin, plugin, f.Name)
 	case f.Type.Name == "":
 		return fmt.Errorf("%w %s: request option field %s has no type", ErrPlugin, plugin, f.Name)
+	case f.Type.ImportPath == "" && f.Type.Package != "":
+		return fmt.Errorf("%w %s: request option field %s has a type of package %s without an import path", ErrPlugin, plugin, f.Name, f.Type.Package)
 	case server.ReservedField(f.Name):
 		return fmt.Errorf("%w %s: request option field %s is one the request options declare themselves", ErrPlugin, plugin, f.Name)
 	case slices.ContainsFunc(ps.fields, func(x server.ExtraField) bool { return x.Name == f.Name }):
 		return fmt.Errorf("%w %s: request option field %s is added twice", ErrPlugin, plugin, f.Name)
+	}
+	if err := f.Type.check(); err != nil {
+		return fmt.Errorf("%w %s: request option field %s: %w", ErrPlugin, plugin, f.Name, err)
 	}
 
 	ps.fields = append(ps.fields, server.ExtraField{
@@ -133,6 +149,9 @@ func (ps *pluginSet) contribute(shown *API) ([]layout.Part, error) {
 		}
 		if c == nil {
 			continue
+		}
+		if err = render.CheckFuncs(c.Funcs); err != nil {
+			return nil, fmt.Errorf("%w %s: %w", ErrPlugin, p.Name(), err)
 		}
 
 		for _, src := range c.Parts {

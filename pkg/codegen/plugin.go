@@ -6,6 +6,7 @@
 package codegen
 
 import (
+	"fmt"
 	"text/template"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
@@ -20,8 +21,8 @@ type Plugin interface {
 }
 
 // Reservations is what a plugin declares before naming. Idents are the package-level names its
-// parts declare, which no model may take; RequestOptionFields are added to the request options of
-// every operation, before RawRequest.
+// parts declare, Go identifiers which no model may take; RequestOptionFields are added to the
+// request options of every operation, before RawRequest.
 type Reservations struct {
 	Idents              []string
 	RequestOptionFields []FieldSpec
@@ -37,7 +38,8 @@ type FieldSpec struct {
 
 // Contribution is what a plugin generates. Parts are placed through output.files as
 // plugin.<name>.<part>; Scaffolds replace the templates of the scaffold files the config writes;
-// Funcs are available to this plugin's templates, next to the generator's.
+// Funcs are available to this plugin's templates, next to the generator's, and replace those of
+// the same name.
 type Contribution struct {
 	Parts     []PartSource
 	Scaffolds map[ScaffoldKind]string
@@ -123,9 +125,10 @@ type Success struct {
 	IsRaw       bool
 }
 
-// TypeRef is a Go type. Name is the type as the package that declares it writes it: an identifier,
-// or a pointer, slice or map around one, such as []Pet. Package and ImportPath are those of the
-// identifier, empty for a type that needs no import.
+// TypeRef is a Go type. Name is the type as the package that declares it writes it, Package and
+// ImportPath are those of the identifier in it. With an ImportPath, Name is an identifier, or a
+// pointer, slice, array, map or channel around one, such as []Pet; without one the type needs no
+// import and Name is written as it is, such as func() any.
 type TypeRef struct {
 	Name       string
 	Package    string
@@ -139,4 +142,12 @@ func (t TypeRef) Expr(from string) string {
 		return t.Name
 	}
 	return gocode.Qualify(t.Name, t.Package)
+}
+
+// check returns an error when Name cannot be qualified with the package of ImportPath.
+func (t TypeRef) check() error {
+	if t.ImportPath != "" && !gocode.CanQualify(t.Name) {
+		return fmt.Errorf("%w %q of %s is no identifier, nor a pointer, slice, array, map or channel around one", errTypeRef, t.Name, t.ImportPath)
+	}
+	return nil
 }

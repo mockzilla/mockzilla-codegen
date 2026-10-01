@@ -73,6 +73,9 @@ func TestQualify(t *testing.T) {
 		{name: "Identifier", expr: "Pet", pkg: "models", want: "models.Pet"},
 		{name: "Slice of pointers", expr: "[]*Pet", pkg: "models", want: "[]*models.Pet"},
 		{name: "Map", expr: "map[string]Pet_2", pkg: "models", want: "map[string]models.Pet_2"},
+		{name: "Map key is left as it is", expr: "map[Kind]Pet", pkg: "models", want: "map[Kind]models.Pet"},
+		{name: "Array", expr: "[4]Pet", pkg: "models", want: "[4]models.Pet"},
+		{name: "Channel", expr: "<-chan Pet", pkg: "models", want: "<-chan models.Pet"},
 		{name: "No package", expr: "[]Pet", want: "[]Pet"},
 	}
 
@@ -81,6 +84,41 @@ func TestQualify(t *testing.T) {
 			t.Parallel()
 
 			assert.Equal(t, tc.want, Qualify(tc.expr, tc.pkg))
+		})
+	}
+}
+
+func TestCanQualify(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		expr string
+		want bool
+	}{
+		{name: "Identifier", expr: "Pet", want: true},
+		{name: "Pointer to a pointer", expr: "**Pet", want: true},
+		{name: "Slice of arrays", expr: "[][4]Pet", want: true},
+		{name: "Map of maps, whatever the key", expr: "map[Kind]map[func() string]*Pet", want: true},
+		{name: "Channels", expr: "chan<- <-chan Pet", want: true},
+		{name: "Space before the identifier", expr: "[] Pet", want: true},
+		{name: "Space after the identifier", expr: "Pet "},
+		{name: "Comment after the identifier", expr: "Pet // Pet"},
+		{name: "Generic type", expr: "Option[Pet]"},
+		{name: "Function", expr: "func(Pet)"},
+		{name: "Function that returns the identifier", expr: "func() Pet"},
+		{name: "Qualified already", expr: "models.Pet"},
+		{name: "Parentheses", expr: "*(Pet)"},
+		{name: "Struct", expr: "struct{ Pet }"},
+		{name: "No expression", expr: "[]"},
+		{name: "Empty"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, CanQualify(tc.expr))
 		})
 	}
 }
