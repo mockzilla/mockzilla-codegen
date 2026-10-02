@@ -7,6 +7,7 @@ package render
 
 import (
 	"io/fs"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -433,6 +434,28 @@ func TestRenderFile(t *testing.T) {
 			isFormat: true,
 			want:     "package api\n",
 		},
+		{
+			name:     "Comment of a part stays off the last line of the part before it",
+			data:     FileData{Package: "api", Parts: []string{"const (\n\tOne = 1\n)", "// Pet is a pet.\ntype Pet struct{}"}},
+			isFormat: true,
+			want:     "package api\n\nconst (\n\tOne = 1\n)\n\n// Pet is a pet.\ntype Pet struct{}\n",
+		},
+		{
+			name:     "Part stays out of the comment that ends the part before it",
+			data:     FileData{Package: "api", Parts: []string{"var One = 1 // The first.", "var Two = 2"}},
+			isFormat: true,
+			want:     "package api\n\nvar One = 1 // The first.\n\nvar Two = 2\n",
+		},
+		{
+			name: "Any line breaks around a part make one blank line, not formatted",
+			data: FileData{Package: "api", Parts: []string{"type A int", "\n\n\n// B follows A.\ntype B int\n\n\n", " \n\t\n", "\t// C keeps its indent.\n\ttype C int\t\n"}},
+			want: "package api\n\ntype A int\n\n// B follows A.\ntype B int\n\n\t// C keeps its indent.\n\ttype C int\n",
+		},
+		{
+			name: "Parts without text, not formatted",
+			data: FileData{Package: "api", Imports: "import \"embed\"", Parts: []string{"", "\n"}},
+			want: "package api\n\nimport \"embed\"\n",
+		},
 	}
 
 	for _, tc := range tests {
@@ -441,10 +464,12 @@ func TestRenderFile(t *testing.T) {
 
 			e, err := New(nil, Options{Format: tc.isFormat})
 			require.NoError(t, err)
+			parts := slices.Clone(tc.data.Parts)
 
 			got, err := e.RenderFile(tc.data)
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, string(got))
+			assert.Equal(t, parts, tc.data.Parts, "the parts of the caller stay as they are")
 		})
 	}
 }

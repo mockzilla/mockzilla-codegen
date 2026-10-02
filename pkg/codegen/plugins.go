@@ -44,8 +44,8 @@ type source struct {
 	isScaffold bool
 }
 
-// render runs the template on data. Its expr and import funcs write for the file of s; a func of
-// the plugin with either name replaces it.
+// render runs the template on data and checks that it wrote Go declarations. Its expr and import
+// funcs write for the file of s; a func of the plugin with either name replaces it.
 func (src source) render(id layout.PartID, data any, s *gocode.Scope) ([]byte, error) {
 	for _, imp := range src.imports {
 		s.Import(gomodel.Import{Path: imp.Path, Alias: imp.Alias})
@@ -67,6 +67,9 @@ func (src source) render(id layout.PartID, data any, s *gocode.Scope) ([]byte, e
 	maps.Copy(funcs, src.funcs)
 
 	out, err := render.RenderSource(render.Source{Name: string(id), Text: src.text, Funcs: funcs}, data)
+	if err == nil {
+		err = gocode.CheckDecls(string(id), out)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("%w %s: %w", ErrPlugin, src.plugin, err)
 	}
@@ -125,6 +128,8 @@ func (ps *pluginSet) reserveField(plugin string, f FieldSpec) error {
 		return fmt.Errorf("%w %s: request option field %s has no type", ErrPlugin, plugin, f.Name)
 	case f.Type.ImportPath == "" && f.Type.Package != "":
 		return fmt.Errorf("%w %s: request option field %s has a type of package %s without an import path", ErrPlugin, plugin, f.Name, f.Type.Package)
+	case !gocode.IsFieldType(f.Type.Name):
+		return fmt.Errorf("%w %s: request option field %s: type %q is no Go type", ErrPlugin, plugin, f.Name, f.Type.Name)
 	case server.ReservedField(f.Name):
 		return fmt.Errorf("%w %s: request option field %s is one the request options declare themselves", ErrPlugin, plugin, f.Name)
 	case slices.ContainsFunc(ps.fields, func(x server.ExtraField) bool { return x.Name == f.Name }):
@@ -186,13 +191,16 @@ func (ps *pluginSet) addPart(plugin string, src PartSource, funcs template.FuncM
 	case taken:
 		return "", fmt.Errorf("%w %s: the part %s is contributed twice", ErrPlugin, plugin, src.Name)
 	}
-	for _, imp := range src.Imports {
+
+	// A copy, so the imports that are checked here are the ones the file gets.
+	imports := slices.Clone(src.Imports)
+	for _, imp := range imports {
 		if err := imp.check(); err != nil {
 			return "", fmt.Errorf("%w %s: the part %s: %w", ErrPlugin, plugin, src.Name, err)
 		}
 	}
 
-	ps.sources[id] = source{plugin: plugin, text: src.Template, funcs: funcs, imports: src.Imports, data: src.Data}
+	ps.sources[id] = source{plugin: plugin, text: src.Template, funcs: funcs, imports: imports, data: src.Data}
 	return id, nil
 }
 
