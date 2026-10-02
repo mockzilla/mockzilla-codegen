@@ -279,6 +279,18 @@ func TestGenerateErrors(t *testing.T) {
 			wantErr: render.ErrNoValue,
 			wantMsg: "./gen.go: render: server.service-header: a value that is not set was written as <no value>",
 		},
+		{
+			name:    "Template override that calls import, which a plugin template alone has",
+			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: '// {{import \"fmt\"}}'}\n",
+			wantErr: config.ErrInvalid,
+			wantMsg: `invalid config: templates.server.service-header: template: server.service-header:1: function "import" not defined`,
+		},
+		{
+			name:    "Template override that calls expr, which a plugin template alone has",
+			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: '// {{expr .Name}}'}\n",
+			wantErr: config.ErrInvalid,
+			wantMsg: `invalid config: templates.server.service-header: template: server.service-header:1: function "expr" not defined`,
+		},
 	}
 
 	for _, tc := range tests {
