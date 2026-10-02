@@ -3,7 +3,7 @@ var ErrNotImplemented = {{.Errors}}.New("not implemented")
 
 var _ {{.Interface}} = (*{{.Name}})(nil)
 
-// {{.Name}} answers every operation with the body GenerateResponse makes.
+// {{.Name}} answers every operation with what GenerateResponse makes.
 type {{.Name}} struct{}
 
 // New{{.Name}} returns a {{.Name}}.
@@ -17,6 +17,6 @@ func (s *{{$.Name}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) (*
 	if opts.GenerateResponse == nil {
 		return nil, ErrNotImplemented
 	}
-	return &{{.Data}}{Status: {{status .Name}}, Body: opts.GenerateResponse()}, nil
+	return opts.GenerateResponse()
 }
 {{- end}}

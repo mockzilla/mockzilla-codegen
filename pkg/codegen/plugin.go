@@ -22,30 +22,22 @@ type Plugin interface {
 }
 
 // Reservations is what a plugin declares before naming. Idents are the package-level names its
-// parts declare, Go identifiers which no model may take; RequestOptionFields are added to the
-// server's request options of every operation, before RawRequest, and left out when the config
-// has no server.
+// parts declare, Go identifiers which no model may take.
 type Reservations struct {
-	Idents              []string
-	RequestOptionFields []FieldSpec
-}
-
-// FieldSpec is one field a plugin adds. Name is an exported identifier; Type is a Go type, with
-// an ImportPath when it has a Package; Doc is its comment, empty for none.
-type FieldSpec struct {
-	Name string
-	Type TypeRef
-	Doc  string
+	Idents []string
 }
 
 // Contribution is what a plugin generates. Parts go to output.file, or where output.files moves
-// them as plugin.<name>.<part>; Scaffolds replace the templates of the scaffold files the config
-// writes; Funcs are available to this plugin's templates, next to the generator's, and replace
-// those of the same name.
+// them as plugin.<name>.<part>; RequestOptionFields are added to the server's request options of
+// the operation whose ID is the key, before RawRequest: the handlers leave them unset, and a
+// config without a server has none; Scaffolds replace the templates of the scaffold files the
+// config writes; Funcs are available to this plugin's templates, next to the generator's, and
+// replace those of the same name.
 type Contribution struct {
-	Parts     []PartSource
-	Scaffolds map[ScaffoldKind]string
-	Funcs     template.FuncMap
+	Parts               []PartSource
+	RequestOptionFields map[string][]FieldSpec
+	Scaffolds           map[ScaffoldKind]string
+	Funcs               template.FuncMap
 }
 
 // PartSource is one part: its template, the data the template runs on and the imports its code
@@ -76,6 +68,14 @@ func (imp Import) check() error {
 		return fmt.Errorf("%w of %s: the alias %q is not _, . or an identifier", errImport, imp.Path, imp.Alias)
 	}
 	return nil
+}
+
+// FieldSpec is one field a plugin adds. Name is an exported identifier; Type is a Go type, with
+// an ImportPath when it has a Package; Doc is its comment, empty for none.
+type FieldSpec struct {
+	Name string
+	Type TypeRef
+	Doc  string
 }
 
 // ScaffoldKind names a scaffold file.

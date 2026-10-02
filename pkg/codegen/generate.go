@@ -171,13 +171,12 @@ func (g *generation) serverOptions() (server.Options, error) {
 		Scaffold:           server.Scaffold{Service: s.Scaffold.Service != "", Middleware: s.Scaffold.Middleware != "", Main: s.Scaffold.Main != ""},
 		Port:               s.Scaffold.Port,
 		Timeout:            time.Duration(s.Scaffold.Timeout),
-		ExtraFields:        g.plugins.fields,
 		User:               g.cfg.UserContext,
 	}, nil
 }
 
-// place lays the built-in parts out, lets the plugins contribute theirs against that draft, then
-// lays every part out.
+// place lays the built-in parts out, lets the plugins contribute against that draft, hands the
+// server the fields they add, then lays every part out.
 func (g *generation) place() error {
 	mod, err := layout.FindModule(g.cfg.Resolve("."), g.cfg.Output.Module)
 	if err != nil {
@@ -202,6 +201,9 @@ func (g *generation) place() error {
 		added, addErr := g.plugins.contribute(func() *API { return describe(g, draft) })
 		if addErr != nil {
 			return addErr
+		}
+		if g.srv != nil {
+			g.srv.SetExtraFields(g.plugins.fields)
 		}
 
 		// A replaced scaffold uses what its own text names, which only rendering shows.
