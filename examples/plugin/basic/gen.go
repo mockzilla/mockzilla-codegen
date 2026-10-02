@@ -38,8 +38,8 @@ type PetsInterface interface {
 
 // ListPetsServiceRequestOptions is what ListPets receives. RawRequest is the request as it came in.
 type ListPetsServiceRequestOptions struct {
-	// GenerateResponse makes the body of the response, when the service is asked for one.
-	GenerateResponse func() any
+	// GenerateResponse makes the response, when the service is asked for one.
+	GenerateResponse func() (*ListPetsResponseData, error)
 	RawRequest       *http.Request
 }
 
@@ -98,8 +98,8 @@ func (r *ListPetsResponseData) ContentType() string {
 type CreatePetServiceRequestOptions struct {
 	// Body sent as application/json.
 	Body *Pet
-	// GenerateResponse makes the body of the response, when the service is asked for one.
-	GenerateResponse func() any
+	// GenerateResponse makes the response, when the service is asked for one.
+	GenerateResponse func() (*CreatePetResponseData, error)
 	RawRequest       *http.Request
 }
 
@@ -157,8 +157,8 @@ func (r *CreatePetResponseData) ContentType() string {
 // DeletePetServiceRequestOptions is what DeletePet receives. RawRequest is the request as it came in.
 type DeletePetServiceRequestOptions struct {
 	PathParams *DeletePetPathParams
-	// GenerateResponse makes the body of the response, when the service is asked for one.
-	GenerateResponse func() any
+	// GenerateResponse makes the response, when the service is asked for one.
+	GenerateResponse func() (*DeletePetResponseData, error)
 	RawRequest       *http.Request
 }
 
@@ -215,8 +215,8 @@ func (r *DeletePetResponseData) ContentType() string {
 
 // PingServiceRequestOptions is what Ping receives. RawRequest is the request as it came in.
 type PingServiceRequestOptions struct {
-	// GenerateResponse makes the body of the response, when the service is asked for one.
-	GenerateResponse func() any
+	// GenerateResponse makes the response, when the service is asked for one.
+	GenerateResponse func() (*PingResponseData, error)
 	RawRequest       *http.Request
 }
 

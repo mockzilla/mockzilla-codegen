@@ -76,18 +76,19 @@ func (src source) render(id layout.PartID, data any, s *gocode.Scope) ([]byte, e
 	return out, nil
 }
 
-// pluginSet is the plugins of one run and what they reserve and give. idents and fields come in
-// the order the plugins are given; sources holds the template of every part they add and of every
-// scaffold they replace.
+// pluginSet is the plugins of one run and what they reserve and give. idents come in the order
+// the plugins are given; fields holds the request option fields by operation name, each list in
+// that order too; sources holds the template of every part they add and of every scaffold they
+// replace.
 type pluginSet struct {
 	list    []Plugin
 	idents  []string
-	fields  []server.ExtraField
+	fields  map[string][]server.ExtraField
 	sources map[layout.PartID]source
 }
 
 func newPluginSet(list []Plugin) pluginSet {
-	return pluginSet{list: list, sources: make(map[layout.PartID]source)}
+	return pluginSet{list: list, fields: make(map[string][]server.ExtraField), sources: make(map[layout.PartID]source)}
 }
 
 // reserve checks the plugins' names and collects what they reserve.
@@ -110,41 +111,7 @@ func (ps *pluginSet) reserve() error {
 			}
 		}
 		ps.idents = append(ps.idents, res.Idents...)
-
-		for _, f := range res.RequestOptionFields {
-			if err := ps.reserveField(name, f); err != nil {
-				return err
-			}
-		}
 	}
-	return nil
-}
-
-func (ps *pluginSet) reserveField(plugin string, f FieldSpec) error {
-	switch {
-	case !token.IsIdentifier(f.Name) || !token.IsExported(f.Name):
-		return fmt.Errorf("%w %s: request option field %q is no exported identifier", ErrPlugin, plugin, f.Name)
-	case f.Type.Name == "":
-		return fmt.Errorf("%w %s: request option field %s has no type", ErrPlugin, plugin, f.Name)
-	case f.Type.ImportPath == "" && f.Type.Package != "":
-		return fmt.Errorf("%w %s: request option field %s has a type of package %s without an import path", ErrPlugin, plugin, f.Name, f.Type.Package)
-	case !gocode.IsFieldType(f.Type.Name):
-		return fmt.Errorf("%w %s: request option field %s: type %q is no Go type", ErrPlugin, plugin, f.Name, f.Type.Name)
-	case server.ReservedField(f.Name):
-		return fmt.Errorf("%w %s: request option field %s is one the request options declare themselves", ErrPlugin, plugin, f.Name)
-	case slices.ContainsFunc(ps.fields, func(x server.ExtraField) bool { return x.Name == f.Name }):
-		return fmt.Errorf("%w %s: request option field %s is added twice", ErrPlugin, plugin, f.Name)
-	}
-	if err := f.Type.check(); err != nil {
-		return fmt.Errorf("%w %s: request option field %s: %w", ErrPlugin, plugin, f.Name, err)
-	}
-
-	ps.fields = append(ps.fields, server.ExtraField{
-		Name:   f.Name,
-		Type:   f.Type.Name,
-		Doc:    f.Doc,
-		Import: gomodel.Import{Path: f.Type.ImportPath, Alias: f.Type.Package},
-	})
 	return nil
 }
 
@@ -153,7 +120,14 @@ func (ps *pluginSet) reserveField(plugin string, f FieldSpec) error {
 func (ps *pluginSet) contribute(show func() *API) ([]layout.Part, error) {
 	var parts []layout.Part
 	for _, p := range ps.list {
-		c, err := p.Contribute(show())
+		api := show()
+		// Listed before the plugin gets the API, which it is free to change.
+		ops := make(map[string]bool, len(api.Operations))
+		for _, op := range api.Operations {
+			ops[op.ID] = true
+		}
+
+		c, err := p.Contribute(api)
 		if err != nil {
 			return nil, fmt.Errorf("%w %s: %w", ErrPlugin, p.Name(), err)
 		}
@@ -173,6 +147,9 @@ func (ps *pluginSet) contribute(show func() *API) ([]layout.Part, error) {
 				return nil, addErr
 			}
 			parts = append(parts, layout.Part{ID: id})
+		}
+		if err = ps.addFields(p.Name(), c.RequestOptionFields, ops); err != nil {
+			return nil, err
 		}
 		for _, kind := range slices.Sorted(maps.Keys(c.Scaffolds)) {
 			if err = ps.replaceScaffold(p.Name(), kind, source{text: c.Scaffolds[kind], funcs: funcs}); err != nil {
@@ -202,6 +179,50 @@ func (ps *pluginSet) addPart(plugin string, src PartSource, funcs template.FuncM
 
 	ps.sources[id] = source{plugin: plugin, text: src.Template, funcs: funcs, imports: imports, data: src.Data}
 	return id, nil
+}
+
+// addFields keeps the request option fields a plugin gives. A key has to be one of ops, the
+// operation IDs of the API.
+func (ps *pluginSet) addFields(plugin string, fields map[string][]FieldSpec, ops map[string]bool) error {
+	for _, op := range slices.Sorted(maps.Keys(fields)) {
+		if !ops[op] {
+			return fmt.Errorf("%w %s: request option fields for %q, which is no operation ID of the API", ErrPlugin, plugin, op)
+		}
+		for _, f := range fields[op] {
+			if err := ps.addField(plugin, op, f); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (ps *pluginSet) addField(plugin, op string, f FieldSpec) error {
+	switch {
+	case !token.IsIdentifier(f.Name) || !token.IsExported(f.Name):
+		return fmt.Errorf("%w %s: request option field %q of %s is no exported identifier", ErrPlugin, plugin, f.Name, op)
+	case f.Type.Name == "":
+		return fmt.Errorf("%w %s: request option field %s of %s has no type", ErrPlugin, plugin, f.Name, op)
+	case f.Type.ImportPath == "" && f.Type.Package != "":
+		return fmt.Errorf("%w %s: request option field %s of %s has a type of package %s without an import path", ErrPlugin, plugin, f.Name, op, f.Type.Package)
+	case !gocode.IsFieldType(f.Type.Name):
+		return fmt.Errorf("%w %s: request option field %s of %s: type %q is no Go type", ErrPlugin, plugin, f.Name, op, f.Type.Name)
+	case server.ReservedField(f.Name):
+		return fmt.Errorf("%w %s: request option field %s of %s is one the request options declare themselves", ErrPlugin, plugin, f.Name, op)
+	case slices.ContainsFunc(ps.fields[op], func(x server.ExtraField) bool { return x.Name == f.Name }):
+		return fmt.Errorf("%w %s: request option field %s of %s is added twice", ErrPlugin, plugin, f.Name, op)
+	}
+	if err := f.Type.check(); err != nil {
+		return fmt.Errorf("%w %s: request option field %s of %s: %w", ErrPlugin, plugin, f.Name, op, err)
+	}
+
+	ps.fields[op] = append(ps.fields[op], server.ExtraField{
+		Name:   f.Name,
+		Type:   f.Type.Name,
+		Doc:    f.Doc,
+		Import: gomodel.Import{Path: f.Type.ImportPath, Alias: f.Type.Package},
+	})
+	return nil
 }
 
 func (ps *pluginSet) replaceScaffold(plugin string, kind ScaffoldKind, src source) error {

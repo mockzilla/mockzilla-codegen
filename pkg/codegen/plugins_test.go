@@ -152,20 +152,17 @@ func (p *fakePlugin) Contribute(api *API) (*Contribution, error) {
 	return p.contribute(api)
 }
 
-// samplePlugin adds a field of a type from another package, a register part and a service
-// scaffold of its own.
+// samplePlugin adds a register part, a service scaffold of its own and fields to three operations:
+// one that returns the response data of its operation, to a routed one, a dropped one and a
+// webhook, and one of a type from another package, to the first alone.
 func samplePlugin() *fakePlugin {
 	return &fakePlugin{
 		name: "sample",
-		res: Reservations{
-			Idents: []string{"Routes", "Register"},
-			RequestOptionFields: []FieldSpec{
-				{Name: "GenerateResponse", Type: TypeRef{Name: "func() any"}, Doc: "GenerateResponse makes the body."},
-				{Name: "Span", Type: TypeRef{Name: "*Span", Package: "trace", ImportPath: "example.com/trace"}},
-			},
-		},
+		res:  Reservations{Idents: []string{"Routes", "Register"}},
 		contribute: func(api *API) (*Contribution, error) {
-			data := registerData{Options: api.Operations[0].RequestOptions, Span: TypeRef{Name: "*Span", Package: "trace", ImportPath: "example.com/trace"}}
+			span := TypeRef{Name: "*Span", Package: "trace", ImportPath: "example.com/trace"}
+			data := registerData{Options: api.Operations[0].RequestOptions, Span: span}
+			fields := make(map[string][]FieldSpec)
 			for _, op := range api.Operations {
 				if op.IsRouted {
 					data.Routes = append(data.Routes, op.Method+" "+op.Path)
@@ -173,11 +170,20 @@ func samplePlugin() *fakePlugin {
 				if op.ID == "ListPets" {
 					data.List = op.Success.Body
 				}
+				if slices.Contains([]string{"ListPets", "RemovePet", "NewPet"}, op.ID) {
+					fields[op.ID] = []FieldSpec{{
+						Name: "GenerateResponse",
+						Type: TypeRef{Name: "func() (*" + op.ResponseData.Name + ", error)"},
+						Doc:  "GenerateResponse makes the response.",
+					}}
+				}
 			}
+			fields["ListPets"] = append(fields["ListPets"], FieldSpec{Name: "Span", Type: span})
 			return &Contribution{
-				Parts:     []PartSource{{Name: "register", Template: registerTemplate, Data: data, Imports: []Import{{Path: "example.com/trace"}}}},
-				Scaffolds: map[ScaffoldKind]string{ScaffoldService: serviceTemplate},
-				Funcs:     template.FuncMap{"shout": strings.ToUpper},
+				Parts:               []PartSource{{Name: "register", Template: registerTemplate, Data: data, Imports: []Import{{Path: "example.com/trace"}}}},
+				RequestOptionFields: fields,
+				Scaffolds:           map[ScaffoldKind]string{ScaffoldService: serviceTemplate},
+				Funcs:               template.FuncMap{"shout": strings.ToUpper},
 			}, nil
 		},
 	}
@@ -266,7 +272,12 @@ func TestGenerateWithPlugin(t *testing.T) {
 	assert.Equal(t, FileScaffold, byName["service.go"].Kind)
 	assert.Contains(t, string(byName["service.go"].Content), "import (\n\t\"context\"\n\t\"errors\"\n)\n\n// Pets is what the sample plugin makes of the service.\ntype Pets struct{}\n\n"+
 		"func (s *Pets) ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error) {\n\treturn nil, errors.ErrUnsupported\n}\n")
-	assert.Contains(t, string(byName["gen.go"].Content), "\tQuery *ListPetsQuery\n\t// GenerateResponse makes the body.\n\tGenerateResponse func() any\n\tSpan             *trace.Span\n\tRawRequest       *http.Request\n")
+	gen := string(byName["gen.go"].Content)
+	assert.Contains(t, gen, "\tQuery *ListPetsQuery\n\t// GenerateResponse makes the response.\n\tGenerateResponse func() (*ListPetsResponseData, error)\n"+
+		"\tSpan             *trace.Span\n\tRawRequest       *http.Request\n}\n")
+	assert.Contains(t, gen, "type DeletePetServiceRequestOptions struct {\n\tPathParams *DeletePetPathParams\n\tRawRequest *http.Request\n}\n", "an operation without a key gets no field")
+	assert.Contains(t, gen, "\tPathParams *RemovePetPathParams\n\t// GenerateResponse makes the response.\n\tGenerateResponse func() (*RemovePetResponseData, error)\n\tRawRequest       *http.Request\n}\n")
+	assert.Contains(t, gen, "type NewPetServiceRequestOptions struct {\n\t// GenerateResponse makes the response.\n\tGenerateResponse func() (*NewPetResponseData, error)\n\tRawRequest       *http.Request\n}\n")
 }
 
 func TestGenerateWithPluginWithoutServer(t *testing.T) {
@@ -274,11 +285,12 @@ func TestGenerateWithPluginWithoutServer(t *testing.T) {
 
 	p := &fakePlugin{
 		name: "sample",
-		res:  Reservations{Idents: []string{"Pet"}, RequestOptionFields: []FieldSpec{{Name: "Tenant", Type: TypeRef{Name: "string"}}}},
+		res:  Reservations{Idents: []string{"Pet"}},
 		contribute: func(*API) (*Contribution, error) {
 			return &Contribution{
-				Parts:     []PartSource{{Name: "limit", Template: "var Limit = 8"}},
-				Scaffolds: map[ScaffoldKind]string{ScaffoldService: serviceTemplate},
+				Parts:               []PartSource{{Name: "limit", Template: "var Limit = 8"}},
+				RequestOptionFields: map[string][]FieldSpec{"ListPets": {{Name: "Tenant", Type: TypeRef{Name: "string"}}}},
+				Scaffolds:           map[ScaffoldKind]string{ScaffoldService: serviceTemplate},
 			}, nil
 		},
 	}
@@ -328,7 +340,10 @@ func TestGenerateWithPluginOutsideModule(t *testing.T) {
 	t.Parallel()
 
 	p := &fakePlugin{name: "sample", contribute: func(api *API) (*Contribution, error) {
-		return &Contribution{Parts: []PartSource{{Name: "register", Template: "\nvar Options {{expr .}}\n", Data: api.Operations[0].RequestOptions}}}, nil
+		return &Contribution{
+			Parts:               []PartSource{{Name: "register", Template: "\nvar Options {{expr .}}\n", Data: api.Operations[0].RequestOptions}},
+			RequestOptionFields: map[string][]FieldSpec{"ListPets": {{Name: "Latest", Type: TypeRef{Name: api.Operations[0].Success.Body.Name}}}},
+		}, nil
 	}}
 	cfg, err := config.Parse([]byte("package: api\noutput: {file: ./gen.go}\nserver: {framework: chi}\n"), t.TempDir())
 	require.NoError(t, err)
@@ -338,6 +353,7 @@ func TestGenerateWithPluginOutsideModule(t *testing.T) {
 	assert.Equal(t, TypeRef{Name: "ListPetsServiceRequestOptions", Package: "api"}, p.api.Operations[0].RequestOptions, "no import path without a module")
 	require.Len(t, res.Files, 1)
 	assert.Contains(t, string(res.Files[0].Content), "\nvar Options ListPetsServiceRequestOptions\n")
+	assert.Contains(t, string(res.Files[0].Content), "\tQuery      *ListPetsQuery\n\tLatest     ListPetsResponse200\n\tRawRequest *http.Request\n", "a field takes the name alone of a type of the API")
 }
 
 func TestGenerateWithPluginThatChangesItsAPI(t *testing.T) {
@@ -442,6 +458,67 @@ func TestGenerateWithPluginService(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, p.api.Service)
+		})
+	}
+}
+
+func TestGenerateWithPluginFields(t *testing.T) {
+	t.Parallel()
+
+	shared := []FieldSpec{{Name: "Tenant", Type: TypeRef{Name: "string"}}}
+	adding := func(fields map[string][]FieldSpec) func(*API) (*Contribution, error) {
+		return func(*API) (*Contribution, error) { return &Contribution{RequestOptionFields: fields}, nil }
+	}
+	tests := []struct {
+		name    string
+		plugins []Plugin
+		want    []string
+	}{
+		{
+			name: "Fields of two plugins on one operation, in the order of the plugins",
+			plugins: []Plugin{
+				&fakePlugin{name: "b", contribute: adding(map[string][]FieldSpec{
+					"Health": {{Name: "Tenant", Type: TypeRef{Name: "string"}}, {Name: "Region", Type: TypeRef{Name: "string"}}},
+				})},
+				&fakePlugin{name: "a", contribute: adding(map[string][]FieldSpec{"Health": {{Name: "Account", Type: TypeRef{Name: "int"}}}})},
+			},
+			want: []string{"type HealthServiceRequestOptions struct {\n\tTenant     string\n\tRegion     string\n\tAccount    int\n\tRawRequest *http.Request\n}\n"},
+		},
+		{
+			name: "One name on two operations, each with a type of its own",
+			plugins: []Plugin{
+				&fakePlugin{name: "a", contribute: adding(map[string][]FieldSpec{"Health": {{Name: "Tenant", Type: TypeRef{Name: "string"}}}})},
+				&fakePlugin{name: "b", contribute: adding(map[string][]FieldSpec{"NewPet": {{Name: "Tenant", Type: TypeRef{Name: "int"}}}})},
+			},
+			want: []string{
+				"type HealthServiceRequestOptions struct {\n\tTenant     string\n\tRawRequest *http.Request\n}\n",
+				"type NewPetServiceRequestOptions struct {\n\tTenant     int\n\tRawRequest *http.Request\n}\n",
+			},
+		},
+		{
+			name: "Fields changed after the plugin gave them",
+			plugins: []Plugin{
+				&fakePlugin{name: "sample", contribute: adding(map[string][]FieldSpec{"Health": shared})},
+				&fakePlugin{name: "other", contribute: func(*API) (*Contribution, error) {
+					shared[0] = FieldSpec{Name: "no name"}
+					return nil, nil
+				}},
+			},
+			want: []string{"type HealthServiceRequestOptions struct {\n\tTenant     string\n\tRawRequest *http.Request\n}\n"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			res, err := generate(t, "output: {file: ./api/gen.go}\nserver: {framework: chi}\n", tc.plugins...)
+
+			require.NoError(t, err)
+			require.Len(t, res.Files, 1)
+			for _, want := range tc.want {
+				assert.Contains(t, string(res.Files[0].Content), want)
+			}
 		})
 	}
 }
@@ -777,6 +854,13 @@ func TestGenerateWithPluginErrors(t *testing.T) {
 	giving := func(c *Contribution) func(*API) (*Contribution, error) {
 		return func(*API) (*Contribution, error) { return c, nil }
 	}
+	onListPets := func(fields ...FieldSpec) func(*API) (*Contribution, error) {
+		return giving(&Contribution{RequestOptionFields: map[string][]FieldSpec{"ListPets": fields}})
+	}
+	unknownOps := make(map[string][]FieldSpec)
+	for i := 1; i < 9; i++ {
+		unknownOps["listPets"+strconv.Itoa(i)] = nil
+	}
 	unknownKinds := make(map[ScaffoldKind]string)
 	for kind := ScaffoldKind(9); kind < 17; kind++ {
 		unknownKinds[kind] = "x"
@@ -815,61 +899,89 @@ func TestGenerateWithPluginErrors(t *testing.T) {
 		},
 		{
 			name:    "Field that is no exported identifier",
-			plugins: []Plugin{&fakePlugin{name: "sample", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "generate", Type: TypeRef{Name: "int"}}}}}},
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: onListPets(FieldSpec{Name: "generate", Type: TypeRef{Name: "int"}})}},
 			wantErr: ErrPlugin,
-			wantMsg: `plugin sample: request option field "generate" is no exported identifier`,
+			wantMsg: `plugin sample: request option field "generate" of ListPets is no exported identifier`,
 		},
 		{
 			name:    "Field that is no exported identifier, in a config without a server",
 			cfg:     "output: {file: ./api/gen.go}\n",
-			plugins: []Plugin{&fakePlugin{name: "sample", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "generate", Type: TypeRef{Name: "int"}}}}}},
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: onListPets(FieldSpec{Name: "generate", Type: TypeRef{Name: "int"}})}},
 			wantErr: ErrPlugin,
-			wantMsg: `plugin sample: request option field "generate" is no exported identifier`,
+			wantMsg: `plugin sample: request option field "generate" of ListPets is no exported identifier`,
 		},
 		{
 			name:    "Field without a type",
-			plugins: []Plugin{&fakePlugin{name: "sample", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "Generate"}}}}},
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: onListPets(FieldSpec{Name: "Generate"})}},
 			wantErr: ErrPlugin,
-			wantMsg: "plugin sample: request option field Generate has no type",
+			wantMsg: "plugin sample: request option field Generate of ListPets has no type",
 		},
 		{
 			name:    "Field type with a package and no import path",
-			plugins: []Plugin{&fakePlugin{name: "sample", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "Span", Type: TypeRef{Name: "*Span", Package: "trace"}}}}}},
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: onListPets(FieldSpec{Name: "Span", Type: TypeRef{Name: "*Span", Package: "trace"}})}},
 			wantErr: ErrPlugin,
-			wantMsg: "plugin sample: request option field Span has a type of package trace without an import path",
+			wantMsg: "plugin sample: request option field Span of ListPets has a type of package trace without an import path",
 		},
 		{
 			name:    "Field type that is no type",
-			plugins: []Plugin{&fakePlugin{name: "sample", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "Generate", Type: TypeRef{Name: "func( any"}}}}}},
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: onListPets(FieldSpec{Name: "Generate", Type: TypeRef{Name: "func( any"}})}},
 			wantErr: ErrPlugin,
-			wantMsg: `plugin sample: request option field Generate: type "func( any" is no Go type`,
+			wantMsg: `plugin sample: request option field Generate of ListPets: type "func( any" is no Go type`,
 		},
 		{
-			name:    "Field type that cannot be written with its package",
-			plugins: []Plugin{&fakePlugin{name: "sample", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "Maybe", Type: TypeRef{Name: "Option[Pet]", Package: "opt", ImportPath: "example.com/opt"}}}}}},
+			name: "Field type that cannot be written with its package",
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: onListPets(
+				FieldSpec{Name: "Maybe", Type: TypeRef{Name: "Option[Pet]", Package: "opt", ImportPath: "example.com/opt"}},
+			)}},
 			wantErr: ErrPlugin,
-			wantMsg: `plugin sample: request option field Maybe: type "Option[Pet]" of example.com/opt is no identifier, nor a pointer, slice, array, map or channel around one`,
+			wantMsg: `plugin sample: request option field Maybe of ListPets: type "Option[Pet]" of example.com/opt is no identifier, nor a pointer, slice, array, map or channel around one`,
 		},
 		{
-			name:    "Field type of a package that is no identifier",
-			plugins: []Plugin{&fakePlugin{name: "sample", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "Span", Type: TypeRef{Name: "*Span", Package: "open-trace", ImportPath: "example.com/trace"}}}}}},
+			name: "Field type of a package that is no identifier",
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: onListPets(
+				FieldSpec{Name: "Span", Type: TypeRef{Name: "*Span", Package: "open-trace", ImportPath: "example.com/trace"}},
+			)}},
 			wantErr: ErrPlugin,
-			wantMsg: `plugin sample: request option field Span: type "*Span" of example.com/trace: "open-trace" is no package name`,
+			wantMsg: `plugin sample: request option field Span of ListPets: type "*Span" of example.com/trace: "open-trace" is no package name`,
 		},
 		{
 			name:    "Field the request options declare",
-			plugins: []Plugin{&fakePlugin{name: "sample", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "RawRequest", Type: TypeRef{Name: "int"}}}}}},
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: onListPets(FieldSpec{Name: "RawRequest", Type: TypeRef{Name: "int"}})}},
 			wantErr: ErrPlugin,
-			wantMsg: "plugin sample: request option field RawRequest is one the request options declare themselves",
+			wantMsg: "plugin sample: request option field RawRequest of ListPets is one the request options declare themselves",
 		},
 		{
-			name: "Field added by two plugins",
+			name: "Field added to one operation twice",
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: onListPets(
+				FieldSpec{Name: "Generate", Type: TypeRef{Name: "int"}},
+				FieldSpec{Name: "Generate", Type: TypeRef{Name: "string"}},
+			)}},
+			wantErr: ErrPlugin,
+			wantMsg: "plugin sample: request option field Generate of ListPets is added twice",
+		},
+		{
+			name: "Field added to one operation by two plugins",
 			plugins: []Plugin{
-				&fakePlugin{name: "a", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "Generate", Type: TypeRef{Name: "int"}}}}},
-				&fakePlugin{name: "b", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "Generate", Type: TypeRef{Name: "int"}}}}},
+				&fakePlugin{name: "a", contribute: onListPets(FieldSpec{Name: "Generate", Type: TypeRef{Name: "int"}})},
+				&fakePlugin{name: "b", contribute: onListPets(FieldSpec{Name: "Generate", Type: TypeRef{Name: "int"}})},
 			},
 			wantErr: ErrPlugin,
-			wantMsg: "plugin b: request option field Generate is added twice",
+			wantMsg: "plugin b: request option field Generate of ListPets is added twice",
+		},
+		{
+			name:    "Fields for operations the API does not have, the lowest named",
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: giving(&Contribution{RequestOptionFields: unknownOps})}},
+			wantErr: ErrPlugin,
+			wantMsg: `plugin sample: request option fields for "listPets1", which is no operation ID of the API`,
+		},
+		{
+			name: "Fields for an operation the plugin gave another ID in its API",
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: func(api *API) (*Contribution, error) {
+				api.Operations[0].ID = "Pets"
+				return &Contribution{RequestOptionFields: map[string][]FieldSpec{"Pets": {{Name: "Generate", Type: TypeRef{Name: "int"}}}}}, nil
+			}}},
+			wantErr: ErrPlugin,
+			wantMsg: `plugin sample: request option fields for "Pets", which is no operation ID of the API`,
 		},
 		{
 			name:    "Contribute fails",
@@ -1021,6 +1133,16 @@ func TestGenerateWithPluginErrors(t *testing.T) {
 			})}},
 			wantErr: layout.ErrImportCycle,
 			wantMsg: "import cycle: api -> models -> api (models.responses uses example.com/work/models, server.scaffold.service uses example.com/work/api)",
+		},
+		{
+			name: "Field of a type from a folder which imports the service's",
+			cfg:  strings.Replace(storeConfig, "service: ./api/service.go", "service: ./app/service.go", 1),
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: giving(&Contribution{
+				Parts:               []PartSource{{Name: "register"}},
+				RequestOptionFields: map[string][]FieldSpec{"ListPets": {{Name: "Owner", Type: TypeRef{Name: "*Pets", Package: "app", ImportPath: "example.com/work/app"}}}},
+			})}},
+			wantErr: layout.ErrImportCycle,
+			wantMsg: "import cycle: api -> app -> api (server.service uses example.com/work/app, server.scaffold.service uses example.com/work/api)",
 		},
 		{
 			name:    "Built-in scaffold in a folder the service imports",

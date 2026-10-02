@@ -12,7 +12,7 @@ var ErrNotImplemented = errors.New("not implemented")
 
 var _ PetsInterface = (*Pets)(nil)
 
-// Pets answers every operation with the body GenerateResponse makes.
+// Pets answers every operation with what GenerateResponse makes.
 type Pets struct{}
 
 // NewPets returns a Pets.
@@ -25,7 +25,7 @@ func (s *Pets) ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions
 	if opts.GenerateResponse == nil {
 		return nil, ErrNotImplemented
 	}
-	return &ListPetsResponseData{Status: 200, Body: opts.GenerateResponse()}, nil
+	return opts.GenerateResponse()
 }
 
 // CreatePet handles POST /pets.
@@ -33,7 +33,7 @@ func (s *Pets) CreatePet(ctx context.Context, opts *CreatePetServiceRequestOptio
 	if opts.GenerateResponse == nil {
 		return nil, ErrNotImplemented
 	}
-	return &CreatePetResponseData{Status: 201, Body: opts.GenerateResponse()}, nil
+	return opts.GenerateResponse()
 }
 
 // DeletePet handles DELETE /pets/{id}.
@@ -41,7 +41,7 @@ func (s *Pets) DeletePet(ctx context.Context, opts *DeletePetServiceRequestOptio
 	if opts.GenerateResponse == nil {
 		return nil, ErrNotImplemented
 	}
-	return &DeletePetResponseData{Status: 204, Body: opts.GenerateResponse()}, nil
+	return opts.GenerateResponse()
 }
 
 // Ping handles GET /ping.
@@ -49,5 +49,5 @@ func (s *Pets) Ping(ctx context.Context, opts *PingServiceRequestOptions) (*Ping
 	if opts.GenerateResponse == nil {
 		return nil, ErrNotImplemented
 	}
-	return &PingResponseData{Status: 200, Body: opts.GenerateResponse()}, nil
+	return opts.GenerateResponse()
 }

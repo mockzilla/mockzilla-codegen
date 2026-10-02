@@ -3,9 +3,10 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Package sample is a plugin that adds a GenerateResponse field to every request options struct,
-// a part that lists the routes and makes empty success bodies, a part that wraps the service to
-// set the field, and a service scaffold whose operations answer with what GenerateResponse makes.
+// Package sample is a plugin that adds a GenerateResponse field to the request options of every
+// operation, typed with the response data of that operation, a part that lists the routes and
+// makes empty success bodies, a part that wraps the service to set the field, and a service
+// scaffold whose operations answer with what GenerateResponse makes.
 package sample
 
 import (
@@ -46,7 +47,8 @@ type wrapper struct {
 	Calls   []call
 }
 
-// call is one method of the service. HasBody says whether the register part makes its body.
+// call is one method of the service. HasBody says whether the register part makes the body of
+// its response.
 type call struct {
 	ID      string
 	Options codegen.TypeRef
@@ -61,24 +63,18 @@ func (Plugin) Name() string {
 	return "sample"
 }
 
-// Reserve names what the parts declare and the field every request options struct gets.
+// Reserve names what the parts declare.
 func (Plugin) Reserve() codegen.Reservations {
-	return codegen.Reservations{
-		Idents: []string{"Route", "Routes", "Bodies", "Register", "WithBodies"},
-		RequestOptionFields: []codegen.FieldSpec{{
-			Name: "GenerateResponse",
-			Type: codegen.TypeRef{Name: "func() any"},
-			Doc:  "GenerateResponse makes the body of the response, when the service is asked for one.",
-		}},
-	}
+	return codegen.Reservations{Idents: []string{"Route", "Routes", "Bodies", "Register", "WithBodies"}}
 }
 
-// Contribute lists the routed operations for the register part, wraps the service when the config
-// has a server, and replaces the service scaffold, whose template asks the status func for the
-// status of an operation.
+// Contribute lists the routed operations for the register part and replaces the service scaffold.
+// When the config has a server, it also gives every operation its GenerateResponse field and
+// wraps the service to set it: that template asks the status func for the status of an operation.
 func (Plugin) Contribute(api *codegen.API) (*codegen.Contribution, error) {
 	var routes []route
 	wrap := wrapper{Service: api.Service, Calls: make([]call, 0, len(api.Operations))}
+	fields := make(map[string][]codegen.FieldSpec, len(api.Operations))
 	statuses := make(map[string]int, len(api.Operations))
 	for _, op := range api.Operations {
 		statuses[op.ID] = defaultStatus
@@ -88,6 +84,11 @@ func (Plugin) Contribute(api *codegen.API) (*codegen.Contribution, error) {
 
 		hasBody := op.IsRouted && op.Success != nil && op.Success.Body.Name != ""
 		wrap.Calls = append(wrap.Calls, call{ID: op.ID, Options: op.RequestOptions, Data: op.ResponseData, HasBody: hasBody})
+		fields[op.ID] = []codegen.FieldSpec{{
+			Name: "GenerateResponse",
+			Type: codegen.TypeRef{Name: "func() (*" + op.ResponseData.Name + ", error)"},
+			Doc:  "GenerateResponse makes the response, when the service is asked for one.",
+		}}
 		if !op.IsRouted {
 			continue
 		}
@@ -99,13 +100,14 @@ func (Plugin) Contribute(api *codegen.API) (*codegen.Contribution, error) {
 		routes = append(routes, r)
 	}
 
-	parts := []codegen.PartSource{{Name: "register", Template: registerTemplate, Data: routes}}
-	if api.Service.Name != "" {
-		parts = append(parts, codegen.PartSource{Name: "wrapper", Template: wrapperTemplate, Data: wrap})
-	}
-	return &codegen.Contribution{
-		Parts:     parts,
+	c := &codegen.Contribution{
+		Parts:     []codegen.PartSource{{Name: "register", Template: registerTemplate, Data: routes}},
 		Scaffolds: map[codegen.ScaffoldKind]string{codegen.ScaffoldService: serviceTemplate},
 		Funcs:     template.FuncMap{"status": func(id string) int { return statuses[id] }},
-	}, nil
+	}
+	if api.Service.Name != "" {
+		c.Parts = append(c.Parts, codegen.PartSource{Name: "wrapper", Template: wrapperTemplate, Data: wrap})
+		c.RequestOptionFields = fields
+	}
+	return c, nil
 }

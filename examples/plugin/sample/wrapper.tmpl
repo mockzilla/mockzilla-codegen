@@ -11,11 +11,13 @@ func WithBodies(svc {{expr .Service}}) {{expr .Service}} {
 {{- range .Calls}}
 
 func (s *withBodies) {{.ID}}(ctx {{$context}}.Context, opts *{{expr .Options}}) (*{{expr .Data}}, error) {
+	opts.GenerateResponse = func() (*{{expr .Data}}, error) {
 {{- if .HasBody}}
-	opts.GenerateResponse = Bodies[{{quote .ID}}]
+		return &{{expr .Data}}{Status: {{status .ID}}, Body: Bodies[{{quote .ID}}]()}, nil
 {{- else}}
-	opts.GenerateResponse = func() any { return nil }
+		return &{{expr .Data}}{Status: {{status .ID}}}, nil
 {{- end}}
+	}
 	return s.svc.{{.ID}}(ctx, opts)
 }
 {{- end}}

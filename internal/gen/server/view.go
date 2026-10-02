@@ -118,7 +118,7 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Operati
 			v.Checks = append(v.Checks, CheckView{Field: fields[i], Path: gocode.Quote("body")})
 		}
 	}
-	for _, f := range g.opts.ExtraFields {
+	for _, f := range g.fields[op.Name] {
 		v.Fields = append(v.Fields, FieldView{Name: f.Name, Type: s.Qualified(f.Type, f.Import), Doc: f.Doc})
 	}
 
