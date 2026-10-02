@@ -68,7 +68,7 @@ type ScaffoldMainView struct {
 func scaffoldServiceView(g *Generator, s *gocode.Scope) *ScaffoldServiceView {
 	v := &ScaffoldServiceView{
 		Name:      g.opts.Name,
-		Interface: s.Symbol(PartService, g.opts.Name+"Interface"),
+		Interface: s.Symbol(PartService, g.Interface()),
 		Errors:    s.Import(gomodel.Import{Path: "errors"}),
 	}
 	if len(g.ops) > 0 {

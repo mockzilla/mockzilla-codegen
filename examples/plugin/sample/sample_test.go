@@ -59,3 +59,21 @@ func TestExamplesAreDeterministic(t *testing.T) {
 		assert.Equal(t, first, res)
 	}
 }
+
+func TestGenerateWithoutServer(t *testing.T) {
+	t.Parallel()
+
+	spec, err := filepath.Abs(filepath.Join("..", "basic", "api.yaml"))
+	require.NoError(t, err)
+	cfg, err := config.Parse([]byte("spec: {path: "+spec+"}\npackage: basic\noutput: {file: ./gen.go}\nclient:\n"), t.TempDir())
+	require.NoError(t, err)
+
+	res, err := codegen.Generate(context.Background(), cfg, codegen.WithPlugins(sample.Plugin{}))
+
+	require.NoError(t, err)
+	require.Len(t, res.Files, 1)
+	assert.Equal(t, []string{
+		"models.types", "models.enums", "models.unions", "models.params", "models.bodies", "models.responses",
+		"client.core", "client.options", "client.operations", "plugin.sample.register",
+	}, res.Files[0].Parts, "no service to wrap")
+}
