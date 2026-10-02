@@ -164,13 +164,15 @@ func PartsOf(types []gomodel.Type) []layout.PartID {
 }
 
 // StatusOf is the status code a response is answered with: its own, the start of its range, or
-// 500 for default.
+// 500 for default and for a key that is no status.
 func StatusOf(status string) int {
 	if code, err := strconv.Atoi(status); err == nil {
 		return code
 	}
-	if code, err := strconv.Atoi(status[:1]); err == nil && len(status) == 3 {
-		return code * 100
+	if len(status) == 3 {
+		if code, err := strconv.Atoi(status[:1]); err == nil {
+			return code * 100
+		}
 	}
 	return 500
 }
