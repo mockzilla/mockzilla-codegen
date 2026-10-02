@@ -24,20 +24,14 @@ type Plugin interface {
 
 Plugins run in the order `WithPlugins` gives them. Every error a plugin returns, and every
 problem with what it gives, comes back from `Generate` wrapped with the plugin's name, as
-`codegen.ErrPlugin`.
+`codegen.ErrPlugin`. The exception is an import cycle that its code closes: `Generate` reports
+it like any other cycle, with the parts that close it.
 
 ### Reserve
 
 ```go
 type Reservations struct {
-	Idents              []string    // package-level names the plugin's parts declare
-	RequestOptionFields []FieldSpec // fields added to every <Op>ServiceRequestOptions
-}
-
-type FieldSpec struct {
-	Name string  // an exported identifier
-	Type TypeRef // for example {Name: "func() any"}
-	Doc  string  // the comment above the field, empty for none
+	Idents []string // package-level names the plugin's parts declare
 }
 ```
 
@@ -48,37 +42,14 @@ Each name is a Go identifier. Reserving a name keeps the models away from it and
 name that two plugins, or a plugin and the generator, declare in one package is left to the
 compiler.
 
-`RequestOptionFields` go into the request options of every operation, after the parameter groups
-and the bodies and before `RawRequest`. A field cannot take a name the options declare themselves:
-the parameter groups (`PathParams`, `Query`, `QueryString`, `Headers`, `Cookies`), a name that
-starts with `Body`, `RawRequest` or `Validate`. Two plugins cannot add the same field. These are
-the request options of the server. In a config without a `server` block the fields are checked
-all the same and then left out: the request options of the client do not get them.
-
-The generated handlers do not set an added field. A part of the plugin does, see
-[Setting a field](#setting-a-field).
-
-The type of a field follows the rules of a [`TypeRef`](#the-api). With an import path it is an
-identifier, or a pointer, slice, array, map or channel around one. Without one it is any Go type,
-and the type alone: no space, comment or tag around it. A package needs its import path and has
-to be a package name:
-
-```go
-TypeRef{Name: "func() any"}                                                    // written as it is
-TypeRef{Name: "func( any"}                                                     // an error: no Go type
-TypeRef{Name: "*Span", Package: "trace", ImportPath: "example.com/trace"}      // *trace.Span
-TypeRef{Name: "Option[Pet]", Package: "opt", ImportPath: "example.com/opt"}    // an error
-TypeRef{Name: "*Span", Package: "trace"}                                       // an error: no import path
-TypeRef{Name: "*Span", Package: "open-trace", ImportPath: "example.com/trace"} // an error: no package name
-```
-
 ### Contribute
 
 ```go
 type Contribution struct {
-	Parts     []PartSource            // named plugin.<name>.<part> in output.files
-	Scaffolds map[ScaffoldKind]string // replacement templates of the scaffold files
-	Funcs     template.FuncMap        // funcs for this plugin's templates only
+	Parts               []PartSource            // named plugin.<name>.<part> in output.files
+	RequestOptionFields map[string][]FieldSpec  // fields of <Op>ServiceRequestOptions, by operation ID
+	Scaffolds           map[ScaffoldKind]string // replacement templates of the scaffold files
+	Funcs               template.FuncMap        // funcs for this plugin's templates only
 }
 
 type PartSource struct {
@@ -86,6 +57,12 @@ type PartSource struct {
 	Template string   // a text/template
 	Data     any      // what the template runs on
 	Imports  []Import // packages the code does not name, {Path, Alias}
+}
+
+type FieldSpec struct {
+	Name string  // an exported identifier
+	Type TypeRef // for example {Name: "func() any"}
+	Doc  string  // the comment above the field, empty for none
 }
 ```
 
@@ -133,6 +110,59 @@ For a package the code names, call [`import`](#templates) in the template. It re
 file gave the package, which is not always the package's own: two imports of one file cannot share
 a name, so the second one gets a number, such as `models2`. An alias in `Imports` other than `_`
 and `.` is an identifier and only a wish for that name. An import needs a path.
+
+`RequestOptionFields` adds fields to the request options of the server, operation by operation. A
+key is the `ID` of an operation of the [API](#the-api), which is its Go name, such as `ListPets`.
+Its fields go into `ListPetsServiceRequestOptions`, after the parameter groups and the bodies and
+before `RawRequest`. So a field can have a type of its own in every operation:
+
+```go
+fields := make(map[string][]codegen.FieldSpec, len(api.Operations))
+for _, op := range api.Operations {
+	fields[op.ID] = []codegen.FieldSpec{{
+		Name: "GenerateResponse",
+		Type: codegen.TypeRef{Name: "func() (*" + op.ResponseData.Name + ", error)"},
+		Doc:  "GenerateResponse makes the response.",
+	}}
+}
+```
+
+The request options and the response data of an operation are declared side by side, so this type
+needs no import path, wherever the config places the service. `ResponseData` is empty in a config
+without a `server` block: a plugin that builds a type from it gives its fields only when
+`api.Service.Name` is set.
+
+Every operation of the API takes fields, also a webhook and one the router drops. A key that is no
+operation ID is an error. A field cannot take a name the options declare themselves: the parameter
+groups (`PathParams`, `Query`, `QueryString`, `Headers`, `Cookies`), a name that starts with
+`Body`, `RawRequest` or `Validate`. Two plugins can add fields to one operation, and they come in
+the order `WithPlugins` gives the plugins, but one operation cannot get a field twice. These are
+the request options of the server. In a config without a `server` block the fields are checked
+all the same and then left out: the request options of the client do not get them.
+
+The generated handlers do not set an added field. A part of the plugin does, see
+[Setting a field](#setting-a-field).
+
+The type of a field follows the rules of a [`TypeRef`](#the-api). With an import path it is an
+identifier, or a pointer, slice, array, map or channel around one. Without one it is any Go type,
+and the type alone: no space, comment or tag around it. A package needs its import path and has
+to be a package name:
+
+```go
+TypeRef{Name: "func() any"}                                                    // written as it is
+TypeRef{Name: "func( any"}                                                     // an error: no Go type
+TypeRef{Name: "*Span", Package: "trace", ImportPath: "example.com/trace"}      // *trace.Span
+TypeRef{Name: "Option[Pet]", Package: "opt", ImportPath: "example.com/opt"}    // an error
+TypeRef{Name: "*Span", Package: "trace"}                                       // an error: no import path
+TypeRef{Name: "*Span", Package: "open-trace", ImportPath: "example.com/trace"} // an error: no package name
+```
+
+A type of the API has a package and no import path when the output is one package outside a
+module. A field then takes its `Name` alone, as in `TypeRef{Name: op.Success.Body.Name}`.
+
+A type with an import path makes the file of the service import that package. When this closes
+an import cycle, `Generate` fails with the cycle and names `server.service` for that import, as
+it names a part under [Templates](#templates).
 
 `Scaffolds` replace the template of a scaffold file the config writes (`ScaffoldService`,
 `ScaffoldMiddleware`, `ScaffoldMain`). A replacement is used when the config names that file
@@ -204,24 +234,27 @@ cannot know what a field from `RequestOptionFields` holds, so they leave it empt
 sets it in a part: a service that wraps the user's one, sets the field and passes the call on.
 `API.Service` is the interface both implement.
 
-This part runs on the `API`. It sets a field `GenerateResponse func() any` from the `Bodies` of
-the part above:
+This part runs on the `API`. It sets the `GenerateResponse` field that
+[Contribute](#contribute) adds to every operation. `status` is a func of the plugin, given in
+`Funcs`: it returns the status of the success response of an operation.
 
 ```
 {{- $context := import "context"}}
-// withBodies sets GenerateResponse on the options, then calls the service.
-type withBodies struct {
+// withResponses sets GenerateResponse on the options, then calls the service.
+type withResponses struct {
 	svc {{expr .Service}}
 }
 
-// WithBodies returns svc with GenerateResponse set for every operation.
-func WithBodies(svc {{expr .Service}}) {{expr .Service}} {
-	return &withBodies{svc: svc}
+// WithResponses returns svc with GenerateResponse set for every operation.
+func WithResponses(svc {{expr .Service}}) {{expr .Service}} {
+	return &withResponses{svc: svc}
 }
 {{- range .Operations}}
 
-func (s *withBodies) {{.ID}}(ctx {{$context}}.Context, opts *{{expr .RequestOptions}}) (*{{expr .ResponseData}}, error) {
-	opts.GenerateResponse = Bodies[{{quote .ID}}]
+func (s *withResponses) {{.ID}}(ctx {{$context}}.Context, opts *{{expr .RequestOptions}}) (*{{expr .ResponseData}}, error) {
+	opts.GenerateResponse = func() (*{{expr .ResponseData}}, error) {
+		return &{{expr .ResponseData}}{Status: {{status .ID}}}, nil
+	}
 	return s.svc.{{.ID}}(ctx, opts)
 }
 {{- end}}
@@ -232,7 +265,7 @@ router drops, so the wrapper needs all of them. The router then takes the wrappe
 service:
 
 ```go
-router := NewRouter(WithBodies(NewPets()))
+router := NewRouter(WithResponses(NewPets()))
 ```
 
 `examples/plugin/basic/wrapper.go` is such a wrapper, as the sample plugin generates it.

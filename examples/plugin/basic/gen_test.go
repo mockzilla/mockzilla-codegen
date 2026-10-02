@@ -7,6 +7,7 @@ package basic
 
 import (
 	"context"
+	"errors"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -15,6 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var errGenerate = errors.New("nothing to generate")
 
 func TestRoutesAndBodies(t *testing.T) {
 	t.Parallel()
@@ -55,15 +58,25 @@ func TestServiceScaffold(t *testing.T) {
 	t.Parallel()
 
 	svc := NewPets()
-	pets := ListPetsResponse200{{ID: 1, Name: "Rex"}}
+	listed := &ListPetsResponseData{Status: 200, Body: ListPetsResponse200{{ID: 1, Name: "Rex"}}}
+	created := &CreatePetResponseData{Status: 201, Body: &Pet{ID: 1, Name: "Rex"}}
 
-	res, err := svc.ListPets(context.Background(), &ListPetsServiceRequestOptions{GenerateResponse: func() any { return pets }})
+	res, err := svc.ListPets(context.Background(), &ListPetsServiceRequestOptions{
+		GenerateResponse: func() (*ListPetsResponseData, error) { return listed, nil },
+	})
 	require.NoError(t, err)
-	assert.Equal(t, &ListPetsResponseData{Status: 200, Body: pets}, res)
+	assert.Same(t, listed, res)
 
-	created, err := svc.CreatePet(context.Background(), &CreatePetServiceRequestOptions{GenerateResponse: func() any { return &pets[0] }})
+	made, err := svc.CreatePet(context.Background(), &CreatePetServiceRequestOptions{
+		GenerateResponse: func() (*CreatePetResponseData, error) { return created, nil },
+	})
 	require.NoError(t, err)
-	assert.Equal(t, &CreatePetResponseData{Status: 201, Body: &pets[0]}, created)
+	assert.Same(t, created, made)
+
+	_, err = svc.DeletePet(context.Background(), &DeletePetServiceRequestOptions{
+		GenerateResponse: func() (*DeletePetResponseData, error) { return nil, errGenerate },
+	})
+	require.ErrorIs(t, err, errGenerate)
 
 	_, err = svc.ListPets(context.Background(), &ListPetsServiceRequestOptions{})
 	require.ErrorIs(t, err, ErrNotImplemented)
@@ -103,4 +116,18 @@ func TestWithBodies(t *testing.T) {
 			assert.Equal(t, tc.want, rec.Code, rec.Body.String())
 		})
 	}
+}
+
+func TestWithBodiesMakesTheResponseOfEachOperation(t *testing.T) {
+	t.Parallel()
+
+	svc := WithBodies(NewPets())
+
+	listed, err := svc.ListPets(context.Background(), &ListPetsServiceRequestOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, &ListPetsResponseData{Status: 200, Body: new(ListPetsResponse200)}, listed)
+
+	gone, err := svc.DeletePet(context.Background(), &DeletePetServiceRequestOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, &DeletePetResponseData{Status: 204}, gone)
 }
