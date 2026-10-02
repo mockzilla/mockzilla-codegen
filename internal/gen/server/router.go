@@ -44,7 +44,7 @@ func routerView(g *Generator, s *gocode.Scope) *RouterView {
 	v := &RouterView{
 		Framework:  s.Import(fw.Imports()[0]),
 		Packages:   packages(fw, s, "router.tmpl"),
-		Service:    s.Symbol(PartService, g.opts.Name+"Interface"),
+		Service:    s.Symbol(PartService, g.Interface()),
 		Option:     s.Symbol(PartAdapter, "ServerOption"),
 		Options:    s.Symbol(PartAdapter, "ServerOptions"),
 		NewOptions: s.Symbol(PartAdapter, "NewServerOptions"),

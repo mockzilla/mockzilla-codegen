@@ -8,6 +8,7 @@ package basic
 import (
 	"context"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -70,4 +71,36 @@ func TestServiceScaffold(t *testing.T) {
 	rec := httptest.NewRecorder()
 	NewRouter(svc).ServeHTTP(rec, httptest.NewRequest("GET", "/pets", nil))
 	assert.Equal(t, 500, rec.Code, "the handlers set no GenerateResponse")
+}
+
+func TestWithBodies(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter(WithBodies(NewPets()))
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		body   string
+		want   int
+	}{
+		{name: "Operation with a JSON body", method: "GET", path: "/pets", want: 200},
+		{name: "Operation that takes a body", method: "POST", path: "/pets", body: `{"id": 1, "name": "Rex"}`, want: 201},
+		{name: "Operation without a body", method: "DELETE", path: "/pets/1", want: 204},
+		{name: "Operation with a text body", method: "GET", path: "/ping", want: 200},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+
+			assert.Equal(t, tc.want, rec.Code, rec.Body.String())
+		})
+	}
 }

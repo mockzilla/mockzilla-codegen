@@ -9,3 +9,4 @@ server:
 output:
   files:
     ./register.go: [plugin.sample.register]
+    ./wrapper.go: [plugin.sample.wrapper]

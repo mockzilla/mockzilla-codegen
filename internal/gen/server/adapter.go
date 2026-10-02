@@ -155,7 +155,7 @@ func errorsView(s *gocode.Scope) *ErrorsView {
 
 func adapterView(g *Generator, s *gocode.Scope) *AdapterView {
 	v := &AdapterView{
-		Service:             s.Symbol(PartService, g.opts.Name+"Interface"),
+		Service:             s.Symbol(PartService, g.Interface()),
 		Runtime:             s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
 		HTTP:                s.Import(gomodel.Import{Path: "net/http"}),
 		IO:                  s.Import(gomodel.Import{Path: "io"}),

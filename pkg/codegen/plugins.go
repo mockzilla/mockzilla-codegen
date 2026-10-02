@@ -228,6 +228,10 @@ func describe(g *generation, lay *layout.Layout) *API {
 
 	routed := make(map[string]bool)
 	if g.srv != nil {
+		if f := lay.FileOf(server.PartService); f != nil {
+			out.Service = TypeRef{Name: g.srv.Interface(), Package: f.Package, ImportPath: f.ImportPath}
+		}
+
 		for _, r := range g.srv.Routes() {
 			routed[r.Operation] = true
 		}
