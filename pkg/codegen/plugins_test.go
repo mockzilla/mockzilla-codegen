@@ -9,6 +9,7 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -20,13 +21,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
 // storeSpec has an operation of every shape the API tells apart: routed with a JSON body, with a
-// raw body, without a body, without a 2xx response, and a webhook.
+// raw body, without a body, without a 2xx response, one the router drops, and a webhook.
 const storeSpec = `openapi: 3.1.0
 info: {title: store, version: "1"}
 paths:
@@ -47,6 +49,12 @@ paths:
     delete:
       operationId: deletePet
       parameters: [{name: id, in: path, required: true, schema: {type: integer}}]
+      responses:
+        "204": {description: gone}
+  /pets/{petId}:
+    delete:
+      operationId: removePet
+      parameters: [{name: petId, in: path, required: true, schema: {type: integer}}]
       responses:
         "204": {description: gone}
   /health:
@@ -224,6 +232,11 @@ func TestGenerateWithPlugin(t *testing.T) {
 				Success: &Success{Status: 204},
 			},
 			{
+				ID: "RemovePet", Method: "DELETE", Path: "/pets/{petId}", HasOptions: true,
+				RequestOptions: named(inAPI, "RemovePetServiceRequestOptions"), ResponseData: named(inAPI, "RemovePetResponseData"),
+				Success: &Success{Status: 204},
+			},
+			{
 				ID: "Health", Method: "GET", Path: "/health", IsRouted: true,
 				RequestOptions: named(inAPI, "HealthServiceRequestOptions"), ResponseData: named(inAPI, "HealthResponseData"),
 			},
@@ -233,7 +246,10 @@ func TestGenerateWithPlugin(t *testing.T) {
 				Success: &Success{Status: 200},
 			},
 		},
-		Types:       []TypeRef{named(inModels, "Pet"), named(inAPI, "ListPetsQuery"), named(inAPI, "ListPetsResponse200"), named(inAPI, "DeletePetPathParams")},
+		Types: []TypeRef{
+			named(inModels, "Pet"), named(inAPI, "ListPetsQuery"), named(inAPI, "ListPetsResponse200"),
+			named(inAPI, "DeletePetPathParams"), named(inAPI, "RemovePetPathParams"),
+		},
 		UserContext: map[string]any{"owner": "platform"},
 	}, p.api)
 
@@ -255,15 +271,31 @@ func TestGenerateWithPlugin(t *testing.T) {
 func TestGenerateWithPluginWithoutServer(t *testing.T) {
 	t.Parallel()
 
-	p := &fakePlugin{name: "sample", res: Reservations{Idents: []string{"Pet"}}}
-	_, err := generate(t, "output: {file: ./api/gen.go}\n", p)
+	p := &fakePlugin{
+		name: "sample",
+		res:  Reservations{Idents: []string{"Pet"}, RequestOptionFields: []FieldSpec{{Name: "Tenant", Type: TypeRef{Name: "string"}}}},
+		contribute: func(*API) (*Contribution, error) {
+			return &Contribution{
+				Parts:     []PartSource{{Name: "limit", Template: "var Limit = 8"}},
+				Scaffolds: map[ScaffoldKind]string{ScaffoldService: serviceTemplate},
+			}, nil
+		},
+	}
+	res, err := generate(t, "output: {file: ./api/gen.go}\nclient:\n", p)
 
 	require.NoError(t, err)
 	assert.Equal(t, Operation{
 		ID: "ListPets", Method: "GET", Path: "/pets", Summary: "List pets", Tags: []string{"pets"}, HasOptions: true,
-		Success: &Success{Status: 200, ContentType: "application/json", Body: TypeRef{Name: "ListPetsResponse200", Package: "api", ImportPath: "example.com/work/api"}},
+		ClientRequestOptions: TypeRef{Name: "ListPetsRequestOptions", Package: "api", ImportPath: "example.com/work/api"},
+		Success:              &Success{Status: 200, ContentType: "application/json", Body: TypeRef{Name: "ListPetsResponse200", Package: "api", ImportPath: "example.com/work/api"}},
 	}, p.api.Operations[0])
 	assert.Equal(t, TypeRef{Name: "PetSchema", Package: "api", ImportPath: "example.com/work/api"}, p.api.Types[0], "the reserved name is left to the plugin")
+	require.Len(t, res.Files, 1, "no scaffold file to replace")
+	assert.Equal(t, []string{
+		"models.types", "models.enums", "models.unions", "models.params", "models.bodies", "models.responses",
+		"client.core", "client.options", "client.operations", "plugin.sample.limit",
+	}, res.Files[0].Parts)
+	assert.Contains(t, string(res.Files[0].Content), "type ListPetsRequestOptions struct {\n\tQuery *ListPetsQuery\n}\n", "the field is the server's, the client's options do not get it")
 }
 
 func TestGenerateWithPluginAndClient(t *testing.T) {
@@ -276,8 +308,8 @@ func TestGenerateWithPluginAndClient(t *testing.T) {
 	inTypes := TypeRef{Package: "types", ImportPath: "example.com/work/types"}
 	assert.Equal(t, TypeRef{Name: "ListPetsRequestOptions", Package: inTypes.Package, ImportPath: inTypes.ImportPath}, p.api.Operations[0].ClientRequestOptions)
 	assert.Equal(t, TypeRef{Name: "ListPetsResponse", Package: inTypes.Package, ImportPath: inTypes.ImportPath}, p.api.Operations[0].ClientResponse)
-	assert.Equal(t, TypeRef{}, p.api.Operations[4].ClientRequestOptions, "a webhook has no client method")
-	assert.Equal(t, TypeRef{}, p.api.Operations[4].ClientResponse)
+	assert.Equal(t, TypeRef{}, p.api.Operations[5].ClientRequestOptions, "a webhook has no client method")
+	assert.Equal(t, TypeRef{}, p.api.Operations[5].ClientResponse)
 }
 
 func TestGenerateWithPluginAndPlainClient(t *testing.T) {
@@ -473,6 +505,71 @@ func TestGenerateWithPluginParts(t *testing.T) {
 	}
 }
 
+func TestGenerateWithPluginPlacement(t *testing.T) {
+	t.Parallel()
+
+	builtIn := []string{
+		"models.types", "models.enums", "models.unions", "models.params", "models.bodies", "models.responses",
+		"server.service", "server.errors", "server.adapter", "server.router",
+	}
+	adding := func(parts ...PartSource) func(*API) (*Contribution, error) {
+		return func(*API) (*Contribution, error) { return &Contribution{Parts: parts}, nil }
+	}
+	tests := []struct {
+		name  string
+		files string
+		want  map[string][]string
+	}{
+		{
+			name:  "Part that no selector names goes to output.file, below the built-in parts",
+			files: "{}",
+			want:  map[string][]string{"gen.go": slices.Concat(builtIn, []string{"plugin.sample.register", "plugin.sample.names", "plugin.other.names"})},
+		},
+		{
+			name:  "Selector plugin takes the parts of every plugin",
+			files: "{./api/plugins.go: [plugin]}",
+			want:  map[string][]string{"gen.go": builtIn, "plugins.go": {"plugin.sample.register", "plugin.sample.names", "plugin.other.names"}},
+		},
+		{
+			name:  "Selector of a plugin takes its parts alone",
+			files: "{./api/sample.go: [plugin.sample]}",
+			want: map[string][]string{
+				"gen.go":    slices.Concat(builtIn, []string{"plugin.other.names"}),
+				"sample.go": {"plugin.sample.register", "plugin.sample.names"},
+			},
+		},
+		{
+			name:  "Selector of a part wins over the one of every plugin",
+			files: "{./api/plugins.go: [plugin], ./api/register.go: [plugin.sample.register]}",
+			want: map[string][]string{
+				"gen.go":      builtIn,
+				"plugins.go":  {"plugin.sample.names", "plugin.other.names"},
+				"register.go": {"plugin.sample.register"},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			sample := &fakePlugin{name: "sample", contribute: adding(
+				PartSource{Name: "register", Template: "func Register() {}"},
+				PartSource{Name: "names", Template: "var Names []string"},
+			)}
+			other := &fakePlugin{name: "other", contribute: adding(PartSource{Name: "names", Template: "var Others []string"})}
+			res, err := generate(t, "package: api\noutput: {file: ./api/gen.go, files: "+tc.files+"}\nserver: {framework: chi}\n", sample, other)
+
+			require.NoError(t, err)
+			got := make(map[string][]string, len(res.Files))
+			for _, f := range res.Files {
+				got[filepath.Base(f.Path)] = f.Parts
+			}
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestGenerateWithPluginImports(t *testing.T) {
 	t.Parallel()
 
@@ -543,7 +640,7 @@ func TestGenerateWithReplacedScaffold(t *testing.T) {
 			name: "Service that names no package of the view",
 			kind: ScaffoldService,
 			text: "\n// {{.Name}} serves {{len .Operations}} operations.\ntype {{.Name}} struct{}\n",
-			want: "package app\n\n// Pets serves 5 operations.\ntype Pets struct{}\n",
+			want: "package app\n\n// Pets serves 6 operations.\ntype Pets struct{}\n",
 		},
 		{
 			name: "Service that names one package of the view and one of its own",
@@ -563,7 +660,7 @@ func TestGenerateWithReplacedScaffold(t *testing.T) {
 			cfg:  strings.Replace(storeConfig, "service: ./api/service.go", "service: ./models/service.go", 1),
 			kind: ScaffoldService,
 			text: "\n// {{.Name}} serves {{len .Operations}} operations.\ntype {{.Name}} struct{}\n",
-			want: "package models\n\n// Pets serves 5 operations.\ntype Pets struct{}\n",
+			want: "package models\n\n// Pets serves 6 operations.\ntype Pets struct{}\n",
 		},
 		{
 			name: "Middleware that names one package of five",
@@ -596,6 +693,37 @@ func TestGenerateWithReplacedScaffold(t *testing.T) {
 	}
 }
 
+// A framework that an http.Server does not serve has packages of its own in place of HTTP.
+func TestGenerateWithReplacedMainOfEveryFramework(t *testing.T) {
+	t.Parallel()
+
+	const text = "\n// HTTP {{.HTTP}}, Framework {{.Framework}}, Packages {{.Packages}}\nfunc main() {}\n"
+	own := map[string]string{
+		"fasthttp": "// HTTP , Framework , Packages map[fasthttp:fasthttp]",
+		"fiber":    "// HTTP , Framework fiber, Packages map[]",
+		"goframe":  "// HTTP , Framework ghttp, Packages map[]",
+		"hertz":    "// HTTP , Framework server, Packages map[]",
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(server.Frameworks())) {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			p := &fakePlugin{name: "sample", contribute: func(*API) (*Contribution, error) {
+				return &Contribution{Scaffolds: map[ScaffoldKind]string{ScaffoldMain: text}}, nil
+			}}
+			res, err := generate(t, "package: api\noutput: {file: ./api/gen.go}\n"+
+				"server: {framework: "+name+", scaffold: {service: ./app/service.go, main: ./cmd/main.go}}\n", p)
+
+			require.NoError(t, err)
+			i := slices.IndexFunc(res.Files, func(f File) bool { return slices.Equal(f.Parts, []string{"server.scaffold.main"}) })
+			require.GreaterOrEqual(t, i, 0)
+			assert.Equal(t, "// Code generated by mockzilla-codegen. DO NOT EDIT.\n\npackage main\n\n"+
+				cmp.Or(own[name], "// HTTP http, Framework , Packages map[]")+"\nfunc main() {}\n", string(res.Files[i].Content))
+		})
+	}
+}
+
 func TestGenerateWithPluginErrors(t *testing.T) {
 	t.Parallel()
 
@@ -604,6 +732,10 @@ func TestGenerateWithPluginErrors(t *testing.T) {
 		"     1 | \n     2 | // Register mounts the routes.\n>    3 | func Register( {\n     4 | }\n     5 | \n"
 	giving := func(c *Contribution) func(*API) (*Contribution, error) {
 		return func(*API) (*Contribution, error) { return c, nil }
+	}
+	unknownKinds := make(map[ScaffoldKind]string)
+	for kind := ScaffoldKind(9); kind < 17; kind++ {
+		unknownKinds[kind] = "x"
 	}
 	tests := []struct {
 		name    string
@@ -639,6 +771,13 @@ func TestGenerateWithPluginErrors(t *testing.T) {
 		},
 		{
 			name:    "Field that is no exported identifier",
+			plugins: []Plugin{&fakePlugin{name: "sample", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "generate", Type: TypeRef{Name: "int"}}}}}},
+			wantErr: ErrPlugin,
+			wantMsg: `plugin sample: request option field "generate" is no exported identifier`,
+		},
+		{
+			name:    "Field that is no exported identifier, in a config without a server",
+			cfg:     "output: {file: ./api/gen.go}\n",
 			plugins: []Plugin{&fakePlugin{name: "sample", res: Reservations{RequestOptionFields: []FieldSpec{{Name: "generate", Type: TypeRef{Name: "int"}}}}}},
 			wantErr: ErrPlugin,
 			wantMsg: `plugin sample: request option field "generate" is no exported identifier`,
@@ -728,8 +867,8 @@ func TestGenerateWithPluginErrors(t *testing.T) {
 			wantMsg: "plugin sample: the part register: import without a path",
 		},
 		{
-			name:    "Scaffold kind that does not exist",
-			plugins: []Plugin{&fakePlugin{name: "sample", contribute: giving(&Contribution{Scaffolds: map[ScaffoldKind]string{ScaffoldKind(9): "x"}})}},
+			name:    "Scaffold kinds that do not exist, the lowest named",
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: giving(&Contribution{Scaffolds: unknownKinds})}},
 			wantErr: ErrPlugin,
 			wantMsg: "plugin sample: 9 is no scaffold kind",
 		},
@@ -853,7 +992,7 @@ func TestGenerateWithPluginErrors(t *testing.T) {
 			wantMsg: "import cycle: api -> api (plugin.sample.register uses example.com/work/api)",
 		},
 		{
-			name:    "Part that is not placed",
+			name:    "Selector for a part the plugin does not add",
 			plugins: []Plugin{&fakePlugin{name: "sample", contribute: giving(&Contribution{Parts: []PartSource{{Name: "other", Template: ""}}})}},
 			wantErr: layout.ErrUnknownSelector,
 			wantMsg: `unknown selector "plugin.sample.register" in ./api/register.go; the parts are models.types, models.enums, models.unions, models.params, models.bodies, models.responses, ` +
