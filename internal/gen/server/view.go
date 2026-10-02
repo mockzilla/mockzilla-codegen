@@ -79,7 +79,7 @@ type constructorAt struct {
 }
 
 func serviceView(g *Generator, s *gocode.Scope) *ServiceView {
-	v := &ServiceView{Name: g.opts.Name + "Interface", User: g.opts.User}
+	v := &ServiceView{Name: g.Interface(), User: g.opts.User}
 	if len(g.ops) == 0 {
 		return v
 	}

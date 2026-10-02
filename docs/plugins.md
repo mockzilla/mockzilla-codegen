@@ -55,6 +55,9 @@ starts with `Body`, `RawRequest` or `Validate`. Two plugins cannot add the same 
 the request options of the server. In a config without a `server` block the fields are checked
 all the same and then left out: the request options of the client do not get them.
 
+The generated handlers do not set an added field. A part of the plugin does, see
+[Setting a field](#setting-a-field).
+
 The type of a field follows the rules of a [`TypeRef`](#the-api). With an import path it is an
 identifier, or a pointer, slice, array, map or channel around one. Without one it is any Go type,
 and the type alone: no space, comment or tag around it. A package needs its import path and has
@@ -194,6 +197,46 @@ missing with `index` under `with` or `if`, as in
 `{{with index . "owner"}}// Owned by {{.}}.{{end}}`. Printed on its own, `index` writes
 `<no value>` for such a key.
 
+### Setting a field
+
+The generated handlers fill the request options from the request and call the service. They
+cannot know what a field from `RequestOptionFields` holds, so they leave it empty. The plugin
+sets it in a part: a service that wraps the user's one, sets the field and passes the call on.
+`API.Service` is the interface both implement.
+
+This part runs on the `API`. It sets a field `GenerateResponse func() any` from the `Bodies` of
+the part above:
+
+```
+{{- $context := import "context"}}
+// withBodies sets GenerateResponse on the options, then calls the service.
+type withBodies struct {
+	svc {{expr .Service}}
+}
+
+// WithBodies returns svc with GenerateResponse set for every operation.
+func WithBodies(svc {{expr .Service}}) {{expr .Service}} {
+	return &withBodies{svc: svc}
+}
+{{- range .Operations}}
+
+func (s *withBodies) {{.ID}}(ctx {{$context}}.Context, opts *{{expr .RequestOptions}}) (*{{expr .ResponseData}}, error) {
+	opts.GenerateResponse = Bodies[{{quote .ID}}]
+	return s.svc.{{.ID}}(ctx, opts)
+}
+{{- end}}
+```
+
+The interface has a method for every operation, also for a webhook and for an operation the
+router drops, so the wrapper needs all of them. The router then takes the wrapper in place of the
+service:
+
+```go
+router := NewRouter(WithBodies(NewPets()))
+```
+
+`examples/plugin/basic/wrapper.go` is such a wrapper, as the sample plugin generates it.
+
 ## The API
 
 `Contribute` sees the generated code once names are resolved and files are laid out. The struct
@@ -203,6 +246,7 @@ only ever gains fields. Each plugin gets its own copy, down to the nested maps a
 ```go
 type API struct {
 	Package     string         // package of output.file, as package or output.packages names it
+	Service     TypeRef        // the service interface, empty without a server block
 	Operations  []Operation    // every operation and webhook, in spec order
 	Types       []TypeRef      // every declared model type
 	UserContext map[string]any // a copy of the config's user-context

@@ -215,6 +215,7 @@ func TestGenerateWithPlugin(t *testing.T) {
 	}
 	assert.Equal(t, &API{
 		Package: "api",
+		Service: named(inAPI, "PetsInterface"),
 		Operations: []Operation{
 			{
 				ID: "ListPets", Method: "GET", Path: "/pets", Summary: "List pets", Tags: []string{"pets"}, HasOptions: true, IsRouted: true,
@@ -357,6 +358,7 @@ func TestGenerateWithPluginThatChangesItsAPI(t *testing.T) {
 
 	writer := &fakePlugin{name: "writer", contribute: func(api *API) (*Contribution, error) {
 		api.Package = "changed"
+		api.Service.Name = "Changed"
 		api.Operations[0].Tags[0] = "changed"
 		api.Operations[0].Success.Status = 500
 		api.Operations[1].ID = "Changed"
@@ -398,6 +400,48 @@ func TestGenerateWithPluginPackage(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, p.api.Package)
+		})
+	}
+}
+
+func TestGenerateWithPluginService(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		cfg  string
+		want TypeRef
+	}{
+		{
+			name: "Interface named after the server, in the package of output.file",
+			cfg:  "package: pets\noutput: {file: ./api/gen.go}\nserver: {framework: chi, name: Pets}\n",
+			want: TypeRef{Name: "PetsInterface", Package: "pets", ImportPath: "example.com/work/api"},
+		},
+		{
+			name: "Interface of a server without a name",
+			cfg:  "package: pets\noutput: {file: ./api/gen.go}\nserver: {framework: chi}\n",
+			want: TypeRef{Name: "ServiceInterface", Package: "pets", ImportPath: "example.com/work/api"},
+		},
+		{
+			name: "Interface in the folder the config moves the service part to",
+			cfg:  "package: pets\noutput: {file: ./api/gen.go, files: {./contract/service.go: [server.service, models]}}\nserver: {framework: chi, name: Pets}\n",
+			want: TypeRef{Name: "PetsInterface", Package: "contract", ImportPath: "example.com/work/contract"},
+		},
+		{
+			name: "No interface without a server",
+			cfg:  "package: pets\noutput: {file: ./api/gen.go}\nclient:\n",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			p := &fakePlugin{name: "sample"}
+			_, err := generate(t, tc.cfg, p)
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, p.api.Service)
 		})
 	}
 }
