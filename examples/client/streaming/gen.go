@@ -169,7 +169,9 @@ type TailLogRequestOptions struct {
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *TailLogRequestOptions) Validate() error {
 	return nil
-} // ClientInterface is what Client implements: one method per operation, so a test double can
+}
+
+// ClientInterface is what Client implements: one method per operation, so a test double can
 // stand in for the client.
 type ClientInterface interface {
 	// Ask the assistant

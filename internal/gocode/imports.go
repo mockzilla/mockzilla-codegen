@@ -232,7 +232,7 @@ func isStd(path string) bool {
 // false when src is no Go code.
 func packageNames(src []byte) (map[string]bool, bool) {
 	// The parser resolves the names src declares, so Obj stays nil on a package.
-	file, err := parser.ParseFile(token.NewFileSet(), "", "package p\n"+string(src), 0)
+	file, err := parser.ParseFile(token.NewFileSet(), "", clause+string(src), 0)
 	if err != nil {
 		return nil, false
 	}

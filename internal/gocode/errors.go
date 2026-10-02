@@ -7,4 +7,7 @@ package gocode
 
 import "errors"
 
-var ErrFormat = errors.New("format generated code")
+var (
+	ErrFormat = errors.New("format generated code")
+	ErrParse  = errors.New("parse generated code")
+)
