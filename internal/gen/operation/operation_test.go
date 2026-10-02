@@ -214,9 +214,26 @@ func TestIsJSONParam(t *testing.T) {
 func TestStatusOf(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, 404, StatusOf("404"))
-	assert.Equal(t, 400, StatusOf("4XX"))
-	assert.Equal(t, 500, StatusOf("default"))
+	tests := []struct {
+		name   string
+		status string
+		want   int
+	}{
+		{name: "Code", status: "404", want: 404},
+		{name: "Range takes its start", status: "4XX", want: 400},
+		{name: "Default", status: "default", want: 500},
+		{name: "Key that is no status", status: "ok", want: 500},
+		{name: "Digit and one more character are no range", status: "4X", want: 500},
+		{name: "Empty key", status: "", want: 500},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, StatusOf(tc.status))
+		})
+	}
 }
 
 func TestDoc(t *testing.T) {

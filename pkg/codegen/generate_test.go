@@ -635,3 +635,36 @@ paths:
 		"client.core", "client.options", "client.operations", "mcp.inputs", "mcp.tools",
 	}, res.Files[0].Parts)
 }
+
+// An empty key names no status, so it is taken like default: the service gives the status.
+func TestGenerateWithAnEmptyResponseKey(t *testing.T) {
+	t.Parallel()
+
+	const emptyKeySpec = `openapi: 3.1.0
+info: {title: pets, version: "1"}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "200": {description: pets}
+        "": {description: no status}
+`
+	dir := t.TempDir()
+	cfg, err := config.Parse([]byte("package: pets\nserver: {framework: chi}\nclient: {}\noutput: {file: ./api/gen.go}\n"), dir)
+	require.NoError(t, err)
+
+	res, err := Generate(context.Background(), cfg, WithSpec([]byte(emptyKeySpec)))
+
+	require.NoError(t, err)
+	assert.Contains(t, res.Diagnostics, Diagnostic{
+		Severity: SeverityWarning,
+		Code:     "invalid-status",
+		Pointer:  "/paths/~1pets/get/responses/",
+		Line:     9,
+		Col:      9,
+		Message:  `response key "" is not a status code, a range or default`,
+	})
+	require.Len(t, res.Files, 1)
+	assert.Contains(t, string(res.Files[0].Content), "func NewListPetsResponseDataEMPTY(status int) *ListPetsResponseData {\n")
+}
