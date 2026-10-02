@@ -7,4 +7,6 @@
 // Fails to compile when the runtime package does not match the mockzilla-codegen version that
 // wrote this file.
 const _ = {{.}}
-{{end}}{{range .Parts}}{{.}}{{end}}
+{{end}}{{range .Parts}}
+{{.}}
+{{end}}

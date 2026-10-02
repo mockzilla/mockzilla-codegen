@@ -80,7 +80,9 @@ func (r *GetBookResponseData) Payload() any {
 // ContentType is the media type the body is written as, empty for the default of its Go type.
 func (r *GetBookResponseData) ContentType() string {
 	return r.contentType
-} // ServerOptions is what the adapter and the router are set up with. Router is the router the
+}
+
+// ServerOptions is what the adapter and the router are set up with. Router is the router the
 // routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
 // writes the response of a failed request; JSONDecoder reads JSON bodies.
 type ServerOptions struct {
