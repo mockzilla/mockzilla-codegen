@@ -41,3 +41,21 @@ func TestExamples(t *testing.T) {
 		assert.Equal(t, string(want), string(f.Content), f.Path)
 	}
 }
+
+func TestExamplesAreDeterministic(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Load(filepath.Join("..", "basic", "codegen.yaml"))
+	require.NoError(t, err)
+
+	var first *codegen.Result
+	for range 3 {
+		res, genErr := codegen.Generate(context.Background(), cfg, codegen.WithPlugins(sample.Plugin{}))
+		require.NoError(t, genErr)
+		if first == nil {
+			first = res
+			continue
+		}
+		assert.Equal(t, first, res)
+	}
+}

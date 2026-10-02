@@ -98,7 +98,7 @@ func TestNew(t *testing.T) {
 		{Operation: "CreatePet", Method: "POST", Path: "/pets", Pattern: "/pets"},
 		{Operation: "DeletePet", Method: "DELETE", Path: "/pets/{id}", Pattern: "/pets/{id}"},
 		{Operation: "Ping", Method: "GET", Path: "/ping", Pattern: "/ping"},
-	}, g.routes)
+	}, g.Routes())
 	assert.Equal(t, []diag.Diagnostic{
 		{Severity: diag.Warning, Code: "route-dropped", Pointer: "/paths/~1pets/link", Origin: diag.Origin{File: "a.yaml", Line: 3, Col: 5}, Message: "Link is not routed: the router does not take the method LINK"},
 		{Severity: diag.Warning, Code: "route-dropped", Pointer: "/paths/pets~1{id/get", Message: "Bad is not routed: the router rejects the path: it must begin with /"},
@@ -147,18 +147,10 @@ func TestNewLeavesTheMethodToTheFramework(t *testing.T) {
 
 			g, diags := New(m, opts)
 
-			assert.Equal(t, tc.wantRoutes, g.routes)
+			assert.Equal(t, tc.wantRoutes, g.Routes())
 			assert.Equal(t, tc.wantDiags, diags)
 		})
 	}
-}
-
-func TestRoutes(t *testing.T) {
-	t.Parallel()
-
-	g, _ := New(petModel(), allOptions())
-
-	assert.Equal(t, g.routes, g.Routes())
 }
 
 func TestFrameworks(t *testing.T) {

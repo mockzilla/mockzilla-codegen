@@ -138,7 +138,7 @@ selectors, and the most specific selector wins. A selector can be listed only on
 | `server.<part>` | `service`, `adapter`, `router`, `errors` |
 | `client`, `client.<part>` | `core`, `options`, `operations`, `responses` |
 | `mcp`, `mcp.<part>` | `tools`, `inputs` |
-| `plugin.<name>`, `plugin.<name>.<part>` | parts added by a plugin |
+| `plugin`, `plugin.<name>`, `plugin.<name>.<part>` | parts added by plugins |
 
 The folder of `output.file` uses `package`. Other folders use `output.packages`, else their own
 name. `output.packages` wins over `package` when both name the same folder. Output in more than one

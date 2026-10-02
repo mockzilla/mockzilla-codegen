@@ -23,7 +23,8 @@ type Plugin interface {
 
 // Reservations is what a plugin declares before naming. Idents are the package-level names its
 // parts declare, Go identifiers which no model may take; RequestOptionFields are added to the
-// request options of every operation, before RawRequest.
+// server's request options of every operation, before RawRequest, and left out when the config
+// has no server.
 type Reservations struct {
 	Idents              []string
 	RequestOptionFields []FieldSpec
@@ -37,10 +38,10 @@ type FieldSpec struct {
 	Doc  string
 }
 
-// Contribution is what a plugin generates. Parts are placed through output.files as
-// plugin.<name>.<part>; Scaffolds replace the templates of the scaffold files the config writes;
-// Funcs are available to this plugin's templates, next to the generator's, and replace those of
-// the same name.
+// Contribution is what a plugin generates. Parts go to output.file, or where output.files moves
+// them as plugin.<name>.<part>; Scaffolds replace the templates of the scaffold files the config
+// writes; Funcs are available to this plugin's templates, next to the generator's, and replace
+// those of the same name.
 type Contribution struct {
 	Parts     []PartSource
 	Scaffolds map[ScaffoldKind]string

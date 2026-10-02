@@ -51,7 +51,9 @@ compiler.
 `RequestOptionFields` go into the request options of every operation, after the parameter groups
 and the bodies and before `RawRequest`. A field cannot take a name the options declare themselves:
 the parameter groups (`PathParams`, `Query`, `QueryString`, `Headers`, `Cookies`), a name that
-starts with `Body`, `RawRequest` or `Validate`. Two plugins cannot add the same field.
+starts with `Body`, `RawRequest` or `Validate`. Two plugins cannot add the same field. These are
+the request options of the server. In a config without a `server` block the fields are checked
+all the same and then left out: the request options of the client do not get them.
 
 The type of a field follows the rules of a [`TypeRef`](#the-api). With an import path it is an
 identifier, or a pointer, slice, array, map or channel around one. Without one it is any Go type,
@@ -71,7 +73,7 @@ TypeRef{Name: "*Span", Package: "open-trace", ImportPath: "example.com/trace"} /
 
 ```go
 type Contribution struct {
-	Parts     []PartSource            // placed with output.files as plugin.<name>.<part>
+	Parts     []PartSource            // named plugin.<name>.<part> in output.files
 	Scaffolds map[ScaffoldKind]string // replacement templates of the scaffold files
 	Funcs     template.FuncMap        // funcs for this plugin's templates only
 }
@@ -84,9 +86,21 @@ type PartSource struct {
 }
 ```
 
-Every part must be placed: list `plugin.<name>.<part>`, `plugin.<name>` or `plugin` in
-`output.files`. A part gets the same header, import declaration, formatting and layout rules as a
-built-in part, and can share a file with any other part.
+A part is placed like a built-in one. It goes to `output.file`, unless a selector in
+`output.files` moves it: `plugin.<name>.<part>` names one part, `plugin.<name>` the parts of one
+plugin and `plugin` those of every plugin, and the closest selector wins.
+
+```yaml
+output:
+  file: ./api/gen.go
+  files:
+    ./api/plugins.go: [plugin]                    # every part of every plugin
+    ./api/register.go: [plugin.sample.register]   # but this one
+```
+
+A part gets the same header, import declaration, formatting and layout rules as a built-in part,
+and can share a file with any other part. In a file, the parts of plugins come below the built-in
+ones, in the order `WithPlugins` and `Parts` give them.
 
 What a part writes is Go declarations, without a package clause. The file puts them on lines of
 their own below a blank line, so the text needs no line break at its start or its end, and a part
@@ -118,19 +132,29 @@ a name, so the second one gets a number, such as `models2`. An alias in `Imports
 and `.` is an identifier and only a wish for that name. An import needs a path.
 
 `Scaffolds` replace the template of a scaffold file the config writes (`ScaffoldService`,
-`ScaffoldMiddleware`, `ScaffoldMain`); a replacement for a scaffold the config does not name is
-ignored. The replacement runs on the same data as the built-in template, listed under
-[Scaffold data](#scaffold-data). One scaffold can be replaced by one plugin.
+`ScaffoldMiddleware`, `ScaffoldMain`). A replacement is used when the config names that file
+under `server.scaffold`. For any other scaffold its template is never run, and a config without
+a `server` block writes no scaffold at all. The replacement runs on the same data as the built-in
+template, listed under [Scaffold data](#scaffold-data). One scaffold can be replaced by one
+plugin.
 
 ### Templates
 
-A plugin template is a `text/template`. It sees the generator's funcs (`comment`, `quote`, `tag`,
-`lower`, `ucFirst`), the plugin's own `Funcs`, and two funcs bound to the file the part lands in:
+A plugin template is a `text/template`. It sees the plugin's own `Funcs`, two funcs bound to the
+file the part lands in, `expr` and `import`, and the funcs every template of the generator has:
 
 | Func | Does |
 |---|---|
 | `expr <TypeRef>` | writes the type as the file spells it, qualified and imported when it lives in another package |
 | `import <path>` | imports the path and returns the name to qualify with |
+| `comment <text>` | writes the text as `//` lines, wrapped to 100 columns where a space allows, and nothing for blank text |
+| `quote <text>` | writes the text as a Go string literal |
+| `lower <text>` | lowers every letter |
+| `ucFirst <text>` | raises the first character |
+
+`toGoComment` is `comment` under another name, and `escapeGoString` is `quote` without the quotes
+around the text. The generator's `tag` is of no use here: it takes the tags of a model field, a
+value no plugin has.
 
 ```
 {{- $http := import "net/http"}}
@@ -234,7 +258,7 @@ Service (`ScaffoldService`):
 |---|---|
 | `Name` | the service struct, `server.name` |
 | `Interface` | the service interface |
-| `Context`, `Errors` | the `context` and `errors` packages |
+| `Context`, `Errors` | the `context` and `errors` packages; `Context` is empty when `Operations` is |
 | `Operations` | one entry per operation: `Name`, `Method`, `Path`, `Options`, `Data` |
 
 Middleware (`ScaffoldMiddleware`): `HTTP`, `Slog`, `Time`, `Rand`, `Debug`, the packages.
@@ -243,10 +267,17 @@ Main (`ScaffoldMain`):
 
 | Field | Holds |
 |---|---|
-| `Context`, `HTTP`, `Slog`, `OS`, `Signal`, `Syscall` | the packages |
-| `NewRouter`, `NewService`, `WithMiddleware` | the functions main calls |
+| `Context`, `Slog`, `OS`, `Signal`, `Syscall` | the packages |
+| `HTTP` | the `net/http` package; empty on fasthttp, fiber, goframe and hertz, which an `http.Server` does not serve |
+| `Framework` | the package of the server on fiber (`fiber`), goframe (`ghttp`) and hertz (`server`); empty on the other routers |
+| `Packages` | a map of package names, with the one key `fasthttp` on fasthttp; empty on the other routers |
+| `NewRouter`, `NewService`, `WithMiddleware`, `WithRouter` | the functions a main calls |
 | `Middleware` | the middleware expressions, empty without the middleware scaffold |
-| `Port`, `Timeout` | the port and the timeout expression |
+| `Port`, `Timeout` | the port and the timeout expression, such as `30 * time.Second` |
+
+`HTTP`, `Framework` and `Packages` hold what the built-in main of each router writes. A
+replacement that has to run on any router imports its packages itself, as in
+`{{import "net/http"}}`.
 
 ## Template overrides
 
@@ -283,6 +314,10 @@ router. On the other frameworks the route goes on the router the `register` clos
 `router.tmpl` names, `e` for gin, `app` for fiber and iris, `r` for gorilla-mux, fasthttp, beego
 and go-zero, `h` for hertz and `s` for goframe, and its handler is an `http.Handler` wrapped as
 `handle(route(h))`, or `route(h)` alone on gorilla-mux and go-zero.
+
+The text of a block is a `text/template` of its own. It can call the funcs every template of the
+generator has, such as `comment` and `quote`, listed under [Templates](#templates). It has no
+`expr` and no `import`: the packages its code names are listed under [`imports`](#imports).
 
 `user-context` is available as `.User` in every block and as `API.UserContext` to plugins. A key
 it does not have is an error: `{{.User.team}}` fails in a config that sets no `team`. Ask for a
