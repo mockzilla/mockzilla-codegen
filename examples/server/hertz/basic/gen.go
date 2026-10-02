@@ -346,7 +346,9 @@ func (r *PingResponseData) Payload() any {
 // ContentType is the media type the body is written as, empty for the default of its Go type.
 func (r *PingResponseData) ContentType() string {
 	return r.contentType
-} // The error types the handlers use, as the runtime declares them.
+}
+
+// The error types the handlers use, as the runtime declares them.
 type (
 	ErrorKind           = runtime.ErrorKind
 	HandlerError        = runtime.HandlerError
@@ -362,7 +364,9 @@ const (
 	ErrorValidation = runtime.ErrorValidation
 	ErrorService    = runtime.ErrorService
 	ErrorResponse   = runtime.ErrorResponse
-) // ServerOptions is what the adapter and the router are set up with. Router is the router the
+)
+
+// ServerOptions is what the adapter and the router are set up with. Router is the router the
 // routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
 // writes the response of a failed request; JSONDecoder reads JSON bodies.
 type ServerOptions struct {
@@ -564,7 +568,9 @@ func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, r
 	if err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
 	}
-} // WithRouter registers the routes on h instead of a new Hertz.
+}
+
+// WithRouter registers the routes on h instead of a new Hertz.
 func WithRouter(h *server.Hertz) ServerOption {
 	return func(o *ServerOptions) {
 		o.Router = h

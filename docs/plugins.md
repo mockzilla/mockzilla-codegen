@@ -54,11 +54,13 @@ the parameter groups (`PathParams`, `Query`, `QueryString`, `Headers`, `Cookies`
 starts with `Body`, `RawRequest` or `Validate`. Two plugins cannot add the same field.
 
 The type of a field follows the rules of a [`TypeRef`](#the-api). With an import path it is an
-identifier, or a pointer, slice, array, map or channel around one. A package needs its import
-path and has to be a package name:
+identifier, or a pointer, slice, array, map or channel around one. Without one it is any Go type,
+and the type alone: no space, comment or tag around it. A package needs its import path and has
+to be a package name:
 
 ```go
 TypeRef{Name: "func() any"}                                                    // written as it is
+TypeRef{Name: "func( any"}                                                     // an error: no Go type
 TypeRef{Name: "*Span", Package: "trace", ImportPath: "example.com/trace"}      // *trace.Span
 TypeRef{Name: "Option[Pet]", Package: "opt", ImportPath: "example.com/opt"}    // an error
 TypeRef{Name: "*Span", Package: "trace"}                                       // an error: no import path
@@ -85,6 +87,23 @@ type PartSource struct {
 Every part must be placed: list `plugin.<name>.<part>`, `plugin.<name>` or `plugin` in
 `output.files`. A part gets the same header, import declaration, formatting and layout rules as a
 built-in part, and can share a file with any other part.
+
+What a part writes is Go declarations, without a package clause. The file puts them on lines of
+their own below a blank line, so the text needs no line break at its start or its end, and a part
+that writes nothing adds nothing. Text that Go cannot parse is an error, in a file that is not
+formatted too. It names the plugin and the part, and shows the lines around the problem, counted
+from the first line the part wrote:
+
+```
+./api/register.go: plugin sample: parse generated code: plugin.sample.register:2:28: missing ',' in parameter list (and 2 more errors)
+     1 | // Register mounts the routes on r.
+>    2 | func Register(r chi.Router {
+     3 | 	r.Get("/routes", list)
+     4 | 	r.Get("/health", health)
+     5 | }
+```
+
+The text of a replaced scaffold is checked the same way.
 
 `Imports` are for the packages the code needs and does not name: one imported for its side
 effects, under `_`, or one whose names the code writes bare, under `.`.

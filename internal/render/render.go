@@ -66,8 +66,8 @@ type Options struct {
 }
 
 // FileData is what a generated file holds around its parts. Header is plain text; Imports is the
-// import declaration; Guard is the runtime constant the file refers to, if any. Each part starts
-// every declaration with a blank line.
+// import declaration; Guard is the runtime constant the file refers to, if any. Parts holds the
+// declarations of each part, with or without line breaks around them.
 type FileData struct {
 	Header  string
 	Package string
@@ -113,8 +113,17 @@ func (e *Engine) RenderPart(part layout.PartID, data any) ([]byte, error) {
 	return e.execute(name, data)
 }
 
-// RenderFile puts a file together and formats it when the options ask for that.
+// RenderFile puts a file together and formats it when the options ask for that. Each part with
+// text goes on lines of its own below a blank line, so that none runs into the one before it.
 func (e *Engine) RenderFile(d FileData) ([]byte, error) {
+	parts := make([]string, 0, len(d.Parts))
+	for _, part := range d.Parts {
+		if text := trimBlank(part); text != "" {
+			parts = append(parts, text)
+		}
+	}
+	d.Parts = parts
+
 	out, err := e.execute(fileTemplate, d)
 	if err != nil || !e.format {
 		return out, err
@@ -216,10 +225,7 @@ func (e *Engine) overrideLines(block string, data any) (string, error) {
 		return "", &overrideError{err: fmt.Errorf("%s: %w", block, ErrNoValue)}
 	}
 
-	// The first line keeps its indent, which shows in output that is not formatted.
-	text := strings.TrimRightFunc(b.String(), unicode.IsSpace)
-	blank := len(text) - len(strings.TrimLeftFunc(text, unicode.IsSpace))
-	text = text[strings.LastIndexByte(text[:blank], '\n')+1:]
+	text := trimBlank(b.String())
 	if text == "" {
 		return "", nil
 	}
@@ -245,4 +251,12 @@ func unknownBlock(blocks []string) string {
 		return "unknown block; there is no block to override"
 	}
 	return "unknown block; the blocks are " + strings.Join(slices.Sorted(slices.Values(blocks)), ", ")
+}
+
+// trimBlank returns text without the blank lines around it. Its first line keeps its indent,
+// which shows in output that is not formatted.
+func trimBlank(text string) string {
+	text = strings.TrimRightFunc(text, unicode.IsSpace)
+	blank := len(text) - len(strings.TrimLeftFunc(text, unicode.IsSpace))
+	return text[strings.LastIndexByte(text[:blank], '\n')+1:]
 }

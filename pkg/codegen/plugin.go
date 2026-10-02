@@ -29,8 +29,8 @@ type Reservations struct {
 	RequestOptionFields []FieldSpec
 }
 
-// FieldSpec is one field a plugin adds. Name is an exported identifier; Type has an ImportPath
-// when it has a Package; Doc is its comment, empty for none.
+// FieldSpec is one field a plugin adds. Name is an exported identifier; Type is a Go type, with
+// an ImportPath when it has a Package; Doc is its comment, empty for none.
 type FieldSpec struct {
 	Name string
 	Type TypeRef
@@ -48,10 +48,10 @@ type Contribution struct {
 }
 
 // PartSource is one part: its template, the data the template runs on and the imports its code
-// needs. Name matches [a-z][a-z0-9]*. The template may also call expr, which writes a TypeRef as
-// the file spells it, and import, which imports a path and returns the name to qualify with.
-// Imports is for the packages the code does not name, those under _ or .: only import tells the
-// name a package got in the file.
+// needs. Name matches [a-z][a-z0-9]*. The template writes Go declarations; it may call expr,
+// which writes a TypeRef as the file spells it, and import, which imports a path and returns the
+// name to qualify with. Imports is for the packages the code does not name, those under _ or .:
+// only import tells the name a package got in the file.
 type PartSource struct {
 	Name     string
 	Template string

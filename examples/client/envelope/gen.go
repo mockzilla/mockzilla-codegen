@@ -217,7 +217,9 @@ func (r *GetJobLogResponseData) Payload() any {
 // ContentType is the media type the body is written as, empty for the default of its Go type.
 func (r *GetJobLogResponseData) ContentType() string {
 	return r.contentType
-} // The error types the handlers use, as the runtime declares them.
+}
+
+// The error types the handlers use, as the runtime declares them.
 type (
 	ErrorKind           = runtime.ErrorKind
 	HandlerError        = runtime.HandlerError
@@ -233,7 +235,9 @@ const (
 	ErrorValidation = runtime.ErrorValidation
 	ErrorService    = runtime.ErrorService
 	ErrorResponse   = runtime.ErrorResponse
-) // ServerOptions is what the adapter and the router are set up with. Router is the router the
+)
+
+// ServerOptions is what the adapter and the router are set up with. Router is the router the
 // routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
 // writes the response of a failed request; JSONDecoder reads JSON bodies.
 type ServerOptions struct {
@@ -385,7 +389,9 @@ func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, r
 	if err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
 	}
-} // WithRouter registers the routes on r instead of a new router.
+}
+
+// WithRouter registers the routes on r instead of a new router.
 func WithRouter(r chi.Router) ServerOption {
 	return func(o *ServerOptions) {
 		o.Router = r
@@ -415,7 +421,9 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 		register(r)
 	})
 	return router
-} // HTTPDoer sends a request, as *http.Client does.
+}
+
+// HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
 // RequestEditor changes a request before it is sent, to add credentials for one.
@@ -494,7 +502,9 @@ type GetJobLogRequestOptions struct {
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *GetJobLogRequestOptions) Validate() error {
 	return nil
-} // ClientInterface is what Client implements: one method per operation, so a test double can
+}
+
+// ClientInterface is what Client implements: one method per operation, so a test double can
 // stand in for the client.
 type ClientInterface interface {
 	// Submit a job
