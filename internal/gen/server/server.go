@@ -56,6 +56,9 @@ const (
 	blockRequestOptionsExtra = "server.request-options-extra"
 	blockResponseDataExtra   = "server.response-data-extra"
 	blockRouterExtra         = "server.router-extra"
+
+	blockScaffoldServiceFields = "server.scaffold.service-fields"
+	blockScaffoldServiceMethod = "server.scaffold.service-method"
 )
 
 // mainTemplate is the template a framework whose server is not an http.Server gives the main
@@ -200,6 +203,14 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 	}
 }
 
+// Needs names, for each block of a scaffold the config does not write, the key it has to set.
+func (g *Generator) Needs() map[string]string {
+	if g.opts.Scaffold.Service {
+		return nil
+	}
+	return map[string]string{blockScaffoldServiceFields: "server.scaffold.service", blockScaffoldServiceMethod: "server.scaffold.service"}
+}
+
 // Frameworks lists the frameworks a router can be generated for, by name.
 func Frameworks() map[string]framework.Framework {
 	return map[string]framework.Framework{
@@ -239,7 +250,7 @@ func Templates(fw framework.Framework) []render.Set {
 				layout.PartScaffoldMiddleware: "scaffold-middleware.tmpl",
 				layout.PartScaffoldMain:       "scaffold-main.tmpl",
 			},
-			Blocks: []string{blockServiceHeader, blockRequestOptionsExtra, blockResponseDataExtra},
+			Blocks: []string{blockServiceHeader, blockRequestOptionsExtra, blockResponseDataExtra, blockScaffoldServiceFields, blockScaffoldServiceMethod},
 		},
 		{Name: fw.Name(), FS: fw.Templates(), Parts: own, Blocks: []string{blockRouterExtra}},
 	}
@@ -247,7 +258,7 @@ func Templates(fw framework.Framework) []render.Set {
 
 // Blocks lists the blocks of the server templates a config may override, whatever the framework.
 func Blocks() []string {
-	return []string{blockServiceHeader, blockRequestOptionsExtra, blockResponseDataExtra, blockRouterExtra}
+	return []string{blockServiceHeader, blockRequestOptionsExtra, blockResponseDataExtra, blockScaffoldServiceFields, blockScaffoldServiceMethod, blockRouterExtra}
 }
 
 // ReservedField reports whether name is a field the request options declare themselves, so an

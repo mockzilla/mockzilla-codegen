@@ -41,7 +41,7 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
 | `output-options.additional-initialisms` | `naming.initialisms`, in effect without a `name-normalizer` |
 | `output-options.yaml-tags`, `struct-tags` | `models.extra-tags: [yaml]`; each tag repeats the JSON name |
 | `output-options.skip-enum-validate` | `models.validation.skip`, for every `Validate` method |
-| `output-options.user-templates` | `templates` for the [blocks that may be replaced](../plugins.md#template-overrides), else a [plugin](../plugins.md) |
+| `output-options.user-templates` | `templates` for the [blocks that may be replaced](../templates.md#blocks), else [`extra-files`](../templates.md#extra-files) |
 | `output-options.prefer-skip-optional-pointer` | none globally; `x-go-type-skip-optional-pointer` per field |
 | `output-options.prefer-skip-optional-pointer-on-container-types` | the default: a slice or map never gets a pointer |
 | `output-options.streaming-content-types` | `client.streaming` reads `text/event-stream` and line-delimited JSON; the list is fixed |
@@ -52,7 +52,7 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
 | `compatibility.apply-chi-middleware-first-to-last`, `apply-gorilla-middleware-first-to-last` | the default: `WithMiddleware` wraps outermost first |
 | `compatibility.disable-flatten-additional-properties` | none: an object without properties is a map |
 | `compatibility.disable-required-readonly-as-pointer` | the default: a required `readOnly` field is a plain value with `omitempty` |
-| `additional-imports` | [`imports`](../plugins.md#imports), same `package` and `alias`; no `.` alias |
+| `additional-imports` | [`imports`](../templates.md#imports), same `package` and `alias`; no `.` alias |
 | `import-mapping` | none, see below |
 
 ## What has no key

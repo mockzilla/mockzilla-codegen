@@ -309,14 +309,14 @@ func TestNewOverrideErrors(t *testing.T) {
 			name:      "Block of a generator the config leaves out",
 			sets:      []Set{fakeSet()},
 			templates: map[string]string{"server.router-extra": "x", "fake.extra": "ok"},
-			needs:     map[string]string{"server.router-extra": "server", "server.service-header": "server"},
+			needs:     map[string]string{"server.router-extra": "a server block", "server.service-header": "a server block"},
 			want:      []config.Issue{{Key: "templates.server.router-extra", Message: "needs a server block"}},
 		},
 		{
 			name:      "Unknown blocks list those of a generator the config leaves out",
 			sets:      []Set{fakeSet()},
 			templates: map[string]string{"models.struct": "x"},
-			needs:     map[string]string{"server.router-extra": "server", "server.service-header": "server"},
+			needs:     map[string]string{"server.router-extra": "a server block", "server.service-header": "a server block"},
 			want: []config.Issue{{
 				Key:     "templates.models.struct",
 				Message: "unknown block; the blocks are fake.extra, fake.header, server.router-extra, server.service-header",

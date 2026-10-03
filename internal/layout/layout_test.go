@@ -102,6 +102,18 @@ func TestPlan(t *testing.T) {
 			},
 		},
 		{
+			name: "Extra files take the part named by their path, whatever a selector says",
+			cfg: "output:\n  file: ./api/gen.go\n  files: {./api/models.go: [models]}\n" +
+				"extra-files: {./wrap/wrap.go: 'var A = 1', models.go: 'var B = 1'}\n",
+			mod:   workModule,
+			parts: []Part{{ID: "models.types"}, {ID: "./wrap/wrap.go"}, {ID: "models.go"}},
+			want: []*File{
+				{Path: "/work/api/models.go", Rel: "./api/models.go", Package: "api", ImportPath: "example.com/work/api", Parts: []PartID{"models.types"}},
+				{Path: "/work/models.go", Rel: "models.go", Package: "work", ImportPath: "example.com/work", Parts: []PartID{"models.go"}},
+				{Path: "/work/wrap/wrap.go", Rel: "./wrap/wrap.go", Package: "wrap", ImportPath: "example.com/work/wrap", Parts: []PartID{"./wrap/wrap.go"}},
+			},
+		},
+		{
 			name: "One folder needs no module",
 			cfg:  "output: {file: ./api/gen.go}\n",
 			want: []*File{

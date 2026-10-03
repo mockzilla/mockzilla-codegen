@@ -138,6 +138,44 @@ func checkTemplates(templates map[string]Template) []Issue {
 	return issues
 }
 
+// checkExtraFiles checks that every extra file is a Go file no other key of c writes.
+func checkExtraFiles(c *Config) []Issue {
+	type writer struct{ key, path string }
+	writers := []writer{{key: "output.file", path: c.Output.File}}
+	for _, p := range slices.Sorted(maps.Keys(c.Output.Files)) {
+		writers = append(writers, writer{key: "output.files", path: p})
+	}
+	if s := c.Server; s != nil {
+		writers = append(writers,
+			writer{key: "server.scaffold.service", path: s.Scaffold.Service},
+			writer{key: "server.scaffold.middleware", path: s.Scaffold.Middleware},
+			writer{key: "server.scaffold.main", path: s.Scaffold.Main},
+		)
+	}
+	taken := make(map[string]string, len(writers))
+	for _, w := range writers {
+		if clean := filepath.Clean(w.path); w.path != "" && taken[clean] == "" {
+			taken[clean] = w.key
+		}
+	}
+
+	paths := slices.Sorted(maps.Keys(c.ExtraFiles))
+	issues := checkSamePaths("extra-files", "file", paths)
+	for _, p := range paths {
+		key := fmt.Sprintf("extra-files[%q]", p)
+		if filepath.Ext(p) != ".go" {
+			issues = append(issues, Issue{Key: key, Message: "is no .go file"})
+		}
+		if other := taken[filepath.Clean(p)]; other != "" {
+			issues = append(issues, Issue{Key: key, Message: "is written by " + other + " too"})
+		}
+		if problem := templateProblem(c.ExtraFiles[p]); problem != "" {
+			issues = append(issues, Issue{Key: key, Message: problem})
+		}
+	}
+	return issues
+}
+
 // templateProblem is what is wrong with t, if anything. A template says by its form whether it
 // is text or a file, so text that can only be a path is a file that is not given as one.
 func templateProblem(t Template) string {
