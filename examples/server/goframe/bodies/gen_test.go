@@ -55,6 +55,10 @@ func (mirror) PostText(_ context.Context, opts *PostTextServiceRequestOptions) (
 	return NewPostTextResponseData(new("text: " + *opts.BodyText)), nil
 }
 
+func (mirror) PutFile(_ context.Context, opts *PutFileServiceRequestOptions) (*PutFileResponseData, error) {
+	return NewPutFileResponseData(opts.Body), nil
+}
+
 func (mirror) PostAny(_ context.Context, opts *PostAnyServiceRequestOptions) (*PostAnyResponseData, error) {
 	switch {
 	case opts.BodyXML != nil:

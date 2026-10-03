@@ -52,6 +52,10 @@ func (echo) PostText(_ context.Context, opts *PostTextServiceRequestOptions) (*P
 	return NewPostTextResponseData(new("text: " + *opts.BodyText)), nil
 }
 
+func (echo) PutFile(_ context.Context, opts *PutFileServiceRequestOptions) (*PutFileResponseData, error) {
+	return NewPutFileResponseData(opts.Body), nil
+}
+
 func (echo) PostAny(_ context.Context, opts *PostAnyServiceRequestOptions) (*PostAnyResponseData, error) {
 	switch {
 	case opts.BodyXML != nil:
@@ -163,6 +167,21 @@ func TestMultipart(t *testing.T) {
 		"title": "Cat", "file": "meow", "name": "cat.txt", "type": "text/plain",
 		"tags": []any{"a", "b"}, "meta": map[string]any{"text": "inner"},
 	}, got)
+}
+
+func TestFile(t *testing.T) {
+	t.Parallel()
+
+	c := newClient(t)
+	png := runtime.NewFile([]byte("\x89PNG"), "cat.png", "image/png")
+
+	got, err := c.PutFile(context.Background(), &PutFileRequestOptions{Body: &png})
+
+	require.NoError(t, err)
+	data, err := got.Bytes()
+	require.NoError(t, err)
+	assert.Equal(t, []byte("\x89PNG"), data)
+	assert.Equal(t, "image/png", got.ContentType())
 }
 
 func TestRequiredBody(t *testing.T) {

@@ -23,6 +23,7 @@ type pageHeaders struct {
 type envelope struct {
 	JSON200     *rgb
 	Text200     *string
+	PDF200      *File
 	Bytes2XX    []byte
 	Any200      any
 	JSON404     *notFound
@@ -45,6 +46,7 @@ func envelopeTargets(e *envelope) []Target {
 	return []Target{
 		{Status: "200", MediaType: "application/json", Dst: &e.JSON200},
 		{Status: "200", MediaType: "text/plain", Dst: &e.Text200},
+		{Status: "200", MediaType: "application/pdf", Dst: &e.PDF200},
 		{Status: "200", MediaType: "*/*", Dst: &e.Any200},
 		{Status: "200", IsHeaders: true, Dst: &e.Headers200},
 		{Status: "2XX", MediaType: "image/*", Dst: &e.Bytes2XX},
@@ -70,6 +72,7 @@ func TestDecode(t *testing.T) {
 			want: envelope{JSON200: &rgb{R: 1, G: 2, B: 3}, Headers200: &pageHeaders{Total: Ptr(5), Tags: []string{"a", "b"}}},
 		},
 		{name: "A text body", res: response(200, "text/plain", nil), body: "pong", want: envelope{Text200: Ptr("pong"), Headers200: &pageHeaders{}}},
+		{name: "A binary body as it came", res: response(200, "application/pdf", nil), body: "%PDF-1.7", want: envelope{PDF200: Ptr(NewFile([]byte("%PDF-1.7"), "", "application/pdf")), Headers200: &pageHeaders{}}},
 		{name: "A JSON null leaves the pointer nil", res: response(200, "application/json", nil), body: "null", want: envelope{Headers200: &pageHeaders{}}},
 		{name: "A media type only the wildcard takes", res: response(200, "text/html", nil), body: `"x"`, want: envelope{Any200: "x", Headers200: &pageHeaders{}}},
 		{name: "No media type takes the first target", res: response(200, "", nil), body: `{"R":1}`, want: envelope{JSON200: &rgb{R: 1}, Headers200: &pageHeaders{}}},

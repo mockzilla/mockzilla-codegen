@@ -20,7 +20,8 @@ func TestBodyView(t *testing.T) {
 	str := gomodel.Builtin{Name: "string"}
 	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}
 	blob := &gomodel.Decl{Name: "Blob", Part: gomodel.PartTypes, Kind: gomodel.KindDefined, Target: gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}}
-	m := &gomodel.Model{Decls: []*gomodel.Decl{pet, blob}}
+	image := &gomodel.Decl{Name: "Image", Part: gomodel.PartTypes, Kind: gomodel.KindAlias, Target: fileType}
+	m := &gomodel.Model{Decls: []*gomodel.Decl{pet, blob, image}}
 	g, _ := New(m, allOptions())
 	view := func(v BodyView) BodyView {
 		v.Runtime, v.OperationID, v.IsRequired, v.Field, v.Target, v.Return = "runtime", `"Op"`, true, "Body", "&opts.Body", "return"
@@ -78,6 +79,11 @@ func TestBodyView(t *testing.T) {
 			want:    view(BodyView{Kind: "bytes", MediaType: `"image/png"`, IsBytes: true, Assign: "Blob(data)"}),
 		},
 		{
+			name:    "A file streams",
+			content: gomodel.Content{MediaType: "image/png", Type: gomodel.DeclRef{Decl: image}},
+			want:    view(BodyView{Kind: "file", MediaType: `"image/png"`, IsFile: true, Assign: "runtime.Ptr(Image(file))"}),
+		},
+		{
 			name:    "Anything else into a struct is taken in as it is",
 			content: gomodel.Content{MediaType: "application/xml", Type: gomodel.DeclRef{Decl: pet}},
 			want:    view(BodyView{Kind: "none", MediaType: `"application/xml"`}),
@@ -91,6 +97,11 @@ func TestBodyView(t *testing.T) {
 			name:    "A wildcard into a string is text",
 			content: gomodel.Content{MediaType: "text/*", Type: str},
 			want:    view(BodyView{Kind: "text", MediaType: `"text/*"`, IsText: true, Assign: "runtime.Ptr(text)"}),
+		},
+		{
+			name:    "A wildcard into a file streams",
+			content: gomodel.Content{MediaType: "*/*", Type: gomodel.DeclRef{Decl: image}},
+			want:    view(BodyView{Kind: "file", MediaType: `"*/*"`, IsFile: true, Assign: "runtime.Ptr(Image(file))"}),
 		},
 		{
 			name:    "A wildcard without a schema is bytes",

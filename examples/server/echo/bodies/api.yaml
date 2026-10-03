@@ -55,6 +55,18 @@ paths:
           description: echo
           content:
             text/plain: {schema: {type: string}}
+  /file:
+    put:
+      operationId: putFile
+      requestBody:
+        required: true
+        content:
+          image/png: {schema: {type: string, format: binary}}
+      responses:
+        "200":
+          description: the file back
+          content:
+            image/png: {schema: {type: string, format: binary}}
   /any:
     post:
       operationId: postAny

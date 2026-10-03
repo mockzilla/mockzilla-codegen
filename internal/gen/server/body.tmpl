@@ -14,6 +14,13 @@
 			a.failDecode(w, r, {{.OperationID}}, err)
 			{{.Return}}
 		}
+{{- else if .IsFile}}
+		file, err := {{.Runtime}}.DecodeFile(r, {{.IsRequired}})
+		if err != nil {
+			a.failDecode(w, r, {{.OperationID}}, err)
+			{{.Return}}
+		}
+		opts.{{.Field}} = {{.Assign}}
 {{- else if .IsText}}
 		text, err := {{.Runtime}}.DecodeText(r.Body, {{.IsRequired}})
 		if err != nil {

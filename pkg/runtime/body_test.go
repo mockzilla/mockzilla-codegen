@@ -254,3 +254,44 @@ func TestDecodeTextAndBytes(t *testing.T) {
 	_, err = DecodeBytes(strings.NewReader(""), true)
 	require.ErrorIs(t, err, ErrBodyEmpty)
 }
+
+func TestDecodeFile(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		body       io.Reader
+		isRequired bool
+		want       string
+		wantType   string
+		wantSize   int64
+		wantErr    error
+	}{
+		{name: "A body streams under its media type", body: strings.NewReader("png"), want: "png", wantType: "image/png", wantSize: 3},
+		{name: "An empty optional body", body: strings.NewReader("")},
+		{name: "An empty required body", body: strings.NewReader(""), isRequired: true, wantErr: ErrBodyEmpty},
+		{name: "A broken body", body: errReader{}, wantErr: io.ErrUnexpectedEOF},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			r := httptest.NewRequest(http.MethodPut, "/", tc.body)
+			r.Header.Set("Content-Type", "Image/PNG; q=1")
+
+			f, err := DecodeFile(r, tc.isRequired)
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			data, err := f.Bytes()
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, string(data))
+			assert.Equal(t, tc.wantType, f.ContentType())
+			assert.Equal(t, tc.wantSize, f.Size())
+		})
+	}
+}

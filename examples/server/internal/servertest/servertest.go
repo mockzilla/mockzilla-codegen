@@ -66,6 +66,8 @@ var Bodies = []Request{
 	{Name: "Text", Method: "POST", Path: "/text", Body: "hello", ContentType: "text/plain", WantBody: `text: hello`},
 	{Name: "Bytes", Method: "POST", Path: "/text", Body: "\x00\x01", ContentType: "application/octet-stream", WantBody: "bytes: \x00\x01"},
 	{Name: "No text", Method: "POST", Path: "/text", WantBody: `nothing`},
+	{Name: "A file streams in and out", Method: "PUT", Path: "/file", Body: "\x89PNG", ContentType: "image/png", WantBody: "\x89PNG", WantHeaders: map[string]string{"Content-Type": "image/png"}},
+	{Name: "A required file left empty", Method: "PUT", Path: "/file", ContentType: "image/png", WantStatus: 400, WantBody: `{"error":"invalid request body: request body is required"}`},
 	{Name: "Two media types with one tag", Method: "POST", Path: "/any", Body: "<a/>", ContentType: "text/xml", WantBody: `text xml: <a/>`},
 	{Name: "The first of them", Method: "POST", Path: "/any", Body: "<a/>", ContentType: "application/xml", WantBody: `xml: <a/>`},
 	{Name: "A wildcard takes every other media type", Method: "POST", Path: "/any", Body: "png", ContentType: "image/png", WantBody: `any: png`},

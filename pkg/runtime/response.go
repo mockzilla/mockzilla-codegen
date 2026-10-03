@@ -194,9 +194,9 @@ func mediaRank(documented, actual string) int {
 	return 0
 }
 
-// decodeBody reads body into dst, a pointer: as text into a string, as it is into bytes, and as
-// JSON into anything else or under a JSON media type. Text and bytes allocate the pointers on
-// the way; JSON leaves a pointer nil for null.
+// decodeBody reads body into dst, a pointer: as text into a string, as it is into bytes and into a
+// File, and as JSON into anything else or under a JSON media type. Text, bytes and files allocate
+// the pointers on the way; JSON leaves a pointer nil for null.
 func decodeBody(body []byte, mediaType string, dst any) error {
 	target, err := pointer(dst)
 	if err != nil {
@@ -209,6 +209,9 @@ func decodeBody(body []byte, mediaType string, dst any) error {
 	}
 	switch {
 	case IsJSON(mediaType):
+	case leaf == fileType:
+		allocate(target).Set(reflect.ValueOf(NewFile(body, "", mediaType)))
+		return nil
 	case leaf.Kind() == reflect.String:
 		allocate(target).SetString(string(body))
 		return nil
