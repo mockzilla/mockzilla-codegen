@@ -206,71 +206,46 @@ func TestImportSetPaths(t *testing.T) {
 	assert.Equal(t, []string{"embed", "example.com/a", "time"}, s.Paths())
 }
 
-func TestImportSetTrim(t *testing.T) {
+func TestPackageNames(t *testing.T) {
 	t.Parallel()
 
-	adds := [][2]string{{"context", ""}, {"errors", ""}, {"example.com/a/models", ""}, {"example.com/b/models", ""}, {"embed", "_"}, {"example.com/dsl", "."}}
 	tests := []struct {
 		name string
 		src  string
-		want string
+		want map[string]bool
 	}{
 		{
-			name: "Names before a dot stay, in types and in calls",
+			name: "Names before a dot, in types and in calls",
 			src:  "\nvar ErrNone = errors.New(\"none\")\n\nfunc Find(ctx context.Context) (*models2.Pet, error) {\n\treturn nil, ErrNone\n}\n",
-			want: "import (\n\t\"context\"\n\t_ \"embed\"\n\t\"errors\"\n\n\tmodels2 \"example.com/b/models\"\n\t. \"example.com/dsl\"\n)",
+			want: map[string]bool{"errors": true, "context": true, "models2": true},
 		},
+		{name: "Code that names no package", src: "\ntype Pets struct{}\n", want: map[string]bool{}},
 		{
-			name: "Code that names no package keeps the imports without a name",
-			src:  "\ntype Pets struct{}\n",
-			want: "import (\n\t_ \"embed\"\n\n\t. \"example.com/dsl\"\n)",
-		},
-		{
-			name: "Name in a comment, in a string or after a dot is no use",
+			name: "Name in a comment, in a string or after a dot",
 			src:  "\n// Pets wraps context.Context.\ntype Pets struct{ errors string }\n\nfunc (p Pets) Text() string { return \"models.Pet\" + p.errors }\n",
-			want: "import (\n\t_ \"embed\"\n\n\t. \"example.com/dsl\"\n)",
+			want: map[string]bool{},
 		},
 		{
-			name: "Parameter or local with the name of a package is no use",
+			name: "Parameter or local with the name of a package",
 			src: "\ntype list struct{ items []string }\n\nfunc (l list) Len() int { return len(l.items) }\n\n" +
 				"func Total(context list) int {\n\terrors := list{}\n\treturn context.Len() + errors.Len()\n}\n",
-			want: "import (\n\t_ \"embed\"\n\n\t. \"example.com/dsl\"\n)",
+			want: map[string]bool{},
 		},
 		{
-			name: "Package named in one func and hidden by a parameter in another stays",
+			name: "Package named in one func and hidden by a parameter in another",
 			src:  "\nfunc Find(ctx context.Context) error { return ctx.Err() }\n\nfunc Count(context []string) int { return len(context) }\n",
-			want: "import (\n\t\"context\"\n\t_ \"embed\"\n\n\t. \"example.com/dsl\"\n)",
+			want: map[string]bool{"context": true},
 		},
-		{
-			name: "Code that does not parse loses nothing",
-			src:  "\ntype Pets struct{\n",
-			want: "import (\n\t\"context\"\n\t_ \"embed\"\n\t\"errors\"\n\n\t\"example.com/a/models\"\n\tmodels2 \"example.com/b/models\"\n\t. \"example.com/dsl\"\n)",
-		},
+		{name: "Code that does not parse", src: "\ntype Pets struct{\n"},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := NewImportSet()
-			for _, add := range adds {
-				s.Add(add[0], add[1])
-			}
-			s.Trim([]byte(tc.src))
-			assert.Equal(t, tc.want, s.Decl())
+			assert.Equal(t, tc.want, packageNames([]byte(tc.src)))
 		})
 	}
-}
-
-func TestImportSetTrimFreesTheName(t *testing.T) {
-	t.Parallel()
-
-	s := NewImportSet()
-	s.Add("example.com/a/models", "")
-	s.Trim([]byte("\ntype Pets struct{}\n"))
-
-	assert.Equal(t, "models", s.Add("example.com/b/models", ""))
-	assert.Equal(t, `import "example.com/b/models"`, s.Decl())
 }
 
 func TestImportSetOffer(t *testing.T) {
@@ -364,17 +339,6 @@ func TestImportSetOffer(t *testing.T) {
 				s.Take([]byte(pet))
 			},
 			want: `import "time"`,
-		},
-		{
-			name: "Trim leaves a path on offer alone, named in the code or not",
-			do: func(s *ImportSet) {
-				s.Offer(uuid, "")
-				s.Offer("example.com/shop/models", "")
-				s.Trim([]byte(pet))
-				s.Add("example.com/work/models", "")
-				s.Take([]byte(pet))
-			},
-			want: "import (\n\tmodels2 \"example.com/work/models\"\n\t\"github.com/google/uuid\"\n)",
 		},
 		{
 			name: "Path on offer that is also under _ stays under _",

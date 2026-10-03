@@ -100,7 +100,7 @@ func (s *ImportSet) Take(src []byte) {
 		return
 	}
 
-	used, _ := packageNames(src)
+	used := packageNames(src)
 	maps.DeleteFunc(s.offered, func(path string, _ bool) bool { return used[s.names[path]] })
 }
 
@@ -140,23 +140,6 @@ func (s *ImportSet) Paths() []string {
 	all = slices.DeleteFunc(all, func(path string) bool { return !s.Has(path) })
 	slices.Sort(all)
 	return slices.Compact(all)
-}
-
-// Trim takes out every import whose name src, the code of the file, does not refer to. An import
-// under _ or . has no name to look for and stays, and a path on offer is no import yet. Nothing
-// is taken out when src is no Go code.
-func (s *ImportSet) Trim(src []byte) {
-	used, ok := packageNames(src)
-	if !ok {
-		return
-	}
-
-	for _, path := range slices.Sorted(maps.Keys(s.names)) {
-		if name := s.names[path]; !used[name] && !s.offered[path] {
-			delete(s.names, path)
-			delete(s.paths, name)
-		}
-	}
 }
 
 // Decl returns the import declaration: the standard library first, then the rest, each group
@@ -228,13 +211,13 @@ func isStd(path string) bool {
 }
 
 // packageNames are the names src, declarations of a file, puts before a dot without declaring
-// them: its packages. A local or a parameter named like a package is none. The second result is
-// false when src is no Go code.
-func packageNames(src []byte) (map[string]bool, bool) {
+// them: its packages. A local or a parameter named like a package is none. It is nil when src is
+// no Go code.
+func packageNames(src []byte) map[string]bool {
 	// The parser resolves the names src declares, so Obj stays nil on a package.
 	file, err := parser.ParseFile(token.NewFileSet(), "", clause+string(src), 0)
 	if err != nil {
-		return nil, false
+		return nil
 	}
 
 	names := make(map[string]bool)
@@ -246,5 +229,5 @@ func packageNames(src []byte) (map[string]bool, bool) {
 		}
 		return true
 	})
-	return names, true
+	return names
 }

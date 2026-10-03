@@ -38,7 +38,6 @@ func TestGroupField(t *testing.T) {
 			t.Parallel()
 
 			assert.Equal(t, tc.want, GroupField(tc.in, n))
-			assert.Equal(t, tc.in != "body-ref", IsGroupField(tc.want))
 		})
 	}
 }

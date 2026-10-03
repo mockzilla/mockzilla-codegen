@@ -47,9 +47,9 @@ type Set struct {
 	Blocks []string
 }
 
-// Source is a template given as text, such as a plugin's, with the funcs it may call on top of
-// the engine's. Funcs has passed CheckFuncs; one named like a func of the engine replaces it.
-// Name names the template in errors.
+// Source is a template given as text, such as an extra file's, with the funcs it may call on top
+// of the engine's; one named like a func of the engine replaces it. Name names the template in
+// errors.
 type Source struct {
 	Name  string
 	Text  string

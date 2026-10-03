@@ -15,7 +15,6 @@ type Option func(*options)
 type options struct {
 	spec     []byte
 	provider provider.Provider
-	plugins  []Plugin
 }
 
 // WithSpec passes the spec in memory instead of reading spec.path. When spec.path is set it still
@@ -24,13 +23,6 @@ type options struct {
 func WithSpec(data []byte) Option {
 	return func(o *options) {
 		o.spec = data
-	}
-}
-
-// WithPlugins adds plugins, which reserve names and contribute code in the order given.
-func WithPlugins(plugins ...Plugin) Option {
-	return func(o *options) {
-		o.plugins = append(o.plugins, plugins...)
 	}
 }
 

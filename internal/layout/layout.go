@@ -82,27 +82,14 @@ type scaffold struct {
 // Plan puts every part in the file whose selector matches it most closely, output.file when
 // none does, then names the package and import path of every folder.
 func Plan(cfg *config.Config, parts []Part, mod Module) (*Layout, error) {
-	return plan(cfg, parts, mod, true)
-}
-
-// Draft plans the parts known before plugins contribute theirs. A selector that matches none of
-// them is not an error yet, nor is an import cycle, which a plugin can take away by replacing a
-// scaffold; Plan reports both once every part is known.
-func Draft(cfg *config.Config, parts []Part, mod Module) (*Layout, error) {
-	return plan(cfg, parts, mod, false)
-}
-
-func plan(cfg *config.Config, parts []Part, mod Module, isStrict bool) (*Layout, error) {
 	def, cands := candidates(cfg)
 	l := &Layout{byPart: make(map[PartID]*File, len(parts))}
 	used, err := l.assign(def, cands, parts)
 	if err != nil {
 		return nil, err
 	}
-	if isStrict {
-		if err = unknownSelectors(cands, used, parts); err != nil {
-			return nil, err
-		}
+	if err = unknownSelectors(cands, used, parts); err != nil {
+		return nil, err
 	}
 
 	l.collect(def, cands)
@@ -113,10 +100,8 @@ func plan(cfg *config.Config, parts []Part, mod Module, isStrict bool) (*Layout,
 		return nil, err
 	}
 
-	if isStrict {
-		if err = importCycle(l.Files, folderEdges(l.Files, l.byPart, parts)); err != nil {
-			return nil, err
-		}
+	if err = importCycle(l.Files, folderEdges(l.Files, l.byPart, parts)); err != nil {
+		return nil, err
 	}
 	return l, nil
 }
@@ -127,8 +112,9 @@ func (l *Layout) FileOf(p PartID) *File {
 }
 
 // CheckImports fails when the folders import each other in a cycle through what the parts wrote,
-// which Plan cannot see for the code of a plugin. imports lists, by part, the import paths its
-// file held once the part was written, so a path counts for the first part of a file that has it.
+// which Plan cannot see for the code of an extra file. imports lists, by part, the import paths
+// its file held once the part was written, so a path counts for the first part of a file that has
+// it.
 func (l *Layout) CheckImports(imports map[PartID][]string) error {
 	return importCycle(l.Files, importEdges(l.Files, imports))
 }

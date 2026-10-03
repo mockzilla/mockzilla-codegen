@@ -26,7 +26,7 @@ type ServiceView struct {
 }
 
 // OperationView is one operation: its method, options type and response data type. Fields are
-// the parameter groups, the bodies, then what plugins add.
+// the parameter groups, then the bodies.
 type OperationView struct {
 	Name         string
 	Doc          string
@@ -117,9 +117,6 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Operati
 		if gomodel.Validates(t) {
 			v.Checks = append(v.Checks, CheckView{Field: fields[i], Path: gocode.Quote("body")})
 		}
-	}
-	for _, f := range g.fields[op.Name] {
-		v.Fields = append(v.Fields, FieldView{Name: f.Name, Type: s.Qualified(f.Type, f.Import), Doc: f.Doc})
 	}
 
 	for _, r := range op.Responses {

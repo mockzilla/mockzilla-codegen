@@ -228,42 +228,42 @@ func TestRenderSource(t *testing.T) {
 	}{
 		{
 			name: "Own funcs next to the engine's",
-			src:  Source{Name: "plugin.sample.register", Text: `{{shout .}} {{quote .}}`, Funcs: template.FuncMap{"shout": strings.ToUpper}},
+			src:  Source{Name: "./routes.go", Text: `{{shout .}} {{quote .}}`, Funcs: template.FuncMap{"shout": strings.ToUpper}},
 			data: "Pet",
 			want: `PET "Pet"`,
 		},
 		{
 			name: "Own func in place of the engine's",
-			src:  Source{Name: "plugin.sample.register", Text: `{{quote .}} {{lower .}}`, Funcs: template.FuncMap{"quote": strings.ToUpper}},
+			src:  Source{Name: "./routes.go", Text: `{{quote .}} {{lower .}}`, Funcs: template.FuncMap{"quote": strings.ToUpper}},
 			data: "Pet",
 			want: "PET pet",
 		},
 		{
 			name: "Key of the data",
-			src:  Source{Name: "plugin.sample.register", Text: `{{.owner}}{{if index . "team"}} and {{.team}}{{end}}`},
+			src:  Source{Name: "./routes.go", Text: `{{.owner}}{{if index . "team"}} and {{.team}}{{end}}`},
 			data: map[string]any{"owner": "platform"},
 			want: "platform",
 		},
 		{
 			name:    "Text that does not parse",
-			src:     Source{Name: "plugin.sample.register", Text: `{{if}}`},
+			src:     Source{Name: "./routes.go", Text: `{{if}}`},
 			data:    "Pet",
 			wantErr: ErrTemplate,
-			wantMsg: "load templates: plugin.sample.register: template: plugin.sample.register:1: missing value for if",
+			wantMsg: "load templates: ./routes.go: template: ./routes.go:1: missing value for if",
 		},
 		{
 			name:    "Text that fails to run",
-			src:     Source{Name: "plugin.sample.register", Text: `{{.Missing}}`},
+			src:     Source{Name: "./routes.go", Text: `{{.Missing}}`},
 			data:    "Pet",
 			wantErr: ErrExecute,
-			wantMsg: `render: template: plugin.sample.register:1:2: executing "plugin.sample.register" at <.Missing>: can't evaluate field Missing in type string`,
+			wantMsg: `render: template: ./routes.go:1:2: executing "./routes.go" at <.Missing>: can't evaluate field Missing in type string`,
 		},
 		{
 			name:    "Key the data does not have",
-			src:     Source{Name: "plugin.sample.register", Text: `// Owned by {{.owner}}.`},
+			src:     Source{Name: "./routes.go", Text: `// Owned by {{.owner}}.`},
 			data:    map[string]any{"team": "core"},
 			wantErr: ErrExecute,
-			wantMsg: `render: template: plugin.sample.register:1:14: executing "plugin.sample.register" at <.owner>: map has no entry for key "owner"`,
+			wantMsg: `render: template: ./routes.go:1:14: executing "./routes.go" at <.owner>: map has no entry for key "owner"`,
 		},
 	}
 

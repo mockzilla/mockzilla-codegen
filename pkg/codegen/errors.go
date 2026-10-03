@@ -10,7 +10,6 @@ import "errors"
 var (
 	ErrWrite        = errors.New("write generated file")
 	ErrFramework    = errors.New("no router for the framework")
-	ErrPlugin       = errors.New("plugin")
 	ErrTemplateFile = errors.New("read template file")
 	ErrExtraFile    = errors.New("extra file")
 
