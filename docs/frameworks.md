@@ -146,7 +146,8 @@ then lets the requests in flight finish within `.Timeout`.
    `examples/server/<name>/internal` that serves it as one, as `fasthttptest`, `hertztest` and
    `goframetest` do. Add the module to `examples/go.mod`, then `make examples`.
 5. Document the framework in [server](server.md): its row in the router table and a section with
-   its pattern rules, what it drops and how it differs from the others, and the router it takes a
-   `server.router-extra` route on in [templates](templates.md#blocks).
+   its pattern rules, what it drops and how it differs from the others. Give it a row in the
+   [routes table](templates.md#routes) of templates, with a `server.router-extra` line that you
+   have built and served.
 6. `make check`, then `make test-integration FRAMEWORKS=<name>` on the spec corpus, which should
    pass at least 95% of it.

@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../../../config.schema.json
+spec: {path: api.yaml}
+server:
+  framework: chi
+  name: Pets
+  scaffold:
+    service: ./service.go
+imports:
+  - package: net/http
+templates:
+  server.router-extra: |
+    r.Get("/health", health)
+  server.scaffold.service-method: |
+    return &{{.Data}}{Status: http.StatusNotImplemented}, nil
