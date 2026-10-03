@@ -82,9 +82,9 @@ func Generate(ctx context.Context, cfg *config.Config, opts ...Option) (*Result,
 	g.plugins = newPluginSet(g.opts.plugins)
 	steps := []func() error{
 		cfg.Validate,
-		g.plugins.reserve,
+		func() error { return g.plugins.reserve(ctx, cfg.UserContext) },
 		func() error { return g.model(ctx) },
-		g.place,
+		func() error { return g.place(ctx) },
 		g.load,
 		g.render,
 	}
@@ -177,7 +177,7 @@ func (g *generation) serverOptions() (server.Options, error) {
 
 // place lays the built-in parts out, lets the plugins contribute against that draft, hands the
 // server the fields they add, then lays every part out.
-func (g *generation) place() error {
+func (g *generation) place(ctx context.Context) error {
 	mod, err := layout.FindModule(g.cfg.Resolve("."), g.cfg.Output.Module)
 	if err != nil {
 		return err
@@ -198,7 +198,7 @@ func (g *generation) place() error {
 		if draftErr != nil {
 			return draftErr
 		}
-		added, addErr := g.plugins.contribute(func() *API { return describe(g, draft) })
+		added, addErr := g.plugins.contribute(ctx, func() *API { return describe(g, draft) })
 		if addErr != nil {
 			return addErr
 		}

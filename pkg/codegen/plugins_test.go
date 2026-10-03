@@ -119,7 +119,10 @@ func (s *{{$.Name}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) (*
 // rawConfig is storeConfig with the formatting of the output turned off.
 var rawConfig = strings.Replace(storeConfig, "output:\n", "output:\n  format: false\n", 1)
 
-var errContribute = errors.New("nothing to add")
+var (
+	errReserve    = errors.New("nothing to reserve")
+	errContribute = errors.New("nothing to add")
+)
 
 // registerData is what the register template runs on.
 type registerData struct {
@@ -129,25 +132,32 @@ type registerData struct {
 	Span    TypeRef
 }
 
-// fakePlugin answers with what the test sets and keeps the API it saw.
+// fakePlugin answers with what the test sets and keeps what it was shown: the contexts of its
+// calls in order, its input and its API.
 type fakePlugin struct {
 	name       string
-	res        Reservations
+	reserve    func(in *ReserveInput) (*Reservations, error)
 	contribute func(api *API) (*Contribution, error)
 
-	api *API
+	ctxs []context.Context
+	in   *ReserveInput
+	api  *API
 }
 
 func (p *fakePlugin) Name() string {
 	return p.name
 }
 
-func (p *fakePlugin) Reserve() Reservations {
-	return p.res
+func (p *fakePlugin) Reserve(ctx context.Context, in *ReserveInput) (*Reservations, error) {
+	p.ctxs, p.in = append(p.ctxs, ctx), in
+	if p.reserve == nil {
+		return nil, nil
+	}
+	return p.reserve(in)
 }
 
-func (p *fakePlugin) Contribute(api *API) (*Contribution, error) {
-	p.api = api
+func (p *fakePlugin) Contribute(ctx context.Context, api *API) (*Contribution, error) {
+	p.ctxs, p.api = append(p.ctxs, ctx), api
 	if p.contribute == nil {
 		return nil, nil
 	}
@@ -159,8 +169,8 @@ func (p *fakePlugin) Contribute(api *API) (*Contribution, error) {
 // webhook, and one of a type from another package, to the first alone.
 func samplePlugin() *fakePlugin {
 	return &fakePlugin{
-		name: "sample",
-		res:  Reservations{Idents: []string{"Routes", "Register"}},
+		name:    "sample",
+		reserve: reserving("Routes", "Register"),
 		contribute: func(api *API) (*Contribution, error) {
 			span := TypeRef{Name: "*Span", Package: "trace", ImportPath: "example.com/trace"}
 			data := registerData{Options: api.Operations[0].RequestOptions, Span: span}
@@ -188,6 +198,13 @@ func samplePlugin() *fakePlugin {
 				Funcs:               template.FuncMap{"shout": strings.ToUpper},
 			}, nil
 		},
+	}
+}
+
+// reserving answers Reserve with idents.
+func reserving(idents ...string) func(*ReserveInput) (*Reservations, error) {
+	return func(*ReserveInput) (*Reservations, error) {
+		return &Reservations{Idents: idents}, nil
 	}
 }
 
@@ -280,6 +297,7 @@ func TestGenerateWithPlugin(t *testing.T) {
 		},
 		UserContext: map[string]any{"owner": "platform"},
 	}, p.api)
+	assert.Equal(t, &ReserveInput{UserContext: map[string]any{"owner": "platform"}}, p.in)
 	assert.Same(t, &p.api.Operations[1].Responses[0], p.api.Operations[1].Success, "Success points into Responses")
 
 	byName := make(map[string]File, len(res.Files))
@@ -310,12 +328,40 @@ func TestGenerateWithPlugin(t *testing.T) {
 	assert.Contains(t, gen, "type NewPetServiceRequestOptions struct {\n\t// GenerateResponse makes the response.\n\tGenerateResponse func() (*NewPetResponseData, error)\n\tRawRequest       *http.Request\n}\n")
 }
 
+func TestGenerateWithPluginContext(t *testing.T) {
+	t.Parallel()
+
+	type key struct{}
+	ctx := context.WithValue(t.Context(), key{}, "run")
+	c, err := config.Parse([]byte("output: {file: ./api/gen.go}\n"), workDir(t))
+	require.NoError(t, err)
+	p := &fakePlugin{name: "sample"}
+	_, err = Generate(ctx, c, WithSpec([]byte(storeSpec)), WithPlugins(p))
+
+	require.NoError(t, err)
+	assert.Equal(t, []context.Context{ctx, ctx}, p.ctxs, "Reserve, then Contribute, with the context of Generate")
+}
+
+func TestGenerateWithPluginCanceled(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	c, err := config.Parse([]byte("output: {file: ./api/gen.go}\n"), workDir(t))
+	require.NoError(t, err)
+	p := &fakePlugin{name: "sample", reserve: func(*ReserveInput) (*Reservations, error) { return nil, ctx.Err() }}
+	_, err = Generate(ctx, c, WithSpec([]byte(storeSpec)), WithPlugins(p))
+
+	require.ErrorIs(t, err, ErrPlugin)
+	require.ErrorIs(t, err, context.Canceled, "the plugin's error is kept")
+}
+
 func TestGenerateWithPluginWithoutServer(t *testing.T) {
 	t.Parallel()
 
 	p := &fakePlugin{
-		name: "sample",
-		res:  Reservations{Idents: []string{"Pet"}},
+		name:    "sample",
+		reserve: reserving("Pet"),
 		contribute: func(*API) (*Contribution, error) {
 			return &Contribution{
 				Parts:               []PartSource{{Name: "limit", Template: "var Limit = 8"}},
@@ -404,26 +450,37 @@ func TestGenerateWithPluginThatChangesItsAPI(t *testing.T) {
 	alone := &fakePlugin{name: "reader"}
 	wantCfg, want := run(alone)
 
-	writer := &fakePlugin{name: "writer", contribute: func(api *API) (*Contribution, error) {
-		api.Package = "changed"
-		api.Service.Name = "Changed"
-		api.Operations[0].Tags[0] = "changed"
-		api.Operations[0].Success.Status = "500"
-		api.Operations[1].Responses[1].Constructor.Name = "Changed"
-		api.Operations[1].ID = "Changed"
-		api.Operations = api.Operations[:2]
-		api.Types[0].Name = "Changed"
-		api.UserContext["owner"] = "changed"
-		api.UserContext["team"].(map[string]any)["name"] = "changed"
-		api.UserContext["tiers"].([]any)[0] = "changed"
-		api.UserContext["tiers"].([]any)[1].(map[string]any)["name"] = "changed"
-		api.UserContext["ports"].(map[any]any)[8080] = "changed"
-		return nil, nil
-	}}
+	change := func(user map[string]any) {
+		user["owner"] = "changed"
+		user["team"].(map[string]any)["name"] = "changed"
+		user["tiers"].([]any)[0] = "changed"
+		user["tiers"].([]any)[1].(map[string]any)["name"] = "changed"
+		user["ports"].(map[any]any)[8080] = "changed"
+	}
+	writer := &fakePlugin{
+		name: "writer",
+		reserve: func(in *ReserveInput) (*Reservations, error) {
+			change(in.UserContext)
+			return nil, nil
+		},
+		contribute: func(api *API) (*Contribution, error) {
+			api.Package = "changed"
+			api.Service.Name = "Changed"
+			api.Operations[0].Tags[0] = "changed"
+			api.Operations[0].Success.Status = "500"
+			api.Operations[1].Responses[1].Constructor.Name = "Changed"
+			api.Operations[1].ID = "Changed"
+			api.Operations = api.Operations[:2]
+			api.Types[0].Name = "Changed"
+			change(api.UserContext)
+			return nil, nil
+		},
+	}
 	reader := &fakePlugin{name: "reader"}
 	cfg, res := run(writer, reader)
 
-	assert.Equal(t, alone.api, reader.api, "the next plugin sees none of it")
+	assert.Equal(t, alone.in, reader.in, "the next plugin sees none of it")
+	assert.Equal(t, alone.api, reader.api)
 	assert.Equal(t, wantCfg.UserContext, cfg.UserContext, "nor does the config")
 	assert.Equal(t, want, res, "nor do the templates")
 }
@@ -1079,7 +1136,7 @@ func TestGenerateWithPluginErrors(t *testing.T) {
 		},
 		{
 			name:    "Reserved name that is no identifier",
-			plugins: []Plugin{&fakePlugin{name: "sample", res: Reservations{Idents: []string{"Routes", "my-routes"}}}},
+			plugins: []Plugin{&fakePlugin{name: "sample", reserve: reserving("Routes", "my-routes")}},
 			wantErr: ErrPlugin,
 			wantMsg: `plugin sample: reserved name "my-routes" is no identifier`,
 		},
@@ -1168,6 +1225,12 @@ func TestGenerateWithPluginErrors(t *testing.T) {
 			}}},
 			wantErr: ErrPlugin,
 			wantMsg: `plugin sample: request option fields for "Pets", which is no operation ID of the API`,
+		},
+		{
+			name:    "Reserve fails",
+			plugins: []Plugin{&fakePlugin{name: "sample", reserve: func(*ReserveInput) (*Reservations, error) { return nil, errReserve }}},
+			wantErr: ErrPlugin,
+			wantMsg: "plugin sample: nothing to reserve",
 		},
 		{
 			name:    "Contribute fails",
