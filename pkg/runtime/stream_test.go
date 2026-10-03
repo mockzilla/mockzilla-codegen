@@ -253,37 +253,60 @@ func TestStreamAll(t *testing.T) {
 	})
 }
 
-func TestStreamCancellationUnblocksNext(t *testing.T) {
+func TestStreamStopUnblocksNext(t *testing.T) {
 	t.Parallel()
 
-	done := make(chan struct{})
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", MediaTypeEventStream)
-		_, _ = io.WriteString(w, "data: {\"text\":\"a\"}\n\n")
-		w.(http.Flusher).Flush()
-		<-done
-	}))
-	t.Cleanup(srv.Close)
-	t.Cleanup(func() { close(done) })
+	tests := []struct {
+		name    string
+		stop    func(context.CancelFunc, *Stream[chunk])
+		wantErr error
+	}{
+		{
+			name:    "Canceling the request's context",
+			stop:    func(cancel context.CancelFunc, _ *Stream[chunk]) { cancel() },
+			wantErr: context.Canceled,
+		},
+		{
+			name: "Closing the stream",
+			stop: func(_ context.CancelFunc, s *Stream[chunk]) { _ = s.Close() },
+		},
+	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
-	require.NoError(t, err)
-	res, body, err := SendStream(srv.Client(), req, MediaTypeEventStream, 0)
-	require.NoError(t, err)
-	s, err := OpenStream[chunk](res, body, nil)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = s.Close() })
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	require.True(t, s.Next())
-	assert.Equal(t, chunk{Text: "a"}, s.Current())
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		cancel()
-	}()
+			done := make(chan struct{})
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", MediaTypeEventStream)
+				_, _ = io.WriteString(w, "data: {\"text\":\"a\"}\n\n")
+				w.(http.Flusher).Flush()
+				<-done
+			}))
+			t.Cleanup(srv.Close)
+			t.Cleanup(func() { close(done) })
 
-	assert.False(t, s.Next())
-	require.ErrorIs(t, s.Err(), context.Canceled)
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
+			require.NoError(t, err)
+			res, body, err := SendStream(srv.Client(), req, MediaTypeEventStream, 0)
+			require.NoError(t, err)
+			s, err := OpenStream[chunk](res, body, nil)
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = s.Close() })
+
+			require.True(t, s.Next())
+			assert.Equal(t, chunk{Text: "a"}, s.Current())
+			go func() {
+				time.Sleep(50 * time.Millisecond)
+				tc.stop(cancel, s)
+			}()
+
+			assert.False(t, s.Next())
+			require.ErrorIs(t, s.Err(), tc.wantErr)
+		})
+	}
 }
 
 func TestIsSequential(t *testing.T) {

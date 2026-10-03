@@ -18,6 +18,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -43,17 +44,19 @@ type Event struct {
 // next frame into Current, and Err reports what stopped Next. The caller owns the response and
 // closes the stream. Sentinels are frames that end the stream instead of being decoded, such as
 // the [DONE] some APIs send last; set them before the first Next. Canceling the context of the
-// request unblocks a pending Next, and Err then reports the context's error.
+// request unblocks a pending Next, and Err then reports the context's error. Close, called from
+// another goroutine, unblocks it too, and Err then reports nil.
 type Stream[T any] struct {
 	Sentinels []string
 
-	body    io.ReadCloser
-	reader  *bufio.Reader
-	framer  func(*bufio.Reader) (Event, bool, error)
-	current T
-	event   Event
-	err     error
-	isDone  bool
+	body     io.ReadCloser
+	reader   *bufio.Reader
+	framer   func(*bufio.Reader) (Event, bool, error)
+	current  T
+	event    Event
+	err      error
+	isDone   bool
+	isClosed atomic.Bool
 }
 
 // NewStream frames the body of res by its Content-Type: Server-Sent Events for
@@ -89,6 +92,10 @@ func (s *Stream[T]) Next() bool {
 	}
 
 	event, ok, err := s.framer(s.reader)
+	if s.isClosed.Load() {
+		s.stop(nil)
+		return false
+	}
 	if err != nil {
 		s.stop(err)
 		return false
@@ -118,15 +125,15 @@ func (s *Stream[T]) Event() Event {
 	return s.event
 }
 
-// Err is what stopped Next: nil at the end of the stream or at a sentinel, else the read or
-// decode error, or the error of the request's context when it was canceled.
+// Err is what stopped Next: nil at the end of the stream, at a sentinel or after Close, else the
+// read or decode error, or the error of the request's context when it was canceled.
 func (s *Stream[T]) Err() error {
 	return s.err
 }
 
 // Close closes the response body. Next returns false afterwards.
 func (s *Stream[T]) Close() error {
-	s.isDone = true
+	s.isClosed.Store(true)
 	return s.body.Close()
 }
 

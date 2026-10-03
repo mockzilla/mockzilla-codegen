@@ -200,9 +200,10 @@ return stream.Err()
 
 - `All()` is the same loop as a range-over-func iterator, with the error that stops the stream
   delivered as the last pair: `for event, err := range stream.All()`.
-- `Err()` is nil at the end of the stream and after a sentinel, else the read error, the decode
-  error (`runtime.ErrFrame`) or `context.Canceled` when the request's context was canceled, which
-  unblocks a pending `Next`.
+- `Err()` is nil at the end of the stream, after a sentinel and after `Close()`, else the read
+  error, the decode error (`runtime.ErrFrame`) or `context.Canceled` when the request's context was
+  canceled, which unblocks a pending `Next`.
+- `Close()` may be called from another goroutine to end a pending `Next`, which then returns false.
 - `Sentinels` lists frames that end the stream instead of being decoded. APIs in the style of
   OpenAI end a stream with `data: [DONE]`, which is no JSON: set `stream.Sentinels =
   []string{"[DONE]"}` before the first `Next`.
