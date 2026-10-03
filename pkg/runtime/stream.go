@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"math"
 	"net/http"
 	"slices"
 	"strconv"
@@ -25,14 +26,17 @@ import (
 // MediaTypeEventStream is the media type of Server-Sent Events.
 const MediaTypeEventStream = "text/event-stream"
 
+const byteOrderMark = "\xEF\xBB\xBF"
+
 // lineMediaTypes are the media types that carry one JSON value per line.
 var lineMediaTypes = []string{
 	"application/x-ndjson", "application/ndjson", "application/jsonl", "application/x-jsonlines", "application/json-lines",
 }
 
 // Event is one frame of a stream: the fields of a Server-Sent Event, or, on a line-delimited
-// stream, the line in Data alone. Type is the event field; Retry is the reconnection time the
-// server asks for, 0 when the event names none.
+// stream, the line in Data alone. ID is the last event ID, which stays from one event to the next
+// until an id field changes it; Type is the event field; Retry is the reconnection time the server
+// asks for, 0 when the event names none.
 type Event struct {
 	ID    string
 	Type  string
@@ -50,8 +54,7 @@ type Stream[T any] struct {
 	Sentinels []string
 
 	body     io.ReadCloser
-	reader   *bufio.Reader
-	framer   func(*bufio.Reader) (Event, bool, error)
+	frame    func() (Event, bool, error)
 	current  T
 	event    Event
 	err      error
@@ -70,18 +73,19 @@ func NewStream[T any](res *http.Response) *Stream[T] {
 
 // NewEventStream reads the body of res as Server-Sent Events. An event's data lines are joined
 // with newlines; comments are skipped; an event without data is skipped too, after its id and
-// retry are taken.
+// retry are taken. A line ends in LF, CRLF or a lone CR, and a byte order mark at the start of the
+// body is dropped.
 func NewEventStream[T any](res *http.Response) *Stream[T] {
-	return newStream[T](res, readEvent)
+	body := bodyOf(res)
+	events := &eventReader{lines: bufio.NewReader(&lfReader{reader: body})}
+	return &Stream[T]{body: body, frame: events.next}
 }
 
 // NewLineStream reads the body of res one line at a time, skipping empty lines.
 func NewLineStream[T any](res *http.Response) *Stream[T] {
-	return newStream[T](res, readLine)
-}
-
-func newStream[T any](res *http.Response, framer func(*bufio.Reader) (Event, bool, error)) *Stream[T] {
-	return &Stream[T]{body: res.Body, reader: bufio.NewReader(res.Body), framer: framer}
+	body := bodyOf(res)
+	lines := bufio.NewReader(body)
+	return &Stream[T]{body: body, frame: func() (Event, bool, error) { return readLine(lines) }}
 }
 
 // Next reads the next frame into Current and reports whether there was one. It returns false at
@@ -91,7 +95,7 @@ func (s *Stream[T]) Next() bool {
 		return false
 	}
 
-	event, ok, err := s.framer(s.reader)
+	event, ok, err := s.frame()
 	if s.isClosed.Load() {
 		s.stop(nil)
 		return false
@@ -168,6 +172,91 @@ func (b *streamBody) Close() error {
 	return b.ReadCloser.Close()
 }
 
+// eventReader reads Server-Sent Events from lines that end in LF.
+type eventReader struct {
+	lines     *bufio.Reader
+	lastID    string
+	isStarted bool
+}
+
+// next reads one event with data, or reports the end of the body. A line that is not a field,
+// such as a comment, is skipped; an event without data is not dispatched.
+func (r *eventReader) next() (Event, bool, error) {
+	var e Event
+	var data [][]byte
+	for {
+		line, err := readFrameLine(r.lines)
+		if err != nil {
+			return Event{}, false, err
+		}
+		if !r.isStarted {
+			r.isStarted = true
+			line = bytes.TrimPrefix(line, []byte(byteOrderMark))
+		}
+		if line == nil {
+			break
+		}
+		if len(line) == 0 {
+			if data != nil {
+				break
+			}
+			e.Type = ""
+			continue
+		}
+
+		field, value := splitField(line)
+		switch field {
+		case "data":
+			data = append(data, value)
+		case "event":
+			e.Type = string(value)
+		case "id":
+			if bytes.IndexByte(value, 0) < 0 {
+				r.lastID = string(value)
+			}
+		case "retry":
+			if retry, ok := parseRetry(value); ok {
+				e.Retry = retry
+			}
+		}
+	}
+	if data == nil {
+		return Event{}, false, nil
+	}
+	e.ID, e.Data = r.lastID, bytes.Join(data, []byte("\n"))
+	return e, true, nil
+}
+
+// lfReader turns every line ending of an event stream, CRLF or a lone CR, into LF, so that a line
+// ending in CR is read without waiting for the byte after it.
+type lfReader struct {
+	reader    io.Reader
+	isAfterCR bool
+}
+
+func (l *lfReader) Read(p []byte) (int, error) {
+	for {
+		n, err := l.reader.Read(p)
+		kept := 0
+		for _, c := range p[:n] {
+			switch {
+			case c == '\n' && l.isAfterCR:
+			case c == '\r':
+				p[kept] = '\n'
+				kept++
+			default:
+				p[kept] = c
+				kept++
+			}
+			l.isAfterCR = c == '\r'
+		}
+
+		if kept > 0 || n == 0 || err != nil {
+			return kept, err
+		}
+	}
+}
+
 // IsSequential reports a media type whose body is a sequence of frames: text/event-stream and
 // the line-delimited JSON types, with or without parameters.
 func IsSequential(mediaType string) bool {
@@ -224,46 +313,12 @@ func OpenStream[T any](res *http.Response, body []byte, targets []Target) (*Stre
 	return nil, DecodeSuccess(res, body, targets)
 }
 
-// readEvent reads one Server-Sent Event with data, or reports the end of the body. A line that
-// is not a field, such as a comment, is skipped; an event without data is not dispatched.
-func readEvent(r *bufio.Reader) (Event, bool, error) {
-	var e Event
-	var data [][]byte
-	for {
-		line, err := readFrameLine(r)
-		if err != nil {
-			return Event{}, false, err
-		}
-		if line == nil {
-			break
-		}
-		if len(line) == 0 {
-			if data != nil {
-				break
-			}
-			e.Type = ""
-			continue
-		}
-
-		field, value := splitField(line)
-		switch field {
-		case "data":
-			data = append(data, value)
-		case "event":
-			e.Type = string(value)
-		case "id":
-			e.ID = string(value)
-		case "retry":
-			if ms, convErr := strconv.Atoi(string(value)); convErr == nil && ms >= 0 {
-				e.Retry = time.Duration(ms) * time.Millisecond
-			}
-		}
+// bodyOf is the body of res, or an empty one when res has none.
+func bodyOf(res *http.Response) io.ReadCloser {
+	if res.Body == nil {
+		return http.NoBody
 	}
-	if data == nil {
-		return Event{}, false, nil
-	}
-	e.Data = bytes.Join(data, []byte("\n"))
-	return e, true, nil
+	return res.Body
 }
 
 // readLine reads the next line that is not empty, or reports the end of the body.
@@ -299,6 +354,19 @@ func readFrameLine(r *bufio.Reader) ([]byte, error) {
 func splitField(line []byte) (string, []byte) {
 	field, value, _ := bytes.Cut(line, []byte(":"))
 	return string(field), bytes.TrimPrefix(value, []byte(" "))
+}
+
+// parseRetry reads a retry value: ASCII digits alone, a number of milliseconds a time.Duration
+// holds.
+func parseRetry(value []byte) (time.Duration, bool) {
+	if bytes.ContainsFunc(value, func(r rune) bool { return r < '0' || r > '9' }) {
+		return 0, false
+	}
+	ms, err := strconv.ParseInt(string(value), 10, 64)
+	if err != nil || ms > int64(math.MaxInt64/time.Millisecond) {
+		return 0, false
+	}
+	return time.Duration(ms) * time.Millisecond, true
 }
 
 // decodeFrame reads data into dst: as it is into bytes, and as JSON into anything else.
