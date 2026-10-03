@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The blocks of the config file, one struct each.
+
 package config
 
 // Spec is the input spec and the steps that prepare it.

@@ -3,6 +3,9 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The data of validate.tmpl, check.tmpl and error.tmpl: the Validate methods of a declaration,
+// each check a runtime call, and the Error method of an error type.
+
 package models
 
 import (

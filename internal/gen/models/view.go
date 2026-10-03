@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The data of part.tmpl: the declarations of a part with their fields, constants and variants.
+
 package models
 
 import (

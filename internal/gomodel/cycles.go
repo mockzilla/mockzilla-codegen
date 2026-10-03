@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// Cycles in the types: strongly connected components, and aliases that lead back to themselves.
+
 package gomodel
 
 import (

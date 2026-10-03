@@ -3,6 +3,9 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The data of tools.tmpl: the definition of each tool and its handler, which fills the request
+// options from the input and calls the client.
+
 package mcp
 
 import (

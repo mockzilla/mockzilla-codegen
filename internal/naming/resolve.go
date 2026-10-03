@@ -3,6 +3,9 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// Clashes: when several places ask for one name, the highest rank keeps it. The others take their
+// fallback name, or a number.
+
 package naming
 
 import (

@@ -19,7 +19,8 @@ type Provider interface {
 	Parse(ctx context.Context, data []byte, opts ParseOptions) (*spec.Document, []diag.Diagnostic, error)
 }
 
-// ParseOptions.Positions, taken before any transform, win over positions in the parsed bytes.
+// ParseOptions holds the spec's file name and where its nodes start, by JSON pointer. Positions,
+// taken before any transform, win over positions in the parsed bytes.
 type ParseOptions struct {
 	File      string
 	Positions map[string]diag.Origin

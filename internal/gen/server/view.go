@@ -3,6 +3,9 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The data of service.tmpl: the service interface, the request options and response data of each
+// operation, and the functions that make the response data.
+
 package server
 
 import (

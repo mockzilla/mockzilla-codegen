@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The libopenapi model turned into the spec IR, one method per OpenAPI object.
+
 package libopenapi
 
 import (

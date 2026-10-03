@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// allOf members, and a $ref with keywords next to it, merged into one schema.
+
 package gomodel
 
 import (

@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The data the template of an extra file runs on: the generated code as the layout places it.
+
 package codegen
 
 import (

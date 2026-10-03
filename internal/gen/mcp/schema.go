@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The JSON schema of a tool's input: one property per parameter and one for the body.
+
 package mcp
 
 import (
