@@ -44,11 +44,16 @@ func NewBuilder() *Builder {
 	return &Builder{defs: map[string]*Object{}}
 }
 
-// Schema converts s. A nil schema is the empty one, which takes anything.
+// Schema converts s. A nil schema is the empty one, which takes anything. A nullable schema takes
+// null: when its $ref, composition, enum or const could turn null away, it is anyOf of itself and
+// null, with its docs and values outside.
 func (b *Builder) Schema(s *spec.Schema) *Object {
 	o := &Object{}
 	if s == nil {
 		return o
+	}
+	if s.Nullable && rejectsNull(s) {
+		return b.nullable(s)
 	}
 	if s.Ref != nil {
 		o.Set("$ref", "#/$defs/"+escapePointer(b.define(s.Ref)))
@@ -79,6 +84,24 @@ func (b *Builder) Document(root *Object) []byte {
 // Diagnostics are the warnings of the schemas converted so far.
 func (b *Builder) Diagnostics() []diag.Diagnostic {
 	return b.diags
+}
+
+// nullable writes s as anyOf of s without null and of null. The docs and values stay outside, so a
+// reader sees them first and a default is checked against the whole.
+func (b *Builder) nullable(s *spec.Schema) *Object {
+	inner := *s
+	inner.Nullable = false
+	inner.Title, inner.Description, inner.Default, inner.Examples = "", "", nil, nil
+	inner.Deprecated, inner.ReadOnly, inner.WriteOnly = false, false, false
+
+	o := new(Object).Set("anyOf", []any{b.Schema(&inner), new(Object).Set("type", "null")})
+	setString(o, "title", s.Title)
+	setString(o, "description", s.Description)
+	setBool(o, "deprecated", s.Deprecated)
+	setBool(o, "readOnly", s.ReadOnly)
+	setBool(o, "writeOnly", s.WriteOnly)
+	b.samples(o, s)
+	return o
 }
 
 // define converts the target of r once and returns the name it is defined under.
@@ -168,8 +191,7 @@ func (b *Builder) setList(o *Object, key string, list []*spec.Schema) {
 	o.Set(key, out)
 }
 
-// values sets enum, const, default and examples. A default that does not fit its schema is left
-// out with a warning, since the MCP SDK panics on it when the tool is added.
+// values sets enum and const, then the samples.
 func (b *Builder) values(o *Object, s *spec.Schema) {
 	if len(s.Enum) > 0 {
 		o.Set("enum", valueList(s.Enum))
@@ -177,6 +199,12 @@ func (b *Builder) values(o *Object, s *spec.Schema) {
 	if s.Const != nil {
 		o.Set("const", Value(*s.Const))
 	}
+	b.samples(o, s)
+}
+
+// samples sets the default and the examples. A default that does not fit its schema is left out
+// with a warning, since the MCP SDK panics on it when the tool is added.
+func (b *Builder) samples(o *Object, s *spec.Schema) {
 	if s.Default != nil {
 		if why := misfit(*s.Default, s); why == "" {
 			o.Set("default", Value(*s.Default))
@@ -236,7 +264,8 @@ func valueList(vs []spec.Value) []any {
 	return out
 }
 
-// typeList is the JSON types of s, with null added for a nullable schema.
+// typeList is the JSON types of s, with null added for a nullable schema. A schema without types
+// takes null already, so it gets none.
 func typeList(s *spec.Schema) []string {
 	var out []string
 	for _, t := range typeNames {
@@ -244,10 +273,18 @@ func typeList(s *spec.Schema) []string {
 			out = append(out, t.name)
 		}
 	}
-	if s.Nullable && !slices.Contains(out, "null") {
+	if s.Nullable && len(out) > 0 && !slices.Contains(out, "null") {
 		out = append(out, "null")
 	}
 	return out
+}
+
+// rejectsNull reports a keyword of s other than type that null can fail: a $ref, a composition, an
+// enum without null or a const that is not null.
+func rejectsNull(s *spec.Schema) bool {
+	isNull := func(v spec.Value) bool { return v.Kind == spec.KindNull }
+	return s.Ref != nil || len(s.AllOf) > 0 || len(s.OneOf) > 0 || len(s.AnyOf) > 0 || s.Not != nil || s.If != nil ||
+		len(s.Enum) > 0 && !slices.ContainsFunc(s.Enum, isNull) || s.Const != nil && !isNull(*s.Const)
 }
 
 func setBound(o *Object, key, exclusiveKey string, b *spec.Bound) {
