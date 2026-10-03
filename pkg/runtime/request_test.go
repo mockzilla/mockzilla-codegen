@@ -28,6 +28,18 @@ func (f doerFunc) Do(req *http.Request) (*http.Response, error) {
 	return f(req)
 }
 
+// closingBody is a response body that records Close.
+type closingBody struct {
+	io.Reader
+
+	isClosed bool
+}
+
+func (b *closingBody) Close() error {
+	b.isClosed = true
+	return nil
+}
+
 func parseURL(t *testing.T, s string) *url.URL {
 	t.Helper()
 
@@ -381,6 +393,35 @@ func TestSend(t *testing.T) {
 				require.NoError(t, readErr)
 				assert.Equal(t, tc.wantBody, string(again))
 			}
+		})
+	}
+}
+
+func TestSendClosesTheBody(t *testing.T) {
+	t.Parallel()
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://api.test", nil)
+	require.NoError(t, err)
+	tests := []struct {
+		name string
+		body io.Reader
+	}{
+		{name: "A body that reads", body: strings.NewReader("pong")},
+		{name: "A body that fails to read", body: errReader{}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			body := &closingBody{Reader: tc.body}
+			d := doerFunc(func(*http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Body: body}, nil
+			})
+
+			_, _, _ = Send(d, req, 0)
+
+			assert.True(t, body.isClosed)
 		})
 	}
 }
