@@ -13,7 +13,6 @@ package sample
 import (
 	"context"
 	_ "embed"
-	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/codegen"
 )
@@ -110,8 +109,8 @@ func newCall(op codegen.Operation) call {
 	}
 
 	// For a pointer body keep the type it points to, so the wrapper passes new(T) and not nil.
-	if elem, ok := strings.CutPrefix(c.Body.Name, "*"); ok {
-		c.Body.Name, c.IsPointer = elem, true
+	if elem := c.Body.Elem(); elem.Name != "" {
+		c.Body, c.IsPointer = elem, true
 	}
 	return c
 }

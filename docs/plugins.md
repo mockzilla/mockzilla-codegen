@@ -166,8 +166,8 @@ TypeRef{Name: "*Span", Package: "trace"}                                       /
 TypeRef{Name: "*Span", Package: "open-trace", ImportPath: "example.com/trace"} // an error: no package name
 ```
 
-A type of the API has a package and no import path when the output is one package outside a
-module. A field then takes its `Name` alone, as in `TypeRef{Name: op.Success.Body.Name}`.
+Outside a module the output is one package, and a type of the API has no package and no import
+path. A field takes it as it is, as in `Type: op.Success.Body`.
 
 A type with an import path makes the file of the service import that package. When this closes
 an import cycle, `Generate` fails with the cycle and names `server.service` for that import, as
@@ -376,16 +376,20 @@ it writes it, and `Package` and `ImportPath` of the identifier in it. With an im
 is an identifier, or a pointer, slice, array, map or channel around one (`Pet`, `[]Pet`, `*Pet`,
 `map[string]Pet`): the package goes before that identifier, and a map key or an array length is
 written as it is. A generic type, a func type or a name that is qualified already cannot carry an
-import path. `Package`, when set, is the name of the package: an identifier other than `_`.
-Without an import path, the type needs no import and `Name` is written as it is (`string`,
-`func() any`). A type the generator declares has no import path when the output is one package
-outside a module.
+import path. `Package`, when set, is the name of the package: an identifier other than `_`, and
+only with an import path. Without an import path, the type needs no import, `Name` is written as
+it is (`string`, `func() any`) and `Package` is empty. A type the generator declares has neither
+when the output is one package outside a module.
 
-`Expr(from)` writes a type as the package with import path `from` spells it; in a template, `expr`
-does the same for the file being written and adds the import. `expr` fails on a type whose `Name`
-cannot carry its import path, in every file, so a template does not start to fail when the output
-is split into packages. `Expr` runs no check. To write a type around one of another package, put
-it together in the template: `Page[{{expr .Body}}]`.
+`expr` writes a type as the file being written spells it and adds the import. It fails on a
+type whose `Name` cannot carry its import path, and on a `Package` without an import path, in
+every file, so a template does not start to fail when the output is split into packages. To
+write a type around one of another package, put it together in the template:
+`Page[{{expr .Body}}]`.
+
+`Elem()` is the type a pointer points to, in the same package: `Pet` for `*Pet`. It is empty for
+any other type. A constructor that takes `*Pet` gets a body that is not nil from
+`new({{expr .Body.Elem}})`, or from `var body {{expr .Body.Elem}}` passed as `&body`.
 
 ## Scaffold data
 

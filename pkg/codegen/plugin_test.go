@@ -12,26 +12,36 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTypeRefExpr(t *testing.T) {
+func TestTypeRefElem(t *testing.T) {
 	t.Parallel()
 
-	pet := TypeRef{Name: "[]Pet", Package: "models", ImportPath: "example.com/work/models"}
 	tests := []struct {
 		name string
 		typ  TypeRef
-		from string
-		want string
+		want TypeRef
 	}{
-		{name: "Type that needs no import", typ: TypeRef{Name: "func() any"}, from: "example.com/work/api", want: "func() any"},
-		{name: "Type of the package written", typ: pet, from: "example.com/work/models", want: "[]Pet"},
-		{name: "Type of another package", typ: pet, from: "example.com/work/api", want: "[]models.Pet"},
+		{
+			name: "Pointer to a type of a package",
+			typ:  TypeRef{Name: "*Pet", Package: "models", ImportPath: "example.com/work/models"},
+			want: TypeRef{Name: "Pet", Package: "models", ImportPath: "example.com/work/models"},
+		},
+		{name: "Pointer to a type that needs no import", typ: TypeRef{Name: "*string"}, want: TypeRef{Name: "string"}},
+		{
+			name: "Pointer to a pointer",
+			typ:  TypeRef{Name: "**Pet", Package: "models", ImportPath: "example.com/work/models"},
+			want: TypeRef{Name: "*Pet", Package: "models", ImportPath: "example.com/work/models"},
+		},
+		{name: "Pointer to a slice", typ: TypeRef{Name: "*[]byte"}, want: TypeRef{Name: "[]byte"}},
+		{name: "Slice of pointers", typ: TypeRef{Name: "[]*Pet", Package: "models", ImportPath: "example.com/work/models"}},
+		{name: "Named type", typ: TypeRef{Name: "Pet", Package: "models", ImportPath: "example.com/work/models"}},
+		{name: "No type", typ: TypeRef{}},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, tc.want, tc.typ.Expr(tc.from))
+			assert.Equal(t, tc.want, tc.typ.Elem())
 		})
 	}
 }
@@ -45,7 +55,11 @@ func TestTypeRefCheck(t *testing.T) {
 		wantMsg string
 	}{
 		{name: "Type that needs no import, whatever it is", typ: TypeRef{Name: "func(Pet) Option[Pet]"}},
-		{name: "Package without an import path, whatever the type is", typ: TypeRef{Name: "Page[Pet]", Package: "api"}},
+		{
+			name:    "Package without an import path",
+			typ:     TypeRef{Name: "*Pet", Package: "api"},
+			wantMsg: `type "*Pet" of package api has no import path`,
+		},
 		{name: "Map of slices of pointers", typ: TypeRef{Name: "map[string][]*Pet", Package: "models", ImportPath: "example.com/work/models"}},
 		{
 			name:    "Generic type with an import path",
