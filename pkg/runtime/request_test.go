@@ -12,9 +12,11 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,6 +34,15 @@ func parseURL(t *testing.T, s string) *url.URL {
 	u, err := url.Parse(s)
 	require.NoError(t, err)
 	return u
+}
+
+// hold keeps a handler busy until the client goes away, a second at most, so a test of a timeout
+// fails instead of hanging when the timeout does not work.
+func hold(r *http.Request) {
+	select {
+	case <-r.Context().Done():
+	case <-time.After(time.Second):
+	}
 }
 
 func TestRequestBuilder(t *testing.T) {
@@ -357,7 +368,7 @@ func TestSend(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			res, body, sendErr := Send(tc.doer, req)
+			res, body, sendErr := Send(tc.doer, req, 0)
 
 			if tc.wantErr != nil {
 				require.ErrorIs(t, sendErr, tc.wantErr)
@@ -372,6 +383,56 @@ func TestSend(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSendTimeout(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		timeout      time.Duration
+		wantDeadline bool
+	}{
+		{name: "No timeout sets no deadline", timeout: 0},
+		{name: "A negative timeout sets no deadline", timeout: -time.Second},
+		{name: "A timeout sets a deadline", timeout: time.Minute, wantDeadline: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://api.test", nil)
+			require.NoError(t, err)
+			var hasDeadline bool
+			d := doerFunc(func(r *http.Request) (*http.Response, error) {
+				_, hasDeadline = r.Context().Deadline()
+				return &http.Response{StatusCode: http.StatusNoContent}, nil
+			})
+
+			_, _, err = Send(d, req, tc.timeout)
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantDeadline, hasDeadline)
+		})
+	}
+}
+
+func TestSendTimeoutCoversTheBody(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		hold(r)
+	}))
+	t.Cleanup(srv.Close)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
+	require.NoError(t, err)
+
+	_, _, err = Send(srv.Client(), req, 20*time.Millisecond)
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func TestIsNil(t *testing.T) {

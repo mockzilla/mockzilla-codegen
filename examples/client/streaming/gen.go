@@ -95,18 +95,20 @@ type ClientOption func(*Client)
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
+	timeout time.Duration
 	editors []RequestEditor
 }
 
-// NewClient returns a client of the API at baseURL. It sends with an http.Client that gives up
-// after 3 * time.Second, unless WithHTTPClient sets another.
+// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
+// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
+// sets another limit.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &Client{baseURL: u, doer: &http.Client{Timeout: 3 * time.Second}}
+	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -117,6 +119,15 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	return func(c *Client) {
 		c.doer = d
+	}
+}
+
+// WithTimeout sets how long a call may take, 0 for no limit. A Stream method waits that long for
+// the response headers only, then reads frames until the server ends the stream or the context
+// is canceled. An http.Client with a Timeout cuts the stream after it.
+func WithTimeout(d time.Duration) ClientOption {
+	return func(c *Client) {
+		c.timeout = d
 	}
 }
 
@@ -221,7 +232,7 @@ func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions) (*Reply, er
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +255,7 @@ func (c *Client) ChatWithResponse(ctx context.Context, opts *ChatRequestOptions)
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +280,11 @@ func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions) (*run
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[Chunk](c.doer, req, "text/event-stream", []runtime.Target{
+	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
+	if err != nil {
+		return nil, err
+	}
+	return runtime.OpenStream[Chunk](res, body, []runtime.Target{
 		{Status: "400", MediaType: "application/problem+json", Dst: new(Problem)},
 	})
 }
@@ -283,7 +298,7 @@ func (c *Client) ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOp
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream")
+	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +336,7 @@ func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions)
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +358,7 @@ func (c *Client) ListEventsWithResponse(ctx context.Context, opts *ListEventsReq
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +376,11 @@ func (c *Client) ListEventsStream(ctx context.Context, opts *ListEventsRequestOp
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[ListEventsResponseItem](c.doer, req, "text/event-stream", nil)
+	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
+	if err != nil {
+		return nil, err
+	}
+	return runtime.OpenStream[ListEventsResponseItem](res, body, nil)
 }
 
 // ListEventsStreamWithResponse is ListEventsWithResponse over a live stream: it asks for
@@ -373,7 +392,7 @@ func (c *Client) ListEventsStreamWithResponse(ctx context.Context, opts *ListEve
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream")
+	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +426,7 @@ func (c *Client) TailLog(ctx context.Context, opts *TailLogRequestOptions) (*Tai
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +449,7 @@ func (c *Client) TailLogWithResponse(ctx context.Context, opts *TailLogRequestOp
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +473,11 @@ func (c *Client) TailLogStream(ctx context.Context, opts *TailLogRequestOptions)
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[[]byte](c.doer, req, "application/x-ndjson", []runtime.Target{
+	res, body, err := runtime.SendStream(c.doer, req, "application/x-ndjson", c.timeout)
+	if err != nil {
+		return nil, err
+	}
+	return runtime.OpenStream[[]byte](res, body, []runtime.Target{
 		{Status: "404", MediaType: "application/problem+json", Dst: new(Problem)},
 	})
 }
@@ -468,7 +491,7 @@ func (c *Client) TailLogStreamWithResponse(ctx context.Context, opts *TailLogReq
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "application/x-ndjson")
+	res, body, err := runtime.SendStream(c.doer, req, "application/x-ndjson", c.timeout)
 	if err != nil {
 		return nil, err
 	}

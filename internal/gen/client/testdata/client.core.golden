@@ -22,18 +22,20 @@ type PetClientOption func(*PetClient)
 type PetClient struct {
 	baseURL *url.URL
 	doer    HTTPDoer
+	timeout time.Duration
 	editors []RequestEditor
 }
 
-// NewPetClient returns a client of the API at baseURL. It sends with an http.Client that gives up
-// after 5 * time.Second, unless WithHTTPClient sets another.
+// NewPetClient returns a client of the API at baseURL. It sends with an http.Client unless
+// WithHTTPClient sets another. A call gives up after 5 * time.Second unless WithTimeout
+// sets another limit.
 func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &PetClient{baseURL: u, doer: &http.Client{Timeout: 5 * time.Second}}
+	c := &PetClient{baseURL: u, doer: &http.Client{}, timeout: 5 * time.Second}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -44,6 +46,15 @@ func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
 func WithHTTPClient(d HTTPDoer) PetClientOption {
 	return func(c *PetClient) {
 		c.doer = d
+	}
+}
+
+// WithTimeout sets how long a call may take, 0 for no limit. A Stream method waits that long for
+// the response headers only, then reads frames until the server ends the stream or the context
+// is canceled. An http.Client with a Timeout cuts the stream after it.
+func WithTimeout(d time.Duration) PetClientOption {
+	return func(c *PetClient) {
+		c.timeout = d
 	}
 }
 

@@ -202,6 +202,37 @@ func TestTailLogStream(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, apiErr.Status)
 }
 
+func TestTimeoutBoundsOnlyTheWaitForAStream(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		_, _ = io.WriteString(w, "{\"line\":\"compiling\"}\n")
+		w.(http.Flusher).Flush()
+		time.Sleep(100 * time.Millisecond)
+		_, _ = io.WriteString(w, "{\"line\":\"linking\"}\n")
+	}))
+	t.Cleanup(srv.Close)
+	c, err := NewClient(srv.URL, WithTimeout(20*time.Millisecond))
+	require.NoError(t, err)
+	ctx := context.Background()
+	opts := &TailLogRequestOptions{PathParams: &TailLogPathParams{Job: "build"}}
+
+	stream, err := c.TailLogStream(ctx, opts)
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+	var lines []string
+	for line, iterErr := range stream.All() {
+		require.NoError(t, iterErr)
+		lines = append(lines, string(line))
+	}
+
+	assert.Equal(t, []string{`{"line":"compiling"}`, `{"line":"linking"}`}, lines, "the second line comes after the timeout")
+
+	_, err = c.TailLog(ctx, opts)
+	require.ErrorIs(t, err, context.DeadlineExceeded, "the plain method reads the body whole, within the timeout")
+}
+
 func TestInterfaceListsTheStreamMethods(t *testing.T) {
 	t.Parallel()
 

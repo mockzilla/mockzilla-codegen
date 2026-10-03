@@ -364,18 +364,20 @@ type ClientOption func(*Client)
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
+	timeout time.Duration
 	editors []RequestEditor
 }
 
-// NewClient returns a client of the API at baseURL. It sends with an http.Client that gives up
-// after 3 * time.Second, unless WithHTTPClient sets another.
+// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
+// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
+// sets another limit.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &Client{baseURL: u, doer: &http.Client{Timeout: 3 * time.Second}}
+	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -386,6 +388,15 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	return func(c *Client) {
 		c.doer = d
+	}
+}
+
+// WithTimeout sets how long a call may take, 0 for no limit. A Stream method waits that long for
+// the response headers only, then reads frames until the server ends the stream or the context
+// is canceled. An http.Client with a Timeout cuts the stream after it.
+func WithTimeout(d time.Duration) ClientOption {
+	return func(c *Client) {
+		c.timeout = d
 	}
 }
 
@@ -471,7 +482,7 @@ func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions) (*Reply, er
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -494,7 +505,11 @@ func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions) (*run
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[Chunk](c.doer, req, "text/event-stream", nil)
+	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
+	if err != nil {
+		return nil, err
+	}
+	return runtime.OpenStream[Chunk](res, body, nil)
 }
 
 // ListEventsRequest builds the request of ListEvents, with the editors of the client applied.
@@ -515,7 +530,7 @@ func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions)
 	if err != nil {
 		return "", err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return "", err
 	}
@@ -538,7 +553,11 @@ func (c *Client) ListEventsStream(ctx context.Context, opts *ListEventsRequestOp
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[Event](c.doer, req, "text/event-stream", nil)
+	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
+	if err != nil {
+		return nil, err
+	}
+	return runtime.OpenStream[Event](res, body, nil)
 }
 
 // ChatToolInput is the input of the chat tool: the parameters of the operation.
