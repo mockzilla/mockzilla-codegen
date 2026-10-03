@@ -123,14 +123,14 @@ func envelopeFields(g *Generator, op *gomodel.Operation, s *gocode.Scope) []enve
 	return out
 }
 
-// isDecodable reports a body the client decodes: JSON into anything, any media type into a string
-// or into bytes, and a wildcard media type into anything.
+// isDecodable reports a body the client decodes: JSON into anything, any media type into a string,
+// bytes or a file, and a wildcard media type into anything.
 func isDecodable(c gomodel.Content) bool {
 	if runtime.IsJSON(c.MediaType) || strings.Contains(c.MediaType, "*") {
 		return true
 	}
 	t := gomodel.Underlying(elem(operation.BodyType(c)))
-	return t == stringType || t == bytesType || t == anyType
+	return t == stringType || t == bytesType || t == anyType || t == fileType
 }
 
 // elem is the type a pointer points to, else t.

@@ -6,8 +6,10 @@
 package runtime
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -126,6 +128,20 @@ func DecodeBytes(body io.Reader, isRequired bool) ([]byte, error) {
 		return data, err
 	}
 	return nil, empty(isRequired)
+}
+
+// DecodeFile hands the body of r to a File that streams it, under the request's media type and
+// with its content length as the size. It reads one byte ahead to tell an empty body.
+func DecodeFile(r *http.Request, isRequired bool) (File, error) {
+	body := bufio.NewReader(r.Body)
+	_, err := body.Peek(1)
+	switch {
+	case errors.Is(err, io.EOF):
+		return File{}, empty(isRequired)
+	case err != nil:
+		return File{}, err
+	}
+	return NewFileReader(body, "", ContentType(r.Header), r.ContentLength), nil
 }
 
 // assignForm stores form values in dst, nesting bracketed keys.

@@ -20,6 +20,7 @@ func TestBodyView(t *testing.T) {
 	pet := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Pet", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}}
 	note := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Note", Part: gomodel.PartTypes, Kind: gomodel.KindDefined, Target: str}}
 	blob := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Blob", Part: gomodel.PartTypes, Kind: gomodel.KindDefined, Target: bytesType}}
+	image := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Image", Part: gomodel.PartTypes, Kind: gomodel.KindAlias, Target: fileType}}
 	tests := []struct {
 		name    string
 		content gomodel.Content
@@ -31,6 +32,7 @@ func TestBodyView(t *testing.T) {
 		{name: "Multipart into a struct", content: gomodel.Content{MediaType: "multipart/form-data", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "MultipartBody", Value: "opts.Body"}},
 		{name: "Multipart without a schema is bytes", content: gomodel.Content{MediaType: "multipart/form-data"}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "BytesBody", Value: "opts.Body", MediaType: `"multipart/form-data"`}},
 		{name: "A file streams", content: gomodel.Content{MediaType: "image/png", Type: fileType}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FileBody", Value: "*opts.Body", MediaType: `"image/png"`}},
+		{name: "A file under an alias streams", content: gomodel.Content{MediaType: "image/png", Type: image}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FileBody", Value: "*opts.Body", MediaType: `"image/png"`}},
 		{name: "A string with a schema is a pointer", content: gomodel.Content{MediaType: "text/plain", Type: str}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "TextBody", Value: "*opts.Body", MediaType: `"text/plain"`}},
 		{name: "A string without a schema is checked for emptiness", content: gomodel.Content{MediaType: "text/csv"}, want: BodyView{IsSet: `opts.Body != ""`, Encoder: "TextBody", Value: "opts.Body", MediaType: `"text/csv"`}},
 		{name: "A defined string is converted", content: gomodel.Content{MediaType: "text/markdown", Type: note}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "TextBody", Value: "string(*opts.Body)", MediaType: `"text/markdown"`}},
@@ -40,6 +42,7 @@ func TestBodyView(t *testing.T) {
 		{name: "A wildcard sends text as text", content: gomodel.Content{MediaType: "text/*", Type: str}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "TextBody", Value: "*opts.Body", MediaType: `"text/plain"`}},
 		{name: "A wildcard sends bytes as bytes", content: gomodel.Content{MediaType: "*/*"}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "BytesBody", Value: "opts.Body", MediaType: `"application/octet-stream"`}},
 		{name: "A wildcard streams a file under its own type", content: gomodel.Content{MediaType: "*/*", Type: fileType}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FileBody", Value: "*opts.Body", MediaType: `""`}},
+		{name: "A wildcard streams a file under an alias", content: gomodel.Content{MediaType: "*/*", Type: image}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FileBody", Value: "*opts.Body", MediaType: `""`}},
 		{name: "XML into a struct cannot be sent", content: gomodel.Content{MediaType: "application/xml", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Value: "opts.Body", MediaType: `"application/xml"`}},
 	}
 

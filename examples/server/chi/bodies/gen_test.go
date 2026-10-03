@@ -54,6 +54,10 @@ func (echo) PostText(_ context.Context, opts *PostTextServiceRequestOptions) (*P
 	return NewPostTextResponseData(new("text: " + *opts.BodyText)), nil
 }
 
+func (echo) PutFile(_ context.Context, opts *PutFileServiceRequestOptions) (*PutFileResponseData, error) {
+	return NewPutFileResponseData(opts.Body), nil
+}
+
 func (echo) PostAny(_ context.Context, opts *PostAnyServiceRequestOptions) (*PostAnyResponseData, error) {
 	switch {
 	case opts.BodyXML != nil:

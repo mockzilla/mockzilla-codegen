@@ -29,6 +29,8 @@ type UploadRequestBody struct {
 
 type PostTextRequestBody = string
 
+type PutFileRequestBody = runtime.File
+
 type PostAnyXMLRequestBody = string
 
 type PostAnyXMLRequestBody2 = string
@@ -36,6 +38,8 @@ type PostAnyXMLRequestBody2 = string
 type UploadResponse200 map[string]any
 
 type PostTextResponse200 = string
+
+type PutFileResponse200 = runtime.File
 
 type PostAnyResponse200 = string
 
@@ -45,6 +49,7 @@ type ServiceInterface interface {
 	PostForm(ctx context.Context, opts *PostFormServiceRequestOptions) (*PostFormResponseData, error)
 	Upload(ctx context.Context, opts *UploadServiceRequestOptions) (*UploadResponseData, error)
 	PostText(ctx context.Context, opts *PostTextServiceRequestOptions) (*PostTextResponseData, error)
+	PutFile(ctx context.Context, opts *PutFileServiceRequestOptions) (*PutFileResponseData, error)
 	PostAny(ctx context.Context, opts *PostAnyServiceRequestOptions) (*PostAnyResponseData, error)
 }
 
@@ -279,6 +284,64 @@ func (r *PostTextResponseData) Payload() any {
 
 // ContentType is the media type the body is written as, empty for the default of its Go type.
 func (r *PostTextResponseData) ContentType() string {
+	return r.contentType
+}
+
+// PutFileServiceRequestOptions is what PutFile receives. RawRequest is the request as it came in.
+type PutFileServiceRequestOptions struct {
+	// Body sent as image/png.
+	Body       *PutFileRequestBody
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *PutFileServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// PutFileResponseData is what PutFile returns: the status, the headers and the body of the response.
+type PutFileResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewPutFileResponseData returns the response data of status 200 with body as image/png.
+func NewPutFileResponseData(body *PutFileResponse200) *PutFileResponseData {
+	return &PutFileResponseData{Status: 200, Body: body, contentType: "image/png"}
+}
+
+// WithStatus sets the status code.
+func (r *PutFileResponseData) WithStatus(code int) *PutFileResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *PutFileResponseData) WithHeaders(h http.Header) *PutFileResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *PutFileResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *PutFileResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *PutFileResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *PutFileResponseData) ContentType() string {
 	return r.contentType
 }
 
@@ -559,6 +622,37 @@ func (a *HTTPAdapter) PostText(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "PostText", res)
 }
 
+// PutFile handles PUT /file.
+func (a *HTTPAdapter) PutFile(w http.ResponseWriter, r *http.Request) {
+	opts := &PutFileServiceRequestOptions{RawRequest: r}
+	switch contentType := runtime.ContentType(r.Header); contentType {
+	case "image/png":
+		file, err := runtime.DecodeFile(r, true)
+		if err != nil {
+			a.failDecode(w, r, "PutFile", err)
+			return
+		}
+		opts.Body = runtime.Ptr(PutFileRequestBody(file))
+	case "":
+		a.failDecode(w, r, "PutFile", runtime.ErrBodyEmpty)
+		return
+	default:
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PutFile", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return
+	}
+
+	res, err := a.svc.PutFile(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutFile", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutFile", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "PutFile", res)
+}
+
 // PostAny handles POST /any.
 func (a *HTTPAdapter) PostAny(w http.ResponseWriter, r *http.Request) {
 	opts := &PostAnyServiceRequestOptions{RawRequest: r}
@@ -637,6 +731,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 		r.Post("/form", adapter.PostForm)
 		r.Post("/upload", adapter.Upload)
 		r.Post("/text", adapter.PostText)
+		r.Put("/file", adapter.PutFile)
 		r.Post("/any", adapter.PostAny)
 	}
 
