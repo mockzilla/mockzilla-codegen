@@ -11,6 +11,7 @@
 package sample
 
 import (
+	"context"
 	_ "embed"
 	"strings"
 
@@ -67,14 +68,14 @@ func (Plugin) Name() string {
 }
 
 // Reserve names what the parts declare.
-func (Plugin) Reserve() codegen.Reservations {
-	return codegen.Reservations{Idents: []string{"Route", "Routes", "Register", "WithBodies", "NewRouterWithBodies"}}
+func (Plugin) Reserve(context.Context, *codegen.ReserveInput) (*codegen.Reservations, error) {
+	return &codegen.Reservations{Idents: []string{"Route", "Routes", "Register", "WithBodies", "NewRouterWithBodies"}}, nil
 }
 
 // Contribute lists the routed operations for the register part and replaces the service scaffold.
 // When the config has a server, it also gives every operation its GenerateResponse field and
 // wraps the service to set it.
-func (Plugin) Contribute(api *codegen.API) (*codegen.Contribution, error) {
+func (Plugin) Contribute(_ context.Context, api *codegen.API) (*codegen.Contribution, error) {
 	var routes []route
 	wrap := wrapper{Service: api.Service, Calls: make([]call, 0, len(api.Operations))}
 	fields := make(map[string][]codegen.FieldSpec, len(api.Operations))
