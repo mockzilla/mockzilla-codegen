@@ -153,10 +153,10 @@ func TestCallTools(t *testing.T) {
 	call("create_pet", map[string]any{"body": map[string]any{"id": 2, "name": "Tom"}})
 	listed := call("list_pets", map[string]any{"limit": 1})
 	assert.False(t, listed.IsError)
-	assert.JSONEq(t, `[{"id":1,"name":"Rex","kind":"dog"}]`, structured(listed))
+	assert.JSONEq(t, `{"result":[{"id":1,"name":"Rex","kind":"dog"}]}`, structured(listed), "a list goes under result")
 
 	all := call("list_pets", nil)
-	assert.JSONEq(t, `[{"id":1,"name":"Rex","kind":"dog"},{"id":2,"name":"Tom"}]`, structured(all))
+	assert.JSONEq(t, `{"result":[{"id":1,"name":"Rex","kind":"dog"},{"id":2,"name":"Tom"}]}`, structured(all))
 
 	deleted := call("delete_pet", map[string]any{"id": 2})
 	assert.False(t, deleted.IsError)

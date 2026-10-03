@@ -110,6 +110,10 @@ validates every call against:
 
 - A response body comes back as structured content, the JSON of what the client method returns,
   and as text content holding the same JSON, which every client reads.
+- Structured content is always a JSON object, since clients before protocol 2026-07-28 take
+  nothing else there. An object comes as it is. Anything else, such as a list, a number, or the
+  null of a 2xx without a body, comes as `{"result": <value>}`. The generated handler returns
+  `runtime.ToolResult{Value: out}`, which writes it that way.
 - A `text/*` body comes back as text content alone.
 - An operation without a response body answers with the text `ok`.
 - An error of the client is the error of the tool: `IsError` is set and the text is the error's
@@ -171,8 +175,8 @@ res, _ := session.CallTool(ctx, &mcp.CallToolParams{Name: "list_pets", Arguments
 ```
 
 The [examples](../examples/mcp) do this for the tools of a pet store, for a spec that picks its
-tools with `x-mcp`, for one that streams, for one with a default that does not fit, and for
-nullable schemas of 3.0.
+tools with `x-mcp`, for one that streams, for one with a default that does not fit, for
+nullable schemas of 3.0, and for results that are no object.
 
 ## Layout
 
