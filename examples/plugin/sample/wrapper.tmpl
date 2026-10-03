@@ -1,3 +1,4 @@
+{{- $chi := import "github.com/go-chi/chi/v5"}}
 {{- $context := import "context"}}
 // withBodies sets GenerateResponse on the options of an operation, then calls the service.
 type withBodies struct {
@@ -26,3 +27,8 @@ func (s *withBodies) {{.ID}}(ctx {{$context}}.Context, opts *{{expr .Options}}) 
 	return s.svc.{{.ID}}(ctx, opts)
 }
 {{- end}}
+
+// NewRouterWithBodies returns the router of WithBodies(svc).
+func NewRouterWithBodies(svc {{expr .Service}}, opts ...{{symbol "server.adapter" "ServerOption"}}) {{$chi}}.Router {
+	return {{symbol "server.router" "NewRouter"}}(WithBodies(svc), opts...)
+}

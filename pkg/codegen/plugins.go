@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"go/token"
 	"maps"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"text/template"
@@ -44,14 +45,14 @@ type source struct {
 	isScaffold bool
 }
 
-// render runs the template on data and checks that it wrote Go declarations. Its expr and import
-// funcs write for the file of s; a func of the plugin with either name replaces it.
+// render runs the template on data and checks that it wrote Go declarations. Its expr, import and
+// symbol funcs write for the file of s; a func of the plugin with one of those names replaces it.
 func (src source) render(id layout.PartID, data any, s *gocode.Scope) ([]byte, error) {
 	for _, imp := range src.imports {
 		s.Import(gomodel.Import{Path: imp.Path, Alias: imp.Alias})
 	}
 
-	funcs := make(template.FuncMap, len(src.funcs)+2)
+	funcs := make(template.FuncMap, len(src.funcs)+3)
 	funcs["expr"] = func(t TypeRef) (string, error) {
 		if err := t.check(); err != nil {
 			return "", err
@@ -63,6 +64,9 @@ func (src source) render(id layout.PartID, data any, s *gocode.Scope) ([]byte, e
 			return "", err
 		}
 		return s.Import(gomodel.Import{Path: path}), nil
+	}
+	funcs["symbol"] = func(part, name string) (string, error) {
+		return symbol(s, layout.PartID(part), name)
 	}
 	maps.Copy(funcs, src.funcs)
 
@@ -331,6 +335,21 @@ func typeRef(t gomodel.Type, lay *layout.Layout) TypeRef {
 		ref.Package, ref.ImportPath = gocode.ImportName(leaf.Import.Path, leaf.Import.Alias), leaf.Import.Path
 	}
 	return ref
+}
+
+// symbol writes name, which the code of part declares, as the file of s spells it. Whether part
+// declares name is left to the compiler.
+func symbol(s *gocode.Scope, part layout.PartID, name string) (string, error) {
+	f := s.Layout.FileOf(part)
+	switch {
+	case f == nil:
+		return "", fmt.Errorf("%w %q: the config writes no part %q", errSymbol, name, part)
+	case !token.IsIdentifier(name):
+		return "", fmt.Errorf("%w %q of %s is no identifier", errSymbol, name, part)
+	case !token.IsExported(name) && filepath.Dir(f.Path) != filepath.Dir(s.File.Path):
+		return "", fmt.Errorf("%w %s of %s is not exported, so no file outside the folder of %s can use it", errSymbol, name, part, f.Rel)
+	}
+	return s.Symbol(part, name), nil
 }
 
 // copyMap copies m with the maps and lists in it, of the kinds YAML decodes to. A value of
