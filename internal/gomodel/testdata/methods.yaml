@@ -1,0 +1,79 @@
+openapi: 3.1.0
+info: {title: methods, version: "1"}
+paths:
+  /certs/{id}/request:
+    get:
+      operationId: getCertRequest
+      responses:
+        "200": {description: ok}
+  /certs/{id}:
+    get:
+      operationId: getCert
+      responses:
+        "200": {description: ok}
+  /events:
+    get:
+      operationId: listEvents
+      responses:
+        "200":
+          description: ok
+          content:
+            text/event-stream: {schema: {type: string}}
+  /events/stream:
+    get:
+      operationId: listEventsStream
+      responses:
+        "200": {description: ok}
+  /polls:
+    get:
+      operationId: poll
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json: {schema: {type: string}}
+        "500":
+          description: failed
+          content:
+            text/event-stream: {}
+        default:
+          description: other
+          content:
+            text/event-stream: {}
+  /polls/stream:
+    get:
+      operationId: pollStream
+      responses:
+        "200": {description: ok}
+  /reports:
+    get:
+      operationId: report
+      x-mcp: {skip: false}
+      responses:
+        "200": {description: ok}
+  /reports/tool:
+    get:
+      operationId: reportTool
+      responses:
+        "200": {description: ok}
+  /pings:
+    get:
+      operationId: ping
+      responses:
+        "200": {description: ok}
+  /pings/tool:
+    get:
+      operationId: pingTool
+      responses:
+        "200": {description: ok}
+  /notices/request:
+    get:
+      operationId: noticeRequest
+      responses:
+        "200": {description: ok}
+webhooks:
+  notice:
+    post:
+      operationId: notice
+      responses:
+        "200": {description: ok}

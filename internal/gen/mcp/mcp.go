@@ -114,7 +114,7 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 		}
 		set, extDiags := extension.Parse(op.Spec.Extensions, op.Spec.Origin)
 		diags = append(diags, extDiags...)
-		if isSkipped(set.MCP, opts.DefaultSkip) {
+		if set.MCP.IsSkipped(opts.DefaultSkip) {
 			continue
 		}
 
@@ -217,14 +217,6 @@ func newTool(op *gomodel.Operation, n *naming.Namer) *tool {
 	}
 	t.schema = inputSchema(t)
 	return t
-}
-
-// isSkipped applies x-mcp.skip over the default of the config.
-func isSkipped(ext *extension.MCP, defaultSkip bool) bool {
-	if ext != nil && ext.Skip != nil {
-		return *ext.Skip
-	}
-	return defaultSkip
 }
 
 // isToolName reports a name the MCP SDK takes: letters, digits, _ - and . up to 128 characters.

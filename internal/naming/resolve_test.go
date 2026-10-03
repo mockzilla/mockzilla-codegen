@@ -47,6 +47,16 @@ func TestRenameDiagnostic(t *testing.T) {
 			},
 		},
 		{
+			name:   "Name held as a method of another request",
+			rename: Rename{ID: "/b", From: "GetCertRequest", To: "GetCertRequest2", Holder: "/a", IsMethod: true, Rank: RankOperation},
+			want: diag.Diagnostic{
+				Severity: diag.Info,
+				Code:     diag.CodeNameClash,
+				Pointer:  "/b",
+				Message:  `"GetCertRequest" is a method of /a, renamed to "GetCertRequest2"`,
+			},
+		},
+		{
 			name:   "Lost x-go-name is a warning",
 			rename: Rename{ID: "/b", From: "Pet", To: "Pet2", Holder: "/a", Rank: RankGoName},
 			want: diag.Diagnostic{
@@ -247,6 +257,66 @@ func TestResolve(t *testing.T) {
 			},
 		},
 		{
+			name: "A name that is another one plus a method suffix is renamed, whatever the order",
+			reqs: []Request{
+				{ID: "/b", Want: "GetCertRequest", Methods: []string{"Request"}},
+				{ID: "/a", Want: "GetCert", Methods: []string{"Request"}, Order: 1},
+			},
+			want: Result{
+				Names:   map[string]string{"/a": "GetCert", "/b": "GetCertRequest2"},
+				Ordered: []Assignment{{ID: "/a", Name: "GetCert"}, {ID: "/b", Name: "GetCertRequest2"}},
+				Renames: []Rename{{ID: "/b", From: "GetCertRequest", To: "GetCertRequest2", Holder: "/a", IsMethod: true}},
+			},
+		},
+		{
+			name: "Methods clash ignoring case",
+			reqs: []Request{
+				{ID: "/a", Want: "GetCert", Methods: []string{"Request"}},
+				{ID: "/b", Want: "getcertrequest", Order: 1},
+			},
+			want: Result{
+				Names:   map[string]string{"/a": "GetCert", "/b": "getcertrequest2"},
+				Ordered: []Assignment{{ID: "/a", Name: "GetCert"}, {ID: "/b", Name: "getcertrequest2"}},
+				Renames: []Rename{{ID: "/b", From: "getcertrequest", To: "getcertrequest2", Holder: "/a", IsMethod: true}},
+			},
+		},
+		{
+			name: "A chain is settled from its shortest name",
+			reqs: []Request{
+				{ID: "/c", Want: "XRequestRequest", Methods: []string{"Request"}},
+				{ID: "/b", Want: "XRequest", Methods: []string{"Request"}, Order: 1},
+				{ID: "/a", Want: "X", Methods: []string{"Request"}, Order: 2},
+			},
+			want: Result{
+				Names:   map[string]string{"/a": "X", "/b": "XRequest2", "/c": "XRequestRequest"},
+				Ordered: []Assignment{{ID: "/a", Name: "X"}, {ID: "/b", Name: "XRequest2"}, {ID: "/c", Name: "XRequestRequest"}},
+				Renames: []Rename{{ID: "/b", From: "XRequest", To: "XRequest2", Holder: "/a", IsMethod: true}},
+			},
+		},
+		{
+			name: "A number is taken only when its methods are free too",
+			reqs: []Request{
+				{ID: "/a", Want: "X", Methods: []string{"Request"}},
+				{ID: "/b", Want: "XRequest", Methods: []string{"Request"}, Order: 1},
+				{ID: "/c", Want: "XRequest2Request", Order: 2},
+			},
+			want: Result{
+				Names:   map[string]string{"/a": "X", "/b": "XRequest3", "/c": "XRequest2Request"},
+				Ordered: []Assignment{{ID: "/a", Name: "X"}, {ID: "/c", Name: "XRequest2Request"}, {ID: "/b", Name: "XRequest3"}},
+				Renames: []Rename{{ID: "/b", From: "XRequest", To: "XRequest3", Holder: "/a", IsMethod: true}},
+			},
+		},
+		{
+			name:     "A method that is taken costs the request its name",
+			reserved: []string{"XTool"},
+			reqs:     []Request{{ID: "/a", Want: "X", Fallback: "XOperation", Methods: []string{"Request", "Tool"}}},
+			want: Result{
+				Names:   map[string]string{"/a": "XOperation"},
+				Ordered: []Assignment{{ID: "/a", Name: "XOperation"}},
+				Renames: []Rename{{ID: "/a", From: "XTool", To: "XOperation"}},
+			},
+		},
+		{
 			name: "Origin is carried to the rename",
 			reqs: []Request{
 				{ID: "/a", Want: "Pet"},
@@ -272,15 +342,19 @@ func TestResolveIsDeterministic(t *testing.T) {
 
 	reserved := []string{"Client", "Validate"}
 	var reqs []Request
-	for i, want := range []string{"Pet", "pet", "PET", "Client", "Owner", "Pet2", "Validate", "Owner"} {
+	for i, want := range []string{"Pet", "pet", "PET", "Client", "Owner", "Pet2", "Validate", "Owner", "PetRequest", "PetRequestRequest"} {
 		for rank := RankInline; rank <= RankGoName; rank++ {
-			reqs = append(reqs, Request{
+			r := Request{
 				ID:       "/" + strconv.Itoa(i) + "/" + strconv.Itoa(int(rank)),
 				Want:     want,
 				Fallback: want + "Schema",
 				Rank:     rank,
 				Order:    i % 3,
-			})
+			}
+			if i%2 == 0 {
+				r.Methods = []string{"Request", "Schema"}
+			}
+			reqs = append(reqs, r)
 		}
 	}
 	want := Resolve(reserved, reqs)

@@ -6,6 +6,7 @@
 package spec
 
 import (
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -140,4 +141,19 @@ func DeriveOperationID(method, path string) string {
 		b.WriteString(w[size:])
 	}
 	return b.String()
+}
+
+// StatusCode reads a status code from a response key: the key when it is a number, the first digit
+// times 100 when it has three characters and starts with a digit, as a range such as 4XX does. It
+// reads none from default or from another key.
+func StatusCode(status string) (int, bool) {
+	if code, err := strconv.Atoi(status); err == nil {
+		return code, true
+	}
+	if len(status) == 3 {
+		if code, err := strconv.Atoi(status[:1]); err == nil {
+			return code * 100, true
+		}
+	}
+	return 0, false
 }

@@ -33,3 +33,36 @@ func TestDeriveOperationID(t *testing.T) {
 		})
 	}
 }
+
+func TestStatusCode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		status string
+		want   int
+		wantOK bool
+	}{
+		{name: "Code", status: "404", want: 404, wantOK: true},
+		{name: "Zero is a code", status: "0", wantOK: true},
+		{name: "Range takes its start", status: "4XX", want: 400, wantOK: true},
+		{name: "Lower case range", status: "2xx", want: 200, wantOK: true},
+		{name: "Any three characters after a digit read like a range", status: "20X", want: 200, wantOK: true},
+		{name: "Number outside the codes", status: "600", want: 600, wantOK: true},
+		{name: "Default", status: "default"},
+		{name: "Key that is no status", status: "ok"},
+		{name: "Digit and one more character are no range", status: "4X"},
+		{name: "Empty key", status: ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := StatusCode(tc.status)
+
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantOK, ok)
+		})
+	}
+}
