@@ -1072,7 +1072,7 @@ func (t *MCPTools) ListPets(ctx context.Context, _ *mcp.CallToolRequest, in List
 	if err != nil {
 		return nil, nil, err
 	}
-	return nil, out, nil
+	return nil, runtime.ToolResult{Value: out}, nil
 }
 
 // CreatePetTool is the definition of the create_pet tool: its name, its description and the schema
@@ -1096,7 +1096,7 @@ func (t *MCPTools) CreatePet(ctx context.Context, _ *mcp.CallToolRequest, in Cre
 	if err != nil {
 		return nil, nil, err
 	}
-	return nil, out, nil
+	return nil, runtime.ToolResult{Value: out}, nil
 }
 
 // GetPetTool is the definition of the get_pet tool: its name, its description and the schema
@@ -1122,7 +1122,7 @@ func (t *MCPTools) GetPet(ctx context.Context, _ *mcp.CallToolRequest, in GetPet
 	if err != nil {
 		return nil, nil, err
 	}
-	return nil, out, nil
+	return nil, runtime.ToolResult{Value: out}, nil
 }
 
 // DeletePetTool is the definition of the delete_pet tool: its name, its description and the schema

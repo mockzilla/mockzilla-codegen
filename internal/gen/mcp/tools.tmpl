@@ -69,7 +69,7 @@ func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, _ *{{$.MCP}}.CallToolReq
 		return nil, nil, err
 	}
 {{- if not .Text}}
-	return nil, out, nil
+	return nil, {{$.Runtime}}.ToolResult{Value: out}, nil
 {{- else if .IsTextPointer}}
 
 	res := &{{$.MCP}}.CallToolResult{Content: []{{$.MCP}}.Content{}}

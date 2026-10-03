@@ -20,14 +20,15 @@ import (
 var stringType = gomodel.Builtin{Name: "string"}
 
 // ToolsView is the data of the tools part. Client is the client interface the tools call, as the
-// file writes it; MCP, JSON, Context and Errors are the names the packages are imported under.
-// HasStream says whether a tool answers with the streaming error.
+// file writes it; MCP, JSON, Context, Errors and Runtime are the names the packages are imported
+// under. HasStream says whether a tool answers with the streaming error.
 type ToolsView struct {
 	Client    string
 	MCP       string
 	JSON      string
 	Context   string
 	Errors    string
+	Runtime   string
 	HasStream bool
 	Tools     []ToolView
 	User      map[string]any
@@ -85,11 +86,15 @@ func toolsView(g *Generator, s *gocode.Scope) *ToolsView {
 	v.JSON = s.Import(gomodel.Import{Path: "encoding/json"})
 	v.Context = s.Import(gomodel.Import{Path: "context"})
 	for _, t := range g.tools {
-		if t.isStream {
+		tv := toolView(g, t, s)
+		switch {
+		case t.isStream:
 			v.HasStream = true
 			v.Errors = s.Import(gomodel.Import{Path: "errors"})
+		case tv.HasResult && tv.Text == "":
+			v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
 		}
-		v.Tools = append(v.Tools, toolView(g, t, s))
+		v.Tools = append(v.Tools, tv)
 	}
 	return v
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"example.com/work/types"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -68,7 +69,7 @@ func (t *MCPTools) ListPets(ctx context.Context, _ *mcp.CallToolRequest, in type
 	if err != nil {
 		return nil, nil, err
 	}
-	return nil, out, nil
+	return nil, runtime.ToolResult{Value: out}, nil
 }
 
 // CreatePetTool is the definition of the create_pet tool: its name, its description and the schema
@@ -91,7 +92,7 @@ func (t *MCPTools) CreatePet(ctx context.Context, _ *mcp.CallToolRequest, in typ
 	if err != nil {
 		return nil, nil, err
 	}
-	return nil, out, nil
+	return nil, runtime.ToolResult{Value: out}, nil
 }
 
 // GetPetTool is the definition of the get_pet tool: its name, its description and the schema
@@ -122,7 +123,7 @@ func (t *MCPTools) GetPet(ctx context.Context, _ *mcp.CallToolRequest, in types.
 	if err != nil {
 		return nil, nil, err
 	}
-	return nil, out, nil
+	return nil, runtime.ToolResult{Value: out}, nil
 }
 
 // GetPet2Tool is the definition of the get_pet2 tool: its name, its description and the schema
@@ -143,7 +144,7 @@ func (t *MCPTools) GetPet2(ctx context.Context, _ *mcp.CallToolRequest, _ types.
 	if err != nil {
 		return nil, nil, err
 	}
-	return nil, out, nil
+	return nil, runtime.ToolResult{Value: out}, nil
 }
 
 // PutPetTool is the definition of the put_pet tool: its name, its description and the schema
@@ -262,7 +263,7 @@ func (t *MCPTools) Upload(ctx context.Context, _ *mcp.CallToolRequest, in types.
 	if err != nil {
 		return nil, nil, err
 	}
-	return nil, out, nil
+	return nil, runtime.ToolResult{Value: out}, nil
 }
 
 // TailTool is the definition of the tail tool: its name, its description and the schema
