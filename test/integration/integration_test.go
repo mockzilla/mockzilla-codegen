@@ -100,11 +100,16 @@ var servers = map[string]struct {
 // its shapes, and builds one against a base URL.
 var clientVariant = itest.Variant{Name: "client", Config: "client:\n  with-response: true\n  streaming: true\n", Init: "%s.NewClient(\"http://localhost\")"}
 
-// mcpVariant generates the MCP tools over the client and builds them; mcpDeps are the modules
-// their code imports.
+// mcpVariant generates the MCP tools over the client, builds them and registers them on a server,
+// which checks the input schema of every tool; mcpDeps are the modules their code imports.
 var (
-	mcpVariant = itest.Variant{Name: "mcp", Config: "client: {}\nmcp: {}\n", Init: "%s.NewMCPTools(nil)"}
-	mcpDeps    = []string{"github.com/modelcontextprotocol/go-sdk/mcp"}
+	mcpVariant = itest.Variant{
+		Name:    "mcp",
+		Config:  "client: {}\nmcp: {}\n",
+		Init:    `%s.NewMCPTools(nil).Register(mcp.NewServer(&mcp.Implementation{Name: "check"}, nil))`,
+		Imports: mcpDeps,
+	}
+	mcpDeps = []string{"github.com/modelcontextprotocol/go-sdk/mcp"}
 )
 
 // TestIntegration generates every spec in testdata/specs with the models variant, one per

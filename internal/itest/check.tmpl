@@ -2,7 +2,10 @@ package check
 
 import (
 	"testing"
-{{range .}}
+{{range .Imports}}
+	{{.}}
+{{- end}}
+{{- range .Checks}}
 	{{.Alias}} {{.Import}}
 {{- end}}
 )
@@ -12,7 +15,7 @@ func TestInit(t *testing.T) {
 		name string
 		fn   func()
 	}{
-{{- range .}}
+{{- range .Checks}}
 		{name: {{.Name}}, fn: func() { {{.Call}} }},
 {{- end}}
 	}

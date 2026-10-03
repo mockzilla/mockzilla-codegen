@@ -97,6 +97,9 @@ validates every call against:
   ends. Keywords come over as they are: types with `null` for nullable schemas, formats, bounds,
   lengths, patterns, enums, defaults, `readOnly` and `deprecated`. Discriminators and `x-*`
   extensions are left out.
+- A default that does not fit its own schema, such as `default: "20"` on an integer, is left out
+  with a `default-ignored` warning. The SDK checks every default when a tool is added and panics
+  on one that does not fit.
 - No other property is allowed, so a misspelled parameter is an error the assistant sees, not a
   parameter silently dropped.
 
@@ -165,7 +168,7 @@ res, _ := session.CallTool(ctx, &mcp.CallToolParams{Name: "list_pets", Arguments
 ```
 
 The [examples](../examples/mcp) do this for the tools of a pet store, for a spec that picks its
-tools with `x-mcp`, and for one that streams.
+tools with `x-mcp`, for one that streams, and for one with a default that does not fit.
 
 ## Layout
 

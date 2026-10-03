@@ -19,6 +19,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,6 +39,12 @@ var checkSource string
 
 // checkTemplate writes the test file of a batch from its checks.
 var checkTemplate = template.Must(template.New("check").Parse(checkSource))
+
+// checkFile is the test file of a batch: the quoted Imports its calls name, then the checks.
+type checkFile struct {
+	Imports []string
+	Checks  []check
+}
 
 // check is one init call of the batch test: the package imported as Alias, the quoted subtest
 // Name and the Call on the alias.
@@ -235,7 +242,7 @@ func (r *Runner) checkPackages(ctx context.Context, jobs []Job, id int) map[stri
 		return failAll(failures, jobs, err.Error())
 	}
 	var src bytes.Buffer
-	_ = checkTemplate.Execute(&src, checks(jobs)) // a slice of plain strings cannot fail
+	_ = checkTemplate.Execute(&src, checks(jobs)) // plain strings cannot fail
 	if err := os.WriteFile(filepath.Join(dir, "check_test.go"), src.Bytes(), 0o644); err != nil {
 		return failAll(failures, jobs, err.Error())
 	}
@@ -250,19 +257,25 @@ func (r *Runner) checkPackages(ctx context.Context, jobs []Job, id int) map[stri
 	return failures
 }
 
-// checks are the init calls of jobs, one subtest each, named after the package so a panic in one
-// names it and leaves the others to run.
-func checks(jobs []Job) []check {
-	out := make([]check, len(jobs))
+// checks is the test file of jobs: the packages their init calls name, sorted and each once, and
+// one subtest per call, named after the package so a panic in one names it and leaves the others
+// to run.
+func checks(jobs []Job) checkFile {
+	out := checkFile{Checks: make([]check, len(jobs))}
 	for i, job := range jobs {
 		alias := "p" + strconv.Itoa(i)
-		out[i] = check{
+		out.Checks[i] = check{
 			Alias:  alias,
 			Import: strconv.Quote(path.Join(sandboxModule, job.Package)),
 			Name:   strconv.Quote(job.Package),
 			Call:   fmt.Sprintf(job.Variant.Init, alias),
 		}
+		for _, p := range job.Variant.Imports {
+			out.Imports = append(out.Imports, strconv.Quote(p))
+		}
 	}
+	slices.Sort(out.Imports)
+	out.Imports = slices.Compact(out.Imports)
 	return out
 }
 

@@ -32,6 +32,7 @@ const (
 	CodeExtensionValue      = "extension-value"
 	CodeEnumIgnored         = "enum-ignored"
 	CodeEnumValue           = "enum-value"
+	CodeDefaultIgnored      = "default-ignored"
 	CodeAllOfConflict       = "allof-conflict"
 	CodeAllOfCycle          = "allof-cycle"
 	CodeAliasCycle          = "alias-cycle"

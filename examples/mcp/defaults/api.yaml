@@ -1,0 +1,31 @@
+openapi: 3.1.0
+info: {title: search over MCP, version: "1"}
+paths:
+  /search:
+    get:
+      operationId: search
+      summary: Search the catalog
+      parameters:
+        - {name: q, in: query, required: true, description: What to look for., schema: {type: string}}
+        - name: sort
+          in: query
+          description: The order of the results.
+          schema: {type: string, enum: [name, date], default: name}
+        - name: limit
+          in: query
+          description: How many results to return at most.
+          schema: {type: integer, default: "20"}
+      responses:
+        "200":
+          description: what the search was asked
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Asked'}}
+components:
+  schemas:
+    Asked:
+      type: object
+      required: [q]
+      properties:
+        q: {type: string}
+        sort: {type: string}
+        limit: {type: integer}

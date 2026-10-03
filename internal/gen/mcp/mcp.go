@@ -103,11 +103,13 @@ type body struct {
 
 // New returns the generator of the tools of m: one per operation the config and x-mcp keep,
 // webhooks left out. Tool names that clash are numbered, with a note; an x-mcp name the SDK would
-// reject is replaced with a warning.
+// reject is replaced with a warning. A default that does not fit its schema is left out of every
+// input, with one warning.
 func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 	g := &Generator{opts: opts}
 	var diags []diag.Diagnostic
 	var reqs []naming.Request
+	isWarned := map[diag.Diagnostic]bool{}
 	for i, op := range m.Operations {
 		if op.Spec.IsWebhook {
 			continue
@@ -118,7 +120,13 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 			continue
 		}
 
-		t := newTool(op, opts.Namer)
+		t, schemaDiags := newTool(op, opts.Namer)
+		for _, d := range schemaDiags {
+			if !isWarned[d] {
+				isWarned[d] = true
+				diags = append(diags, d)
+			}
+		}
 		req := naming.Request{ID: op.Spec.Origin.Pointer, Want: t.name, Rank: naming.RankOperation, Order: i, Origin: origin(op.Spec)}
 		if set.MCP != nil {
 			t.desc = cmp.Or(set.MCP.Description, t.desc)
@@ -186,7 +194,7 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 // newTool reads the parameters and the body of op into a tool named after the operation ID in
 // snake case, and builds the schema of its input. A property or field name taken twice, by
 // parameters of two locations, gets the location in front.
-func newTool(op *gomodel.Operation, n *naming.Namer) *tool {
+func newTool(op *gomodel.Operation, n *naming.Namer) (*tool, []diag.Diagnostic) {
 	t := &tool{op: op, name: n.Snake(n.Exported(op.Spec.ID)), desc: operation.Doc(op.Spec), isStream: client.IsStreamOnly(op)}
 	var goReqs, jsonReqs []naming.Request
 	for _, p := range op.Params {
@@ -215,8 +223,9 @@ func newTool(op *gomodel.Operation, n *naming.Namer) *tool {
 	if t.body != nil {
 		t.body.goName, t.body.name = goNames.Names[bodyID], jsonNames.Names[bodyID]
 	}
-	t.schema = inputSchema(t)
-	return t
+	var diags []diag.Diagnostic
+	t.schema, diags = inputSchema(t)
+	return t, diags
 }
 
 // isToolName reports a name the MCP SDK takes: letters, digits, _ - and . up to 128 characters.

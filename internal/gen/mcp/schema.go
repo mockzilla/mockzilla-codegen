@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/jsonschema"
@@ -26,8 +27,8 @@ var fileType = gomodel.Qualified{Import: gomodel.Import{Path: gomodel.RuntimePat
 
 // inputSchema is the JSON schema of the input of t: an object with one property per parameter,
 // named as the spec names it, and one for the body. No other property is allowed, so a misspelled
-// parameter is an error and not silently dropped.
-func inputSchema(t *tool) string {
+// parameter is an error and not silently dropped. The warnings are those of the builder.
+func inputSchema(t *tool) (string, []diag.Diagnostic) {
 	b := jsonschema.NewBuilder()
 	props := &jsonschema.Object{}
 	var required []string
@@ -63,7 +64,7 @@ func inputSchema(t *tool) string {
 		root.Set("required", required)
 	}
 	root.Set("additionalProperties", false)
-	return string(b.Document(root))
+	return string(b.Document(root)), b.Diagnostics()
 }
 
 // inputBody is the body the tool sends, with its options field: the JSON one, else the first,

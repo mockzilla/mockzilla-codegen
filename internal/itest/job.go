@@ -30,10 +30,12 @@ type Command func(ctx context.Context, dir, name string, args ...string) ([]byte
 // Variant is one config every spec is generated with. Config is YAML added to the package and
 // output keys the runner writes. Init, when set, is a call the runner makes on every package once
 // it builds, with %s standing for the package, such as %s.NewRouter(nil); a panic fails the job.
+// Imports are the other packages Init names.
 type Variant struct {
-	Name   string
-	Config string
-	Init   string
+	Name    string
+	Config  string
+	Init    string
+	Imports []string
 }
 
 // Job is one spec generated with one variant into Package, a folder of the sandbox with forward
