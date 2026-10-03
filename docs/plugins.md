@@ -173,13 +173,15 @@ plugin.
 
 ### Templates
 
-A plugin template is a `text/template`. It sees the plugin's own `Funcs`, two funcs bound to the
-file the part lands in, `expr` and `import`, and the funcs every template of the generator has:
+A plugin template is a `text/template`. It sees the plugin's own `Funcs`, three funcs bound to the
+file the part lands in, `expr`, `import` and `symbol`, and the funcs every template of the
+generator has:
 
 | Func | Does |
 |---|---|
 | `expr <TypeRef>` | writes the type as the file spells it, qualified and imported when it lives in another package |
 | `import <path>` | imports the path and returns the name to qualify with |
+| `symbol <part> <name>` | writes a name the part declares as the file spells it, qualified and imported when the part is in another package |
 | `comment <text>` | writes the text as `//` lines, wrapped to 100 columns where a space allows, and nothing for blank text |
 | `quote <text>` | writes the text as a Go string literal |
 | `lower <text>` | lowers every letter |
@@ -202,9 +204,30 @@ var Bodies = map[string]func() any{
 var Client = {{$http}}.DefaultClient
 ```
 
-A part can use the types of any package the generator writes, wherever the config places it. That
-placing decides what the part's file imports. When it makes two output folders import each other,
-`Generate` fails with the cycle and the part that closes it, as it does for the built-in parts:
+`symbol` reaches what the `API` does not list: the functions of the server, such as `NewRouter`
+and `WithErrorHandler`, and what the parts of a plugin declare. The part is named as in
+`output.files`, such as `server.router` or `plugin.sample.register`, and a scaffold as
+`server.scaffold.service`. The sample plugin builds the router of its wrapped service, for chi:
+
+```
+{{- $chi := import "github.com/go-chi/chi/v5"}}
+// NewRouterWithBodies returns the router of WithBodies(svc).
+func NewRouterWithBodies(svc {{expr .Service}}, opts ...{{symbol "server.adapter" "ServerOption"}}) {{$chi}}.Router {
+	return {{symbol "server.router" "NewRouter"}}(WithBodies(svc), opts...)
+}
+```
+
+In the folder of the router this writes `NewRouter`. In another folder it writes `api.NewRouter`,
+for a router in package `api`, and imports that package. So two parts of a plugin can sit in two
+packages and still use each other. A part the config does not write is an error, such as
+`server.router` without a `server` block, and so is a name that is no identifier. A name that is
+not exported is an error when the part is in another folder. The generator does not check that
+the part declares the name: the Go compiler reports that.
+
+A part can use the types and functions of any package the generator writes, wherever the config
+places it. That placing decides what the part's file imports. When it makes two output folders
+import each other, `Generate` fails with the cycle and the part that closes it, as it does for the
+built-in parts:
 
 ```
 import cycle: api -> models -> api (models.responses uses example.com/work/models, plugin.sample.register uses example.com/work/api)
@@ -212,11 +235,12 @@ import cycle: api -> models -> api (models.responses uses example.com/work/model
 
 Move the part to a folder that the folders it uses do not import.
 
-A func in `Funcs` replaces one of the same name, `expr` and `import` included, in the templates of
-that plugin only. So a plugin can pass a whole library of funcs, and a func the generator gains
-later never changes what a plugin's template calls. `Funcs` has to be a map `text/template` takes:
-a name is an identifier, and a value is a func that returns one value, or one value and an error.
-A template can run more than once for a file, so a func has to answer the same each time.
+A func in `Funcs` replaces one of the same name, `expr`, `import` and `symbol` included, in the
+templates of that plugin only. So a plugin can pass a whole library of funcs, and a func the
+generator gains later never changes what a plugin's template calls. `Funcs` has to be a map
+`text/template` takes: a name is an identifier, and a value is a func that returns one value, or
+one value and an error. A template can run more than once for a file, so a func has to answer the
+same each time.
 
 The rules for the built-in templates apply: decide everything in Go and keep the template to
 `range` and `if` over the data.
@@ -269,9 +293,10 @@ service:
 router := NewRouter(WithResponses(NewPets()))
 ```
 
-`examples/plugin/basic/wrapper.go` is a fuller wrapper, as the sample plugin generates it. It
-answers with the [constructor](#the-api) of the success response and an empty body, so the body
-gets the content type of the spec.
+`examples/plugin/basic/wrap/wrapper.go` is a fuller wrapper, as the sample plugin generates it in
+a package of its own. It answers with the [constructor](#the-api) of the success response and an
+empty body, so the body gets the content type of the spec. It also builds the router of the
+wrapped service with [`symbol`](#templates).
 
 ## The API
 
@@ -385,7 +410,8 @@ Main (`ScaffoldMain`):
 
 `HTTP`, `Framework` and `Packages` hold what the built-in main of each router writes. A
 replacement that has to run on any router imports its packages itself, as in
-`{{import "net/http"}}`.
+`{{import "net/http"}}`. A function of the server that the view does not hold is written with
+[`symbol`](#templates), as in `{{symbol "server.adapter" "WithErrorHandler"}}`.
 
 ## Template overrides
 
@@ -425,7 +451,7 @@ and go-zero, `h` for hertz and `s` for goframe, and its handler is an `http.Hand
 
 The text of a block is a `text/template` of its own. It can call the funcs every template of the
 generator has, such as `comment` and `quote`, listed under [Templates](#templates). It has no
-`expr` and no `import`: the packages its code names are listed under [`imports`](#imports).
+`expr`, `import` or `symbol`: the packages its code names are listed under [`imports`](#imports).
 
 `user-context` is available as `.User` in every block and as `API.UserContext` to plugins. A key
 it does not have is an error: `{{.User.team}}` fails in a config that sets no `team`. Ask for a

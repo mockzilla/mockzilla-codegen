@@ -3,10 +3,11 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Package sample is a plugin that adds a GenerateResponse field to the request options of every
-// operation, typed with the response data of that operation, a part that lists the routes, a part
-// that wraps the service to set the field to the success response with an empty body, and a
-// service scaffold whose operations answer with what GenerateResponse makes.
+// Package sample is a plugin for a chi server. It adds a GenerateResponse field to the request
+// options of every operation, typed with the response data of that operation, a part that lists
+// the routes, a part that wraps the service to set the field to the success response with an
+// empty body and builds the router of the wrapped service, and a service scaffold whose
+// operations answer with what GenerateResponse makes.
 package sample
 
 import (
@@ -67,7 +68,7 @@ func (Plugin) Name() string {
 
 // Reserve names what the parts declare.
 func (Plugin) Reserve() codegen.Reservations {
-	return codegen.Reservations{Idents: []string{"Route", "Routes", "Register", "WithBodies"}}
+	return codegen.Reservations{Idents: []string{"Route", "Routes", "Register", "WithBodies", "NewRouterWithBodies"}}
 }
 
 // Contribute lists the routed operations for the register part and replaces the service scaffold.
