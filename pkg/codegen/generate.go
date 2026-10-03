@@ -119,7 +119,7 @@ func (g *generation) model(ctx context.Context) error {
 		g.cl, clDiags = client.New(g.m, client.Options{
 			Name:         cmp.Or(c.Name, "Client"),
 			Namer:        g.namer,
-			Timeout:      time.Duration(c.Timeout),
+			Timeout:      time.Duration(*cmp.Or(c.Timeout, new(config.Duration(3*time.Second)))),
 			HasEnvelopes: c.WithResponse,
 			HasStreams:   c.Streaming,
 			User:         g.cfg.UserContext,

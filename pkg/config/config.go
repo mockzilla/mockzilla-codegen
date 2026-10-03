@@ -88,6 +88,6 @@ func (c *Config) applyDefaults() {
 
 	if cl := c.Client; cl != nil {
 		cl.Name = cmp.Or(cl.Name, "Client")
-		cl.Timeout = cmp.Or(cl.Timeout, Duration(3*time.Second))
+		cl.Timeout = cmp.Or(cl.Timeout, new(Duration(3*time.Second)))
 	}
 }

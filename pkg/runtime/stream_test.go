@@ -269,7 +269,9 @@ func TestStreamCancellationUnblocksNext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
 	require.NoError(t, err)
-	s, err := OpenStream[chunk](srv.Client(), req, MediaTypeEventStream, nil)
+	res, body, err := SendStream(srv.Client(), req, MediaTypeEventStream, 0)
+	require.NoError(t, err)
+	s, err := OpenStream[chunk](res, body, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = s.Close() })
 
@@ -332,22 +334,96 @@ func TestSendStream(t *testing.T) {
 			if tc.accept != "" {
 				req.Header.Set("Accept", tc.accept)
 			}
-			d := doerFunc(func(*http.Request) (*http.Response, error) { return tc.res, tc.err })
+			var sent *http.Request
+			d := doerFunc(func(r *http.Request) (*http.Response, error) {
+				sent = r
+				return tc.res, tc.err
+			})
 
-			res, body, err := SendStream(d, req, MediaTypeEventStream)
+			res, body, err := SendStream(d, req, MediaTypeEventStream, time.Minute)
 
 			assert.Equal(t, tc.wantAccept, req.Header.Get("Accept"))
 			if tc.err != nil {
 				require.ErrorIs(t, err, tc.err)
+				require.ErrorIs(t, sent.Context().Err(), context.Canceled)
 				return
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantBody, body)
-			if tc.wantOpen {
-				rest, readErr := io.ReadAll(res.Body)
-				require.NoError(t, readErr)
-				assert.Equal(t, "data: x\n\n", string(rest))
+			if !tc.wantOpen {
+				require.ErrorIs(t, sent.Context().Err(), context.Canceled)
+				return
 			}
+			rest, err := io.ReadAll(res.Body)
+			require.NoError(t, err)
+			assert.Equal(t, "data: x\n\n", string(rest))
+			require.NoError(t, sent.Context().Err(), "the request lives while the stream is open")
+			require.NoError(t, res.Body.Close())
+			require.ErrorIs(t, sent.Context().Err(), context.Canceled)
+		})
+	}
+}
+
+func TestSendStreamTimeout(t *testing.T) {
+	t.Parallel()
+
+	const timeout = 20 * time.Millisecond
+	tests := []struct {
+		name       string
+		handler    http.HandlerFunc
+		wantFrames []chunk
+		wantErr    error
+	}{
+		{
+			name: "Headers that come too late time out",
+			handler: func(_ http.ResponseWriter, r *http.Request) {
+				hold(r)
+			},
+			wantErr: context.DeadlineExceeded,
+		},
+		{
+			name: "A stream outlives the timeout",
+			handler: func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", MediaTypeEventStream)
+				_, _ = io.WriteString(w, "data: {\"text\":\"a\"}\n\n")
+				w.(http.Flusher).Flush()
+				time.Sleep(3 * timeout)
+				_, _ = io.WriteString(w, "data: {\"text\":\"b\"}\n\n")
+			},
+			wantFrames: []chunk{{Text: "a"}, {Text: "b"}},
+		},
+		{
+			name: "An answer that is no stream is bounded as a whole",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusBadGateway)
+				w.(http.Flusher).Flush()
+				hold(r)
+			},
+			wantErr: context.DeadlineExceeded,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			srv := httptest.NewServer(tc.handler)
+			t.Cleanup(srv.Close)
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
+			require.NoError(t, err)
+
+			res, _, err := SendStream(srv.Client(), req, MediaTypeEventStream, timeout)
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			s := NewStream[chunk](res)
+			t.Cleanup(func() { _ = s.Close() })
+			frames, _, err := collect(t, s)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantFrames, frames)
 		})
 	}
 }
@@ -359,7 +435,6 @@ func TestOpenStream(t *testing.T) {
 	tests := []struct {
 		name       string
 		res        *http.Response
-		err        error
 		wantFrames []chunk
 		wantErr    error
 		wantStatus int
@@ -368,7 +443,6 @@ func TestOpenStream(t *testing.T) {
 		{name: "A 2xx in another media type", res: streamResponse(http.StatusOK, "application/json", `{"text":"a"}`), wantErr: ErrContentType},
 		{name: "A 2xx without a body", res: &http.Response{StatusCode: http.StatusNoContent, Header: http.Header{}}, wantErr: ErrContentType},
 		{name: "An error response decoded into its type", res: streamResponse(http.StatusNotFound, "application/json", `{"message":"gone"}`), wantErr: &notFound{Message: "gone"}, wantStatus: http.StatusNotFound},
-		{name: "A failed request", err: errRead, wantErr: errRead},
 	}
 
 	for _, tc := range tests {
@@ -377,9 +451,11 @@ func TestOpenStream(t *testing.T) {
 
 			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://api.test/events", nil)
 			require.NoError(t, err)
-			d := doerFunc(func(*http.Request) (*http.Response, error) { return tc.res, tc.err })
+			d := doerFunc(func(*http.Request) (*http.Response, error) { return tc.res, nil })
+			res, body, err := SendStream(d, req, "application/ndjson", 0)
+			require.NoError(t, err)
 
-			s, err := OpenStream[chunk](d, req, "application/ndjson", targets)
+			s, err := OpenStream[chunk](res, body, targets)
 
 			if tc.wantErr != nil {
 				require.Error(t, err)

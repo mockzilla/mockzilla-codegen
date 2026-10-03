@@ -15,7 +15,7 @@
           "type": "boolean"
         },
         "timeout": {
-          "description": "Default request timeout. Defaults to 3s.",
+          "description": "How long a call may take, 0s for no limit. A stream method waits that long for the response headers only. Defaults to 3s.",
           "pattern": "^(0|([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+)$",
           "type": "string"
         },

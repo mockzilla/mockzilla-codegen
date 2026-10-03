@@ -7,7 +7,7 @@ operation that carries the whole response.
 ```yaml
 client:
   name: PetClient      # the client type; defaults to Client
-  timeout: 5s          # what the default http.Client gives up after; defaults to 3s
+  timeout: 5s          # how long a call may take, 0s for no limit; defaults to 3s
   with-response: true  # also generate <Op>WithResponse and the envelopes
   streaming: true      # also generate <Op>Stream for responses that come frame by frame
 ```
@@ -21,14 +21,20 @@ type PetClientOption func(*PetClient)
 
 func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error)
 func WithHTTPClient(d HTTPDoer) PetClientOption
+func WithTimeout(d time.Duration) PetClientOption
 func WithRequestEditor(fns ...RequestEditor) PetClientOption
 ```
 
 - `NewPetClient` needs a base URL with a scheme and a host, such as `https://api.example.test/v1`;
   the path of every operation goes after its path.
-- The client sends with an `http.Client` whose timeout is `client.timeout`. `WithHTTPClient`
-  replaces it with anything that has the `Do` method of `*http.Client`, so retries, tracing and
-  transports are set up there.
+- The client sends with an `http.Client`. `WithHTTPClient` replaces it with anything that has the
+  `Do` method of `*http.Client`, so retries, tracing and transports are set up there.
+- A call gives up after `client.timeout`, whatever sends it. `WithTimeout` sets another limit, and
+  0 means none, as `timeout: 0s` does in the config. A plain method has that long for the whole
+  call, the body included. A stream method has that long to get the response headers; the frames
+  then come until the server ends the stream or the context is canceled. The `Timeout` of an
+  `http.Client` covers reading the body too, so it cuts a stream: leave it unset and use
+  `WithTimeout`.
 - Request editors run on every request before it is sent, in the order they were added, and stop
   the request when they return an error. They are the place for credentials.
 
@@ -166,6 +172,8 @@ A response is sequential when its media type is one of:
 - `<Op>Stream` sends `Accept: <media type>` unless the request sets one. For an endpoint that
   answers either way, the server usually decides from a request field, which the caller still has
   to set: `&ChatRequestOptions{Body: &Prompt{Text: "hi", Stream: runtime.Ptr(true)}}`.
+- The timeout of the client covers the wait for the response headers only, not the frames that
+  follow.
 - Only a 2xx response in a sequential media type is streamed. A 2xx response in another media
   type is `runtime.ErrContentType` rather than a stream that yields nothing; a response outside 2xx
   is a `*runtime.APIError`, with the error type of its status decoded, as with `<Op>`.
@@ -210,7 +218,7 @@ into the usual fields, and is no error.
 The helpers work off any `*http.Response`: `runtime.NewStream[T]` picks the framing from the
 `Content-Type`, `runtime.NewEventStream[T]` and `runtime.NewLineStream[T]` set it;
 `runtime.SendStream` sends a request and leaves the body of a streamed response unread, and
-`runtime.OpenStream[T]` does what `<Op>Stream` does.
+`runtime.OpenStream[T]` turns what it returns into a stream or an error, as `<Op>Stream` does.
 
 Limits: request bodies are not streamed, `multipart/mixed` and `application/json-seq` are not
 framed, and a generated server writes a sequential response as one document, since writing
@@ -232,8 +240,8 @@ Generated clients use these helpers of the runtime package, next to the codecs t
   the rest and comes back from `Build`.
 - `EncodeForm` and `EncodeMultipart` write a struct as a form, in the shapes `DecodeForm` and
   `DecodeMultipart` read.
-- `Send` sends with a `Doer` and reads the body; `DecodeSuccess` and `Decode` fill the targets of
-  the response, `DecodeHeaders` a struct of typed headers; `APIError` is the error of a status
-  outside 2xx.
+- `Send` sends with a `Doer` and reads the body within a timeout; `DecodeSuccess` and `Decode`
+  fill the targets of the response, `DecodeHeaders` a struct of typed headers; `APIError` is the
+  error of a status outside 2xx.
 - `Stream[T]` reads a sequential response frame by frame; `SendStream`, `OpenStream`,
   `IsStreaming` and `IsSequential` are what the stream methods are built on.

@@ -148,7 +148,7 @@ func OptionsFrom(cfg *config.Config) Options {
 	}
 	if c := cfg.Client; c != nil {
 		name := cmp.Or(c.Name, "Client")
-		opts.Reserved = append(opts.Reserved, name, "New"+name, name+"Option", name+"Interface", "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithRequestEditor")
+		opts.Reserved = append(opts.Reserved, name, "New"+name, name+"Option", name+"Interface", "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithTimeout", "WithRequestEditor")
 		opts.OperationSuffixes = append(opts.OperationSuffixes, n.ClientRequestOptions(""))
 		opts.Methods.Client = []string{"Request"}
 		stream := []string{"Stream"}
