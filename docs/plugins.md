@@ -16,13 +16,14 @@ output it generates.
 
 ```go
 type Plugin interface {
-	Name() string                               // [a-z][a-z0-9]*, names the parts plugin.<name>.<part>
-	Reserve() Reservations                      // before names are resolved
-	Contribute(api *API) (*Contribution, error) // after names are resolved
+	Name() string                                                         // [a-z][a-z0-9]*, names the parts plugin.<name>.<part>
+	Reserve(ctx context.Context, in *ReserveInput) (*Reservations, error) // before names are resolved
+	Contribute(ctx context.Context, api *API) (*Contribution, error)      // after names are resolved
 }
 ```
 
-Plugins run in the order `WithPlugins` gives them. Every error a plugin returns, and every
+Plugins run in the order `WithPlugins` gives them. Both methods get the context `Generate` was
+given, and a nil result from either adds nothing. Every error a plugin returns, and every
 problem with what it gives, comes back from `Generate` wrapped with the plugin's name, as
 `codegen.ErrPlugin`. The exception is an import cycle that its code closes: `Generate` reports
 it like any other cycle, with the parts that close it.
@@ -30,10 +31,18 @@ it like any other cycle, with the parts that close it.
 ### Reserve
 
 ```go
+type ReserveInput struct {
+	UserContext map[string]any // a copy of the config's user-context
+}
+
 type Reservations struct {
 	Idents []string // package-level names the plugin's parts declare
 }
 ```
+
+`Reserve` runs before the spec is read, so its input holds the config's `user-context` alone.
+Like the [API](#the-api), the struct only ever gains fields, and each plugin gets a copy of its
+own.
 
 `Idents` are reserved before the models are named, so a schema called `Routes` becomes
 `RoutesSchema` when a plugin declares `Routes`. List every package-level name the parts and

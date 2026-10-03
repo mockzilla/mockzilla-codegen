@@ -6,6 +6,7 @@
 package codegen
 
 import (
+	"context"
 	"fmt"
 	"go/token"
 	"text/template"
@@ -15,10 +16,18 @@ import (
 
 // Plugin adds generated code next to the built-in parts. Name matches [a-z][a-z0-9]* and names
 // the parts: plugin.<name>.<part>. Reserve runs before names are resolved, Contribute after.
+// Both get the context Generate was given, and a nil result from either adds nothing.
 type Plugin interface {
 	Name() string
-	Reserve() Reservations
-	Contribute(api *API) (*Contribution, error)
+	Reserve(ctx context.Context, in *ReserveInput) (*Reservations, error)
+	Contribute(ctx context.Context, api *API) (*Contribution, error)
+}
+
+// ReserveInput is what a plugin sees before names are resolved: the config's user-context. It
+// only ever gains fields. Each plugin gets a copy of its own, so a change to it reaches nothing
+// else.
+type ReserveInput struct {
+	UserContext map[string]any
 }
 
 // Reservations is what a plugin declares before naming. Idents are the package-level names its

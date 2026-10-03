@@ -6,6 +6,7 @@
 package codegen
 
 import (
+	"context"
 	"fmt"
 	"go/token"
 	"maps"
@@ -95,8 +96,9 @@ func newPluginSet(list []Plugin) pluginSet {
 	return pluginSet{list: list, fields: make(map[string][]server.ExtraField), sources: make(map[layout.PartID]source)}
 }
 
-// reserve checks the plugins' names and collects what they reserve.
-func (ps *pluginSet) reserve() error {
+// reserve checks the plugins' names and collects what they reserve. Each plugin sees a copy of
+// user, the config's user-context.
+func (ps *pluginSet) reserve(ctx context.Context, user map[string]any) error {
 	var names []string
 	for _, p := range ps.list {
 		name := p.Name()
@@ -108,7 +110,13 @@ func (ps *pluginSet) reserve() error {
 		}
 		names = append(names, name)
 
-		res := p.Reserve()
+		res, err := p.Reserve(ctx, &ReserveInput{UserContext: copyMap(user)})
+		if err != nil {
+			return fmt.Errorf("%w %s: %w", ErrPlugin, name, err)
+		}
+		if res == nil {
+			continue
+		}
 		for _, ident := range res.Idents {
 			if !token.IsIdentifier(ident) {
 				return fmt.Errorf("%w %s: reserved name %q is no identifier", ErrPlugin, name, ident)
@@ -121,7 +129,7 @@ func (ps *pluginSet) reserve() error {
 
 // contribute shows every plugin the API and keeps what each gives. It returns the parts the
 // plugins add. show is called once per plugin, so that none sees what another did to its API.
-func (ps *pluginSet) contribute(show func() *API) ([]layout.Part, error) {
+func (ps *pluginSet) contribute(ctx context.Context, show func() *API) ([]layout.Part, error) {
 	var parts []layout.Part
 	for _, p := range ps.list {
 		api := show()
@@ -131,7 +139,7 @@ func (ps *pluginSet) contribute(show func() *API) ([]layout.Part, error) {
 			ops[op.ID] = true
 		}
 
-		c, err := p.Contribute(api)
+		c, err := p.Contribute(ctx, api)
 		if err != nil {
 			return nil, fmt.Errorf("%w %s: %w", ErrPlugin, p.Name(), err)
 		}
