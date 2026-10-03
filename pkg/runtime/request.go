@@ -250,9 +250,9 @@ func readBody(res *http.Response) (*http.Response, []byte, error) {
 	if res.Body == nil {
 		return res, nil, nil
 	}
-	defer func() { _ = res.Body.Close() }()
 
 	body, err := io.ReadAll(res.Body)
+	_ = res.Body.Close()
 	if err != nil {
 		return nil, nil, err
 	}
