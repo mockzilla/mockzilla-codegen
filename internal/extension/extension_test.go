@@ -14,6 +14,29 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
+func TestMCPIsSkipped(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		mcp         *MCP
+		defaultSkip bool
+		want        bool
+	}{
+		{name: "No x-mcp keeps the operation"},
+		{name: "No x-mcp follows the default", defaultSkip: true, want: true},
+		{name: "An x-mcp without skip follows the default", mcp: &MCP{Name: "pets"}, defaultSkip: true, want: true},
+		{name: "Skip wins over the default", mcp: &MCP{Skip: new(true)}, want: true},
+		{name: "Skip false wins over the default", mcp: &MCP{Skip: new(false)}, defaultSkip: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, tt.mcp.IsSkipped(tt.defaultSkip))
+		})
+	}
+}
+
 func TestParse(t *testing.T) {
 	t.Parallel()
 

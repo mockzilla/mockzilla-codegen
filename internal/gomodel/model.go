@@ -90,7 +90,7 @@ type readers struct {
 // Options are the settings Build uses. Reserved names are declared by the generator elsewhere in
 // the package; each operation also declares its name plus every OperationSuffixes entry, and no
 // operation takes a ReservedOperations name, which the generator declares as a method next to
-// the operations.
+// the operations, or the name of one of the Methods of another operation.
 // IsValidated adds Validate methods, ValidateResponse where responses differ. ErrorMapping maps
 // error type names to the path of their message. IsServer reserves the names of the response
 // constructors of the service contract; HasResponseHeaders declares a struct of the typed headers
@@ -104,6 +104,7 @@ type Options struct {
 	Namer              *naming.Namer
 	Reserved           []string
 	ReservedOperations []string
+	Methods            Methods
 	OperationSuffixes  []string
 	IsValidated        bool
 	ValidateResponse   bool
@@ -149,15 +150,24 @@ func OptionsFrom(cfg *config.Config) Options {
 		name := cmp.Or(c.Name, "Client")
 		opts.Reserved = append(opts.Reserved, name, "New"+name, name+"Option", name+"Interface", "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithRequestEditor")
 		opts.OperationSuffixes = append(opts.OperationSuffixes, n.ClientRequestOptions(""))
+		opts.Methods.Client = []string{"Request"}
+		stream := []string{"Stream"}
 		if c.WithResponse {
 			opts.HasResponseHeaders = true
 			opts.OperationSuffixes = append(opts.OperationSuffixes, n.ClientResponse(""))
+			opts.Methods.Client = append(opts.Methods.Client, "WithResponse")
+			stream = append(stream, "StreamWithResponse")
+		}
+
+		if c.Streaming {
+			opts.Methods.Stream = stream
 		}
 	}
-	if cfg.MCP != nil {
+	if m := cfg.MCP; m != nil {
 		opts.Reserved = append(opts.Reserved, mcpNames...)
 		opts.ReservedOperations = mcpMethods
 		opts.OperationSuffixes = append(opts.OperationSuffixes, n.ToolInput(""))
+		opts.Methods.Tool, opts.Methods.IsToolSkipped = []string{"Tool"}, m.DefaultSkip
 	}
 	return opts
 }
@@ -165,7 +175,7 @@ func OptionsFrom(cfg *config.Config) Options {
 // Build turns a parsed spec into the Go model. Problems in the spec come back as diagnostics.
 func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 	var diags diag.Collector
-	ops := resolveOperations(doc, opts.Namer, opts.ReservedOperations, &diags)
+	ops := resolveOperations(doc, opts, &diags)
 
 	reserved := slices.Clone(opts.Reserved)
 	for _, op := range ops {

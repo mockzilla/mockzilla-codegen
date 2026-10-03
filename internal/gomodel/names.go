@@ -13,9 +13,11 @@ import (
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/extension"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/oasdoc"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // structMethods are generated on structs, so fields cannot take these names.
@@ -24,21 +26,69 @@ var structMethods = []string{"Validate", "MarshalJSON", "UnmarshalJSON", "Masked
 // additionalMethods come with an AdditionalProperties field.
 var additionalMethods = []string{"AdditionalProperties", "Get", "Set"}
 
+// Methods are the suffixes of the methods the generator declares next to the one named after an
+// operation. Every operation but a webhook gets Client; one that answers a 2xx in a sequential
+// media type also gets Stream, and one the MCP tools keep gets Tool, where x-mcp decides over
+// IsToolSkipped.
+type Methods struct {
+	Client        []string
+	Stream        []string
+	Tool          []string
+	IsToolSkipped bool
+}
+
+// of lists the suffixes of op's methods. What is wrong in its x-mcp is reported by the MCP
+// generator.
+func (m Methods) of(op *spec.Operation) []string {
+	if op.IsWebhook {
+		return nil
+	}
+
+	out := slices.Clone(m.Client)
+	if hasStream(op) {
+		out = append(out, m.Stream...)
+	}
+	if set, _ := extension.Parse(op.Extensions, op.Origin); !set.MCP.IsSkipped(m.IsToolSkipped) {
+		out = append(out, m.Tool...)
+	}
+	return out
+}
+
 // resolveOperations names operations, then webhooks. They become methods, so they have a scope
-// of their own, in which reserved are the methods the generator declares.
-func resolveOperations(doc *spec.Document, n *naming.Namer, reserved []string, c *diag.Collector) []*Operation {
+// of their own, in which reserved are the methods the generator declares. An operation holds the
+// names of its other methods too, so of getCert and getCertRequest the second is renamed: the
+// first has a method getCertRequest.
+func resolveOperations(doc *spec.Document, opts Options, c *diag.Collector) []*Operation {
 	all := slices.Concat(doc.Operations, doc.Webhooks)
 	reqs := make([]naming.Request, len(all))
 	for i, op := range all {
-		reqs[i] = naming.Request{ID: op.Origin.Pointer, Want: n.Exported(op.ID), Rank: naming.RankOperation, Order: i, Origin: origin(op.Origin)}
+		reqs[i] = naming.Request{
+			ID:      op.Origin.Pointer,
+			Want:    opts.Namer.Exported(op.ID),
+			Methods: opts.Methods.of(op),
+			Rank:    naming.RankOperation,
+			Order:   i,
+			Origin:  origin(op.Origin),
+		}
 	}
-	res := resolve(reserved, reqs, c)
+	res := resolve(opts.ReservedOperations, reqs, c)
 
 	ops := make([]*Operation, len(all))
 	for i, op := range all {
 		ops[i] = &Operation{Name: res.Names[op.Origin.Pointer], Spec: op}
 	}
 	return ops
+}
+
+// hasStream reports an operation that answers a 2xx in a sequential media type, which the client
+// reads with a Stream method.
+func hasStream(op *spec.Operation) bool {
+	return slices.ContainsFunc(op.Responses, func(r *spec.Response) bool {
+		code, ok := spec.StatusCode(r.Status)
+		return ok && code >= 200 && code <= 299 && slices.ContainsFunc(r.Contents, func(mt *spec.MediaType) bool {
+			return runtime.IsSequential(mt.Name)
+		})
+	})
 }
 
 // resolveTypes names declarations in rounds by depth, so an inline name builds on the final name
