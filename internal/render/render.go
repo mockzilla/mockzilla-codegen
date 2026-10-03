@@ -57,8 +57,7 @@ type Source struct {
 }
 
 // Options are what the engine reads of a config. Templates and Format mirror its keys. Needs
-// names, for each block of a generator the config leaves out, the config key that generator
-// needs.
+// says, for each block of a part the config does not write, what the config has to set.
 type Options struct {
 	Templates map[string]string
 	Needs     map[string]string
@@ -176,7 +175,7 @@ func (e *Engine) override(opts Options, blocks []string) error {
 func (e *Engine) define(name string, opts Options, blocks []string) string {
 	switch key, isLeftOut := opts.Needs[name]; {
 	case isLeftOut:
-		return "needs a " + key + " block"
+		return "needs " + key
 	case !slices.Contains(blocks, name):
 		return unknownBlock(slices.Concat(blocks, slices.Collect(maps.Keys(opts.Needs))))
 	}

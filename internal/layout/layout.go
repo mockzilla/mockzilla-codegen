@@ -234,11 +234,11 @@ func (l *Layout) name(cfg *config.Config, mod Module) error {
 	return nil
 }
 
-// candidates are output.file, the files output.files names, and the scaffold files, each with its
-// own part.
+// candidates are output.file, the files output.files names, and the scaffold files and extra
+// files, each with its own part. The part of an extra file is named by its path.
 func candidates(cfg *config.Config) (*File, []candidate) {
 	def := &File{Path: resolve(cfg, cfg.Output.File), Rel: cfg.Output.File}
-	list := make([]candidate, 0, len(cfg.Output.Files))
+	list := make([]candidate, 0, len(cfg.Output.Files)+len(cfg.ExtraFiles))
 	for _, rel := range slices.Sorted(maps.Keys(cfg.Output.Files)) {
 		f := &File{Path: resolve(cfg, rel), Rel: rel}
 		if f.Path == def.Path {
@@ -249,6 +249,9 @@ func candidates(cfg *config.Config) (*File, []candidate) {
 	for _, sc := range scaffolds(cfg) {
 		f := &File{Path: resolve(cfg, sc.rel), Rel: sc.rel, Kind: Scaffold}
 		list = append(list, candidate{file: f, selectors: []string{string(sc.part)}})
+	}
+	for _, rel := range slices.Sorted(maps.Keys(cfg.ExtraFiles)) {
+		list = append(list, candidate{file: &File{Path: resolve(cfg, rel), Rel: rel}, selectors: []string{rel}})
 	}
 	return def, list
 }

@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../../../config.schema.json
+spec: {path: api.yaml}
+server:
+  framework: chi
+  name: Pets
+  scaffold:
+    service: ./service.go
+templates:
+  server.request-options-extra: |
+    // GenerateResponse makes the response, when the service is asked for one.
+    GenerateResponse func() (*{{.Data}}, error)
+  server.scaffold.service-method: |
+    return opts.GenerateResponse()
+extra-files:
+  ./wrap.go: {file: ./wrapper.tmpl}

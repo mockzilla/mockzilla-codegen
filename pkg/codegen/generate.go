@@ -69,6 +69,8 @@ type generation struct {
 	cl      *client.Generator
 	mc      *mcp.Generator
 	lay     *layout.Layout
+	api     *API
+	extras  map[layout.PartID]string
 	engine  *render.Engine
 	files   []File
 	imports map[layout.PartID][]string
@@ -176,7 +178,8 @@ func (g *generation) serverOptions() (server.Options, error) {
 }
 
 // place lays the built-in parts out, lets the plugins contribute against that draft, hands the
-// server the fields they add, then lays every part out.
+// server the fields they add, then lays every part out, the extra files included, and describes
+// the result for their templates.
 func (g *generation) place(ctx context.Context) error {
 	mod, err := layout.FindModule(g.cfg.Resolve("."), g.cfg.Output.Module)
 	if err != nil {
@@ -192,6 +195,9 @@ func (g *generation) place(ctx context.Context) error {
 	}
 	if g.mc != nil {
 		parts = append(parts, g.mc.Parts()...)
+	}
+	for _, rel := range slices.Sorted(maps.Keys(g.cfg.ExtraFiles)) {
+		parts = append(parts, layout.Part{ID: layout.PartID(rel)})
 	}
 	if len(g.opts.plugins) > 0 {
 		draft, draftErr := layout.Draft(g.cfg, parts, mod)
@@ -216,19 +222,27 @@ func (g *generation) place(ctx context.Context) error {
 	}
 
 	g.lay, err = layout.Plan(g.cfg, parts, mod)
-	return err
+	if err != nil {
+		return err
+	}
+	if len(g.cfg.ExtraFiles) > 0 {
+		g.api = describe(g, g.lay)
+	}
+	return nil
 }
 
-// load loads the templates and the block overrides of the config. The blocks of the server are
-// named also when the config asks for none, so that an override of one says what it needs.
+// load loads the templates, the block overrides and the extra files of the config. The blocks of
+// the server are named also when the config asks for none, so that an override of one says what
+// it needs.
 func (g *generation) load() error {
 	sets := []render.Set{models.Templates()}
 	needs := make(map[string]string)
 	if g.srv != nil {
 		sets = append(sets, server.Templates(g.srv.Framework())...)
+		maps.Copy(needs, g.srv.Needs())
 	} else {
 		for _, block := range server.Blocks() {
-			needs[block] = "server"
+			needs[block] = "a server block"
 		}
 	}
 	if g.cl != nil {
@@ -241,30 +255,43 @@ func (g *generation) load() error {
 	if err != nil {
 		return err
 	}
+	g.extras = make(map[layout.PartID]string, len(g.cfg.ExtraFiles))
+	for _, rel := range slices.Sorted(maps.Keys(g.cfg.ExtraFiles)) {
+		if g.extras[layout.PartID(rel)], err = g.text(fmt.Sprintf("extra-files[%q]", rel), g.cfg.ExtraFiles[rel]); err != nil {
+			return err
+		}
+	}
 
 	isFormat := g.cfg.Output.Format == nil || *g.cfg.Output.Format
 	g.engine, err = render.New(sets, render.Options{Templates: overrides, Needs: needs, Format: isFormat})
 	return err
 }
 
-// templates returns the text of every block override of the config: the one it holds, or that
-// of the file it names.
+// templates returns the text of every block override of the config.
 func (g *generation) templates() (map[string]string, error) {
 	out := make(map[string]string, len(g.cfg.Templates))
 	for _, name := range slices.Sorted(maps.Keys(g.cfg.Templates)) {
-		t := g.cfg.Templates[name]
-		out[name] = t.Text
-		if t.File == "" {
-			continue
-		}
-
-		data, err := os.ReadFile(g.cfg.Resolve(t.File))
+		text, err := g.text("templates."+name, g.cfg.Templates[name])
 		if err != nil {
-			return nil, fmt.Errorf("%w: templates.%s: %w", ErrTemplateFile, name, err)
+			return nil, err
 		}
-		out[name] = string(data)
+		out[name] = text
 	}
 	return out, nil
+}
+
+// text is the text of t, the template under config key key: the one it holds, or that of the
+// file it names.
+func (g *generation) text(key string, t config.Template) (string, error) {
+	if t.File == "" {
+		return t.Text, nil
+	}
+
+	data, err := os.ReadFile(g.cfg.Resolve(t.File))
+	if err != nil {
+		return "", fmt.Errorf("%w: %s: %w", ErrTemplateFile, key, err)
+	}
+	return string(data), nil
 }
 
 // render writes every file of the layout, then checks the imports the parts brought along: a
@@ -341,9 +368,17 @@ func (g *generation) parts(f *layout.File, s *gocode.Scope) (render.FileData, er
 	return data, nil
 }
 
-// part renders one part of the file of s: a plugin's from its source, else a built-in one from
-// its view.
+// part renders one part of the file of s: an extra file from its template, a plugin's from its
+// source, else a built-in one from its view.
 func (g *generation) part(id layout.PartID, s *gocode.Scope) ([]byte, error) {
+	if text, ok := g.extras[id]; ok {
+		out, err := renderSource(id, text, nil, g.api, s)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrExtraFile, err)
+		}
+		return out, nil
+	}
+
 	src, ok := g.plugins.sources[id]
 	if !ok {
 		return g.engine.RenderPart(id, g.view(id, s))

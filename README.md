@@ -26,8 +26,9 @@ Status: early development. The config format and the generated API may still cha
   ([client](docs/client.md)).
 - MCP tools over the client, one per operation with an input schema built from the spec, for the
   official Go SDK, so an AI assistant calls the API ([MCP](docs/mcp.md)).
-- A plugin API for tools built on the generator, and template overrides for a closed list of
-  blocks ([plugins](docs/plugins.md)).
+- Blocks of the built-in templates the config replaces, and extra files written from your own
+  templates ([templates](docs/templates.md)). A plugin API for tools built on the generator
+  ([plugins](docs/plugins.md)).
 
 ## Getting started
 
@@ -120,9 +121,11 @@ Blocks:
 - `models`, `server`, `client`, `mcp`: what to generate. Models are always on. The other blocks
   are on when present, even as a bare key (`mcp:`). `mcp` needs `client`.
 - `templates`, `user-context`: overrides of the template blocks a config may replace, and the
-  values they see as `.User` ([plugins](docs/plugins.md#template-overrides)).
+  values they see as `.User` ([blocks](docs/templates.md#blocks)).
+- `extra-files`: files written from your own templates, on the service, the operations and the
+  types ([extra files](docs/templates.md#extra-files)).
 - `imports`: the packages that the text of a block or an `x-go-type` names. A generated file
-  imports one when its code refers to it ([imports](docs/plugins.md#imports)).
+  imports one when its code refers to it ([imports](docs/templates.md#imports)).
 - `output`: where the files go. Only this block says where.
 
 ### Output files

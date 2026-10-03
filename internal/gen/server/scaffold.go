@@ -15,12 +15,13 @@ import (
 var middlewares = []string{"RequestIDMiddleware", "RecoverMiddleware", "LoggingMiddleware", "CORSMiddleware"}
 
 // ScaffoldServiceView is the data of the service scaffold: the struct named Name, which
-// implements Interface.
+// implements Interface. User is the config's user-context, which the blocks see.
 type ScaffoldServiceView struct {
 	Name       string
 	Interface  string
 	Context    string
 	Errors     string
+	User       map[string]any
 	Operations []ScaffoldOperationView
 }
 
@@ -31,6 +32,7 @@ type ScaffoldOperationView struct {
 	Path    string
 	Options string
 	Data    string
+	User    map[string]any
 }
 
 // ScaffoldMiddlewareView is the data of the middleware scaffold: the packages it imports.
@@ -70,6 +72,7 @@ func scaffoldServiceView(g *Generator, s *gocode.Scope) *ScaffoldServiceView {
 		Name:      g.opts.Name,
 		Interface: s.Symbol(PartService, g.Interface()),
 		Errors:    s.Import(gomodel.Import{Path: "errors"}),
+		User:      g.opts.User,
 	}
 	if len(g.ops) > 0 {
 		v.Context = s.Import(gomodel.Import{Path: "context"})
@@ -81,6 +84,7 @@ func scaffoldServiceView(g *Generator, s *gocode.Scope) *ScaffoldServiceView {
 			Path:    op.Spec.Path,
 			Options: s.Symbol(PartService, g.opts.Namer.ServiceRequestOptions(op.Name)),
 			Data:    s.Symbol(PartService, g.opts.Namer.ResponseData(op.Name)),
+			User:    g.opts.User,
 		})
 	}
 	return v

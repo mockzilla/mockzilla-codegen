@@ -234,6 +234,39 @@ func TestValidate(t *testing.T) {
 			},
 		},
 		{
+			name: "Extra files",
+			edit: func(c *Config) {
+				c.ExtraFiles = map[string]Template{"./wrap/wrapper.go": {File: "./tmpl/wrapper.tmpl"}, "registry.go": {Text: "var Registry = 1"}}
+			},
+		},
+		{
+			name: "Extra files that are no Go files, have no template or are written by another key",
+			edit: func(c *Config) {
+				c.Server = &Server{Framework: "chi", Scaffold: Scaffold{Service: "./svc/service.go", Middleware: "./mw.go", Main: "./cmd/main.go"}}
+				c.Output.Files = map[string][]string{"./api/a.go": {"server"}}
+				c.ExtraFiles = map[string]Template{
+					"./README.md":      {Text: "# API"},
+					"./wrap.go":        {},
+					"gen.go":           {Text: "var A = 1"},
+					"api/a.go":         {Text: "var B = 1"},
+					"./svc/service.go": {Text: "var C = 1"},
+					"./svc/../mw.go":   {Text: "var D = 1"},
+					"cmd/main.go":      {Text: "var E = 1"},
+					"./cmd/../wrap.go": {Text: "var F = 1"},
+				}
+			},
+			issues: []Issue{
+				{Key: "extra-files", Message: `"./cmd/../wrap.go" and "./wrap.go" are the same file`},
+				{Key: `extra-files["./README.md"]`, Message: "is no .go file"},
+				{Key: `extra-files["./svc/../mw.go"]`, Message: "is written by server.scaffold.middleware too"},
+				{Key: `extra-files["./svc/service.go"]`, Message: "is written by server.scaffold.service too"},
+				{Key: `extra-files["./wrap.go"]`, Message: "is empty, want the text or {file: <path>}"},
+				{Key: `extra-files["api/a.go"]`, Message: "is written by output.files too"},
+				{Key: `extra-files["cmd/main.go"]`, Message: "is written by server.scaffold.main too"},
+				{Key: `extra-files["gen.go"]`, Message: "is written by output.file too"},
+			},
+		},
+		{
 			name: "Two output files that clean to the same path",
 			edit: func(c *Config) {
 				c.Output.Files = map[string][]string{"./api/a.go": {"models"}, "api/a.go": {"server"}}

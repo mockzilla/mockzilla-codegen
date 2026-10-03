@@ -239,13 +239,26 @@ func TestGenerateErrors(t *testing.T) {
 			cfg:     "templates: {models.struct: x}\n",
 			wantErr: config.ErrInvalid,
 			wantMsg: "invalid config: templates.models.struct: unknown block; the blocks are " +
-				"server.request-options-extra, server.response-data-extra, server.router-extra, server.service-header",
+				"server.request-options-extra, server.response-data-extra, server.router-extra, server.scaffold.service-fields, " +
+				"server.scaffold.service-method, server.service-header",
 		},
 		{
 			name:    "Template override of a server block without a server",
 			cfg:     "templates: {server.service-header: x}\n",
 			wantErr: config.ErrInvalid,
 			wantMsg: "invalid config: templates.server.service-header: needs a server block",
+		},
+		{
+			name:    "Template override of a scaffold block without a server",
+			cfg:     "templates: {server.scaffold.service-method: x}\n",
+			wantErr: config.ErrInvalid,
+			wantMsg: "invalid config: templates.server.scaffold.service-method: needs a server block",
+		},
+		{
+			name:    "Template override of a scaffold block without the scaffold",
+			cfg:     "server: {framework: chi}\ntemplates: {server.scaffold.service-method: x}\n",
+			wantErr: config.ErrInvalid,
+			wantMsg: "invalid config: templates.server.scaffold.service-method: needs server.scaffold.service",
 		},
 		{
 			name:    "Template override file that is missing",
