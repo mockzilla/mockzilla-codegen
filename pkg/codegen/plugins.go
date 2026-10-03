@@ -215,8 +215,6 @@ func (ps *pluginSet) addField(plugin, op string, f FieldSpec) error {
 		return fmt.Errorf("%w %s: request option field %q of %s is no exported identifier", ErrPlugin, plugin, f.Name, op)
 	case f.Type.Name == "":
 		return fmt.Errorf("%w %s: request option field %s of %s has no type", ErrPlugin, plugin, f.Name, op)
-	case f.Type.ImportPath == "" && f.Type.Package != "":
-		return fmt.Errorf("%w %s: request option field %s of %s has a type of package %s without an import path", ErrPlugin, plugin, f.Name, op, f.Type.Package)
 	case !gocode.IsFieldType(f.Type.Name):
 		return fmt.Errorf("%w %s: request option field %s of %s: type %q is no Go type", ErrPlugin, plugin, f.Name, op, f.Type.Name)
 	case server.ReservedField(f.Name):
@@ -262,7 +260,7 @@ func describe(g *generation, lay *layout.Layout) *API {
 	routed := make(map[string]bool)
 	if g.srv != nil {
 		if f := lay.FileOf(server.PartService); f != nil {
-			out.Service = TypeRef{Name: g.srv.Interface(), Package: f.Package, ImportPath: f.ImportPath}
+			out.Service = inFile(g.srv.Interface(), f)
 		}
 
 		for _, r := range g.srv.Routes() {
@@ -292,18 +290,18 @@ func describeOperation(namer *naming.Namer, op *gomodel.Operation, lay *layout.L
 		o.Success = &o.Responses[i]
 	}
 	if f := lay.FileOf(server.PartService); f != nil {
-		o.RequestOptions = TypeRef{Name: namer.ServiceRequestOptions(op.Name), Package: f.Package, ImportPath: f.ImportPath}
-		o.ResponseData = TypeRef{Name: namer.ResponseData(op.Name), Package: f.Package, ImportPath: f.ImportPath}
+		o.RequestOptions = inFile(namer.ServiceRequestOptions(op.Name), f)
+		o.ResponseData = inFile(namer.ResponseData(op.Name), f)
 	}
 	if op.Spec.IsWebhook {
 		return o
 	}
 
 	if f := lay.FileOf(client.PartOptions); f != nil {
-		o.ClientRequestOptions = TypeRef{Name: namer.ClientRequestOptions(op.Name), Package: f.Package, ImportPath: f.ImportPath}
+		o.ClientRequestOptions = inFile(namer.ClientRequestOptions(op.Name), f)
 	}
 	if f := lay.FileOf(client.PartResponses); f != nil {
-		o.ClientResponse = TypeRef{Name: namer.ClientResponse(op.Name), Package: f.Package, ImportPath: f.ImportPath}
+		o.ClientResponse = inFile(namer.ClientResponse(op.Name), f)
 	}
 	return o
 }
@@ -322,7 +320,7 @@ func describeResponses(namer *naming.Namer, op *gomodel.Operation, lay *layout.L
 		}
 		if service != nil {
 			name, hasStatusArg := server.Constructor(namer, op, r)
-			res.Constructor = TypeRef{Name: name, Package: service.Package, ImportPath: service.ImportPath}
+			res.Constructor = inFile(name, service)
 			res.HasStatusArg = hasStatusArg
 		}
 		out = append(out, res)
@@ -337,12 +335,21 @@ func typeRef(t gomodel.Type, lay *layout.Layout) TypeRef {
 	switch leaf := gocode.Leaf(t).(type) {
 	case gomodel.DeclRef:
 		if f := lay.FileOf(layout.PartID(leaf.Decl.Part)); f != nil {
-			ref.Package, ref.ImportPath = f.Package, f.ImportPath
+			ref = inFile(ref.Name, f)
 		}
 	case gomodel.Qualified:
 		ref.Package, ref.ImportPath = gocode.ImportName(leaf.Import.Path, leaf.Import.Alias), leaf.Import.Path
 	}
 	return ref
+}
+
+// inFile is name as f declares it. Without an import path the output is one package, and the
+// type needs no import.
+func inFile(name string, f *layout.File) TypeRef {
+	if f.ImportPath == "" {
+		return TypeRef{Name: name}
+	}
+	return TypeRef{Name: name, Package: f.Package, ImportPath: f.ImportPath}
 }
 
 // symbol writes name, which the code of part declares, as the file of s spells it. Whether part

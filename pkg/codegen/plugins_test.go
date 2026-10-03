@@ -420,18 +420,27 @@ func TestGenerateWithPluginOutsideModule(t *testing.T) {
 	p := &fakePlugin{name: "sample", contribute: func(api *API) (*Contribution, error) {
 		return &Contribution{
 			Parts:               []PartSource{{Name: "register", Template: "\nvar Options {{expr .}}\n", Data: api.Operations[0].RequestOptions}},
-			RequestOptionFields: map[string][]FieldSpec{"ListPets": {{Name: "Latest", Type: TypeRef{Name: api.Operations[0].Success.Body.Name}}}},
+			RequestOptionFields: map[string][]FieldSpec{"ListPets": {{Name: "Latest", Type: api.Operations[0].Success.Body}}},
 		}, nil
 	}}
-	cfg, err := config.Parse([]byte("package: api\noutput: {file: ./gen.go}\nserver: {framework: chi}\n"), t.TempDir())
+	cfg, err := config.Parse([]byte("package: api\noutput: {file: ./gen.go}\nserver: {framework: chi}\nclient: {with-response: true}\n"), t.TempDir())
 	require.NoError(t, err)
 	res, err := Generate(context.Background(), cfg, WithSpec([]byte(storeSpec)), WithPlugins(p))
 
 	require.NoError(t, err)
-	assert.Equal(t, TypeRef{Name: "ListPetsServiceRequestOptions", Package: "api"}, p.api.Operations[0].RequestOptions, "no import path without a module")
+	op := p.api.Operations[0]
+	assert.Equal(t, "api", p.api.Package)
+	assert.Equal(t, TypeRef{Name: "ServiceInterface"}, p.api.Service, "no package and no import path without a module")
+	assert.Equal(t, TypeRef{Name: "Pet"}, p.api.Types[0])
+	assert.Equal(t, TypeRef{Name: "ListPetsServiceRequestOptions"}, op.RequestOptions)
+	assert.Equal(t, TypeRef{Name: "ListPetsResponseData"}, op.ResponseData)
+	assert.Equal(t, TypeRef{Name: "ListPetsRequestOptions"}, op.ClientRequestOptions)
+	assert.Equal(t, TypeRef{Name: "ListPetsResponse"}, op.ClientResponse)
+	assert.Equal(t, TypeRef{Name: "ListPetsResponse200"}, op.Success.Body)
+	assert.Equal(t, TypeRef{Name: "NewListPetsResponseData"}, op.Success.Constructor)
 	require.Len(t, res.Files, 1)
 	assert.Contains(t, string(res.Files[0].Content), "\nvar Options ListPetsServiceRequestOptions\n")
-	assert.Contains(t, string(res.Files[0].Content), "\tQuery      *ListPetsQuery\n\tLatest     ListPetsResponse200\n\tRawRequest *http.Request\n", "a field takes the name alone of a type of the API")
+	assert.Contains(t, string(res.Files[0].Content), "\tQuery      *ListPetsQuery\n\tLatest     ListPetsResponse200\n\tRawRequest *http.Request\n", "a field takes a type of the API as it is")
 }
 
 func TestGenerateWithPluginThatChangesItsAPI(t *testing.T) {
@@ -1163,7 +1172,7 @@ func TestGenerateWithPluginErrors(t *testing.T) {
 			name:    "Field type with a package and no import path",
 			plugins: []Plugin{&fakePlugin{name: "sample", contribute: onListPets(FieldSpec{Name: "Span", Type: TypeRef{Name: "*Span", Package: "trace"}})}},
 			wantErr: ErrPlugin,
-			wantMsg: "plugin sample: request option field Span of ListPets has a type of package trace without an import path",
+			wantMsg: `plugin sample: request option field Span of ListPets: type "*Span" of package trace has no import path`,
 		},
 		{
 			name:    "Field type that is no type",
@@ -1311,6 +1320,17 @@ func TestGenerateWithPluginErrors(t *testing.T) {
 			wantErr: ErrPlugin,
 			wantMsg: `./api/register.go: plugin sample: render: template: plugin.sample.register:1:2: executing "plugin.sample.register" at <expr .>: error calling expr: ` +
 				`type "Option[Pet]" of example.com/work/api is no identifier, nor a pointer, slice, array, map or channel around one`,
+		},
+		{
+			name: "Part that asks expr for a type of a package without an import path",
+			plugins: []Plugin{&fakePlugin{name: "sample", contribute: giving(&Contribution{Parts: []PartSource{{
+				Name:     "register",
+				Template: "{{expr .}}",
+				Data:     TypeRef{Name: "*Span", Package: "trace"},
+			}}})}},
+			wantErr: ErrPlugin,
+			wantMsg: `./api/register.go: plugin sample: render: template: plugin.sample.register:1:2: executing "plugin.sample.register" at <expr .>: error calling expr: ` +
+				`type "*Span" of package trace has no import path`,
 		},
 		{
 			name: "Part that asks expr for a type of a package that is no identifier",
