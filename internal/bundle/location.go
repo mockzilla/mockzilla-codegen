@@ -3,6 +3,9 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// Where the files of a split spec live: a $ref resolved against the file that holds it, and the
+// name suffixes a file or folder gives a component copied in from it.
+
 package bundle
 
 import (

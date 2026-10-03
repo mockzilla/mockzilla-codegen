@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The data of the three scaffolds: the service stub, the middleware and main.
+
 package server
 
 import (

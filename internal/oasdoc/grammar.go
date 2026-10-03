@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// Which OpenAPI object sits under which key, so Visit can walk a document by kind.
+
 package oasdoc
 
 import (

@@ -3,6 +3,9 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The run: generate with the CLI, build the output in batches, then call the Init of each
+// variant on the packages that build.
+
 package itest
 
 import (

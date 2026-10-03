@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// A name split into words, with symbols spelled out and accented letters folded to ASCII.
+
 package naming
 
 import (

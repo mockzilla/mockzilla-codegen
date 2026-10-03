@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// Package diag is how every stage reports a problem in a spec: a severity, a code, a message,
+// and where in the spec it is.
 package diag
 
 import (

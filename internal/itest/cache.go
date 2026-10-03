@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The jobs that passed, so the next run skips them while the tool and the spec stay the same.
+
 package itest
 
 import (

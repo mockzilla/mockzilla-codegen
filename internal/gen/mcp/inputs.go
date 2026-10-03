@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The data of inputs.tmpl: the input struct of each tool.
+
 package mcp
 
 import (

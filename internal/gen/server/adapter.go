@@ -3,6 +3,9 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The data of adapter.tmpl and errors.tmpl: a handler per operation that decodes the request,
+// calls the service and writes its answer, and the error types it answers with.
+
 package server
 
 import (

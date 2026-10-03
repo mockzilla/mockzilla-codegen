@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// When a field or value is a pointer, and what lies behind pointers and aliases.
+
 package gomodel
 
 import "strings"

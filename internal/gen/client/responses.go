@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The data of responses.tmpl: the envelope of each operation, a field per body the client decodes.
+
 package client
 
 import (

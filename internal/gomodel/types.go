@@ -3,6 +3,9 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// Go types as values: builtins, declared types, types of other packages, pointers, slices and
+// maps.
+
 package gomodel
 
 // RuntimePath is the import path of the helpers that generated code uses.
