@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
@@ -58,11 +59,11 @@ func TestSchema(t *testing.T) {
 			name: "Values",
 			schema: &spec.Schema{
 				Enum:     []spec.Value{{Kind: spec.KindString, Str: "a"}, {Kind: spec.KindNull}},
-				Const:    &spec.Value{Kind: spec.KindNumber, Num: num("1")},
-				Default:  &spec.Value{Kind: spec.KindBool, Bool: true},
-				Examples: []spec.Value{{Kind: spec.KindArray, Items: []spec.Value{{Kind: spec.KindString, Str: "x"}}}, {Kind: spec.KindObject, Fields: []spec.Field{{Name: "k", Value: spec.Value{Kind: spec.KindString, Str: "v"}}}}},
+				Const:    &spec.Value{Kind: spec.KindString, Str: "a"},
+				Default:  &spec.Value{Kind: spec.KindString, Str: "a"},
+				Examples: []spec.Value{{Kind: spec.KindArray, Items: []spec.Value{{Kind: spec.KindString, Str: "x"}}}, {Kind: spec.KindObject, Fields: []spec.Field{{Name: "k", Value: spec.Value{Kind: spec.KindString, Str: "v"}}}}, {Kind: spec.KindNumber, Num: num("1")}, {Kind: spec.KindBool, Bool: true}},
 			},
-			want: `{"enum":["a",null],"const":1,"default":true,"examples":[["x"],{"k":"v"}]}`,
+			want: `{"enum":["a",null],"const":"a","default":"a","examples":[["x"],{"k":"v"},1,true]}`,
 		},
 		{
 			name: "Limits",
@@ -85,8 +86,48 @@ func TestSchema(t *testing.T) {
 			got := b.Document(b.Schema(tc.schema))
 
 			assert.Equal(t, tc.want, string(got))
+			assert.Empty(t, b.Diagnostics())
 		})
 	}
+}
+
+func TestSchemaLeavesOutADefaultThatDoesNotFit(t *testing.T) {
+	t.Parallel()
+
+	limit := &spec.Schema{
+		Types:   spec.TypeInteger,
+		Default: &spec.Value{Kind: spec.KindString, Str: "20"},
+		Origin:  spec.Origin{Pointer: "/components/schemas/Limit", File: "api.yaml", Line: 7, Col: 5},
+	}
+	ref := &spec.Ref{Pointer: "/components/schemas/Limit", Name: "Limit", Target: limit}
+	long := &spec.Schema{Types: spec.TypeString, Default: &spec.Value{Kind: spec.KindArray, Items: []spec.Value{
+		{Kind: spec.KindString, Str: "a value long enough"}, {Kind: spec.KindString, Str: "not to be quoted"},
+	}}}
+	root := &spec.Schema{Types: spec.TypeObject, Properties: []*spec.Property{
+		{Name: "a", Schema: &spec.Schema{Ref: ref}},
+		{Name: "b", Schema: &spec.Schema{Ref: ref}},
+		{Name: "c", Schema: long},
+	}}
+	b := NewBuilder()
+
+	got := b.Document(b.Schema(root))
+
+	want := `{"type":"object","properties":{"a":{"$ref":"#/$defs/Limit"},"b":{"$ref":"#/$defs/Limit"},"c":{"type":"string"}},"$defs":{"Limit":{"type":"integer"}}}`
+	assert.Equal(t, want, string(got), "neither default is written")
+	assert.Equal(t, []diag.Diagnostic{
+		{
+			Severity: diag.Warning,
+			Code:     diag.CodeDefaultIgnored,
+			Pointer:  "/components/schemas/Limit",
+			Origin:   diag.Origin{File: "api.yaml", Line: 7, Col: 5},
+			Message:  `the default "20" does not fit its schema, so the tool input leaves it out: it is a string, the schema wants integer`,
+		},
+		{
+			Severity: diag.Warning,
+			Code:     diag.CodeDefaultIgnored,
+			Message:  "the default does not fit its schema, so the tool input leaves it out: it is an array, the schema wants string",
+		},
+	}, b.Diagnostics(), "a component used twice is warned about once")
 }
 
 func TestSchemaRefs(t *testing.T) {

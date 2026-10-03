@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
@@ -35,7 +36,8 @@ var typeNames = []struct {
 // Builder converts schemas into one document and collects what they refer to in its $defs: a
 // component under its name, anything else under its JSON pointer.
 type Builder struct {
-	defs map[string]*Object
+	defs  map[string]*Object
+	diags []diag.Diagnostic
 }
 
 func NewBuilder() *Builder {
@@ -56,7 +58,7 @@ func (b *Builder) Schema(s *spec.Schema) *Object {
 	b.composition(o, s)
 	b.objects(o, s)
 	b.arrays(o, s)
-	values(o, s)
+	b.values(o, s)
 	limits(o, s)
 	return o
 }
@@ -72,6 +74,11 @@ func (b *Builder) Document(root *Object) []byte {
 		root.Set("$defs", defs)
 	}
 	return root.append(nil)
+}
+
+// Diagnostics are the warnings of the schemas converted so far.
+func (b *Builder) Diagnostics() []diag.Diagnostic {
+	return b.diags
 }
 
 // define converts the target of r once and returns the name it is defined under.
@@ -161,8 +168,9 @@ func (b *Builder) setList(o *Object, key string, list []*spec.Schema) {
 	o.Set(key, out)
 }
 
-// values sets enum, const, default and examples.
-func values(o *Object, s *spec.Schema) {
+// values sets enum, const, default and examples. A default that does not fit its schema is left
+// out with a warning, since the MCP SDK panics on it when the tool is added.
+func (b *Builder) values(o *Object, s *spec.Schema) {
 	if len(s.Enum) > 0 {
 		o.Set("enum", valueList(s.Enum))
 	}
@@ -170,7 +178,11 @@ func values(o *Object, s *spec.Schema) {
 		o.Set("const", Value(*s.Const))
 	}
 	if s.Default != nil {
-		o.Set("default", Value(*s.Default))
+		if why := misfit(*s.Default, s); why == "" {
+			o.Set("default", Value(*s.Default))
+		} else {
+			b.diags = append(b.diags, ignored(s, why))
+		}
 	}
 	if len(s.Examples) > 0 {
 		o.Set("examples", valueList(s.Examples))
@@ -263,6 +275,21 @@ func setString(o *Object, key, s string) {
 func setBool(o *Object, key string, b bool) {
 	if b {
 		o.Set(key, true)
+	}
+}
+
+// ignored is the warning for the default of s, left out for why.
+func ignored(s *spec.Schema, why string) diag.Diagnostic {
+	subject := "the default"
+	if text := shown(*s.Default); text != "" {
+		subject += " " + text
+	}
+	return diag.Diagnostic{
+		Severity: diag.Warning,
+		Code:     diag.CodeDefaultIgnored,
+		Pointer:  s.Origin.Pointer,
+		Origin:   diag.Origin{File: s.Origin.File, Line: s.Origin.Line, Col: s.Origin.Col},
+		Message:  subject + " does not fit its schema, so the tool input leaves it out: " + why,
 	}
 }
 
