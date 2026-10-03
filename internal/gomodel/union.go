@@ -3,6 +3,9 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// Unions from oneOf, anyOf, if and 3.1 type lists: their members, discriminator values and
+// variants.
+
 package gomodel
 
 import (

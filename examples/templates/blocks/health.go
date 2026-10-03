@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The handler that the router-extra block of codegen.yaml puts on GET /health.
+
 package blocks
 
 import "net/http"

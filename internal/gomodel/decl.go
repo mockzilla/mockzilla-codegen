@@ -3,6 +3,9 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// What the model declares: structs, unions, enums and other named types, with their fields,
+// checks and masks.
+
 package gomodel
 
 import (

@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// Which declarations hold an x-sensitive-data value, and how their Masked method hides it.
+
 package gomodel
 
 import (

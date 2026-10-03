@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The yaml, desc and enum tags of the config structs, which the schema and the key check read.
+
 package config
 
 import (

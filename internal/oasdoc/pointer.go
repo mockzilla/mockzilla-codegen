@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// JSON pointers: escaped tokens, and the index of a token in a mapping or a list.
+
 package oasdoc
 
 import (

@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The Validate methods: which declarations check something, and the checks each value needs.
+
 package gomodel
 
 import (

@@ -3,6 +3,9 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// $refs and components as YAML: refs to other files, the components of a document, and the name
+// a ref target gives.
+
 package bundle
 
 import (

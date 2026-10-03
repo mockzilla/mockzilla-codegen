@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The order of response keys: codes, then ranges, then other keys, then default.
+
 package libopenapi
 
 import (

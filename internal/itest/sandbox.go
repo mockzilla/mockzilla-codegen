@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The Go module generated code is built in, which takes the runtime from this repo.
+
 package itest
 
 import (

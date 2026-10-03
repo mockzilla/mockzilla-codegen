@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// What libopenapi tells about a $ref, and the JSON pointer and component name the IR uses for it.
+
 package libopenapi
 
 import (
