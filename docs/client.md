@@ -207,9 +207,11 @@ return stream.Err()
 - `Sentinels` lists frames that end the stream instead of being decoded. APIs in the style of
   OpenAI end a stream with `data: [DONE]`, which is no JSON: set `stream.Sentinels =
   []string{"[DONE]"}` before the first `Next`.
-- SSE comments are skipped, an event without `data` is not dispatched, `retry` must be a whole
-  number of milliseconds, and CRLF line endings are fine. Empty lines of a line-delimited stream
-  are skipped.
+- SSE comments are skipped, an event without `data` is not dispatched, and `retry` must be a whole
+  number of milliseconds. A line may end in LF, CRLF or a lone CR, and a byte order mark at the
+  start of the body is dropped. `Event().ID` is the last event ID: it stays from one event to the
+  next until an `id` field changes it, as in a browser. Empty lines of a line-delimited stream are
+  skipped.
 
 With `with-response: true`, the envelope gains a `Stream<status>` field and
 `<Op>StreamWithResponse` fills it: for a streamed response, `Body` is nil and

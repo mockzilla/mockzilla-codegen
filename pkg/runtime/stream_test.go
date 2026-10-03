@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -80,10 +81,22 @@ func TestEventStream(t *testing.T) {
 			wantEvents: []Event{{Data: []byte(`{"text":"a"}`)}},
 		},
 		{
-			name:       "The id, event and retry fields come with the frame",
+			name:       "The id stays for the events that follow, event and retry come with their frame",
 			body:       "id: 7\nevent: message\nretry: 1500\ndata: {\"text\":\"a\"}\n\ndata: {\"text\":\"b\"}\n\n",
 			wantFrames: []chunk{{Text: "a"}, {Text: "b"}},
-			wantEvents: []Event{{ID: "7", Type: "message", Retry: 1500 * time.Millisecond, Data: []byte(`{"text":"a"}`)}, {Data: []byte(`{"text":"b"}`)}},
+			wantEvents: []Event{{ID: "7", Type: "message", Retry: 1500 * time.Millisecond, Data: []byte(`{"text":"a"}`)}, {ID: "7", Data: []byte(`{"text":"b"}`)}},
+		},
+		{
+			name:       "An id in an event without data sets the id, an empty id clears it",
+			body:       "id: 1\ndata: {\"text\":\"a\"}\n\nid: 2\n\ndata: {\"text\":\"b\"}\n\nid\ndata: {\"text\":\"c\"}\n\n",
+			wantFrames: []chunk{{Text: "a"}, {Text: "b"}, {Text: "c"}},
+			wantEvents: []Event{{ID: "1", Data: []byte(`{"text":"a"}`)}, {ID: "2", Data: []byte(`{"text":"b"}`)}, {Data: []byte(`{"text":"c"}`)}},
+		},
+		{
+			name:       "An id with a NUL is ignored",
+			body:       "id: 1\ndata: {\"text\":\"a\"}\n\nid: 2\x00\ndata: {\"text\":\"b\"}\n\n",
+			wantFrames: []chunk{{Text: "a"}, {Text: "b"}},
+			wantEvents: []Event{{ID: "1", Data: []byte(`{"text":"a"}`)}, {ID: "1", Data: []byte(`{"text":"b"}`)}},
 		},
 		{
 			name:       "A retry that is not a whole number of milliseconds is ignored",
@@ -96,6 +109,30 @@ func TestEventStream(t *testing.T) {
 			body:       "event:tick\r\ndata:{\"text\":\"a\"}\r\n\r\n",
 			wantFrames: []chunk{{Text: "a"}},
 			wantEvents: []Event{{Type: "tick", Data: []byte(`{"text":"a"}`)}},
+		},
+		{
+			name:       "A lone CR ends a line, next to LF and CRLF",
+			body:       "event: status\rdata: {\"text\":\"a\"}\r\rdata: {\"text\":\r\ndata: \"b\"}\n\r\n",
+			wantFrames: []chunk{{Text: "a"}, {Text: "b"}},
+			wantEvents: []Event{{Type: "status", Data: []byte(`{"text":"a"}`)}, {Data: []byte("{\"text\":\n\"b\"}")}},
+		},
+		{
+			name:       "A byte order mark at the start is dropped",
+			body:       byteOrderMark + "data: {\"text\":\"a\"}\n\n",
+			wantFrames: []chunk{{Text: "a"}},
+			wantEvents: []Event{{Data: []byte(`{"text":"a"}`)}},
+		},
+		{
+			name:       "Only one byte order mark is dropped",
+			body:       byteOrderMark + byteOrderMark + "data: {\"text\":\"a\"}\n\ndata: {\"text\":\"b\"}\n\n",
+			wantFrames: []chunk{{Text: "b"}},
+			wantEvents: []Event{{Data: []byte(`{"text":"b"}`)}},
+		},
+		{
+			name:       "A byte order mark after the start is part of its line",
+			body:       "data: {\"text\":\"a\"}\n\n" + byteOrderMark + "data: {\"text\":\"b\"}\n\n",
+			wantFrames: []chunk{{Text: "a"}},
+			wantEvents: []Event{{Data: []byte(`{"text":"a"}`)}},
 		},
 		{
 			name:       "An event without data is not dispatched and its type is dropped",
@@ -117,16 +154,47 @@ func TestEventStream(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := NewEventStream[chunk](streamResponse(http.StatusOK, MediaTypeEventStream, tc.body))
+			whole := NewEventStream[chunk](streamResponse(http.StatusOK, MediaTypeEventStream, tc.body))
+			bytewise := NewEventStream[chunk](&http.Response{Body: io.NopCloser(iotest.OneByteReader(strings.NewReader(tc.body)))})
 
-			frames, events, err := collect(t, s)
+			for _, s := range []*Stream[chunk]{whole, bytewise} {
+				frames, events, err := collect(t, s)
 
-			require.NoError(t, err)
-			assert.Equal(t, tc.wantFrames, frames)
-			assert.Equal(t, tc.wantEvents, events)
-			assert.False(t, s.Next(), "a finished stream stays finished")
+				require.NoError(t, err)
+				assert.Equal(t, tc.wantFrames, frames)
+				assert.Equal(t, tc.wantEvents, events)
+				assert.False(t, s.Next(), "a finished stream stays finished")
+			}
 		})
 	}
+}
+
+func TestEventStreamEndsALineAtCR(t *testing.T) {
+	t.Parallel()
+
+	pr, pw := io.Pipe()
+	go func() { _, _ = io.WriteString(pw, "data: a\r\r") }()
+	timer := time.AfterFunc(time.Second, func() { _ = pw.CloseWithError(errRead) })
+	t.Cleanup(func() { timer.Stop() })
+	s := NewEventStream[[]byte](&http.Response{Body: pr})
+	t.Cleanup(func() { _ = s.Close() })
+
+	require.True(t, s.Next(), "the event comes without the byte after its CR")
+	assert.Equal(t, []byte("a"), s.Current())
+}
+
+func TestLFReaderReadsOnPastADroppedLF(t *testing.T) {
+	t.Parallel()
+
+	l := &lfReader{reader: iotest.OneByteReader(strings.NewReader("\r\n"))}
+	p := make([]byte, 8)
+
+	n, err := l.Read(p)
+	require.NoError(t, err)
+	assert.Equal(t, "\n", string(p[:n]))
+	n, err = l.Read(p)
+	assert.Zero(t, n)
+	require.ErrorIs(t, err, io.EOF)
 }
 
 func TestLineStream(t *testing.T) {
@@ -205,6 +273,17 @@ func TestStreamErrors(t *testing.T) {
 		}
 		require.ErrorIs(t, events.Close(), errRead)
 		assert.True(t, body.isClosed)
+	})
+	t.Run("A response without a body is an empty stream", func(t *testing.T) {
+		t.Parallel()
+
+		res := &http.Response{StatusCode: http.StatusOK, Header: http.Header{}}
+
+		for _, s := range []*Stream[chunk]{NewEventStream[chunk](res), NewLineStream[chunk](res)} {
+			assert.False(t, s.Next())
+			require.NoError(t, s.Err())
+			require.NoError(t, s.Close())
+		}
 	})
 	t.Run("Next after Close reads nothing", func(t *testing.T) {
 		t.Parallel()
@@ -497,6 +576,37 @@ func TestOpenStream(t *testing.T) {
 			frames, _, err := collect(t, s)
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantFrames, frames)
+		})
+	}
+}
+
+func TestParseRetry(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		value  string
+		want   time.Duration
+		wantOK bool
+	}{
+		{name: "Milliseconds", value: "1500", want: 1500 * time.Millisecond, wantOK: true},
+		{name: "The most milliseconds a Duration holds", value: "9223372036854", want: 9223372036854 * time.Millisecond, wantOK: true},
+		{name: "No value", value: ""},
+		{name: "A word", value: "soon"},
+		{name: "A minus sign", value: "-1"},
+		{name: "A plus sign", value: "+5"},
+		{name: "More milliseconds than a Duration holds", value: "9223372036855"},
+		{name: "More than an int64 holds", value: "99999999999999999999"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := parseRetry([]byte(tc.value))
+
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantOK, ok)
 		})
 	}
 }
