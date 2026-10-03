@@ -42,9 +42,10 @@ type Contribution struct {
 
 // PartSource is one part: its template, the data the template runs on and the imports its code
 // needs. Name matches [a-z][a-z0-9]*. The template writes Go declarations; it may call expr,
-// which writes a TypeRef as the file spells it, and import, which imports a path and returns the
-// name to qualify with. Imports is for the packages the code does not name, those under _ or .:
-// only import tells the name a package got in the file.
+// which writes a TypeRef as the file spells it, import, which imports a path and returns the name
+// to qualify with, and symbol, which writes a name another part declares as the file spells it.
+// Imports is for the packages the code does not name, those under _ or .: only import tells the
+// name a package got in the file.
 type PartSource struct {
 	Name     string
 	Template string

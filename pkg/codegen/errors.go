@@ -15,4 +15,5 @@ var (
 
 	errTypeRef = errors.New("type")
 	errImport  = errors.New("import")
+	errSymbol  = errors.New("symbol")
 )
