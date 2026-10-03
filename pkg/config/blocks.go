@@ -93,10 +93,10 @@ type Scaffold struct {
 
 // Client controls client generation.
 type Client struct {
-	Name         string   `yaml:"name" desc:"Name of the client type. Defaults to Client."`
-	Timeout      Duration `yaml:"timeout" desc:"Default request timeout. Defaults to 3s."`
-	WithResponse bool     `yaml:"with-response" desc:"Also generate methods that return the raw HTTP response."`
-	Streaming    bool     `yaml:"streaming" desc:"Also generate Stream methods that read text/event-stream and line-delimited JSON responses frame by frame."`
+	Name         string    `yaml:"name" desc:"Name of the client type. Defaults to Client."`
+	Timeout      *Duration `yaml:"timeout" desc:"How long a call may take, 0s for no limit. A stream method waits that long for the response headers only. Defaults to 3s."`
+	WithResponse bool      `yaml:"with-response" desc:"Also generate methods that return the raw HTTP response."`
+	Streaming    bool      `yaml:"streaming" desc:"Also generate Stream methods that read text/event-stream and line-delimited JSON responses frame by frame."`
 }
 
 // MCP controls MCP server generation.

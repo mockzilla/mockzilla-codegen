@@ -153,10 +153,16 @@ func TestViewWithoutOperations(t *testing.T) {
 	t.Parallel()
 
 	m := &gomodel.Model{}
-	g, _ := New(m, allOptions())
+	opts := allOptions()
+	opts.Timeout = 0
+	g, _ := New(m, opts)
 	f := fixture{m: m, g: g, cfg: splitConfig}
 
-	assert.Contains(t, string(f.render(t, PartCore)), "func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error)")
+	core := string(f.render(t, PartCore))
+	assert.Contains(t, core, "func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error)")
+	assert.Contains(t, core, "// WithHTTPClient sets another. A call has no time limit unless WithTimeout sets one.\n")
+	assert.Contains(t, core, "c := &PetClient{baseURL: u, doer: &http.Client{}}\n")
+	assert.Contains(t, core, "// WithTimeout sets how long a call may take, 0 for no limit.\nfunc WithTimeout(d time.Duration) PetClientOption {\n")
 	assert.Equal(t, "package types\n", string(f.render(t, PartOptions)))
 	assert.Equal(t, "package types\n", string(f.render(t, PartResponses)))
 	assert.Equal(t, "package api\n\n// PetClientInterface is what PetClient implements: one method per operation, so a test double can\n"+

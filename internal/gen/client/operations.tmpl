@@ -63,7 +63,7 @@ func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) 
 	if err != nil {
 		return {{with .Zero}}{{.}}, {{end}}err
 	}
-	res, body, err := {{$.Runtime}}.Send(c.doer, req)
+	res, body, err := {{$.Runtime}}.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return {{with .Zero}}{{.}}, {{end}}err
 	}
@@ -98,7 +98,7 @@ func (c *{{$.Client}}) {{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := {{$.Runtime}}.Send(c.doer, req)
+	res, body, err := {{$.Runtime}}.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -127,14 +127,18 @@ func (c *{{$.Client}}) {{.Name}}Stream(ctx {{$.Context}}.Context, opts *{{.Optio
 	if err != nil {
 		return nil, err
 	}
+	res, body, err := {{$.Runtime}}.SendStream(c.doer, req, {{quote .Stream.MediaType}}, c.timeout)
+	if err != nil {
+		return nil, err
+	}
 {{- if .Stream.Targets}}
-	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](c.doer, req, {{quote .Stream.MediaType}}, []{{$.Runtime}}.Target{
+	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](res, body, []{{$.Runtime}}.Target{
 {{- range .Stream.Targets}}
 		{Status: {{.Status}}, MediaType: {{.MediaType}}, Dst: {{.Dst}}},
 {{- end}}
 	})
 {{- else}}
-	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](c.doer, req, {{quote .Stream.MediaType}}, nil)
+	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](res, body, nil)
 {{- end}}
 }
 {{- if $.HasEnvelopes}}
@@ -148,7 +152,7 @@ func (c *{{$.Client}}) {{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, op
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := {{$.Runtime}}.SendStream(c.doer, req, {{quote .Stream.MediaType}})
+	res, body, err := {{$.Runtime}}.SendStream(c.doer, req, {{quote .Stream.MediaType}}, c.timeout)
 	if err != nil {
 		return nil, err
 	}

@@ -617,18 +617,20 @@ type PetClientOption func(*PetClient)
 type PetClient struct {
 	baseURL *url.URL
 	doer    HTTPDoer
+	timeout time.Duration
 	editors []RequestEditor
 }
 
-// NewPetClient returns a client of the API at baseURL. It sends with an http.Client that gives up
-// after 5 * time.Second, unless WithHTTPClient sets another.
+// NewPetClient returns a client of the API at baseURL. It sends with an http.Client unless
+// WithHTTPClient sets another. A call gives up after 5 * time.Second unless WithTimeout
+// sets another limit.
 func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &PetClient{baseURL: u, doer: &http.Client{Timeout: 5 * time.Second}}
+	c := &PetClient{baseURL: u, doer: &http.Client{}, timeout: 5 * time.Second}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -639,6 +641,13 @@ func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
 func WithHTTPClient(d HTTPDoer) PetClientOption {
 	return func(c *PetClient) {
 		c.doer = d
+	}
+}
+
+// WithTimeout sets how long a call may take, 0 for no limit.
+func WithTimeout(d time.Duration) PetClientOption {
+	return func(c *PetClient) {
+		c.timeout = d
 	}
 }
 
@@ -744,7 +753,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions) 
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -780,7 +789,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -813,7 +822,7 @@ func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions) (*Pe
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -846,7 +855,7 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *DeletePetRequestOptions
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return err
 	}
@@ -869,7 +878,7 @@ func (c *PetClient) Ping(ctx context.Context, opts *PingRequestOptions) (*PingRe
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req)
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
 		return nil, err
 	}

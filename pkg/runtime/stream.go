@@ -8,6 +8,7 @@ package runtime
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -148,6 +149,18 @@ func (s *Stream[T]) stop(err error) {
 	s.isDone, s.err = true, err
 }
 
+// streamBody is the body of a streamed response, whose request lives until the body is closed.
+type streamBody struct {
+	io.ReadCloser
+
+	cancel context.CancelCauseFunc
+}
+
+func (b *streamBody) Close() error {
+	defer b.cancel(nil)
+	return b.ReadCloser.Close()
+}
+
 // IsSequential reports a media type whose body is a sequence of frames: text/event-stream and
 // the line-delimited JSON types, with or without parameters.
 func IsSequential(mediaType string) bool {
@@ -164,29 +177,37 @@ func IsStreaming(res *http.Response) bool {
 
 // SendStream is Send for a method that streams: it asks for mediaType unless the request says
 // what it accepts, and leaves the body of a response IsStreaming reports unread, with no bytes
-// returned. Every other response is read whole, as Send reads it.
-func SendStream(d Doer, req *http.Request, mediaType string) (*http.Response, []byte, error) {
+// returned. Every other response is read whole, as Send reads it. A timeout above 0 bounds the
+// call until a stream starts: the wait for its headers, or the whole call for any other response.
+// Closing the body of a stream ends its request.
+func SendStream(d Doer, req *http.Request, mediaType string, timeout time.Duration) (*http.Response, []byte, error) {
 	if req.Header.Get("Accept") == "" {
 		req.Header.Set("Accept", mediaType)
 	}
-	res, err := d.Do(req)
+
+	ctx, cancel := context.WithCancelCause(req.Context())
+	if timeout > 0 {
+		timer := time.AfterFunc(timeout, func() { cancel(context.DeadlineExceeded) })
+		defer timer.Stop()
+	}
+
+	res, err := d.Do(req.WithContext(ctx))
+	if err == nil && IsStreaming(res) {
+		res.Body = &streamBody{ReadCloser: res.Body, cancel: cancel}
+		return res, nil, nil
+	}
+
+	defer cancel(nil)
 	if err != nil {
 		return nil, nil, err
-	}
-	if IsStreaming(res) {
-		return res, nil, nil
 	}
 	return readBody(res)
 }
 
-// OpenStream sends req with SendStream and returns a stream over the frames of the response.
+// OpenStream returns a stream over the frames of a response SendStream returned with its body.
 // A 2xx response in another media type is ErrContentType; a status outside 2xx is an *APIError,
 // as DecodeSuccess reports it with targets.
-func OpenStream[T any](d Doer, req *http.Request, mediaType string, targets []Target) (*Stream[T], error) {
-	res, body, err := SendStream(d, req, mediaType)
-	if err != nil {
-		return nil, err
-	}
+func OpenStream[T any](res *http.Response, body []byte, targets []Target) (*Stream[T], error) {
 	if IsStreaming(res) {
 		return NewStream[T](res), nil
 	}

@@ -129,7 +129,7 @@ func TestParse(t *testing.T) {
 						Timeout:    Duration(45 * time.Second),
 					},
 				},
-				Client: &Client{Name: "PetClient", Timeout: Duration(5 * time.Second), WithResponse: true, Streaming: true},
+				Client: &Client{Name: "PetClient", Timeout: new(Duration(5 * time.Second)), WithResponse: true, Streaming: true},
 				MCP:    &MCP{},
 				Templates: map[string]Template{
 					"server.service-header":        {File: "./templates/header.tmpl"},
@@ -149,6 +149,17 @@ func TestParse(t *testing.T) {
 			name: "Block key with no value turns the block on",
 			src:  "client:\nmcp:\n",
 			want: defaulted(Config{Client: &Client{}, MCP: &MCP{}, dir: "/work"}),
+		},
+		{
+			name: "A client timeout of 0s is no limit, not the default",
+			src:  "client: {timeout: 0s}\n",
+			want: defaulted(Config{Client: &Client{Timeout: new(Duration(0))}, dir: "/work"}),
+		},
+		{
+			name:    "A negative client timeout is a decode error",
+			src:     "client: {timeout: -1s}\n",
+			wantErr: ErrDuration,
+			wantMsg: "decode config: yaml: construct errors: line 1: invalid duration \"-1s\", want a value such as 30s or 1m30s",
 		},
 		{
 			name: "Merge key fills a list item",

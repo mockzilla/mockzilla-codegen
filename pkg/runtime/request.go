@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"reflect"
 	"strings"
+	"time"
 )
 
 const upperHex = "0123456789ABCDEF"
@@ -227,9 +228,16 @@ func ParseBaseURL(s string) (*url.URL, error) {
 	return u, nil
 }
 
-// Send sends req with d and reads the whole body, which it closes. The response comes back with
-// the body in memory, so it can be read again.
-func Send(d Doer, req *http.Request) (*http.Response, []byte, error) {
+// Send sends req with d and reads the whole body, which it closes. A timeout above 0 bounds the
+// whole call, the body read included. The response comes back with the body in memory, so it can
+// be read again.
+func Send(d Doer, req *http.Request, timeout time.Duration) (*http.Response, []byte, error) {
+	if timeout > 0 {
+		ctx, cancel := context.WithTimeout(req.Context(), timeout)
+		defer cancel()
+		req = req.WithContext(ctx)
+	}
+
 	res, err := d.Do(req)
 	if err != nil {
 		return nil, nil, err
