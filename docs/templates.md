@@ -9,7 +9,76 @@ The config changes the generated code in two ways, both with Go templates:
 Nothing replaces a whole built-in template, so no template is copied to change a few lines. To
 write a file your own way, leave its scaffold out and write it as an extra file.
 
-`examples/templates/wrapper` uses both, from the config alone:
+## Examples
+
+From simple to complex. Each one starts from a need and shows the config for it. The health
+route, the 501 stubs and the mock server are examples in this repository, built and tested on
+every change.
+
+### A health route
+
+A load balancer asks the server for `/health`, which the spec does not have. Add the route in
+`server.router-extra`:
+
+```yaml
+templates:
+  server.router-extra: |
+    r.Get("/health", health)
+```
+
+Write the handler in a file of your own, in the package of the router:
+
+```go
+var health = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	_, _ = w.Write([]byte("ok"))
+})
+```
+
+The route goes next to the generated ones, so the middleware wraps it too. This line is for chi;
+[Routes](#routes) has it for every router. See `examples/templates/blocks`.
+
+### Stubs that answer 501
+
+Every method of the service scaffold returns `ErrNotImplemented`, and the server answers that with
+500. To answer 501 Not Implemented until a method is written:
+
+```yaml
+imports:
+  - package: net/http
+templates:
+  server.scaffold.service-method: |
+    return &{{.Data}}{Status: http.StatusNotImplemented}, nil
+```
+
+Each method of the scaffold is then:
+
+```go
+func (s *Pets) ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error) {
+	return &ListPetsResponseData{Status: http.StatusNotImplemented}, nil
+}
+```
+
+The generator cannot know which packages your text names, so `net/http` is listed under
+[`imports`](#imports). See `examples/templates/blocks`.
+
+### A mock of the service
+
+To test the HTTP layer against a mock of the service, let [mockgen](https://github.com/uber-go/mock)
+write one. A `go:generate` line before the interface does it:
+
+```yaml
+templates:
+  server.service-header: |
+    //go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mock_test.go -package=$GOPACKAGE . {{.Name}}
+```
+
+`{{.Name}}` is the name of the interface, `PetsInterface` here. `go generate ./...` then writes
+`MockPetsInterface` into `mock_test.go`. The tests need `go.uber.org/mock` in the module.
+
+### A mock server
+
+`examples/templates/wrapper` answers every operation with an empty success response, so a client
+can be built before the service is written. It takes three pieces:
 
 ```yaml
 server:
@@ -26,6 +95,51 @@ extra-files:
   ./wrap.go: {file: ./wrapper.tmpl}
 ```
 
+1. `server.request-options-extra` gives the request options of every operation a typed field.
+2. `server.scaffold.service-method` makes every method of the scaffold return what that field
+   makes.
+3. The handlers leave the field unset. The extra file `wrap.go` writes `WithBodies`: a service that
+   sets the field, then calls the service it wraps.
+
+`wrapper.tmpl` ranges over the operations of [the data](#the-data) and calls the constructor of
+each success response: with `new` for a pointer body, with a zero value for another body, without
+a body when there is none. An operation without a success response answers 200:
+
+```
+{{- $context := import "context"}}
+// withBodies sets GenerateResponse on the options of every operation, then calls the service.
+type withBodies struct {
+	svc {{expr .Service}}
+}
+
+// WithBodies returns svc with GenerateResponse set to answer with an empty success body.
+func WithBodies(svc {{expr .Service}}) {{expr .Service}} {
+	return withBodies{svc: svc}
+}
+{{- range $op := .Operations}}
+
+func (s withBodies) {{.ID}}(ctx {{$context}}.Context, opts *{{expr .RequestOptions}}) (*{{expr .ResponseData}}, error) {
+	opts.GenerateResponse = func() (*{{expr .ResponseData}}, error) {
+{{- with .Success}}
+{{- if .Body.Elem.Name}}
+		return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}, {{end}}new({{expr .Body.Elem}})), nil
+{{- else if .Body.Name}}
+		var body {{expr .Body}}
+		return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}, {{end}}body), nil
+{{- else}}
+		return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}{{end}}), nil
+{{- end}}
+{{- else}}
+		return &{{expr $op.ResponseData}}{Status: 200}, nil
+{{- end}}
+	}
+	return s.svc.{{.ID}}(ctx, opts)
+}
+{{- end}}
+```
+
+The server is `NewRouter(WithBodies(NewPets()))`.
+
 ## Blocks
 
 A block is a named piece of a built-in template. The config replaces it with text of its own;
@@ -36,12 +150,10 @@ says which of the two it is: a text is never read as a path, whatever it looks l
 ```yaml
 templates:
   server.service-header: {file: ./templates/header.tmpl}
-  server.request-options-extra: Tenant string
   server.router-extra: |
-    r.Get("/health", health)
-    r.Get("/owner", {{.User.handler}})
+    r.Get("/health", {{.User.health}})
 user-context:
-  handler: ownerHandler
+  health: healthHandler
 ```
 
 The text of a block goes on lines of its own, without the blank lines around it, so it needs no
@@ -57,26 +169,10 @@ keeps it out of the comment of the interface. A block whose text comes out empty
 | `server.scaffold.service-fields` | in the struct of the service scaffold | the scaffold | nothing |
 | `server.scaffold.service-method` | the body of every method of the service scaffold | the method | `return nil, ErrNotImplemented` |
 
-In the request options and response data blocks, the operation's `.Options` and `.Data` are the
-names of the two structs. In the scaffold blocks, `.Name` is the name of the service struct or of
-the method, and the method's `.Options` and `.Data` are written as the scaffold's file spells
-them. A typed field on every operation and a stub that returns it take two blocks:
-
-```yaml
-templates:
-  server.request-options-extra: |
-    // GenerateResponse makes the response, when the service is asked for one.
-    GenerateResponse func() (*{{.Data}}, error)
-  server.scaffold.service-method: |
-    return opts.GenerateResponse()
-```
-
-In `server.router-extra`, a chi route goes on `r`; a std-http route on `mux`, its handler wrapped
-with `route`; an echo route on `e`, with `m...` as its middleware; a kratos route on `r`, a kratos
-router. On the other frameworks the route goes on the router the `register` closure of
-`router.tmpl` names, `e` for gin, `app` for fiber and iris, `r` for gorilla-mux, fasthttp, beego
-and go-zero, `h` for hertz and `s` for goframe, and its handler is an `http.Handler` wrapped as
-`handle(route(h))`, or `route(h)` alone on gorilla-mux and go-zero.
+In `server.service-header`, `.Name` is the name of the service interface. In the request options
+and response data blocks, the operation's `.Options` and `.Data` are the names of the two structs.
+In the scaffold blocks, `.Name` is the name of the service struct or of the method, and the
+method's `.Options` and `.Data` are written as the scaffold's file spells them.
 
 The text of a block is a `text/template` of its own. It can call the funcs every template of the
 generator has, such as `comment` and `quote`, listed under [Funcs](#funcs). It has no
@@ -96,6 +192,32 @@ These are config errors:
 - a value without text, and `{file: }` without a path
 - text that can only be a path, such as `./header.tmpl` or `templates/header.txt`: it would be
   written into the code as it is, so the error asks for `{file: ./header.tmpl}`
+
+### Routes
+
+In `server.router-extra`, the router and the way a route goes on it depend on the framework. Each
+line below adds `GET /health`, with `health` an `http.HandlerFunc` of yours, as in
+[A health route](#a-health-route).
+
+| Framework | Router | The route |
+|---|---|---|
+| chi | `r`, a `chi.Router` | `r.Get("/health", health)` |
+| std-http | `mux`, an `*http.ServeMux` | `mux.Handle("GET /health", route(health))` |
+| echo, echo-v5 | `e`, an `*echo.Echo` | `e.GET("/health", echo.WrapHandler(health), m...)` |
+| kratos | `r`, a `*khttp.Router` | `r.GET("/health", func(c khttp.Context) error { health(c.Response(), c.Request()); return nil })` |
+| gin | `e`, a `*gin.Engine` | `e.GET("/health", handle(route(health)))` |
+| fiber | `app`, a `*fiber.App` | `app.Get("/health", handle(route(health)))` |
+| iris | `app`, an `*iris.Application` | `app.Get("/health", handle(route(health)))` |
+| gorilla-mux | `r`, a `*mux.Router` | `r.Handle("/health", route(health)).Methods("GET")` |
+| fasthttp | `r`, a `*router.Router` | `r.GET("/health", handle(route(health)))` |
+| beego | `r`, a `*web.ControllerRegister` | `r.AddMethod("GET", "/health", handle(route(health)))` |
+| go-zero | `r`, an `httpx.Router` | `handle(r, "GET", "/health", route(health))` |
+| hertz | `h`, a `*server.Hertz` | `h.GET("/health", handle(route(health)))` |
+| goframe | `s`, a `*ghttp.Server` | `s.BindHandler("GET:/health", handle(route(health)))` |
+
+Pass a route through `route`, or `m...` on echo, and the middleware of `WithMiddleware` wraps it
+like the generated ones. On chi and kratos the router `r` adds the middleware itself. `handle`
+makes the framework's handler from an `http.Handler`.
 
 ## Imports
 
@@ -145,33 +267,32 @@ the config, as for a block.
 ```yaml
 extra-files:
   ./wrap.go: {file: ./wrapper.tmpl}
-  ./spec.go: 'const Package = {{quote .Package}}'
+  ./routes.go: |
+    // Routes lists the method and path of every route the router registers.
+    var Routes = []string{
+    {{- range .Operations}}{{if .IsRouted}}
+    	{{quote (print .Method " " .Path)}},
+    {{- end}}{{end}}
+    }
 ```
 
 An extra file is a generated file like the others: it gets the header, the package of its
 folder, the imports its code names, and it is written on every run. Its template runs on
 [the data](#the-data): the service, every operation with its types, responses and constructors,
-and every model type. The template writes Go declarations; the generator formats them.
+and every model type. The template writes Go declarations; the generator formats them. For the
+pets API, `routes.go` is:
 
-`examples/templates/wrapper` writes a service that wraps the user's one and sets
-`GenerateResponse` on every operation, so that the scaffold's methods can return it:
-
-```
-{{- $context := import "context"}}
-// WithBodies returns svc with GenerateResponse set to answer with an empty success body.
-func WithBodies(svc {{expr .Service}}) {{expr .Service}} {
-	return withBodies{svc: svc}
+```go
+// Routes lists the method and path of every route the router registers.
+var Routes = []string{
+	"GET /pets",
+	"POST /pets",
+	"DELETE /pets/{id}",
+	"GET /ping",
 }
-{{- range .Operations}}
-
-func (s withBodies) {{.ID}}(ctx {{$context}}.Context, opts *{{expr .RequestOptions}}) (*{{expr .ResponseData}}, error) {
-	opts.GenerateResponse = func() (*{{expr .ResponseData}}, error) {
-		...
-	}
-	return s.svc.{{.ID}}(ctx, opts)
-}
-{{- end}}
 ```
+
+[A mock server](#a-mock-server) shows a larger one, `wrapper.tmpl`.
 
 ### Funcs
 
