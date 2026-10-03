@@ -94,9 +94,12 @@ validates every call against:
 - Two parameters of one name in two locations, or a parameter named `body`, are told apart by the
   location: `query_id`, `request_body`. The Go fields follow: `QueryID`, `RequestBody`.
 - Schemas of components go to `$defs` once and are referred to, so a schema that refers to itself
-  ends. Keywords come over as they are: types with `null` for nullable schemas, formats, bounds,
-  lengths, patterns, enums, defaults, `readOnly` and `deprecated`. Discriminators and `x-*`
-  extensions are left out.
+  ends. Keywords come over as they are: types, formats, bounds, lengths, patterns, enums,
+  defaults, `readOnly` and `deprecated`. Discriminators and `x-*` extensions are left out.
+- A nullable schema takes null. `null` joins its types, and a schema without types takes null
+  already. When its `$ref`, a composition, an enum without `null` or a const would turn null away,
+  as in the 3.0 form `{nullable: true, allOf: [{$ref: Pet}]}`, the schema becomes `anyOf` of itself
+  and `{"type": "null"}`, with its description and default outside.
 - A default that does not fit its own schema, such as `default: "20"` on an integer, is left out
   with a `default-ignored` warning. The SDK checks every default when a tool is added and panics
   on one that does not fit.
@@ -168,7 +171,8 @@ res, _ := session.CallTool(ctx, &mcp.CallToolParams{Name: "list_pets", Arguments
 ```
 
 The [examples](../examples/mcp) do this for the tools of a pet store, for a spec that picks its
-tools with `x-mcp`, for one that streams, and for one with a default that does not fit.
+tools with `x-mcp`, for one that streams, for one with a default that does not fit, and for
+nullable schemas of 3.0.
 
 ## Layout
 

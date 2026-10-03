@@ -1,0 +1,36 @@
+openapi: 3.0.3
+info: {title: adoptions over MCP, version: "1"}
+paths:
+  /adoptions:
+    post:
+      operationId: adopt
+      summary: Record an adoption
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Adoption'}}
+      responses:
+        "200":
+          description: the adoption as recorded
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Adoption'}}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+    Adoption:
+      type: object
+      required: [family]
+      properties:
+        family: {type: string}
+        pet:
+          description: The pet, or null while the family has not chosen one.
+          nullable: true
+          allOf: [{$ref: '#/components/schemas/Pet'}]
+        priority:
+          type: string
+          nullable: true
+          enum: [high, low]
