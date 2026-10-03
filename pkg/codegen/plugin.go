@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"go/token"
+	"strings"
 	"text/template"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
@@ -167,26 +168,30 @@ type Response struct {
 // package that declares it writes it, Package and ImportPath are those of the identifier in it.
 // With an ImportPath, Name is an identifier, or a pointer, slice, array, map or channel around
 // one, such as []Pet, and Package, when set, is the package's name; without one the type needs no
-// import and Name is written as it is, such as func() any.
+// import, Name is written as it is, such as func() any, and Package is empty. A type the
+// generator declares has neither when the output is one package outside a module.
 type TypeRef struct {
 	Name       string
 	Package    string
 	ImportPath string
 }
 
-// Expr writes t as the package with import path from spells it: qualified with Package unless t
-// is declared there or needs no import.
-func (t TypeRef) Expr(from string) string {
-	if t.ImportPath == "" || t.ImportPath == from {
-		return t.Name
+// Elem is the type t points to, in the package of t: Pet for *Pet. It is empty when t is no
+// pointer.
+func (t TypeRef) Elem() TypeRef {
+	elem, ok := strings.CutPrefix(t.Name, "*")
+	if !ok {
+		return TypeRef{}
 	}
-	return gocode.Qualify(t.Name, t.Package)
+	return TypeRef{Name: elem, Package: t.Package, ImportPath: t.ImportPath}
 }
 
-// check returns an error when Name cannot be qualified with the package of ImportPath, or
-// Package is no name to qualify with.
+// check returns an error when Package has no ImportPath or is no name to qualify with, or Name
+// cannot be qualified with the package of ImportPath.
 func (t TypeRef) check() error {
 	switch {
+	case t.ImportPath == "" && t.Package != "":
+		return fmt.Errorf("%w %q of package %s has no import path", errTypeRef, t.Name, t.Package)
 	case t.ImportPath == "":
 		return nil
 	case t.Package != "" && (t.Package == "_" || !token.IsIdentifier(t.Package)):
