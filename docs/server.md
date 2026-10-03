@@ -104,11 +104,13 @@ mux.HandleFunc("GET /pets", adapter.ListPets)
 - A body arrives in a media type the operation documents: JSON (`application/json` and `+json`)
   through the JSON decoder, `application/x-www-form-urlencoded` through `DecodeForm`,
   `multipart/form-data` into a struct with `DecodeMultipart`, and any other media type into a
-  string or into bytes, whichever its field is. A documented media type that does not fit its
-  type, such as XML into a struct, is accepted and left to `RawRequest`.
+  `runtime.File`, a string or bytes, whichever its field is. A `runtime.File` (`format: binary`)
+  streams the body: the service reads it once, before it returns. A documented media type that
+  does not fit its type, such as XML into a struct, is accepted and left to `RawRequest`.
 - Media types are matched without their parameters and in lower case. A wildcard such as `*/*`
-  takes every media type the operation does not name, as JSON unless its field is a string or
-  bytes. Without a wildcard, a media type the operation does not document is answered with 415.
+  takes every media type the operation does not name, as JSON unless its field is a file, a
+  string or bytes. Without a wildcard, a media type the operation does not document is answered
+  with 415.
 - A required body that is missing is a 400; a missing optional body leaves its field nil.
 - A service that returns an error type of the spec (see `models.error-mapping`), as a value, a
   pointer or wrapped, is answered with the status of the first response that carries the type and
@@ -425,8 +427,8 @@ The runtime package holds what the generated HTTP code and clients use, standard
   and parameters with JSON content.
 - Bodies: `DecodeJSON`, `DecodeForm` (bracketed keys nest: `address[city]=Berlin`,
   `items[0]=a`), `DecodeMultipart` (files as `runtime.File`, JSON parts into structs),
-  `DecodeText`, `DecodeBytes`. A required body that is empty gives `ErrBodyEmpty`; an empty
-  optional one is left alone.
+  `DecodeText`, `DecodeBytes`, `DecodeFile`. A required body that is empty gives `ErrBodyEmpty`;
+  an empty optional one is left alone.
 - Responses: `Write` sends a status, headers and a body: JSON for most values, text and bytes as
   they are, a `File` streamed.
 - Clients: `RequestBuilder`, `EncodeForm`, `EncodeMultipart`, `Send`, `Decode`, `DecodeSuccess`,

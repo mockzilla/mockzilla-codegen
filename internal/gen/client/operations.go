@@ -281,13 +281,13 @@ func bodyView(c gomodel.Content, field string, s *gocode.Scope) BodyView {
 	isWildcard := strings.Contains(mediaType, "*")
 
 	switch {
-	case runtime.IsJSON(mediaType), isWildcard && under != stringType && under != bytesType && base != fileType:
+	case runtime.IsJSON(mediaType), isWildcard && under != stringType && under != bytesType && under != fileType:
 		v.Encoder = encodeJSON
 	case mediaType == "application/x-www-form-urlencoded":
 		v.Encoder, v.MediaType = encodeForm, ""
 	case mediaType == "multipart/form-data" && gomodel.StructDecl(t) != nil:
 		v.Encoder, v.MediaType = encodeMultipart, ""
-	case base == fileType:
+	case under == fileType:
 		v.Encoder, v.Value = encodeFile, gocode.Deref(value)
 	case under == stringType:
 		v.Encoder, v.Value = encodeText, held(value, base, t, s)

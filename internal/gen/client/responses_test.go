@@ -58,6 +58,7 @@ func TestIsDecodable(t *testing.T) {
 	t.Parallel()
 
 	pet := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Pet", Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}}
+	image := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Image", Kind: gomodel.KindAlias, Target: fileType}}
 	tests := []struct {
 		name    string
 		content gomodel.Content
@@ -67,6 +68,7 @@ func TestIsDecodable(t *testing.T) {
 		{name: "A wildcard into a struct", content: gomodel.Content{MediaType: "*/*", Type: pet}, want: true},
 		{name: "Text into a string", content: gomodel.Content{MediaType: "text/html", Type: gomodel.Builtin{Name: "string"}}, want: true},
 		{name: "Anything into bytes", content: gomodel.Content{MediaType: "image/png"}, want: true},
+		{name: "Anything into a file", content: gomodel.Content{MediaType: "application/pdf", Type: image}, want: true},
 		{name: "XML into a struct", content: gomodel.Content{MediaType: "application/xml", Type: pet}},
 	}
 

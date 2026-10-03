@@ -28,17 +28,19 @@ const (
 	bodyMultipart = "multipart"
 	bodyText      = "text"
 	bodyBytes     = "bytes"
+	bodyFile      = "file"
 	bodyNone      = "none"
 )
 
 var (
 	stringType = gomodel.Builtin{Name: "string"}
 	bytesType  = gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}
+	fileType   = gomodel.Qualified{Import: gomodel.Import{Path: gomodel.RuntimePath}, Name: "File"}
 )
 
 // handlerLocals are the variables a generated handler declares, c being the context of a Native
 // framework; a typed error variable never takes one of them.
-var handlerLocals = []string{"a", "c", "w", "r", "opts", "query", "res", "err", "ok", "text", "data", "contentType"}
+var handlerLocals = []string{"a", "c", "w", "r", "opts", "query", "res", "err", "ok", "text", "data", "file", "contentType"}
 
 // decoders are the runtime functions that read a parameter, by location.
 var decoders = map[string]string{
@@ -109,8 +111,8 @@ type ParamView struct {
 
 // BodyView is one media type of the request body. MediaType is quoted, in lower case and without
 // parameters; OperationID is quoted; Target is the address of the options field; Type is the
-// struct a multipart form fills; Assign is the expression that turns text or data, the decoded
-// body, into the field's type; Return is the statement that leaves the handler.
+// struct a multipart form fills; Assign is the expression that turns text, data or file, the
+// decoded body, into the field's type; Return is the statement that leaves the handler.
 type BodyView struct {
 	Kind        string
 	MediaType   string
@@ -121,6 +123,7 @@ type BodyView struct {
 	IsMultipart bool
 	IsText      bool
 	IsBytes     bool
+	IsFile      bool
 	IsRequired  bool
 	Field       string
 	Target      string
@@ -242,8 +245,8 @@ func groupView(g *Generator, p gomodel.ParamGroup, s *gocode.Scope) GroupView {
 }
 
 // bodyView picks the decoder of a media type by the type of its field: JSON and forms decode into
-// anything, multipart into a struct, any other media type into a string or into bytes. A wildcard
-// media type into anything else decodes as JSON. Other pairs are taken in but not decoded.
+// anything, multipart into a struct, any other media type into a file, a string or bytes. A
+// wildcard media type into anything else decodes as JSON. Other pairs are taken in but not decoded.
 func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 	s := at.scope
 	mediaType := baseMediaType(c.MediaType)
@@ -263,15 +266,18 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 		base, isPointer = p.Elem, true
 	}
 	isWildcard := strings.Contains(mediaType, "*")
-	isString, isBytes := gomodel.Underlying(base) == stringType, gomodel.Underlying(base) == bytesType
+	under := gomodel.Underlying(base)
+	isString, isBytes, isFile := under == stringType, under == bytesType, under == fileType
 
 	switch {
-	case runtime.IsJSON(mediaType), isWildcard && !isString && !isBytes:
+	case runtime.IsJSON(mediaType), isWildcard && !isString && !isBytes && !isFile:
 		v.Kind, v.IsJSON = bodyJSON, true
 	case mediaType == "application/x-www-form-urlencoded":
 		v.Kind, v.IsForm = bodyForm, true
 	case mediaType == "multipart/form-data" && isPointer && gomodel.StructDecl(base) != nil:
 		v.Kind, v.IsMultipart, v.Type = bodyMultipart, true, s.Expr(base)
+	case isFile:
+		v.Kind, v.IsFile, v.Assign = bodyFile, true, convert("file", conversion{raw: fileType, target: base, isPointer: isPointer}, s)
 	case isString:
 		v.Kind, v.IsText, v.Assign = bodyText, true, convert("text", conversion{raw: stringType, target: base, isPointer: isPointer}, s)
 	case isBytes:
