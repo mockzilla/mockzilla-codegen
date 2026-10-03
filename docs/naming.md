@@ -90,6 +90,14 @@ and `UnmarshalJSON` on every struct, plus `Get`, `Set` and the `AdditionalProper
 struct with additional properties. A property called `validate` gives the field `Validate2`. Enum
 constants clash with every other name in the package.
 
+Operations become methods, so their names clash only with each other. An operation also holds the
+names of the other methods it gets: `<Op>Request` on the client, plus `<Op>WithResponse` with
+`client.with-response`; `<Op>Stream` and `<Op>StreamWithResponse` with `client.streaming`, when it
+answers a 2xx as a stream; `<Op>Tool` when the MCP tools keep it. Webhooks get none of them. So of
+`getCert` and `getCertRequest` the second is renamed, whatever the spec order: `GetCertRequest2`
+in the service, the client and the tools. The MCP tool name stays `get_cert_request`. With MCP,
+`Register` is taken.
+
 Names are given in rounds: first every type named directly (components, operation types), then the
 types inside them, one level at a time. An inline type is named after the final name of its parent,
 so when `Client` is renamed to `ClientSchema`, its inline `address` becomes `ClientSchemaAddress`.

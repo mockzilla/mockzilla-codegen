@@ -98,6 +98,15 @@ type MCP struct {
 	Description string
 }
 
+// IsSkipped applies x-mcp.skip over the default of the config; a nil MCP is an operation without
+// x-mcp.
+func (m *MCP) IsSkipped(defaultSkip bool) bool {
+	if m != nil && m.Skip != nil {
+		return *m.Skip
+	}
+	return defaultSkip
+}
+
 // reader parses the extensions of one place and reports what it cannot use.
 type reader struct {
 	at    spec.Origin

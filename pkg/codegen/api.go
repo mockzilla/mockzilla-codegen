@@ -20,6 +20,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 // API is what the template of an extra file sees of the generated code once names are resolved:
@@ -174,7 +175,7 @@ func describeResponses(namer *naming.Namer, op *gomodel.Operation, lay *layout.L
 	service := lay.FileOf(server.PartService)
 	out := make([]Response, 0, len(op.Responses))
 	for _, r := range op.Responses {
-		code, _ := operation.StatusCode(r.Status)
+		code, _ := spec.StatusCode(r.Status)
 		res := Response{Status: r.Status, Code: code}
 		if c, ok := operation.FirstBody(r.Contents); ok {
 			res.ContentType = c.MediaType

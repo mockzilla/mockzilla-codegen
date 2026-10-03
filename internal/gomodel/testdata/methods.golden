@@ -1,0 +1,19 @@
+ListEventsResponseItem alias string models.responses
+PollResponse200 alias string models.responses
+op GetCertRequest GET /certs/{id}/request
+op GetCert GET /certs/{id}
+op ListEvents GET /events
+  response 200 text/event-stream ListEventsResponseItem item ListEventsResponseItem
+op ListEventsStream GET /events/stream
+op Poll GET /polls
+  response 200 application/json PollResponse200
+  response 500 text/event-stream -
+  response default text/event-stream -
+op PollStream GET /polls/stream
+op Report GET /reports
+op ReportTool GET /reports/tool
+op Ping GET /pings
+op PingTool GET /pings/tool
+op NoticeRequest GET /notices/request
+op Notice POST notice
+---
