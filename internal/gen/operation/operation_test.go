@@ -16,40 +16,6 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
-func TestSuccess(t *testing.T) {
-	t.Parallel()
-
-	pet := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Pet"}}
-	xml, jsonBody := gomodel.Content{MediaType: "application/xml", Type: pet}, gomodel.Content{MediaType: "application/json", Type: pet}
-	tests := []struct {
-		name      string
-		responses []gomodel.Response
-		want      SuccessResponse
-		wantOK    bool
-	}{
-		{name: "No responses"},
-		{name: "No 2xx response", responses: []gomodel.Response{{Status: "404"}, {Status: "default", Contents: []gomodel.Content{jsonBody}}}},
-		{
-			name:      "First 2xx response with its JSON body",
-			responses: []gomodel.Response{{Status: "201", Contents: []gomodel.Content{xml, jsonBody}}, {Status: "200"}},
-			want:      SuccessResponse{Status: 201, Body: &jsonBody},
-			wantOK:    true,
-		},
-		{name: "Range without a body", responses: []gomodel.Response{{Status: "2XX"}}, want: SuccessResponse{Status: 200}, wantOK: true},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got, ok := Success(&gomodel.Operation{Responses: tc.responses})
-
-			assert.Equal(t, tc.wantOK, ok)
-			assert.Equal(t, tc.want, got)
-		})
-	}
-}
-
 func TestGroupField(t *testing.T) {
 	t.Parallel()
 
@@ -211,6 +177,39 @@ func TestIsJSONParam(t *testing.T) {
 	}
 }
 
+func TestStatusCode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		status string
+		want   int
+		wantOK bool
+	}{
+		{name: "Code", status: "404", want: 404, wantOK: true},
+		{name: "Zero is a code", status: "0", wantOK: true},
+		{name: "Range takes its start", status: "4XX", want: 400, wantOK: true},
+		{name: "Lower case range", status: "2xx", want: 200, wantOK: true},
+		{name: "Any three characters after a digit read like a range", status: "20X", want: 200, wantOK: true},
+		{name: "Number outside the codes", status: "600", want: 600, wantOK: true},
+		{name: "Default", status: "default"},
+		{name: "Key that is no status", status: "ok"},
+		{name: "Digit and one more character are no range", status: "4X"},
+		{name: "Empty key", status: ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := StatusCode(tc.status)
+
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantOK, ok)
+		})
+	}
+}
+
 func TestStatusOf(t *testing.T) {
 	t.Parallel()
 
@@ -220,6 +219,7 @@ func TestStatusOf(t *testing.T) {
 		want   int
 	}{
 		{name: "Code", status: "404", want: 404},
+		{name: "Zero is a code", status: "0"},
 		{name: "Range takes its start", status: "4XX", want: 400},
 		{name: "Default", status: "default", want: 500},
 		{name: "Key that is no status", status: "ok", want: 500},

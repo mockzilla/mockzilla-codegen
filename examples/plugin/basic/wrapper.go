@@ -16,28 +16,29 @@ func WithBodies(svc PetsInterface) PetsInterface {
 
 func (s *withBodies) ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error) {
 	opts.GenerateResponse = func() (*ListPetsResponseData, error) {
-		return &ListPetsResponseData{Status: 200, Body: Bodies["ListPets"]()}, nil
+		var body ListPetsResponse200
+		return NewListPetsResponseData(body), nil
 	}
 	return s.svc.ListPets(ctx, opts)
 }
 
 func (s *withBodies) CreatePet(ctx context.Context, opts *CreatePetServiceRequestOptions) (*CreatePetResponseData, error) {
 	opts.GenerateResponse = func() (*CreatePetResponseData, error) {
-		return &CreatePetResponseData{Status: 201, Body: Bodies["CreatePet"]()}, nil
+		return NewCreatePetResponseData(new(Pet)), nil
 	}
 	return s.svc.CreatePet(ctx, opts)
 }
 
 func (s *withBodies) DeletePet(ctx context.Context, opts *DeletePetServiceRequestOptions) (*DeletePetResponseData, error) {
 	opts.GenerateResponse = func() (*DeletePetResponseData, error) {
-		return &DeletePetResponseData{Status: 204}, nil
+		return NewDeletePetResponseData(), nil
 	}
 	return s.svc.DeletePet(ctx, opts)
 }
 
 func (s *withBodies) Ping(ctx context.Context, opts *PingServiceRequestOptions) (*PingResponseData, error) {
 	opts.GenerateResponse = func() (*PingResponseData, error) {
-		return &PingResponseData{Status: 200, Body: Bodies["Ping"]()}, nil
+		return NewPingResponseData(new(PingResponse200)), nil
 	}
 	return s.svc.Ping(ctx, opts)
 }
