@@ -25,13 +25,6 @@ var Routes = []Route{
 	{ID: "Ping", Method: "GET", Path: "/ping", Status: 200},
 }
 
-// Bodies makes an empty success body per operation, by ID. An operation without a body has none.
-var Bodies = map[string]func() any{
-	"ListPets":  func() any { return new(ListPetsResponse200) },
-	"CreatePet": func() any { return new(*Pet) },
-	"Ping":      func() any { return new(*PingResponse200) },
-}
-
 // Register serves the list of routes at path on r.
 func Register(r chi.Router, path string) {
 	r.Get(path, func(w http.ResponseWriter, _ *http.Request) {

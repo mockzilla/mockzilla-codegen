@@ -12,10 +12,15 @@ func WithBodies(svc {{expr .Service}}) {{expr .Service}} {
 
 func (s *withBodies) {{.ID}}(ctx {{$context}}.Context, opts *{{expr .Options}}) (*{{expr .Data}}, error) {
 	opts.GenerateResponse = func() (*{{expr .Data}}, error) {
-{{- if .HasBody}}
-		return &{{expr .Data}}{Status: {{status .ID}}, Body: Bodies[{{quote .ID}}]()}, nil
+{{- if .IsPointer}}
+		return {{expr .Constructor}}({{if .HasStatusArg}}{{.Status}}, {{end}}new({{expr .Body}})), nil
+{{- else if .Body.Name}}
+		var body {{expr .Body}}
+		return {{expr .Constructor}}({{if .HasStatusArg}}{{.Status}}, {{end}}body), nil
+{{- else if .Constructor.Name}}
+		return {{expr .Constructor}}({{if .HasStatusArg}}{{.Status}}{{end}}), nil
 {{- else}}
-		return &{{expr .Data}}{Status: {{status .ID}}}, nil
+		return &{{expr .Data}}{Status: {{.Status}}}, nil
 {{- end}}
 	}
 	return s.svc.{{.ID}}(ctx, opts)

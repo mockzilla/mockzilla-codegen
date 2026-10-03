@@ -274,7 +274,10 @@ func describeOperation(namer *naming.Namer, op *gomodel.Operation, lay *layout.L
 		Tags:       slices.Clone(op.Spec.Tags),
 		HasOptions: len(op.Params)+len(op.Bodies) > 0,
 		IsRouted:   isRouted,
-		Success:    success(op, lay),
+		Responses:  describeResponses(namer, op, lay),
+	}
+	if i := slices.IndexFunc(o.Responses, func(r Response) bool { return r.Code >= 200 && r.Code <= 299 }); i >= 0 {
+		o.Success = &o.Responses[i]
 	}
 	if f := lay.FileOf(server.PartService); f != nil {
 		o.RequestOptions = TypeRef{Name: namer.ServiceRequestOptions(op.Name), Package: f.Package, ImportPath: f.ImportPath}
@@ -293,20 +296,26 @@ func describeOperation(namer *naming.Namer, op *gomodel.Operation, lay *layout.L
 	return o
 }
 
-// success is the first 2xx response of op, as the handlers answer it.
-func success(op *gomodel.Operation, lay *layout.Layout) *Success {
-	r, ok := operation.Success(op)
-	if !ok {
-		return nil
+// describeResponses leaves the constructors empty when lay holds no service.
+func describeResponses(namer *naming.Namer, op *gomodel.Operation, lay *layout.Layout) []Response {
+	service := lay.FileOf(server.PartService)
+	out := make([]Response, 0, len(op.Responses))
+	for _, r := range op.Responses {
+		code, _ := operation.StatusCode(r.Status)
+		res := Response{Status: r.Status, Code: code}
+		if c, ok := operation.FirstBody(r.Contents); ok {
+			res.ContentType = c.MediaType
+			res.Body = typeRef(operation.BodyType(c), lay)
+			res.IsRaw = c.Type == nil
+		}
+		if service != nil {
+			name, hasStatusArg := server.Constructor(namer, op, r)
+			res.Constructor = TypeRef{Name: name, Package: service.Package, ImportPath: service.ImportPath}
+			res.HasStatusArg = hasStatusArg
+		}
+		out = append(out, res)
 	}
-
-	s := &Success{Status: r.Status}
-	if r.Body != nil {
-		s.ContentType = r.Body.MediaType
-		s.Body = typeRef(operation.BodyType(*r.Body), lay)
-		s.IsRaw = r.Body.Type == nil
-	}
-	return s
+	return out
 }
 
 // typeRef describes t: its text as its own package writes it, and the package of the named type
