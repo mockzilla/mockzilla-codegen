@@ -475,5 +475,5 @@ func (t *MCPTools) Search(ctx context.Context, _ *mcp.CallToolRequest, in Search
 	if err != nil {
 		return nil, nil, err
 	}
-	return nil, out, nil
+	return nil, runtime.ToolResult{Value: out}, nil
 }

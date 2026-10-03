@@ -861,7 +861,7 @@ func (t *MCPTools) GetItem(ctx context.Context, _ *mcp.CallToolRequest, in GetIt
 	if err != nil {
 		return nil, nil, err
 	}
-	return nil, out, nil
+	return nil, runtime.ToolResult{Value: out}, nil
 }
 
 // DeleteItemTool is the definition of the delete_item tool: its name, its description and the schema
