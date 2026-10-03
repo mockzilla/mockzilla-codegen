@@ -46,35 +46,13 @@ type source struct {
 	isScaffold bool
 }
 
-// render runs the template on data and checks that it wrote Go declarations. Its expr, import and
-// symbol funcs write for the file of s; a func of the plugin with one of those names replaces it.
+// render runs the template on data, with the plugin's funcs in place of those of the same name.
 func (src source) render(id layout.PartID, data any, s *gocode.Scope) ([]byte, error) {
 	for _, imp := range src.imports {
 		s.Import(gomodel.Import{Path: imp.Path, Alias: imp.Alias})
 	}
 
-	funcs := make(template.FuncMap, len(src.funcs)+3)
-	funcs["expr"] = func(t TypeRef) (string, error) {
-		if err := t.check(); err != nil {
-			return "", err
-		}
-		return s.Qualified(t.Name, gomodel.Import{Path: t.ImportPath, Alias: t.Package}), nil
-	}
-	funcs["import"] = func(path string) (string, error) {
-		if err := (Import{Path: path}).check(); err != nil {
-			return "", err
-		}
-		return s.Import(gomodel.Import{Path: path}), nil
-	}
-	funcs["symbol"] = func(part, name string) (string, error) {
-		return symbol(s, layout.PartID(part), name)
-	}
-	maps.Copy(funcs, src.funcs)
-
-	out, err := render.RenderSource(render.Source{Name: string(id), Text: src.text, Funcs: funcs}, data)
-	if err == nil {
-		err = gocode.CheckDecls(string(id), out)
-	}
+	out, err := renderSource(id, src.text, src.funcs, data, s)
 	if err != nil {
 		return nil, fmt.Errorf("%w %s: %w", ErrPlugin, src.plugin, err)
 	}

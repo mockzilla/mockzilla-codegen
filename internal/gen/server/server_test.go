@@ -181,13 +181,43 @@ func TestTemplates(t *testing.T) {
 
 	require.Len(t, sets, 2)
 	assert.Equal(t, "server", sets[0].Name)
-	assert.Equal(t, []string{"server.service-header", "server.request-options-extra", "server.response-data-extra"}, sets[0].Blocks)
+	assert.Equal(t, []string{
+		"server.service-header", "server.request-options-extra", "server.response-data-extra", "server.scaffold.service-fields", "server.scaffold.service-method",
+	}, sets[0].Blocks)
 	assert.Equal(t, "chi", sets[1].Name)
 	assert.Equal(t, map[layout.PartID]string{PartRouter: "router.tmpl"}, sets[1].Parts)
 	assert.Equal(t, []string{"server.router-extra"}, sets[1].Blocks)
 	assert.Equal(t, slices.Concat(sets[0].Blocks, sets[1].Blocks), Blocks())
 	_, err := render.New(sets, render.Options{})
 	require.NoError(t, err)
+}
+
+func TestNeeds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		isScaffold bool
+		want       map[string]string
+	}{
+		{name: "Service scaffold written", isScaffold: true},
+		{
+			name: "Service scaffold left out",
+			want: map[string]string{"server.scaffold.service-fields": "server.scaffold.service", "server.scaffold.service-method": "server.scaffold.service"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			opts := allOptions()
+			opts.Scaffold.Service = tc.isScaffold
+			g, _ := New(petModel(), opts)
+
+			assert.Equal(t, tc.want, g.Needs())
+		})
+	}
 }
 
 func TestReservedField(t *testing.T) {
@@ -226,19 +256,23 @@ func TestBlocks(t *testing.T) {
 		{
 			name: "Text alone",
 			templates: map[string]string{
-				blockServiceHeader:       "// Owned by {{.User.owner}}.",
-				blockRequestOptionsExtra: "Owner string // {{.User.owner}}",
-				blockResponseDataExtra:   "Owner string // {{.User.owner}}",
-				blockRouterExtra:         `r.Get("/owner", {{.User.handler}})`,
+				blockServiceHeader:         "// Owned by {{.User.owner}}.",
+				blockRequestOptionsExtra:   "Owner string // {{.User.owner}}",
+				blockResponseDataExtra:     "Owner string // {{.User.owner}}",
+				blockRouterExtra:           `r.Get("/owner", {{.User.handler}})`,
+				blockScaffoldServiceFields: "owner string // {{.User.owner}}",
+				blockScaffoldServiceMethod: "return nil, errors.New({{quote .Name}} + {{quote .User.owner}})",
 			},
 		},
 		{
 			name: "Text with line breaks around it",
 			templates: map[string]string{
-				blockServiceHeader:       "// Owned by {{.User.owner}}.\n",
-				blockRequestOptionsExtra: "\n\tOwner string // {{.User.owner}}",
-				blockResponseDataExtra:   "\n\tOwner string // {{.User.owner}}\n\n",
-				blockRouterExtra:         "\n\t\tr.Get(\"/owner\", {{.User.handler}})\n",
+				blockServiceHeader:         "// Owned by {{.User.owner}}.\n",
+				blockRequestOptionsExtra:   "\n\tOwner string // {{.User.owner}}",
+				blockResponseDataExtra:     "\n\tOwner string // {{.User.owner}}\n\n",
+				blockRouterExtra:           "\n\t\tr.Get(\"/owner\", {{.User.handler}})\n",
+				blockScaffoldServiceFields: "\n\towner string // {{.User.owner}}\n\n",
+				blockScaffoldServiceMethod: "\n\treturn nil, errors.New({{quote .Name}} + {{quote .User.owner}})\n",
 			},
 		},
 	}
@@ -254,11 +288,14 @@ func TestBlocks(t *testing.T) {
 
 			service := string(f.render(t, PartService))
 			router := string(f.render(t, PartRouter))
+			scaffold := string(f.render(t, layout.PartScaffoldService))
 
 			assert.Contains(t, service, ")\n\n// Owned by platform.\n\n// PetsInterface is what")
 			assert.Contains(t, service, "\tTrace            *trace.Span\n\tOwner            string // platform\n\tRawRequest       *http.Request\n")
 			assert.Contains(t, service, "\tBody    any\n\tOwner   string // platform\n\n\tcontentType string\n")
 			assert.Contains(t, router, "r.Get(\"/ping\", adapter.Ping)\n\t\tr.Get(\"/owner\", ownerHandler)\n\t}\n")
+			assert.Contains(t, scaffold, "type Pets struct {\n\towner string // platform\n}\n")
+			assert.Contains(t, scaffold, "(*api.PingResponseData, error) {\n\treturn nil, errors.New(\"Ping\" + \"platform\")\n}\n")
 		})
 	}
 }

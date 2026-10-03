@@ -1,0 +1,30 @@
+{{- $context := import "context"}}
+// withBodies sets GenerateResponse on the options of every operation, then calls the service.
+type withBodies struct {
+	svc {{expr .Service}}
+}
+
+// WithBodies returns svc with GenerateResponse set to answer with an empty success body.
+func WithBodies(svc {{expr .Service}}) {{expr .Service}} {
+	return withBodies{svc: svc}
+}
+{{- range $op := .Operations}}
+
+func (s withBodies) {{.ID}}(ctx {{$context}}.Context, opts *{{expr .RequestOptions}}) (*{{expr .ResponseData}}, error) {
+	opts.GenerateResponse = func() (*{{expr .ResponseData}}, error) {
+{{- with .Success}}
+{{- if .Body.Elem.Name}}
+		return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}, {{end}}new({{expr .Body.Elem}})), nil
+{{- else if .Body.Name}}
+		var body {{expr .Body}}
+		return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}, {{end}}body), nil
+{{- else}}
+		return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}{{end}}), nil
+{{- end}}
+{{- else}}
+		return &{{expr $op.ResponseData}}{Status: 200}, nil
+{{- end}}
+	}
+	return s.svc.{{.ID}}(ctx, opts)
+}
+{{- end}}

@@ -4,7 +4,10 @@ var ErrNotImplemented = {{.Errors}}.New("not implemented")
 var _ {{.Interface}} = (*{{.Name}})(nil)
 
 // {{.Name}} implements {{.Interface}}.
-type {{.Name}} struct{}
+{{- $fields := override "server.scaffold.service-fields" .}}
+type {{.Name}} struct{{if $fields}} {
+{{- $fields}}
+}{{else}}{}{{end}}
 
 // New{{.Name}} returns a {{.Name}}.
 func New{{.Name}}() *{{.Name}} {
@@ -14,6 +17,8 @@ func New{{.Name}}() *{{.Name}} {
 
 // {{.Name}} handles {{.Method}} {{.Path}}.
 func (s *{{$.Name}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{.Data}}, error) {
+{{- with override "server.scaffold.service-method" .}}{{.}}{{else}}
 	return nil, ErrNotImplemented
+{{- end}}
 }
 {{- end}}

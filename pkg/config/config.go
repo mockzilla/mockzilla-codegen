@@ -31,6 +31,7 @@ type Config struct {
 	Client      *Client             `yaml:"client" desc:"Client generation. Present means generate."`
 	MCP         *MCP                `yaml:"mcp" desc:"MCP server generation. Present means generate. Needs client."`
 	Templates   map[string]Template `yaml:"templates" desc:"Template overrides, keyed by block name: the text, or the file that holds it."`
+	ExtraFiles  map[string]Template `yaml:"extra-files" desc:"Files written from your own templates, keyed by file path. A template runs on the service, the operations and the types."`
 	UserContext map[string]any      `yaml:"user-context" desc:"Free-form values passed to templates."`
 	Output      Output              `yaml:"output" desc:"Where generated files go."`
 
@@ -57,6 +58,7 @@ func (c *Config) Validate() error {
 		checkServer(c.Server),
 		checkMCP(c.MCP, c.Client),
 		checkTemplates(c.Templates),
+		checkExtraFiles(c),
 		checkOutput(c.Output),
 	)
 	if len(issues) == 0 {

@@ -38,7 +38,7 @@ func TestFieldsOfSkipsUnexported(t *testing.T) {
 
 	assert.Equal(t, []string{
 		"spec", "package", "header", "naming", "imports", "models",
-		"server", "client", "mcp", "templates", "user-context", "output",
+		"server", "client", "mcp", "templates", "extra-files", "user-context", "output",
 	}, keys)
 }
 

@@ -50,7 +50,7 @@ type Port = uint16
 ```
 
 - A name with one dot is a type of a package. `x-go-type-import` gives its path, else the entry
-  of that name in the config's [`imports`](plugins.md#imports) does, else the part before the dot
+  of that name in the config's [`imports`](templates.md#imports) does, else the part before the dot
   is taken as the path, which works for standard library packages such as `time`.
 - Anything else is written as is: `int64`, `[]string`, `map[string]string`. A slice, map or
   pointer type written this way gets no extra pointer. A package it names, as in `[]uuid.UUID`,

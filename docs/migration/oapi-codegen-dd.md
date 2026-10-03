@@ -52,10 +52,10 @@ guide walks through. A project still on v2 of the fork follows the
 | `generate.mcp-server` | `mcp:` |
 | `generate.mcp-server.default-skip` | `mcp.default-skip` |
 | `filter.include`, `filter.exclude` and their keys | `spec.filter.include`, `spec.filter.exclude`, unchanged |
-| `additional-imports` | [`imports`](../plugins.md#imports); no `.` alias |
+| `additional-imports` | [`imports`](../templates.md#imports); no `.` alias |
 | `error-mapping` | `models.error-mapping` |
 | `client.name`, `client.timeout` | `client.name`, `client.timeout` |
-| `user-templates` | `templates` for the [blocks that may be replaced](../plugins.md#template-overrides), else a [plugin](../plugins.md) |
+| `user-templates` | `templates` for the [blocks that may be replaced](../templates.md#blocks), else [`extra-files`](../templates.md#extra-files) |
 | `user-context` | `user-context` |
 
 The keys of `error-mapping` are type names in both. An error response written inline in an
