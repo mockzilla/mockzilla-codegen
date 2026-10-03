@@ -61,7 +61,6 @@ type generation struct {
 	cfg     *config.Config
 	opts    options
 	diags   diag.Collector
-	plugins pluginSet
 	namer   *naming.Namer
 	m       *gomodel.Model
 	gen     *models.Generator
@@ -81,12 +80,10 @@ type generation struct {
 // cfg must come from config.Load or config.Parse, which fill in the defaults.
 func Generate(ctx context.Context, cfg *config.Config, opts ...Option) (*Result, error) {
 	g := &generation{cfg: cfg, opts: newOptions(opts)}
-	g.plugins = newPluginSet(g.opts.plugins)
 	steps := []func() error{
 		cfg.Validate,
-		func() error { return g.plugins.reserve(ctx, cfg.UserContext) },
 		func() error { return g.model(ctx) },
-		func() error { return g.place(ctx) },
+		g.place,
 		g.load,
 		g.render,
 	}
@@ -112,10 +109,8 @@ func (g *generation) model(ctx context.Context) error {
 	}
 	g.diags.Append(parsed...)
 
-	opts := gomodel.OptionsFrom(g.cfg)
-	opts.Reserved = append(opts.Reserved, g.plugins.idents...)
 	var built []diag.Diagnostic
-	g.m, built = gomodel.Build(doc, opts)
+	g.m, built = gomodel.Build(doc, gomodel.OptionsFrom(g.cfg))
 	g.diags.Append(built...)
 	g.namer = naming.New(g.cfg.Naming.Initialisms)
 	g.gen = models.New(g.m)
@@ -177,10 +172,9 @@ func (g *generation) serverOptions() (server.Options, error) {
 	}, nil
 }
 
-// place lays the built-in parts out, lets the plugins contribute against that draft, hands the
-// server the fields they add, then lays every part out, the extra files included, and describes
-// the result for their templates.
-func (g *generation) place(ctx context.Context) error {
+// place lays every part out, the extra files included, and describes the result for their
+// templates.
+func (g *generation) place() error {
 	mod, err := layout.FindModule(g.cfg.Resolve("."), g.cfg.Output.Module)
 	if err != nil {
 		return err
@@ -199,34 +193,13 @@ func (g *generation) place(ctx context.Context) error {
 	for _, rel := range slices.Sorted(maps.Keys(g.cfg.ExtraFiles)) {
 		parts = append(parts, layout.Part{ID: layout.PartID(rel)})
 	}
-	if len(g.opts.plugins) > 0 {
-		draft, draftErr := layout.Draft(g.cfg, parts, mod)
-		if draftErr != nil {
-			return draftErr
-		}
-		added, addErr := g.plugins.contribute(ctx, func() *API { return describe(g, draft) })
-		if addErr != nil {
-			return addErr
-		}
-		if g.srv != nil {
-			g.srv.SetExtraFields(g.plugins.fields)
-		}
-
-		// A replaced scaffold uses what its own text names, which only rendering shows.
-		for i, p := range parts {
-			if g.plugins.sources[p.ID].isScaffold {
-				parts[i].Uses = nil
-			}
-		}
-		parts = append(parts, added...)
-	}
 
 	g.lay, err = layout.Plan(g.cfg, parts, mod)
 	if err != nil {
 		return err
 	}
 	if len(g.cfg.ExtraFiles) > 0 {
-		g.api = describe(g, g.lay)
+		g.api = describe(g)
 	}
 	return nil
 }
@@ -294,8 +267,8 @@ func (g *generation) text(key string, t config.Template) (string, error) {
 	return string(data), nil
 }
 
-// render writes every file of the layout, then checks the imports the parts brought along: a
-// plugin's code can use a folder that imports its own, which the layout could not know.
+// render writes every file of the layout, then checks the imports the parts brought along: an
+// extra file can use a folder that imports its own, which the layout could not know.
 func (g *generation) render() error {
 	g.imports = make(map[layout.PartID][]string)
 	g.named = make(map[string]bool)
@@ -358,37 +331,19 @@ func (g *generation) parts(f *layout.File, s *gocode.Scope) (render.FileData, er
 			return render.FileData{}, err
 		}
 		data.Parts = append(data.Parts, string(out))
-		if g.plugins.sources[part].isScaffold {
-			// The view imports what the built-in template writes, which the replacement may not.
-			s.Imports.Trim([]byte(strings.Join(data.Parts, "\n")))
-		}
 		s.Imports.Take(out)
 		g.imports[part] = s.Imports.Paths()
 	}
 	return data, nil
 }
 
-// part renders one part of the file of s: an extra file from its template, a plugin's from its
-// source, else a built-in one from its view.
+// part renders one part of the file of s: an extra file from its template, a built-in one from
+// its view.
 func (g *generation) part(id layout.PartID, s *gocode.Scope) ([]byte, error) {
 	if text, ok := g.extras[id]; ok {
-		out, err := renderSource(id, text, nil, g.api, s)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrExtraFile, err)
-		}
-		return out, nil
+		return renderExtra(id, text, g.api, s)
 	}
-
-	src, ok := g.plugins.sources[id]
-	if !ok {
-		return g.engine.RenderPart(id, g.view(id, s))
-	}
-
-	data := src.data
-	if src.isScaffold {
-		data = g.view(id, s)
-	}
-	return src.render(id, data, s)
+	return g.engine.RenderPart(id, g.view(id, s))
 }
 
 // view is the template data of part: the server generator's for server parts, the client

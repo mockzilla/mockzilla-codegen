@@ -220,30 +220,6 @@ func TestNeeds(t *testing.T) {
 	}
 }
 
-func TestReservedField(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		field string
-		want  bool
-	}{
-		{name: "Parameter group", field: "Query", want: true},
-		{name: "Body of one media type", field: "BodyJSON", want: true},
-		{name: "The raw request", field: "RawRequest", want: true},
-		{name: "The Validate method", field: "Validate", want: true},
-		{name: "A plugin's own field", field: "GenerateResponse"},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			assert.Equal(t, tc.want, ReservedField(tc.field))
-		})
-	}
-}
-
 // TestBlocks overrides every block with text that reads the user-context, written with and
 // without blank space around it.
 func TestBlocks(t *testing.T) {
@@ -283,7 +259,6 @@ func TestBlocks(t *testing.T) {
 
 			m := petModel()
 			g, _ := New(m, allOptions())
-			g.SetExtraFields(extraFields())
 			f := fixture{m: m, g: g, cfg: scaffoldConfig, templates: tc.templates}
 
 			service := string(f.render(t, PartService))
@@ -291,7 +266,7 @@ func TestBlocks(t *testing.T) {
 			scaffold := string(f.render(t, layout.PartScaffoldService))
 
 			assert.Contains(t, service, ")\n\n// Owned by platform.\n\n// PetsInterface is what")
-			assert.Contains(t, service, "\tTrace            *trace.Span\n\tOwner            string // platform\n\tRawRequest       *http.Request\n")
+			assert.Contains(t, service, "\tQueryString *ListPetsQueryString\n\tOwner       string // platform\n\tRawRequest  *http.Request\n")
 			assert.Contains(t, service, "\tBody    any\n\tOwner   string // platform\n\n\tcontentType string\n")
 			assert.Contains(t, router, "r.Get(\"/ping\", adapter.Ping)\n\t\tr.Get(\"/owner\", ownerHandler)\n\t}\n")
 			assert.Contains(t, scaffold, "type Pets struct {\n\towner string // platform\n}\n")
@@ -382,7 +357,6 @@ func TestViewRendersParts(t *testing.T) {
 
 			m := petModel()
 			g, _ := New(m, allOptions())
-			g.SetExtraFields(extraFields())
 			got := fixture{m: m, g: g, cfg: scaffoldConfig}.render(t, part)
 
 			assertGolden(t, filepath.Join("testdata", string(part)+".golden"), got)
@@ -468,18 +442,6 @@ func allOptions() Options {
 		Port:               9090,
 		Timeout:            45 * time.Second,
 		User:               map[string]any{"owner": "platform", "handler": "ownerHandler"},
-	}
-}
-
-// extraFields are the fields of a plugin: one on two operations, of a type the service part
-// declares for each, and one on the first alone, of a type from another package.
-func extraFields() map[string][]ExtraField {
-	return map[string][]ExtraField{
-		"ListPets": {
-			{Name: "GenerateResponse", Type: "func() (*ListPetsResponseData, error)", Doc: "GenerateResponse makes the response."},
-			{Name: "Trace", Type: "*Span", Import: gomodel.Import{Path: "example.com/trace"}},
-		},
-		"CreatePet": {{Name: "GenerateResponse", Type: "func() (*CreatePetResponseData, error)", Doc: "GenerateResponse makes the response."}},
 	}
 }
 

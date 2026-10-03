@@ -21,7 +21,7 @@ type PetsInterface interface {
 }
 ```
 
-Every operation has the same shape, even one without parameters or body, so middleware and plugins
+Every operation has the same shape, even one without parameters or body, so middleware and wrappers
 treat them alike. The method's comment is the operation's summary and description.
 
 ## Request options

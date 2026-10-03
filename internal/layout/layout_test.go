@@ -177,51 +177,6 @@ func TestPlanPackage(t *testing.T) {
 	}
 }
 
-func TestDraft(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		cfg     string
-		want    []*File
-		wantErr error
-	}{
-		{
-			name: "Selector that matches no part yet",
-			cfg:  "output:\n  file: ./gen.go\n  files:\n    ./register.go: [plugin.sample.register]\n    ./b.go: [models.types]\n",
-			want: []*File{
-				{Path: "/work/b.go", Rel: "./b.go", Package: "work", ImportPath: "example.com/work", Parts: []PartID{"models.types"}},
-				{Path: "/work/gen.go", Rel: "./gen.go", Package: "work", ImportPath: "example.com/work", Parts: []PartID{"models.enums", "models.unions", "models.params"}},
-			},
-			wantErr: ErrUnknownSelector,
-		},
-		{
-			name: "Import cycle that a plugin may still take away",
-			cfg:  "output:\n  file: ./api/gen.go\n  files: {./models/types.go: [models.types]}\n",
-			want: []*File{
-				{Path: "/work/api/gen.go", Rel: "./api/gen.go", Package: "api", ImportPath: "example.com/work/api", Parts: []PartID{"models.enums", "models.unions", "models.params"}},
-				{Path: "/work/models/types.go", Rel: "./models/types.go", Package: "models", ImportPath: "example.com/work/models", Parts: []PartID{"models.types"}},
-			},
-			wantErr: ErrImportCycle,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			cfg := parseConfig(t, tc.cfg, "/work")
-			l, err := Draft(cfg, modelParts, workModule)
-
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, l.Files)
-
-			_, err = Plan(cfg, modelParts, workModule)
-			require.ErrorIs(t, err, tc.wantErr)
-		})
-	}
-}
-
 func TestPlanErrors(t *testing.T) {
 	t.Parallel()
 

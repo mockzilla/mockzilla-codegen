@@ -19,7 +19,7 @@ import (
 var (
 	frameworks      = enumOf(reflect.TypeFor[Server](), "Framework")
 	intTypes        = enumOf(reflect.TypeFor[Models](), "IntType")
-	selectorGroups  = []string{"models", "server", "client", "mcp", "plugin"}
+	selectorGroups  = []string{"models", "server", "client", "mcp"}
 	selectorSegment = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
 
 	// templatePath matches template text that can only be a path: one word of path characters
@@ -242,7 +242,7 @@ func checkSelectors(files map[string][]string, sorted []string) []Issue {
 			if !validSelector(sel) {
 				issues = append(issues, Issue{
 					Key:     key,
-					Message: fmt.Sprintf("invalid selector %q, want a form like models, models.types or plugin.<name>.<part>", sel),
+					Message: fmt.Sprintf("invalid selector %q, want a form like models or models.types", sel),
 				})
 				continue
 			}
@@ -258,11 +258,7 @@ func checkSelectors(files map[string][]string, sorted []string) []Issue {
 
 func validSelector(sel string) bool {
 	segments := strings.Split(sel, ".")
-	depth := 2
-	if segments[0] == "plugin" {
-		depth = 3
-	}
-	if len(segments) > depth || !slices.Contains(selectorGroups, segments[0]) {
+	if len(segments) > 2 || !slices.Contains(selectorGroups, segments[0]) {
 		return false
 	}
 

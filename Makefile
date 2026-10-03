@@ -74,9 +74,8 @@ generate: ## Run go generate
 	go generate ./...
 
 .PHONY: examples
-examples: ## Regenerate the golden examples, those under examples/plugin from within the examples module
+examples: ## Regenerate the golden examples
 	UPDATE=1 go test -count=1 -run '^TestExamples$$' ./pkg/codegen
-	cd examples && UPDATE=1 go test -count=1 -run '^TestExamples$$' ./plugin/sample
 
 .PHONY: examples-check
 examples-check: ## Fail when the golden examples are stale, do not build or fail their tests

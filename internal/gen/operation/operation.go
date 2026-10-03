@@ -11,7 +11,6 @@ package operation
 
 import (
 	"cmp"
-	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -52,11 +51,6 @@ var defaultStyles = map[string]string{spec.InPath: "simple", spec.InQuery: "form
 // Query, QueryString, Headers or Cookies.
 func GroupField(in string, n *naming.Namer) string {
 	return cmp.Or(groupFields[in], n.Exported(in))
-}
-
-// IsGroupField reports a name GroupField gives to one of the locations of the spec.
-func IsGroupField(name string) bool {
-	return slices.Contains(slices.Collect(maps.Values(groupFields)), name)
 }
 
 // BodyFields names the options field of each body: Body for one, else Body and the tag of its

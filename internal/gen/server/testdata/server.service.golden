@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"example.com/trace"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
@@ -29,10 +28,7 @@ type ListPetsServiceRequestOptions struct {
 	Headers     *ListPetsHeaders
 	Cookies     *ListPetsCookies
 	QueryString *ListPetsQueryString
-	// GenerateResponse makes the response.
-	GenerateResponse func() (*ListPetsResponseData, error)
-	Trace            *trace.Span
-	RawRequest       *http.Request
+	RawRequest  *http.Request
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
@@ -122,10 +118,8 @@ type CreatePetServiceRequestOptions struct {
 	// Body sent as image/png.
 	BodyPng []byte
 	// Body sent as application/xml.
-	BodyXML *Pet
-	// GenerateResponse makes the response.
-	GenerateResponse func() (*CreatePetResponseData, error)
-	RawRequest       *http.Request
+	BodyXML    *Pet
+	RawRequest *http.Request
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.

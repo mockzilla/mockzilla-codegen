@@ -6,115 +6,24 @@
 package codegen
 
 import (
-	"context"
 	"fmt"
 	"go/token"
+	"slices"
 	"strings"
-	"text/template"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/client"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
+	"github.com/mockzilla/mockzilla-codegen/internal/gen/server"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/layout"
+	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 )
 
-// Plugin adds generated code next to the built-in parts. Name matches [a-z][a-z0-9]* and names
-// the parts: plugin.<name>.<part>. Reserve runs before names are resolved, Contribute after.
-// Both get the context Generate was given, and a nil result from either adds nothing.
-type Plugin interface {
-	Name() string
-	Reserve(ctx context.Context, in *ReserveInput) (*Reservations, error)
-	Contribute(ctx context.Context, api *API) (*Contribution, error)
-}
-
-// ReserveInput is what a plugin sees before names are resolved: the config's user-context. It
-// only ever gains fields. Each plugin gets a copy of its own, so a change to it reaches nothing
-// else.
-type ReserveInput struct {
-	UserContext map[string]any
-}
-
-// Reservations is what a plugin declares before naming. Idents are the package-level names its
-// parts declare, Go identifiers which no model may take.
-type Reservations struct {
-	Idents []string
-}
-
-// Contribution is what a plugin generates. Parts go to output.file, or where output.files moves
-// them as plugin.<name>.<part>; RequestOptionFields are added to the server's request options of
-// the operation whose ID is the key, before RawRequest: the handlers leave them unset, and a
-// config without a server has none; Scaffolds replace the templates of the scaffold files the
-// config writes; Funcs are available to this plugin's templates, next to the generator's, and
-// replace those of the same name.
-type Contribution struct {
-	Parts               []PartSource
-	RequestOptionFields map[string][]FieldSpec
-	Scaffolds           map[ScaffoldKind]string
-	Funcs               template.FuncMap
-}
-
-// PartSource is one part: its template, the data the template runs on and the imports its code
-// needs. Name matches [a-z][a-z0-9]*. The template writes Go declarations; it may call expr,
-// which writes a TypeRef as the file spells it, import, which imports a path and returns the name
-// to qualify with, and symbol, which writes a name another part declares as the file spells it.
-// Imports is for the packages the code does not name, those under _ or .: only import tells the
-// name a package got in the file.
-type PartSource struct {
-	Name     string
-	Template string
-	Data     any
-	Imports  []Import
-}
-
-// Import is a package a generated file imports. Alias is empty, _, . or the identifier to import
-// it under, which gets a number when another import of the file holds that name.
-type Import struct {
-	Path  string
-	Alias string
-}
-
-// check returns an error for an import without a path, or under an alias Go does not take.
-func (imp Import) check() error {
-	switch {
-	case imp.Path == "":
-		return fmt.Errorf("%w without a path", errImport)
-	case imp.Alias != "" && imp.Alias != "." && !token.IsIdentifier(imp.Alias):
-		return fmt.Errorf("%w of %s: the alias %q is not _, . or an identifier", errImport, imp.Path, imp.Alias)
-	}
-	return nil
-}
-
-// FieldSpec is one field a plugin adds. Name is an exported identifier; Type is a Go type, with
-// an ImportPath when it has a Package; Doc is its comment, empty for none.
-type FieldSpec struct {
-	Name string
-	Type TypeRef
-	Doc  string
-}
-
-// ScaffoldKind names a scaffold file.
-type ScaffoldKind int
-
-const (
-	ScaffoldService ScaffoldKind = iota
-	ScaffoldMiddleware
-	ScaffoldMain
-)
-
-func (k ScaffoldKind) String() string {
-	switch k {
-	case ScaffoldService:
-		return "service"
-	case ScaffoldMiddleware:
-		return "middleware"
-	case ScaffoldMain:
-		return "main"
-	default:
-		return "unknown"
-	}
-}
-
-// API is what a plugin and the template of an extra file see of the generated code once names
-// are resolved: the package of the default output file, the service interface, which is empty
-// without a server, every operation, every declared type and the config's user-context. It only
-// ever gains fields. Each plugin gets a copy of its own, so a change to it reaches nothing else.
+// API is what the template of an extra file sees of the generated code once names are resolved:
+// the package of the default output file, the service interface, which is empty without a
+// server, every operation, every declared type and the config's user-context. It only ever gains
+// fields.
 type API struct {
 	Package     string
 	Service     TypeRef
@@ -200,4 +109,106 @@ func (t TypeRef) check() error {
 		return fmt.Errorf("%w %q of %s is no identifier, nor a pointer, slice, array, map or channel around one", errTypeRef, t.Name, t.ImportPath)
 	}
 	return nil
+}
+
+// describe is the code g generates, as its layout places it.
+func describe(g *generation) *API {
+	out := &API{Package: g.lay.Package, UserContext: g.cfg.UserContext}
+	for _, d := range g.m.Decls {
+		out.Types = append(out.Types, typeRef(gomodel.DeclRef{Decl: d}, g.lay))
+	}
+
+	routed := make(map[string]bool)
+	if g.srv != nil {
+		if f := g.lay.FileOf(server.PartService); f != nil {
+			out.Service = inFile(g.srv.Interface(), f)
+		}
+
+		for _, r := range g.srv.Routes() {
+			routed[r.Operation] = true
+		}
+	}
+	for _, op := range g.m.Operations {
+		out.Operations = append(out.Operations, describeOperation(g.namer, op, g.lay, routed[op.Name]))
+	}
+	return out
+}
+
+// describeOperation leaves empty the types of a part lay does not hold: the config asks for no
+// server, no client or no envelopes.
+func describeOperation(namer *naming.Namer, op *gomodel.Operation, lay *layout.Layout, isRouted bool) Operation {
+	o := Operation{
+		ID:         op.Name,
+		Method:     op.Spec.Method,
+		Path:       op.Spec.Path,
+		Summary:    op.Spec.Summary,
+		Tags:       op.Spec.Tags,
+		HasOptions: len(op.Params)+len(op.Bodies) > 0,
+		IsRouted:   isRouted,
+		Responses:  describeResponses(namer, op, lay),
+	}
+	if i := slices.IndexFunc(o.Responses, func(r Response) bool { return r.Code >= 200 && r.Code <= 299 }); i >= 0 {
+		o.Success = &o.Responses[i]
+	}
+	if f := lay.FileOf(server.PartService); f != nil {
+		o.RequestOptions = inFile(namer.ServiceRequestOptions(op.Name), f)
+		o.ResponseData = inFile(namer.ResponseData(op.Name), f)
+	}
+	if op.Spec.IsWebhook {
+		return o
+	}
+
+	if f := lay.FileOf(client.PartOptions); f != nil {
+		o.ClientRequestOptions = inFile(namer.ClientRequestOptions(op.Name), f)
+	}
+	if f := lay.FileOf(client.PartResponses); f != nil {
+		o.ClientResponse = inFile(namer.ClientResponse(op.Name), f)
+	}
+	return o
+}
+
+// describeResponses leaves the constructors empty when lay holds no service.
+func describeResponses(namer *naming.Namer, op *gomodel.Operation, lay *layout.Layout) []Response {
+	service := lay.FileOf(server.PartService)
+	out := make([]Response, 0, len(op.Responses))
+	for _, r := range op.Responses {
+		code, _ := operation.StatusCode(r.Status)
+		res := Response{Status: r.Status, Code: code}
+		if c, ok := operation.FirstBody(r.Contents); ok {
+			res.ContentType = c.MediaType
+			res.Body = typeRef(operation.BodyType(c), lay)
+			res.IsRaw = c.Type == nil
+		}
+		if service != nil {
+			name, hasStatusArg := server.Constructor(namer, op, r)
+			res.Constructor = inFile(name, service)
+			res.HasStatusArg = hasStatusArg
+		}
+		out = append(out, res)
+	}
+	return out
+}
+
+// typeRef describes t: its text as its own package writes it, and the package of the named type
+// inside it.
+func typeRef(t gomodel.Type, lay *layout.Layout) TypeRef {
+	ref := TypeRef{Name: gocode.Text(t)}
+	switch leaf := gocode.Leaf(t).(type) {
+	case gomodel.DeclRef:
+		if f := lay.FileOf(layout.PartID(leaf.Decl.Part)); f != nil {
+			ref = inFile(ref.Name, f)
+		}
+	case gomodel.Qualified:
+		ref.Package, ref.ImportPath = gocode.ImportName(leaf.Import.Path, leaf.Import.Alias), leaf.Import.Path
+	}
+	return ref
+}
+
+// inFile is name as f declares it. Without an import path the output is one package, and the
+// type needs no import.
+func inFile(name string, f *layout.File) TypeRef {
+	if f.ImportPath == "" {
+		return TypeRef{Name: name}
+	}
+	return TypeRef{Name: name, Package: f.Package, ImportPath: f.ImportPath}
 }

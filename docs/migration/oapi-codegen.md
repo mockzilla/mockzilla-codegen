@@ -164,7 +164,7 @@ mapping. Beyond it:
 | `generate: [spec]`, `skip-fmt`, `skip-prune` | none, `output.format: false`, `spec.prune: false` |
 | `include-tags`, `exclude-tags` | `spec.filter.include.tags`, `spec.filter.exclude.tags` |
 | `exclude-schemas` | see `output-options.exclude-schemas` above |
-| `templates` | `templates`, per block, or a plugin |
+| `templates` | `templates`, per block, or `extra-files` |
 | `import-mapping` | none, see above |
 | `alias` | none; a component that is only a `$ref` is always an alias |
 | `initialisms` | `naming.initialisms`, added to the built-in set |

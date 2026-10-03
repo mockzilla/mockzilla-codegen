@@ -11,7 +11,6 @@ var (
 	ErrTemplate    = errors.New("load templates")
 	ErrUnknownPart = errors.New("no template for part")
 	ErrExecute     = errors.New("render")
-	ErrFunc        = errors.New("template func")
 	ErrNoValue     = errors.New("a value that is not set was written as <no value>")
 )
 
