@@ -7,7 +7,6 @@ package gocode
 
 import (
 	"fmt"
-	"go/ast"
 	"go/parser"
 	"go/token"
 )
@@ -26,25 +25,4 @@ func CheckDecls(name string, src []byte) error {
 
 	line := locate(err, name, src, len(clause))
 	return fmt.Errorf("%w: %w\n%s", ErrParse, err, excerpt(string(src), line))
-}
-
-// IsFieldType reports whether expr is a type and nothing else, as the parser reads it after the
-// name of a struct field. Whether the names in it are types is left to the compiler.
-func IsFieldType(expr string) bool {
-	const before = clause + "type _ struct {\n_ "
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "", before+expr+"\n}", parser.SkipObjectResolution)
-	if err != nil {
-		return false
-	}
-
-	isWhole := false
-	ast.Inspect(file, func(n ast.Node) bool {
-		if field, isField := n.(*ast.Field); isField && field.Type != nil {
-			start, end := fset.Position(field.Type.Pos()).Offset, fset.Position(field.Type.End()).Offset
-			isWhole = isWhole || start == len(before) && end == len(before)+len(expr)
-		}
-		return true
-	})
-	return isWhole
 }

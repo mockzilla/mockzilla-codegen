@@ -12,7 +12,6 @@ import (
 	"embed"
 	"io/fs"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
@@ -88,22 +87,11 @@ type Scaffold struct {
 	Main       bool
 }
 
-// ExtraField is a field a plugin adds to the request options of an operation. Type is the type as
-// the package of Import writes it; Import is empty for a type that needs none.
-type ExtraField struct {
-	Name   string
-	Type   string
-	Doc    string
-	Import gomodel.Import
-}
-
-// Generator builds the template data of every server part. fields are what plugins add to the
-// request options, by operation name.
+// Generator builds the template data of every server part.
 type Generator struct {
 	opts   Options
 	ops    []*gomodel.Operation
 	routes []framework.Route
-	fields map[string][]ExtraField
 }
 
 // routeIssue is an operation the router cannot serve, and why.
@@ -145,12 +133,6 @@ func (g *Generator) Interface() string {
 // Routes lists the operations the router registers.
 func (g *Generator) Routes() []framework.Route {
 	return g.routes
-}
-
-// SetExtraFields gives the request options their extra fields, by operation name. A plugin picks
-// them once it has seen the routes, so they come after New and before the first View.
-func (g *Generator) SetExtraFields(fields map[string][]ExtraField) {
-	g.fields = fields
 }
 
 // Parts returns the server parts with the parts each refers to.
@@ -259,12 +241,6 @@ func Templates(fw framework.Framework) []render.Set {
 // Blocks lists the blocks of the server templates a config may override, whatever the framework.
 func Blocks() []string {
 	return []string{blockServiceHeader, blockRequestOptionsExtra, blockResponseDataExtra, blockScaffoldServiceFields, blockScaffoldServiceMethod, blockRouterExtra}
-}
-
-// ReservedField reports whether name is a field the request options declare themselves, so an
-// extra field cannot take it: a parameter group, a body field, RawRequest or the Validate method.
-func ReservedField(name string) bool {
-	return name == "RawRequest" || name == "Validate" || strings.HasPrefix(name, "Body") || operation.IsGroupField(name)
 }
 
 // ownsMain reports whether fw brings the template of the main scaffold.

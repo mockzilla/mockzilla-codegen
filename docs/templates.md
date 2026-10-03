@@ -247,7 +247,7 @@ type API struct {
 	Service     TypeRef        // the service interface, empty without a server block
 	Operations  []Operation    // every operation and webhook, in spec order
 	Types       []TypeRef      // every declared model type
-	UserContext map[string]any // a copy of the config's user-context
+	UserContext map[string]any // the config's user-context
 }
 
 type Operation struct {

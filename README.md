@@ -27,8 +27,7 @@ Status: early development. The config format and the generated API may still cha
 - MCP tools over the client, one per operation with an input schema built from the spec, for the
   official Go SDK, so an AI assistant calls the API ([MCP](docs/mcp.md)).
 - Blocks of the built-in templates the config replaces, and extra files written from your own
-  templates ([templates](docs/templates.md)). A plugin API for tools built on the generator
-  ([plugins](docs/plugins.md)).
+  templates ([templates](docs/templates.md)).
 
 ## Getting started
 
@@ -141,7 +140,6 @@ selectors, and the most specific selector wins. A selector can be listed only on
 | `server.<part>` | `service`, `adapter`, `router`, `errors` |
 | `client`, `client.<part>` | `core`, `options`, `operations`, `responses` |
 | `mcp`, `mcp.<part>` | `tools`, `inputs` |
-| `plugin`, `plugin.<name>`, `plugin.<name>.<part>` | parts added by plugins |
 
 The folder of `output.file` uses `package`. Other folders use `output.packages`, else their own
 name. `output.packages` wins over `package` when both name the same folder. Output in more than one

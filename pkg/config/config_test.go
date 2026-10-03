@@ -59,7 +59,6 @@ func TestValidate(t *testing.T) {
 			edit: func(c *Config) {
 				c.Output.Files = map[string][]string{
 					"a.go": {"models", "models.types", "server.router", "client", "mcp"},
-					"b.go": {"plugin", "plugin.sample", "plugin.sample.register"},
 				}
 			},
 		},
@@ -277,16 +276,15 @@ func TestValidate(t *testing.T) {
 			name: "Invalid selectors",
 			edit: func(c *Config) {
 				c.Output.Files = map[string][]string{
-					"a.go": {"", "model", "models.", "models.Types", "models.types.x", "plugin.a.b.c"},
+					"a.go": {"", "model", "models.", "models.Types", "models.types.x"},
 				}
 			},
 			issues: []Issue{
-				{Key: `output.files["a.go"]`, Message: `invalid selector "", want a form like models, models.types or plugin.<name>.<part>`},
-				{Key: `output.files["a.go"]`, Message: `invalid selector "model", want a form like models, models.types or plugin.<name>.<part>`},
-				{Key: `output.files["a.go"]`, Message: `invalid selector "models.", want a form like models, models.types or plugin.<name>.<part>`},
-				{Key: `output.files["a.go"]`, Message: `invalid selector "models.Types", want a form like models, models.types or plugin.<name>.<part>`},
-				{Key: `output.files["a.go"]`, Message: `invalid selector "models.types.x", want a form like models, models.types or plugin.<name>.<part>`},
-				{Key: `output.files["a.go"]`, Message: `invalid selector "plugin.a.b.c", want a form like models, models.types or plugin.<name>.<part>`},
+				{Key: `output.files["a.go"]`, Message: `invalid selector "", want a form like models or models.types`},
+				{Key: `output.files["a.go"]`, Message: `invalid selector "model", want a form like models or models.types`},
+				{Key: `output.files["a.go"]`, Message: `invalid selector "models.", want a form like models or models.types`},
+				{Key: `output.files["a.go"]`, Message: `invalid selector "models.Types", want a form like models or models.types`},
+				{Key: `output.files["a.go"]`, Message: `invalid selector "models.types.x", want a form like models or models.types`},
 			},
 		},
 		{
@@ -333,7 +331,7 @@ func TestValidate(t *testing.T) {
 			issues: []Issue{
 				{Key: "package", Message: `"" is not a valid Go package name`},
 				{Key: "server.framework", Message: `"express" is not one of beego, chi, echo, echo-v5, fasthttp, fiber, gin, go-zero, goframe, gorilla-mux, hertz, iris, kratos, std-http`},
-				{Key: `output.files["a.go"]`, Message: `invalid selector "nope", want a form like models, models.types or plugin.<name>.<part>`},
+				{Key: `output.files["a.go"]`, Message: `invalid selector "nope", want a form like models or models.types`},
 			},
 		},
 	}

@@ -13,8 +13,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"slices"
-	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -73,8 +71,7 @@ func (failingParse) Parse(context.Context, []byte, provider.ParseOptions) (*spec
 	return nil, nil, errParse
 }
 
-// examples returns the config files of the golden examples. Those under plugin/ need a plugin of
-// the examples module, so their own tests generate them.
+// examples returns the config files of the golden examples.
 func examples(t *testing.T) []string {
 	t.Helper()
 
@@ -83,7 +80,7 @@ func examples(t *testing.T) []string {
 	require.NoError(t, err)
 	nested, err := filepath.Glob(filepath.Join(root, "*", "*", "*", "codegen.yaml"))
 	require.NoError(t, err)
-	paths = slices.DeleteFunc(append(paths, nested...), func(p string) bool { return strings.HasPrefix(exampleName(p), "plugin/") })
+	paths = append(paths, nested...)
 	require.NotEmpty(t, paths)
 	return paths
 }
@@ -293,13 +290,13 @@ func TestGenerateErrors(t *testing.T) {
 			wantMsg: "./gen.go: render: server.service-header: a value that is not set was written as <no value>",
 		},
 		{
-			name:    "Template override that calls import, which a plugin template alone has",
+			name:    "Template override that calls import, which an extra file alone has",
 			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: '// {{import \"fmt\"}}'}\n",
 			wantErr: config.ErrInvalid,
 			wantMsg: `invalid config: templates.server.service-header: template: server.service-header:1: function "import" not defined`,
 		},
 		{
-			name:    "Template override that calls expr, which a plugin template alone has",
+			name:    "Template override that calls expr, which an extra file alone has",
 			cfg:     "server: {framework: chi}\ntemplates: {server.service-header: '// {{expr .Name}}'}\n",
 			wantErr: config.ErrInvalid,
 			wantMsg: `invalid config: templates.server.service-header: template: server.service-header:1: function "expr" not defined`,
@@ -388,7 +385,6 @@ func TestGenerateImports(t *testing.T) {
 		name    string
 		cfg     string
 		spec    string
-		plugins []Plugin
 		want    map[string][]string
 		has     string
 		unused  []Diagnostic
@@ -494,16 +490,16 @@ func TestGenerateImports(t *testing.T) {
 			}},
 		},
 		{
-			name: "Replaced scaffold names a listed package",
+			name: "Scaffold block and extra file name a listed package",
 			cfg: base + "server: {framework: chi, name: Pets, scaffold: {service: ./api/service.go}}\n" +
-				"imports: [{package: example.com/shop/tenant, alias: tn}, {package: example.com/shop/errors}]\n",
-			plugins: []Plugin{&fakePlugin{name: "sample", contribute: func(*API) (*Contribution, error) {
-				return &Contribution{Scaffolds: map[ScaffoldKind]string{ScaffoldService: "\ntype {{.Name}} struct{ Tenant tn.ID }\n"}}, nil
-			}}},
+				"imports: [{package: example.com/shop/tenant, alias: tn}, {package: example.com/shop/errors}]\n" +
+				"templates: {server.scaffold.service-fields: Tenant tn.ID}\n" +
+				"extra-files: {./tenant/tenant.go: 'var Default tn.ID'}\n",
 			want: map[string][]string{
 				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
-				"api/service.go":   {`tn "example.com/shop/tenant"`},
+				"api/service.go":   {`"context"`, `"errors"`, `tn "example.com/shop/tenant"`},
 				"models/models.go": nil,
+				"tenant/tenant.go": {`tn "example.com/shop/tenant"`},
 			},
 			unused: []Diagnostic{{
 				Severity: SeverityWarning,
@@ -527,7 +523,7 @@ func TestGenerateImports(t *testing.T) {
 			cfg, err := config.Parse([]byte(tc.cfg), workDir(t))
 			require.NoError(t, err)
 
-			res, err := Generate(context.Background(), cfg, WithSpec([]byte(cmp.Or(tc.spec, storeSpec))), WithPlugins(tc.plugins...))
+			res, err := Generate(context.Background(), cfg, WithSpec([]byte(cmp.Or(tc.spec, storeSpec))))
 
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
