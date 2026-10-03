@@ -39,6 +39,9 @@ func mismatch(v spec.Value, s *spec.Schema, at string, on map[*spec.Schema]bool)
 	on[s] = true
 	defer delete(on, s)
 
+	if s.Nullable && v.Kind == spec.KindNull {
+		return ""
+	}
 	if s.Ref != nil {
 		if why := mismatch(v, s.Ref.Target, at, on); why != "" {
 			return why
