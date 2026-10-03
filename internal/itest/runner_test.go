@@ -334,6 +334,55 @@ func TestInit(t *testing.T) {
 	}, f.calls)
 }
 
+func TestRunnerRunWritesImports(t *testing.T) {
+	t.Parallel()
+
+	sandbox := t.TempDir()
+	f := &fakeExec{respond: respond(writeGen, buildOK, checkOK)}
+	r := &Runner{Exec: f.run, Sandbox: Sandbox{Dir: sandbox}, Tool: "/bin/codegen", Timeout: time.Minute, BatchSize: 2}
+	specs := []Spec{{Name: "pets.yml", Path: "/specs/pets.yml"}}
+	jobs := Jobs(specs, []Variant{
+		{Name: "a", Init: "%s.Serve(httptest.NewRecorder(), http.MethodGet)", Imports: []string{"net/http/httptest", "net/http"}},
+		{Name: "b", Init: "%s.Get(http.MethodGet)", Imports: []string{"net/http"}},
+	})
+
+	r.Run(t.Context(), jobs)
+
+	data, err := os.ReadFile(filepath.Join(sandbox, "check", "batch0", "check_test.go"))
+	require.NoError(t, err)
+	assert.Equal(t, `package check
+
+import (
+	"testing"
+
+	"net/http"
+	"net/http/httptest"
+	p0 "sandbox/specs/a/pets"
+	p1 "sandbox/specs/b/pets"
+)
+
+func TestInit(t *testing.T) {
+	checks := []struct {
+		name string
+		fn   func()
+	}{
+		{name: "specs/a/pets", fn: func() { p0.Serve(httptest.NewRecorder(), http.MethodGet) }},
+		{name: "specs/b/pets", fn: func() { p1.Get(http.MethodGet) }},
+	}
+	for _, c := range checks {
+		t.Run(c.name, func(t *testing.T) {
+			defer func() {
+				if p := recover(); p != nil {
+					t.Fatalf("panic: %v", p)
+				}
+			}()
+			c.fn()
+		})
+	}
+}
+`, string(data))
+}
+
 func TestRunnerRunWithoutInit(t *testing.T) {
 	t.Parallel()
 

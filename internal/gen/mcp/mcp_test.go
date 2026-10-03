@@ -88,6 +88,32 @@ func TestNewReportsBadExtensions(t *testing.T) {
 	assert.Equal(t, []diag.Diagnostic{{Severity: diag.Warning, Code: diag.CodeExtensionValue, Pointer: "/x-mcp", Message: "x-mcp must be an object; it is left out"}}, diags)
 }
 
+func TestNewWarnsOnceAboutADefault(t *testing.T) {
+	t.Parallel()
+
+	limit := &spec.Schema{Types: spec.TypeInteger, Default: &spec.Value{Kind: spec.KindString, Str: "20"}, Origin: spec.Origin{Pointer: "/components/schemas/Limit", File: "api.yaml", Line: 40, Col: 5}}
+	limitBody := &spec.RequestBody{Contents: []*spec.MediaType{{Name: "application/json", Schema: &spec.Schema{Ref: &spec.Ref{Pointer: "/components/schemas/Limit", Name: "Limit", Target: limit}}}}}
+	op := func(id string) *gomodel.Operation {
+		return &gomodel.Operation{
+			Name:   id,
+			Spec:   &spec.Operation{ID: id, Method: "POST", Path: "/" + id, Body: limitBody},
+			Bodies: []gomodel.Content{{MediaType: "application/json", Type: gomodel.Builtin{Name: "int"}}},
+		}
+	}
+
+	g, diags := New(&gomodel.Model{Operations: []*gomodel.Operation{op("setA"), op("setB")}}, testOptions())
+
+	assert.Len(t, g.tools, 2)
+	assert.Equal(t, []diag.Diagnostic{{
+		Severity: diag.Warning,
+		Code:     diag.CodeDefaultIgnored,
+		Pointer:  "/components/schemas/Limit",
+		Origin:   diag.Origin{File: "api.yaml", Line: 40, Col: 5},
+		Message:  `the default "20" does not fit its schema, so the tool input leaves it out: it is a string, the schema wants integer`,
+	}}, diags)
+	assert.Contains(t, g.tools[1].schema, `"$defs":{"Limit":{"type":"integer"}}`)
+}
+
 func TestTemplates(t *testing.T) {
 	t.Parallel()
 
