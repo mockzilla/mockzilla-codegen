@@ -4,9 +4,9 @@
 // permission notice shall be included in all copies or substantial portions of the Software.
 
 // Package operation holds what the server, the client and the MCP generators share about an
-// operation: the fields its parameters and bodies go in, the Go type of a body, the response the
-// plain methods answer with, how the runtime names a parameter's style, and the parts the types
-// of an operation are declared in.
+// operation: the fields its parameters and bodies go in, the Go type of a body, the status code a
+// response key names, how the runtime names a parameter's style, and the parts the types of an
+// operation are declared in.
 package operation
 
 import (
@@ -47,30 +47,6 @@ var styleNames = map[string]string{
 
 // defaultStyles are the styles of parameters that name none, by location.
 var defaultStyles = map[string]string{spec.InPath: "simple", spec.InQuery: "form", spec.InHeader: "simple", spec.InCookie: "form"}
-
-// SuccessResponse is the first 2xx response of an operation: the status code the plain methods
-// answer with, the start of a range such as 2XX, and its body, nil without one.
-type SuccessResponse struct {
-	Status int
-	Body   *gomodel.Content
-}
-
-// Success returns the first 2xx response of op, if it has one.
-func Success(op *gomodel.Operation) (SuccessResponse, bool) {
-	for _, r := range op.Responses {
-		status := StatusOf(r.Status)
-		if status < 200 || status > 299 {
-			continue
-		}
-
-		s := SuccessResponse{Status: status}
-		if c, ok := FirstBody(r.Contents); ok {
-			s.Body = &c
-		}
-		return s, true
-	}
-	return SuccessResponse{}, false
-}
 
 // GroupField names the options field that holds the parameters of location in: PathParams,
 // Query, QueryString, Headers or Cookies.
@@ -163,16 +139,25 @@ func PartsOf(types []gomodel.Type) []layout.PartID {
 	return out
 }
 
-// StatusOf is the status code a response is answered with: its own, the start of its range, or
-// 500 for default and for a key that is no status.
-func StatusOf(status string) int {
+// StatusCode reads a status code from a response key: the key when it is a number, the first digit
+// times 100 when it has three characters and starts with a digit, as a range such as 4XX does. It
+// reads none from default or from another key.
+func StatusCode(status string) (int, bool) {
 	if code, err := strconv.Atoi(status); err == nil {
-		return code
+		return code, true
 	}
 	if len(status) == 3 {
 		if code, err := strconv.Atoi(status[:1]); err == nil {
-			return code * 100
+			return code * 100, true
 		}
+	}
+	return 0, false
+}
+
+// StatusOf is the status code a response is answered with: the one its key names, else 500.
+func StatusOf(status string) int {
+	if code, ok := StatusCode(status); ok {
+		return code
 	}
 	return 500
 }

@@ -71,11 +71,11 @@ type HeadersView struct {
 	Doc    string
 }
 
-// constructorAt is what the constructors of an operation share.
-type constructorAt struct {
-	namer     *naming.Namer
-	isSeveral bool
-	scope     *gocode.Scope
+// Constructor names the function that makes the response data of r, a response of op, and says
+// whether it takes the status first: the key of r is no number, such as a range or default.
+func Constructor(n *naming.Namer, op *gomodel.Operation, r gomodel.Response) (name string, hasStatusArg bool) {
+	_, err := strconv.Atoi(r.Status)
+	return n.ResponseConstructor(op.Name, r.Status, len(op.Responses) > 1), err != nil
 }
 
 func serviceView(g *Generator, s *gocode.Scope) *ServiceView {
@@ -122,9 +122,8 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Operati
 		v.Fields = append(v.Fields, FieldView{Name: f.Name, Type: s.Qualified(f.Type, f.Import), Doc: f.Doc})
 	}
 
-	isSeveral := len(op.Responses) > 1
 	for _, r := range op.Responses {
-		v.Constructors = append(v.Constructors, constructorView(op, r, constructorAt{namer: n, isSeveral: isSeveral, scope: s}))
+		v.Constructors = append(v.Constructors, constructorView(n, op, r, s))
 		if r.Headers != nil {
 			v.Headers = append(v.Headers, HeadersView{
 				Method: "WithTypedHeaders" + headerSuffix(n, r.Status, op),
@@ -137,16 +136,17 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Operati
 }
 
 // constructorView makes the response data for the first body of r, a JSON one when there is one.
-func constructorView(op *gomodel.Operation, r gomodel.Response, at constructorAt) ConstructorView {
-	v := ConstructorView{Name: at.namer.ResponseConstructor(op.Name, r.Status, at.isSeveral), Status: r.Status, ContentType: gocode.Quote("")}
-	if _, err := strconv.Atoi(r.Status); err != nil {
-		v.Status, v.HasStatusArg = "status", true
+func constructorView(n *naming.Namer, op *gomodel.Operation, r gomodel.Response, s *gocode.Scope) ConstructorView {
+	name, hasStatusArg := Constructor(n, op, r)
+	v := ConstructorView{Name: name, Status: r.Status, HasStatusArg: hasStatusArg, ContentType: gocode.Quote("")}
+	if hasStatusArg {
+		v.Status = "status"
 	}
 
 	doc := "returns the response data of status " + r.Status
 	if c, ok := operation.FirstBody(r.Contents); ok {
 		v.ContentType = gocode.Quote(c.MediaType)
-		v.Body = at.scope.Expr(operation.BodyType(c))
+		v.Body = s.Expr(operation.BodyType(c))
 		doc += " with body as " + c.MediaType
 	}
 	v.Doc = doc + "."

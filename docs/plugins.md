@@ -235,8 +235,9 @@ sets it in a part: a service that wraps the user's one, sets the field and passe
 `API.Service` is the interface both implement.
 
 This part runs on the `API`. It sets the `GenerateResponse` field that
-[Contribute](#contribute) adds to every operation. `status` is a func of the plugin, given in
-`Funcs`: it returns the status of the success response of an operation.
+[Contribute](#contribute) adds to every operation, to a response without a body. `status` is a
+func this plugin gives in `Funcs`: it returns the `Code` of the success response of an operation,
+or 200 for an operation without one.
 
 ```
 {{- $context := import "context"}}
@@ -268,7 +269,9 @@ service:
 router := NewRouter(WithResponses(NewPets()))
 ```
 
-`examples/plugin/basic/wrapper.go` is such a wrapper, as the sample plugin generates it.
+`examples/plugin/basic/wrapper.go` is a fuller wrapper, as the sample plugin generates it. It
+answers with the [constructor](#the-api) of the success response and an empty body, so the body
+gets the content type of the spec.
 
 ## The API
 
@@ -292,29 +295,57 @@ type Operation struct {
 	Tags           []string
 	HasOptions     bool     // takes parameters or a body
 	IsRouted       bool     // the router registers it: not a webhook, not dropped
-	RequestOptions       TypeRef  // <Op>ServiceRequestOptions, empty without a server block
-	ResponseData         TypeRef  // <Op>ResponseData, empty without a server block
-	ClientRequestOptions TypeRef  // <Op>RequestOptions, empty without a client block or for a webhook
-	ClientResponse       TypeRef  // <Op>Response, empty unless client.with-response is set
-	Success              *Success // the first 2xx response, nil without one
+	RequestOptions       TypeRef    // <Op>ServiceRequestOptions, empty without a server block
+	ResponseData         TypeRef    // <Op>ResponseData, empty without a server block
+	ClientRequestOptions TypeRef    // <Op>RequestOptions, empty without a client block or for a webhook
+	ClientResponse       TypeRef    // <Op>Response, empty unless client.with-response is set
+	Responses            []Response // every response, in the order of the generated code
+	Success              *Response  // the first of them with a Code from 200 to 299, or nil
 }
 
-type Success struct {
-	Status      int     // the code, or the start of a range such as 2XX
-	ContentType string  // of the JSON body, else the first one; empty without a body
-	Body        TypeRef // the type the response constructor takes; empty without a body
-	IsRaw       bool    // the body has no schema: any, string or []byte
+type Response struct {
+	Status       string  // the key as the spec writes it: 200, 2XX, default
+	Code         int     // the code read from the key: 200 for 2XX, 0 for default
+	ContentType  string  // of the JSON body, else the first one; empty without a body
+	Body         TypeRef // the type the constructor takes; empty without a body
+	IsRaw        bool    // the body has no schema: any, string or []byte
+	Constructor  TypeRef // makes the response data of this status; empty without a server block
+	HasStatusArg bool    // the constructor takes the status first
 }
 ```
 
-`TypeRef` is a Go type: `Name` as the package that declares it writes it, and `Package` and
-`ImportPath` of the identifier in it. With an import path, `Name` is an identifier, or a pointer,
-slice, array, map or channel around one (`Pet`, `[]Pet`, `*Pet`, `map[string]Pet`): the package
-goes before that identifier, and a map key or an array length is written as it is. A generic type,
-a func type or a name that is qualified already cannot carry an import path. `Package`, when set,
-is the name of the package: an identifier other than `_`. Without an import path, the type needs
-no import and `Name` is written as it is (`string`, `func() any`). A type the generator declares
-has no import path when the output is one package outside a module.
+`Responses` come in the order of the generated code: codes, ranges, other keys, then `default`,
+whatever the order in the spec. `Code` is what the generated client and error mapping read from
+the key: the key when it is a number, the first digit times 100 when the key has three characters
+and starts with a digit (`2XX`, and also `20X`), else 0 (`default`, `ok`). The parser warns about
+every key that is no code from 100 to 599, no range and not `default`, and the key is still listed.
+`Success` is the first response with a `Code` from 200 to 299, and points into `Responses`.
+
+`Constructor` is the function a hand-written service calls to answer with one status, such as
+`NewGetPetResponseData404`. It takes the status first when `HasStatusArg` is set, which is when
+the key is no number, such as a range or `default`. Then it takes the body, when the response has
+one. It also sets the content type the spec gives. That field is unexported, so a literal of
+`ResponseData` in another package cannot set it. Write the constructor with `expr`, like a type.
+For a success response with a body, and `body` of the type it takes:
+
+```
+{{- with .Success}}
+	return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}, {{end}}body), nil
+{{- end}}
+```
+
+`examples/plugin/sample/wrapper.tmpl` calls it for every operation: with a body and without one,
+and with a literal for an operation that has no success response.
+
+`TypeRef` is a Go type, or a function such as `Constructor`: `Name` as the package that declares
+it writes it, and `Package` and `ImportPath` of the identifier in it. With an import path, `Name`
+is an identifier, or a pointer, slice, array, map or channel around one (`Pet`, `[]Pet`, `*Pet`,
+`map[string]Pet`): the package goes before that identifier, and a map key or an array length is
+written as it is. A generic type, a func type or a name that is qualified already cannot carry an
+import path. `Package`, when set, is the name of the package: an identifier other than `_`.
+Without an import path, the type needs no import and `Name` is written as it is (`string`,
+`func() any`). A type the generator declares has no import path when the output is one package
+outside a module.
 
 `Expr(from)` writes a type as the package with import path `from` spells it; in a template, `expr`
 does the same for the file being written and adds the import. `expr` fails on a type whose `Name`

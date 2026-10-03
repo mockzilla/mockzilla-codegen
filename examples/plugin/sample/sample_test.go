@@ -77,3 +77,42 @@ func TestGenerateWithoutServer(t *testing.T) {
 		"client.core", "client.options", "client.operations", "plugin.sample.register",
 	}, res.Files[0].Parts, "no service to wrap")
 }
+
+func TestGenerateWrapperForRangesAndDefault(t *testing.T) {
+	t.Parallel()
+
+	doc := `openapi: 3.1.0
+info: {title: wrapper, version: "1"}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      responses:
+        "2XX": {description: ok, content: {application/json: {schema: {$ref: '#/components/schemas/Pet'}}}}
+        "404": {description: missing}
+  /health:
+    get:
+      operationId: health
+      responses:
+        "2XX": {description: ok}
+  /version:
+    get:
+      operationId: version
+      responses:
+        default: {description: any, content: {text/plain: {schema: {type: string}}}}
+components:
+  schemas:
+    Pet: {type: object, properties: {name: {type: string}}}
+`
+	cfg, err := config.Parse([]byte("package: api\noutput: {file: ./gen.go}\nserver: {framework: chi}\n"), t.TempDir())
+	require.NoError(t, err)
+
+	res, err := codegen.Generate(context.Background(), cfg, codegen.WithSpec([]byte(doc)), codegen.WithPlugins(sample.Plugin{}))
+
+	require.NoError(t, err)
+	require.Len(t, res.Files, 1)
+	gen := string(res.Files[0].Content)
+	assert.Contains(t, gen, "\t\treturn NewListPetsResponseData2XX(200, new(Pet)), nil\n", "a range takes its code first")
+	assert.Contains(t, gen, "\t\treturn NewHealthResponseData(200), nil\n", "and no body")
+	assert.Contains(t, gen, "\t\treturn &VersionResponseData{Status: 200}, nil\n", "no success response")
+}

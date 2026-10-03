@@ -116,8 +116,9 @@ type API struct {
 // as the operation ID; HasOptions says whether it takes parameters or a body, IsRouted whether the
 // router registers it. RequestOptions and ResponseData are the types of the service contract,
 // empty without a server; ClientRequestOptions is what the client method takes and ClientResponse
-// the envelope its WithResponse method returns, empty without a client or without envelopes;
-// Success is the first 2xx response, nil without one.
+// the envelope its WithResponse method returns, empty without a client or without envelopes.
+// Responses come in the order of the generated code: codes, ranges, other keys, then default.
+// Success points to the first of them with a Code from 200 to 299, nil without one.
 type Operation struct {
 	ID                   string
 	Method               string
@@ -130,24 +131,33 @@ type Operation struct {
 	ResponseData         TypeRef
 	ClientRequestOptions TypeRef
 	ClientResponse       TypeRef
-	Success              *Success
+	Responses            []Response
+	Success              *Response
 }
 
-// Success is a 2xx response. Status is its code, or the start of a range such as 2XX. ContentType
-// and Body are those of its JSON body, else of its first one; Body is empty without one. IsRaw is
-// set when the body has no schema: any, a string or bytes.
-type Success struct {
-	Status      int
-	ContentType string
-	Body        TypeRef
-	IsRaw       bool
+// Response is one response of an operation. Status is its key as the spec writes it, such as 200,
+// 2XX or default. Code is the status code the generated code reads from that key: the key when it
+// is a number, the first digit times 100 when it has three characters and starts with a digit,
+// else 0. ContentType and Body are those of its JSON body, else of its first one; Body is empty
+// without one. IsRaw is set when the body has no schema: any, a string or bytes. Constructor is the
+// function that makes the response data of this status, empty without a server: it takes the
+// status first when HasStatusArg is set, which is when the key is no number, then the body when
+// there is one.
+type Response struct {
+	Status       string
+	Code         int
+	ContentType  string
+	Body         TypeRef
+	IsRaw        bool
+	Constructor  TypeRef
+	HasStatusArg bool
 }
 
-// TypeRef is a Go type. Name is the type as the package that declares it writes it, Package and
-// ImportPath are those of the identifier in it. With an ImportPath, Name is an identifier, or a
-// pointer, slice, array, map or channel around one, such as []Pet, and Package, when set, is the
-// package's name; without one the type needs no import and Name is written as it is, such as
-// func() any.
+// TypeRef is a Go type, or a function such as a response constructor. Name is the type as the
+// package that declares it writes it, Package and ImportPath are those of the identifier in it.
+// With an ImportPath, Name is an identifier, or a pointer, slice, array, map or channel around
+// one, such as []Pet, and Package, when set, is the package's name; without one the type needs no
+// import and Name is written as it is, such as func() any.
 type TypeRef struct {
 	Name       string
 	Package    string

@@ -19,7 +19,7 @@ import (
 
 var errGenerate = errors.New("nothing to generate")
 
-func TestRoutesAndBodies(t *testing.T) {
+func TestRoutes(t *testing.T) {
 	t.Parallel()
 
 	assert.Equal(t, []Route{
@@ -28,11 +28,6 @@ func TestRoutesAndBodies(t *testing.T) {
 		{ID: "DeletePet", Method: "DELETE", Path: "/pets/{id}", Status: 204},
 		{ID: "Ping", Method: "GET", Path: "/ping", Status: 200},
 	}, Routes)
-
-	assert.IsType(t, (*ListPetsResponse200)(nil), Bodies["ListPets"]())
-	assert.IsType(t, (**Pet)(nil), Bodies["CreatePet"]())
-	assert.IsType(t, (**PingResponse200)(nil), Bodies["Ping"]())
-	assert.NotContains(t, Bodies, "DeletePet")
 }
 
 func TestRegister(t *testing.T) {
@@ -91,16 +86,21 @@ func TestWithBodies(t *testing.T) {
 
 	router := NewRouter(WithBodies(NewPets()))
 	tests := []struct {
-		name   string
-		method string
-		path   string
-		body   string
-		want   int
+		name     string
+		method   string
+		path     string
+		body     string
+		want     int
+		wantType string
+		wantBody string
 	}{
-		{name: "Operation with a JSON body", method: "GET", path: "/pets", want: 200},
-		{name: "Operation that takes a body", method: "POST", path: "/pets", body: `{"id": 1, "name": "Rex"}`, want: 201},
+		{name: "Operation with a JSON list", method: "GET", path: "/pets", want: 200, wantType: "application/json", wantBody: "null"},
+		{
+			name: "Operation with a JSON object", method: "POST", path: "/pets", body: `{"id": 1, "name": "Rex"}`,
+			want: 201, wantType: "application/json", wantBody: `{"id":0,"name":""}`,
+		},
 		{name: "Operation without a body", method: "DELETE", path: "/pets/1", want: 204},
-		{name: "Operation with a text body", method: "GET", path: "/ping", want: 200},
+		{name: "Operation with a text body", method: "GET", path: "/ping", want: 200, wantType: "text/plain"},
 	}
 
 	for _, tc := range tests {
@@ -114,6 +114,8 @@ func TestWithBodies(t *testing.T) {
 			router.ServeHTTP(rec, req)
 
 			assert.Equal(t, tc.want, rec.Code, rec.Body.String())
+			assert.Equal(t, tc.wantType, rec.Header().Get("Content-Type"))
+			assert.Equal(t, tc.wantBody, strings.TrimSpace(rec.Body.String()))
 		})
 	}
 }
@@ -125,9 +127,17 @@ func TestWithBodiesMakesTheResponseOfEachOperation(t *testing.T) {
 
 	listed, err := svc.ListPets(context.Background(), &ListPetsServiceRequestOptions{})
 	require.NoError(t, err)
-	assert.Equal(t, &ListPetsResponseData{Status: 200, Body: new(ListPetsResponse200)}, listed)
+	assert.Equal(t, NewListPetsResponseData(nil), listed)
+
+	made, err := svc.CreatePet(context.Background(), &CreatePetServiceRequestOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, NewCreatePetResponseData(&Pet{}), made)
 
 	gone, err := svc.DeletePet(context.Background(), &DeletePetServiceRequestOptions{})
 	require.NoError(t, err)
-	assert.Equal(t, &DeletePetResponseData{Status: 204}, gone)
+	assert.Equal(t, NewDeletePetResponseData(), gone)
+
+	pong, err := svc.Ping(context.Background(), &PingServiceRequestOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, NewPingResponseData(new(PingResponse200)), pong)
 }

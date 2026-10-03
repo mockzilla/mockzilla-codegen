@@ -16,15 +16,6 @@ var Routes = []Route{
 {{- end}}
 }
 
-// Bodies makes an empty success body per operation, by ID. An operation without a body has none.
-var Bodies = map[string]func() any{
-{{- range .}}
-{{- if .HasBody}}
-	{{quote .ID}}: func() any { return new({{expr .Body}}) },
-{{- end}}
-{{- end}}
-}
-
 // Register serves the list of routes at path on r.
 func Register(r {{$chi}}.Router, path string) {
 	r.Get(path, func(w {{$http}}.ResponseWriter, _ *{{$http}}.Request) {
