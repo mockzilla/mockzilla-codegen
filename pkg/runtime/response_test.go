@@ -188,6 +188,38 @@ func TestDecodeSuccess(t *testing.T) {
 	}
 }
 
+func TestDecodeUnderWildcard(t *testing.T) {
+	t.Parallel()
+
+	res := response(200, "application/json", nil)
+	tests := []struct {
+		name      string
+		mediaType string
+		body      string
+		dst       any
+		want      any
+	}{
+		{name: "Text as it came", mediaType: "*/*", body: `"A+"`, dst: new(string), want: new(`"A+"`)},
+		{name: "Text that is no JSON string", mediaType: "*/*", body: `{"type":"A+"}`, dst: new(*string), want: new(new(`{"type":"A+"}`))},
+		{name: "Bytes under a range", mediaType: "application/*", body: `{"a":1}`, dst: new([]byte), want: new([]byte(`{"a":1}`))},
+		{name: "A file", mediaType: "*/*", body: `{"a":1}`, dst: new(*File), want: new(new(NewFile([]byte(`{"a":1}`), "", "application/json")))},
+		{name: "A struct as JSON", mediaType: "*/*", body: `{"R":1}`, dst: new(rgb), want: &rgb{R: 1}},
+		{name: "Text under JSON is a JSON string", mediaType: "application/json", body: `"A+"`, dst: new(string), want: new("A+")},
+		{name: "Bytes under JSON are base64", mediaType: "application/json", body: `"aGk="`, dst: new([]byte), want: new([]byte("hi"))},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := DecodeSuccess(res, []byte(tc.body), []Target{{Status: "200", MediaType: tc.mediaType, Dst: tc.dst}})
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, tc.dst)
+		})
+	}
+}
+
 func TestDecodeEdges(t *testing.T) {
 	t.Parallel()
 

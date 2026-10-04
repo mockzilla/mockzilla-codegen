@@ -65,7 +65,7 @@ func (e *APIError) Unwrap() error {
 func Decode(res *http.Response, body []byte, targets []Target) error {
 	m := match(res, targets)
 	if m.body != nil && len(body) > 0 {
-		if err := decodeBody(body, m.mediaType, m.body.Dst); err != nil {
+		if err := decodeBody(body, m.mediaType, m.body); err != nil {
 			return err
 		}
 	}
@@ -83,7 +83,7 @@ func DecodeSuccess(res *http.Response, body []byte, targets []Target) error {
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		apiErr := &APIError{Status: res.StatusCode, Header: res.Header, Body: body}
 		if m.body != nil && len(body) > 0 {
-			if typed, ok := m.body.Dst.(error); ok && decodeBody(body, m.mediaType, m.body.Dst) == nil {
+			if typed, ok := m.body.Dst.(error); ok && decodeBody(body, m.mediaType, m.body) == nil {
 				apiErr.Err = typed
 			}
 		}
@@ -94,7 +94,7 @@ func DecodeSuccess(res *http.Response, body []byte, targets []Target) error {
 	case len(body) == 0:
 		return nil
 	case m.body != nil:
-		return decodeBody(body, m.mediaType, m.body.Dst)
+		return decodeBody(body, m.mediaType, m.body)
 	case m.isUntaken:
 		return ContentTypeError(m.mediaType)
 	}
@@ -194,11 +194,12 @@ func mediaRank(documented, actual string) int {
 	return 0
 }
 
-// decodeBody reads body into dst, a pointer: as text into a string, as it is into bytes and into a
-// File, and as JSON into anything else or under a JSON media type. Text, bytes and files allocate
-// the pointers on the way; JSON leaves a pointer nil for null.
-func decodeBody(body []byte, mediaType string, dst any) error {
-	target, err := pointer(dst)
+// decodeBody reads body into the Dst of t, a pointer: as text into a string, as it is into bytes
+// and into a File, and as JSON into anything else or under a JSON media type that t does not
+// document as a wildcard. Text, bytes and files allocate the pointers on the way; JSON leaves a
+// pointer nil for null.
+func decodeBody(body []byte, mediaType string, t *Target) error {
+	target, err := pointer(t.Dst)
 	if err != nil {
 		return err
 	}
@@ -208,7 +209,7 @@ func decodeBody(body []byte, mediaType string, dst any) error {
 		leaf = leaf.Elem()
 	}
 	switch {
-	case IsJSON(mediaType):
+	case IsJSON(mediaType) && !strings.Contains(t.MediaType, "*"):
 	case leaf == fileType:
 		allocate(target).Set(reflect.ValueOf(NewFile(body, "", mediaType)))
 		return nil
@@ -219,7 +220,7 @@ func decodeBody(body []byte, mediaType string, dst any) error {
 		allocate(target).SetBytes(body)
 		return nil
 	}
-	return json.Unmarshal(body, dst)
+	return json.Unmarshal(body, t.Dst)
 }
 
 // allocate follows v through pointers, making each nil one point at a new value, and returns what

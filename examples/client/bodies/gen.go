@@ -45,6 +45,8 @@ type PutFileResponse200 = runtime.File
 
 type PostAnyResponse200 = string
 
+type GetAnyTextResponse200 = string
+
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	PostJSON(ctx context.Context, opts *PostJSONServiceRequestOptions) (*PostJSONResponseData, error)
@@ -54,6 +56,8 @@ type ServiceInterface interface {
 	PutFile(ctx context.Context, opts *PutFileServiceRequestOptions) (*PutFileResponseData, error)
 	PutXML(ctx context.Context, opts *PutXMLServiceRequestOptions) (*PutXMLResponseData, error)
 	PostAny(ctx context.Context, opts *PostAnyServiceRequestOptions) (*PostAnyResponseData, error)
+	GetAnyText(ctx context.Context, opts *GetAnyTextServiceRequestOptions) (*GetAnyTextResponseData, error)
+	GetAnyBytes(ctx context.Context, opts *GetAnyBytesServiceRequestOptions) (*GetAnyBytesResponseData, error)
 }
 
 // PostJSONServiceRequestOptions is what PostJSON receives. RawRequest is the request as it came in.
@@ -468,6 +472,118 @@ func (r *PostAnyResponseData) ContentType() string {
 	return r.contentType
 }
 
+// GetAnyTextServiceRequestOptions is what GetAnyText receives. RawRequest is the request as it came in.
+type GetAnyTextServiceRequestOptions struct {
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *GetAnyTextServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// GetAnyTextResponseData is what GetAnyText returns: the status, the headers and the body of the response.
+type GetAnyTextResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewGetAnyTextResponseData returns the response data of status 200 with body as */*.
+func NewGetAnyTextResponseData(body *GetAnyTextResponse200) *GetAnyTextResponseData {
+	return &GetAnyTextResponseData{Status: 200, Body: body, contentType: "*/*"}
+}
+
+// WithStatus sets the status code.
+func (r *GetAnyTextResponseData) WithStatus(code int) *GetAnyTextResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *GetAnyTextResponseData) WithHeaders(h http.Header) *GetAnyTextResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *GetAnyTextResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *GetAnyTextResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *GetAnyTextResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *GetAnyTextResponseData) ContentType() string {
+	return r.contentType
+}
+
+// GetAnyBytesServiceRequestOptions is what GetAnyBytes receives. RawRequest is the request as it came in.
+type GetAnyBytesServiceRequestOptions struct {
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *GetAnyBytesServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// GetAnyBytesResponseData is what GetAnyBytes returns: the status, the headers and the body of the response.
+type GetAnyBytesResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewGetAnyBytesResponseData returns the response data of status 200 with body as */*.
+func NewGetAnyBytesResponseData(body []byte) *GetAnyBytesResponseData {
+	return &GetAnyBytesResponseData{Status: 200, Body: body, contentType: "*/*"}
+}
+
+// WithStatus sets the status code.
+func (r *GetAnyBytesResponseData) WithStatus(code int) *GetAnyBytesResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *GetAnyBytesResponseData) WithHeaders(h http.Header) *GetAnyBytesResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *GetAnyBytesResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *GetAnyBytesResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *GetAnyBytesResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *GetAnyBytesResponseData) ContentType() string {
+	return r.contentType
+}
+
 // The error types the handlers use, as the runtime declares them.
 type (
 	ErrorKind           = runtime.ErrorKind
@@ -779,6 +895,38 @@ func (a *HTTPAdapter) PostAny(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "PostAny", res)
 }
 
+// GetAnyText handles GET /any/text.
+func (a *HTTPAdapter) GetAnyText(w http.ResponseWriter, r *http.Request) {
+	opts := &GetAnyTextServiceRequestOptions{RawRequest: r}
+
+	res, err := a.svc.GetAnyText(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetAnyText", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetAnyText", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "GetAnyText", res)
+}
+
+// GetAnyBytes handles GET /any/bytes.
+func (a *HTTPAdapter) GetAnyBytes(w http.ResponseWriter, r *http.Request) {
+	opts := &GetAnyBytesServiceRequestOptions{RawRequest: r}
+
+	res, err := a.svc.GetAnyBytes(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetAnyBytes", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetAnyBytes", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "GetAnyBytes", res)
+}
+
 // fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
@@ -820,6 +968,8 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 		r.Put("/file", adapter.PutFile)
 		r.Put("/xml", adapter.PutXML)
 		r.Post("/any", adapter.PostAny)
+		r.Get("/any/text", adapter.GetAnyText)
+		r.Get("/any/bytes", adapter.GetAnyBytes)
 	}
 
 	router, _ := o.Router.(chi.Router)
@@ -987,6 +1137,24 @@ func (o *PostAnyRequestOptions) Validate() error {
 	return nil
 }
 
+// GetAnyTextRequestOptions is what GetAnyText sends: its parameters by location, and its body.
+type GetAnyTextRequestOptions struct {
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *GetAnyTextRequestOptions) Validate() error {
+	return nil
+}
+
+// GetAnyBytesRequestOptions is what GetAnyBytes sends: its parameters by location, and its body.
+type GetAnyBytesRequestOptions struct {
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *GetAnyBytesRequestOptions) Validate() error {
+	return nil
+}
+
 // ClientInterface is what Client implements: one method per operation, so a test double can
 // stand in for the client.
 type ClientInterface interface {
@@ -997,6 +1165,8 @@ type ClientInterface interface {
 	PutFile(ctx context.Context, opts *PutFileRequestOptions) (*PutFileResponse200, error)
 	PutXML(ctx context.Context, opts *PutXMLRequestOptions) error
 	PostAny(ctx context.Context, opts *PostAnyRequestOptions) (*PostAnyResponse200, error)
+	GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions) (*GetAnyTextResponse200, error)
+	GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOptions) ([]byte, error)
 }
 
 var _ ClientInterface = (*Client)(nil)
@@ -1238,6 +1408,66 @@ func (c *Client) PostAny(ctx context.Context, opts *PostAnyRequestOptions) (*Pos
 	var out *PostAnyResponse200
 	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GetAnyTextRequest builds the request of GetAnyText, with the editors of the client applied.
+func (c *Client) GetAnyTextRequest(ctx context.Context, opts *GetAnyTextRequestOptions) (*http.Request, error) {
+	if opts == nil {
+		opts = &GetAnyTextRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/any/text")
+	return c.newRequest(ctx, b)
+}
+
+// GetAnyText returns the body of a 200 response. A response outside 2xx comes
+// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+func (c *Client) GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions) (*GetAnyTextResponse200, error) {
+	req, err := c.GetAnyTextRequest(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out *GetAnyTextResponse200
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "200", MediaType: "*/*", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GetAnyBytesRequest builds the request of GetAnyBytes, with the editors of the client applied.
+func (c *Client) GetAnyBytesRequest(ctx context.Context, opts *GetAnyBytesRequestOptions) (*http.Request, error) {
+	if opts == nil {
+		opts = &GetAnyBytesRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/any/bytes")
+	return c.newRequest(ctx, b)
+}
+
+// GetAnyBytes returns the body of a 200 response. A response outside 2xx comes
+// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+func (c *Client) GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOptions) ([]byte, error) {
+	req, err := c.GetAnyBytesRequest(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out []byte
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "200", MediaType: "*/*", Dst: &out},
 	}); err != nil {
 		return nil, err
 	}
