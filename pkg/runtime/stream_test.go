@@ -580,6 +580,87 @@ func TestOpenStream(t *testing.T) {
 	}
 }
 
+func TestDecodeStream(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		contentType string
+		header      http.Header
+		body        string
+		wantFrames  []chunk
+		wantJSON    *chunk
+		wantHeaders *pageHeaders
+		wantErr     string
+	}{
+		{
+			name:        "A stream fills the typed headers of its status",
+			contentType: "application/ndjson",
+			header:      http.Header{"X-Total": {"5"}},
+			body:        "{\"text\":\"a\"}\n",
+			wantFrames:  []chunk{{Text: "a"}},
+			wantHeaders: &pageHeaders{Total: Ptr(5)},
+		},
+		{
+			name:        "A stream whose header does not decode is closed",
+			contentType: "application/ndjson",
+			header:      http.Header{"X-Total": {"x"}},
+			body:        "{\"text\":\"a\"}\n",
+			wantErr:     `invalid parameter value: "x" is no int`,
+		},
+		{
+			name:        "Any other response is decoded whole",
+			contentType: "application/json",
+			header:      http.Header{"X-Total": {"5"}},
+			body:        `{"text":"b"}`,
+			wantJSON:    &chunk{Text: "b"},
+			wantHeaders: &pageHeaders{Total: Ptr(5)},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			body := &closingBody{Reader: strings.NewReader(tc.body)}
+			sent := response(http.StatusOK, tc.contentType, tc.header)
+			sent.Body = body
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://api.test/events", nil)
+			require.NoError(t, err)
+			d := doerFunc(func(*http.Request) (*http.Response, error) { return sent, nil })
+			res, data, err := SendStream(d, req, "application/ndjson", 0)
+			require.NoError(t, err)
+
+			var json200 *chunk
+			var headers *pageHeaders
+			s, err := DecodeStream[chunk](res, data, []Target{
+				{Status: "200", MediaType: "application/json", Dst: &json200},
+				{Status: "200", IsHeaders: true, Dst: &headers},
+			})
+
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+				assert.Nil(t, s)
+				assert.True(t, body.isClosed)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantJSON, json200)
+			assert.Equal(t, tc.wantHeaders, headers)
+			if tc.wantFrames == nil {
+				assert.Nil(t, s)
+				return
+			}
+			assert.False(t, body.isClosed, "the stream holds the body")
+			frames, _, err := collect(t, s)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantFrames, frames)
+			require.NoError(t, s.Close())
+			assert.True(t, body.isClosed)
+		})
+	}
+}
+
 func TestParseRetry(t *testing.T) {
 	t.Parallel()
 

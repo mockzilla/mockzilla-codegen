@@ -313,6 +313,21 @@ func OpenStream[T any](res *http.Response, body []byte, targets []Target) (*Stre
 	return nil, DecodeSuccess(res, body, targets)
 }
 
+// DecodeStream is Decode for a response SendStream returned with its body. A streamed response
+// fills the typed headers of its status and comes back as a stream, closed when a header does not
+// decode. Any other response is decoded whole and gives no stream.
+func DecodeStream[T any](res *http.Response, body []byte, targets []Target) (*Stream[T], error) {
+	err := Decode(res, body, targets)
+	switch {
+	case !IsStreaming(res):
+		return nil, err
+	case err != nil:
+		_ = res.Body.Close()
+		return nil, err
+	}
+	return NewStream[T](res), nil
+}
+
 // bodyOf is the body of res, or an empty one when res has none.
 func bodyOf(res *http.Response) io.ReadCloser {
 	if res.Body == nil {

@@ -447,15 +447,12 @@ func (c *PetClient) ChatStreamWithResponse(ctx context.Context, opts *types.Chat
 	}
 
 	out := &types.ChatResponse{HTTPResponse: res, Body: body}
-	if runtime.IsStreaming(res) {
-		out.Stream200 = runtime.NewStream[types.ChatResponseItem](res)
-		return out, nil
-	}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	out.Stream200, err = runtime.DecodeStream[types.ChatResponseItem](res, body, []runtime.Target{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -544,13 +541,10 @@ func (c *PetClient) TailStreamWithResponse(ctx context.Context, opts *types.Tail
 	}
 
 	out := &types.TailResponse{HTTPResponse: res, Body: body}
-	if runtime.IsStreaming(res) {
-		out.Stream200 = runtime.NewStream[[]byte](res)
-		return out, nil
-	}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	out.Stream200, err = runtime.DecodeStream[[]byte](res, body, []runtime.Target{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 	return out, nil

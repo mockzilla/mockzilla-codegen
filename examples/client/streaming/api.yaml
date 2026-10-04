@@ -13,6 +13,8 @@ paths:
       responses:
         "200":
           description: the reply
+          headers:
+            X-Model: {schema: {type: string}}
           content:
             application/json: {schema: {$ref: '#/components/schemas/Reply'}}
             text/event-stream: {itemSchema: {$ref: '#/components/schemas/Chunk'}}
