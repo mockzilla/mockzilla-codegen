@@ -126,7 +126,7 @@ func TestEncodeMultipart(t *testing.T) {
 		Title:    "Cat",
 		File:     NewFile([]byte("meow"), "cat.txt", "text/plain"),
 		Optional: nil,
-		Files:    []File{NewFile([]byte("a"), "a.bin", ""), NewFile([]byte("b"), "b.bin", "")},
+		Files:    []File{NewFile([]byte("a"), "a.bin", ""), NewFile([]byte("b"), "", "")},
 		Tags:     []string{"x", "y"},
 		Address:  &address{City: "Berlin"},
 		Point:    address{City: "Rome"},
@@ -145,8 +145,9 @@ func TestEncodeMultipart(t *testing.T) {
 	assert.Equal(t, "meow", string(content))
 	assert.Equal(t, "cat.txt", out.File.Name())
 	assert.Equal(t, "text/plain", out.File.ContentType())
-	assert.Len(t, out.Files, 2)
+	require.Len(t, out.Files, 2)
 	assert.Equal(t, "application/octet-stream", out.Files[0].ContentType())
+	assert.Equal(t, "blob", out.Files[1].Name())
 	assert.Nil(t, out.Optional)
 	assert.Equal(t, in.Tags, out.Tags)
 	assert.Equal(t, in.Address, out.Address)

@@ -184,10 +184,11 @@ func writePart(mw *multipart.Writer, name string, v reflect.Value) error {
 	return err
 }
 
-// writeFile writes f as a file part, with its name and its content type when it has one.
+// writeFile writes f as a file part, with its name and its content type when it has one. A file
+// without a name goes as blob, as browsers send a Blob: most servers read an empty filename as text.
 func writeFile(mw *multipart.Writer, name string, f File) error {
 	h := textproto.MIMEHeader{}
-	h.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(name)+`"; filename="`+quoteEscaper.Replace(f.Name())+`"`)
+	h.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(name)+`"; filename="`+quoteEscaper.Replace(cmp.Or(f.Name(), "blob"))+`"`)
 	h.Set("Content-Type", cmp.Or(f.ContentType(), "application/octet-stream"))
 	w, err := mw.CreatePart(h)
 	if err != nil {

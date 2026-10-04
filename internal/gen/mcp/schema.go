@@ -23,7 +23,10 @@ import (
 // inputLocations are the parameter locations the client sends, so the input holds them.
 var inputLocations = []string{spec.InPath, spec.InQuery, spec.InHeader, spec.InCookie}
 
-var fileType = gomodel.Qualified{Import: gomodel.Import{Path: gomodel.RuntimePath}, Name: "File"}
+var (
+	fileType  = gomodel.Qualified{Import: gomodel.Import{Path: gomodel.RuntimePath}, Name: "File"}
+	bytesType = gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}
+)
 
 // inputSchema is the JSON schema of the input of t: an object with one property per parameter,
 // named as the spec names it, and one for the body. No other property is allowed, so a misspelled
@@ -67,11 +70,10 @@ func inputSchema(t *tool) (string, []diag.Diagnostic) {
 	return string(b.Document(root)), b.Diagnostics()
 }
 
-// inputBody is the body the tool sends, with its options field: the JSON one, else the first,
-// unless that is a file, which JSON input cannot carry.
+// inputBody is the body the tool sends, with its options field: the JSON one, else the first.
 func inputBody(op *gomodel.Operation, n *naming.Namer) (gomodel.Content, string, bool) {
 	c, ok := operation.FirstBody(op.Bodies)
-	if !ok || gomodel.Held(fileType) == operation.BodyType(c) {
+	if !ok {
 		return gomodel.Content{}, "", false
 	}
 	i := slices.IndexFunc(op.Bodies, func(x gomodel.Content) bool { return x.MediaType == c.MediaType })
@@ -79,24 +81,46 @@ func inputBody(op *gomodel.Operation, n *naming.Namer) (gomodel.Content, string,
 }
 
 // bodySchema is the schema of the body's media type. Without one, JSON takes anything, text a
-// string, and any other media type a base64 string, which is how bytes come in JSON.
+// string, and any other media type a base64 string, which is how bytes come in JSON. Bytes the
+// client sends as they are name their media type, unless the schema names one.
 func bodySchema(b *jsonschema.Builder, op *gomodel.Operation, c gomodel.Content) *jsonschema.Object {
-	if op.Spec.Body != nil {
-		i := slices.IndexFunc(op.Spec.Body.Contents, func(mt *spec.MediaType) bool { return mt.Name == c.MediaType })
-		if i >= 0 && op.Spec.Body.Contents[i].Schema != nil {
-			return b.Schema(op.Spec.Body.Contents[i].Schema)
-		}
-	}
-
+	schema := contentSchema(op, c)
 	s := &jsonschema.Object{}
 	switch {
+	case schema != nil:
+		s = b.Schema(schema)
 	case runtime.IsJSON(c.MediaType):
 	case strings.HasPrefix(c.MediaType, "text/"):
 		s.Set("type", "string")
 	default:
 		s.Set("type", "string").Set("contentEncoding", "base64")
 	}
+	if isRaw(c) && (schema == nil || schema.ContentMediaType == "") {
+		s.Set("contentMediaType", c.MediaType)
+	}
 	return s
+}
+
+func contentSchema(op *gomodel.Operation, c gomodel.Content) *spec.Schema {
+	if op.Spec.Body == nil {
+		return nil
+	}
+	i := slices.IndexFunc(op.Spec.Body.Contents, func(mt *spec.MediaType) bool { return mt.Name == c.MediaType })
+	if i < 0 {
+		return nil
+	}
+	return op.Spec.Body.Contents[i].Schema
+}
+
+// isRaw reports a body of bytes the client sends as they are, under its media type: not as JSON,
+// and not under a wildcard, which goes out as application/octet-stream.
+func isRaw(c gomodel.Content) bool {
+	t := operation.BodyType(c)
+	if p, ok := t.(gomodel.Pointer); ok {
+		t = p.Elem
+	}
+	under := gomodel.Underlying(t)
+	return (under == fileType || under == bytesType) && !runtime.IsJSON(c.MediaType) && !strings.Contains(c.MediaType, "*")
 }
 
 func bodyDescription(op *gomodel.Operation) string {

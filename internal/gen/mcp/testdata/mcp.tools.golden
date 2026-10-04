@@ -156,15 +156,17 @@ func (t *MCPTools) GetPet2(ctx context.Context, _ *mcp.CallToolRequest, _ types.
 func (t *MCPTools) PutPetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "put_pet",
-		InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`),
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"body":{"type":"string","contentEncoding":"base64","contentMediaType":"image/png"}},"additionalProperties":false}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: true},
 	}
 }
 
 // PutPet handles the put_pet tool: it calls PutPet of the client and answers with the text it returns.
 // An error of the client is the error of the tool, with the body of a response outside 2xx.
-func (t *MCPTools) PutPet(ctx context.Context, _ *mcp.CallToolRequest, _ types.PutPetToolInput) (*mcp.CallToolResult, any, error) {
-	opts := &types.PutPetRequestOptions{}
+func (t *MCPTools) PutPet(ctx context.Context, _ *mcp.CallToolRequest, in types.PutPetToolInput) (*mcp.CallToolResult, any, error) {
+	opts := &types.PutPetRequestOptions{
+		Body: in.Body,
+	}
 	out, err := t.client.PutPet(ctx, opts)
 	if err != nil {
 		return nil, nil, runtime.ToolError(err)
