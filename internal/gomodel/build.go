@@ -400,8 +400,8 @@ func (b *builder) contents(list []*spec.MediaType) []Content {
 	return out
 }
 
-// fieldTags are the tags next to json: one per config extra tag, then those of
-// x-oapi-codegen-extra-tags, which win on the same key. A json key there is left out.
+// fieldTags are the tags next to json: one per config extra tag, then those of x-go-extra-tags,
+// which win on the same key. A json key there is left out.
 func (b *builder) fieldTags(jsonName string, isOmitEmpty bool, extra []extension.Tag) []Tag {
 	value := jsonName
 	if isOmitEmpty {

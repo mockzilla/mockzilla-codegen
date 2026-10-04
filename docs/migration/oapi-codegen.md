@@ -48,7 +48,7 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
 | `output-options.resolve-type-name-collisions` | always ([naming](../naming.md)) |
 | `output-options.generate-types-for-anonymous-schemas` | always: every inline object is a named type |
 | `compatibility.always-prefix-enum-values` | `naming.enum-prefix`, on by default |
-| `compatibility.allow-unexported-struct-field-names` | `x-oapi-codegen-only-honour-go-name` per field |
+| `compatibility.allow-unexported-struct-field-names` | `x-go-name-exact` per field |
 | `compatibility.apply-chi-middleware-first-to-last`, `apply-gorilla-middleware-first-to-last` | the default: `WithMiddleware` wraps outermost first |
 | `compatibility.disable-flatten-additional-properties` | none: an object without properties is a map |
 | `compatibility.disable-required-readonly-as-pointer` | the default: a required `readOnly` field is a plain value with `omitempty` |
@@ -93,6 +93,8 @@ Every extension oapi-codegen documents keeps its meaning, apart from these
 
 | oapi-codegen | mockzilla-codegen |
 |---|---|
+| `x-oapi-codegen-extra-tags` | `x-go-extra-tags`; the old name is ignored |
+| `x-oapi-codegen-only-honour-go-name` | `x-go-name-exact`; the old name is ignored |
 | `x-enum-varnames`, `x-enumNames` | `x-enum-names` |
 | `x-omitzero` | none; `omitzero` is written next to `omitempty` where a struct needs it |
 | `x-order` | none; fields keep the order of the spec |
@@ -175,7 +177,7 @@ Its extensions:
 |---|---|
 | `x-go-type` with `type`, `import`, `alias` | `x-go-type` with the type, `x-go-type-import` with `{path, name}` |
 | `x-go-type-external` | the same two |
-| `x-go-extra-tags` | `x-oapi-codegen-extra-tags` |
+| `x-go-extra-tags` | the same |
 | `x-go-optional-value` | `x-go-type-skip-optional-pointer` |
 | `x-go-omitempty` | `x-omitempty` |
 | `x-go-string` | none |

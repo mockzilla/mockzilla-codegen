@@ -13,5 +13,5 @@ components:
         internal:
           type: string
           x-go-name: internalNote
-          x-oapi-codegen-only-honour-go-name: true
+          x-go-name-exact: true
           x-go-json-ignore: true

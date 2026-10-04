@@ -76,7 +76,7 @@ components:
       type: object
       required: [name]
       properties:
-        name: {type: string, minLength: 1, x-oapi-codegen-extra-tags: {db: name}}
+        name: {type: string, minLength: 1, x-go-extra-tags: {db: name}}
         tag: {type: string, nullable: true}
         status: {$ref: '#/components/schemas/Status'}
     Pet:

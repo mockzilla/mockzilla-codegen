@@ -53,7 +53,7 @@ func TestParse(t *testing.T) {
 			exts: []spec.Extension{
 				ext(GoName, str("accountID")),
 				ext(GoTypeName, str("Account")),
-				ext(OnlyHonourGoName, boolean(true)),
+				ext(GoNameExact, boolean(true)),
 				ext(SkipPointer, str("true")),
 				ext(JSONIgnore, boolean(true)),
 				ext(OmitEmpty, boolean(false)),
@@ -99,8 +99,8 @@ func TestParse(t *testing.T) {
 		{name: "Other extensions are left alone", exts: []spec.Extension{ext("x-internal", boolean(true)), ext("x-logo", obj())}},
 		{
 			name:      "Unknown name of ours",
-			exts:      []spec.Extension{ext("x-go-nam", str("A")), ext("x-oapi-codegen-extra-tag", obj())},
-			wantDiags: []string{"unknown extension x-go-nam; it is left out", "unknown extension x-oapi-codegen-extra-tag; it is left out"},
+			exts:      []spec.Extension{ext("x-go-nam", str("A")), ext("x-go-extra-tag", obj())},
+			wantDiags: []string{"unknown extension x-go-nam; it is left out", "unknown extension x-go-extra-tag; it is left out"},
 		},
 		{
 			name: "Wrong values",
@@ -118,7 +118,7 @@ func TestParse(t *testing.T) {
 				"x-go-type-skip-optional-pointer must be a boolean; it is left out",
 				"x-omitempty must be a boolean; it is left out",
 				"x-deprecated-reason must be a string; it is left out",
-				"x-oapi-codegen-extra-tags must be an object of strings; it is left out",
+				"x-go-extra-tags must be an object of strings; it is left out",
 				"x-enum-names must be a list of Go identifiers; it is left out",
 				"x-mcp must be an object; it is left out",
 			},
@@ -132,7 +132,7 @@ func TestParse(t *testing.T) {
 			},
 			want: Set{MCP: &MCP{}},
 			wantDiags: []string{
-				"x-oapi-codegen-extra-tags must be an object of strings; it is left out",
+				"x-go-extra-tags must be an object of strings; it is left out",
 				"x-enum-names must be a list of Go identifiers; it is left out",
 				"x-mcp.skip must be a boolean; it is left out",
 				"x-mcp.name must be a string; it is left out",
