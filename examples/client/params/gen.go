@@ -28,6 +28,113 @@ type Filter struct {
 
 type Echo map[string]any
 
+type QueryStylesQueryID struct {
+	Int    *int    `json:"-"`
+	String *string `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set.
+func (q QueryStylesQueryID) MarshalJSON() ([]byte, error) {
+	var set []any
+	if q.Int != nil {
+		set = append(set, q.Int)
+	}
+	if q.String != nil {
+		set = append(set, q.String)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets the variants data matches.
+func (q *QueryStylesQueryID) UnmarshalJSON(data []byte) error {
+	*q = QueryStylesQueryID{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name: "Int",
+				Kind: runtime.KindInteger,
+				Into: runtime.Into(&q.Int),
+			},
+			{
+				Name: "String",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&q.String),
+			},
+		},
+	})
+}
+
+// MarshalText writes the variant that is set as text.
+func (q QueryStylesQueryID) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(q.MarshalJSON())
+}
+
+// UnmarshalText sets the variants text matches.
+func (q *QueryStylesQueryID) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, q.UnmarshalJSON)
+}
+
+// Validate checks the value against the constraints of the spec.
+func (q QueryStylesQueryID) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(q.Int != nil, q.String != nil))
+	return errs.Err()
+}
+
+type HeaderStylesHeadersXLimit struct {
+	Int  *int  `json:"-"`
+	Bool *bool `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set.
+func (h HeaderStylesHeadersXLimit) MarshalJSON() ([]byte, error) {
+	var set []any
+	if h.Int != nil {
+		set = append(set, h.Int)
+	}
+	if h.Bool != nil {
+		set = append(set, h.Bool)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets the variants data matches.
+func (h *HeaderStylesHeadersXLimit) UnmarshalJSON(data []byte) error {
+	*h = HeaderStylesHeadersXLimit{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		IsAnyOf: true,
+		Variants: []runtime.Variant{
+			{
+				Name: "Int",
+				Kind: runtime.KindInteger,
+				Into: runtime.Into(&h.Int),
+			},
+			{
+				Name: "Bool",
+				Kind: runtime.KindBool,
+				Into: runtime.Into(&h.Bool),
+			},
+		},
+	})
+}
+
+// MarshalText writes the variant that is set as text.
+func (h HeaderStylesHeadersXLimit) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(h.MarshalJSON())
+}
+
+// UnmarshalText sets the variants text matches.
+func (h *HeaderStylesHeadersXLimit) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, h.UnmarshalJSON)
+}
+
+// Validate checks the value against the constraints of the spec.
+func (h HeaderStylesHeadersXLimit) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.AtLeastOne(h.Int != nil, h.Bool != nil))
+	return errs.Err()
+}
+
 type PathStylesPathParams struct {
 	Simple string   `json:"simple"`
 	Label  int      `json:"label"`
@@ -45,22 +152,42 @@ func (p PathStylesPathParams) Validate() error {
 }
 
 type QueryStylesQuery struct {
-	Form   []int    `json:"form,omitempty"`
-	Csv    []string `json:"csv,omitempty"`
-	Space  []string `json:"space,omitempty"`
-	Pipe   []string `json:"pipe,omitempty"`
-	Deep   *Point   `json:"deep,omitempty"`
-	Flat   *Point   `json:"flat,omitempty"`
-	JSON   *Point   `json:"json,omitempty"`
-	Filter *Filter  `json:"filter,omitempty"`
-	Where  *Filter  `json:"where,omitempty"`
-	Needed string   `json:"needed"`
+	Form   []int               `json:"form,omitempty"`
+	Csv    []string            `json:"csv,omitempty"`
+	Space  []string            `json:"space,omitempty"`
+	Pipe   []string            `json:"pipe,omitempty"`
+	Deep   *Point              `json:"deep,omitempty"`
+	Flat   *Point              `json:"flat,omitempty"`
+	JSON   *Point              `json:"json,omitempty"`
+	Filter *Filter             `json:"filter,omitempty"`
+	Where  *Filter             `json:"where,omitempty"`
+	ID     *QueryStylesQueryID `json:"id,omitempty"`
+	Needed string              `json:"needed"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (q QueryStylesQuery) Validate() error {
+	var errs runtime.ValidationErrors
+	if q.ID != nil {
+		errs.Append("id", q.ID.Validate())
+	}
+	return errs.Err()
 }
 
 type HeaderStylesHeaders struct {
-	XTags  []string   `json:"X-Tags,omitempty"`
-	XPoint *Point     `json:"X-Point,omitempty"`
-	XWhen  *time.Time `json:"X-When,omitempty"`
+	XTags  []string                   `json:"X-Tags,omitempty"`
+	XPoint *Point                     `json:"X-Point,omitempty"`
+	XWhen  *time.Time                 `json:"X-When,omitempty"`
+	XLimit *HeaderStylesHeadersXLimit `json:"X-Limit,omitempty"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (h HeaderStylesHeaders) Validate() error {
+	var errs runtime.ValidationErrors
+	if h.XLimit != nil {
+		errs.Append("X-Limit", h.XLimit.Validate())
+	}
+	return errs.Err()
 }
 
 type CookieStylesCookies struct {
@@ -89,7 +216,11 @@ type QueryStylesRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *QueryStylesRequestOptions) Validate() error {
-	return nil
+	var errs runtime.ValidationErrors
+	if o.Query != nil {
+		errs.Append("query", o.Query.Validate())
+	}
+	return errs.Err()
 }
 
 // HeaderStylesRequestOptions is what HeaderStyles sends.
@@ -99,7 +230,11 @@ type HeaderStylesRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *HeaderStylesRequestOptions) Validate() error {
-	return nil
+	var errs runtime.ValidationErrors
+	if o.Headers != nil {
+		errs.Append("header", o.Headers.Validate())
+	}
+	return errs.Err()
 }
 
 // CookieStylesRequestOptions is what CookieStyles sends.
@@ -258,6 +393,7 @@ func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesReques
 		b.QueryParam(opts.Query.JSON, runtime.Param{Name: "json", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: true})
 		b.QueryParam(opts.Query.Filter, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.Where, runtime.Param{Name: "where", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
+		b.QueryParam(opts.Query.ID, runtime.Param{Name: "id", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.Needed, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
 	return c.newRequest(ctx, b, editors)
@@ -293,6 +429,7 @@ func (c *Client) HeaderStylesRequest(ctx context.Context, opts *HeaderStylesRequ
 		b.HeaderParam(opts.Headers.XTags, runtime.Param{Name: "X-Tags", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.HeaderParam(opts.Headers.XPoint, runtime.Param{Name: "X-Point", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.HeaderParam(opts.Headers.XWhen, runtime.Param{Name: "X-When", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
+		b.HeaderParam(opts.Headers.XLimit, runtime.Param{Name: "X-Limit", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
 	}
 	return c.newRequest(ctx, b, editors)
 }

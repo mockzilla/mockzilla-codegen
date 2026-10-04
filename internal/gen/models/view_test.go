@@ -195,6 +195,13 @@ func TestViewRendersUnions(t *testing.T) {
 			{Name: "Loop", FieldType: gomodel.Pointer{Elem: str}},
 		},
 	}}
+	id := &gomodel.Decl{Name: "ID", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
+		IsText: true,
+		Variants: []*gomodel.Variant{
+			{Name: "Int", FieldType: gomodel.Pointer{Elem: gomodel.Builtin{Name: "int"}}, Kinds: gomodel.JSONInteger},
+			{Name: "String", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString},
+		},
+	}}
 	contact := &gomodel.Decl{Name: "Contact", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Doc: "A contact.", Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "ID", JSONName: "id", Type: str}},
 	}, Union: &gomodel.Union{
@@ -212,7 +219,7 @@ func TestViewRendersUnions(t *testing.T) {
 		Discriminator: "kind",
 		Variants:      []*gomodel.Variant{{Name: "Name", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}},
 	}}
-	g := New(&gomodel.Model{Decls: []*gomodel.Decl{cat, pet, stamp, contact, person}})
+	g := New(&gomodel.Model{Decls: []*gomodel.Decl{cat, pet, stamp, id, contact, person}})
 	checkRender(t, g, "unions")
 }
 

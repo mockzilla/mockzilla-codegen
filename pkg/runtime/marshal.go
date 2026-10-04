@@ -42,6 +42,24 @@ func MarshalUnion(shared any, set ...any) ([]byte, error) {
 	return merged, err
 }
 
+// MarshalUnionText writes data, the JSON of a union of scalars, as text without string quotes.
+func MarshalUnionText(data []byte, err error) ([]byte, error) {
+	if err != nil {
+		return nil, err
+	}
+
+	switch JSONKind(data) {
+	case KindString:
+		var s string
+		err = json.Unmarshal(data, &s)
+		return []byte(s), err
+	case KindBool, KindInteger, KindNumber:
+		return data, nil
+	default:
+	}
+	return nil, fmt.Errorf("%w: cannot write %s as text", ErrParamValue, data)
+}
+
 // MergeObjects merges JSON objects into one. A key keeps the place it first appears at and takes
 // the last value it has.
 func MergeObjects(parts ...[]byte) ([]byte, error) {

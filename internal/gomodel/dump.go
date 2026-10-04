@@ -172,6 +172,7 @@ func dumpUnion(b *strings.Builder, u *Union) {
 		{!u.IsAnyOf, "oneOf"},
 		{u.IsAnyOf, "anyOf"},
 		{u.IsNullable, "nullable"},
+		{u.IsText, "text"},
 		{u.Discriminator != "", "discriminator=" + u.Discriminator},
 	} {
 		if flag.isSet {

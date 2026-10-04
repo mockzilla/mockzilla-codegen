@@ -253,6 +253,16 @@ func (s *ShapeOption2) UnmarshalJSON(data []byte) error {
 	})
 }
 
+// MarshalText writes the variant that is set as text.
+func (s ShapeOption2) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(s.MarshalJSON())
+}
+
+// UnmarshalText sets the variants text matches.
+func (s *ShapeOption2) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, s.UnmarshalJSON)
+}
+
 // Validate checks the value against the constraints of the spec.
 func (s ShapeOption2) Validate() error {
 	var errs runtime.ValidationErrors
@@ -294,6 +304,16 @@ func (o *OwnerTagsValue) UnmarshalJSON(data []byte) error {
 			},
 		},
 	})
+}
+
+// MarshalText writes the variant that is set as text.
+func (o OwnerTagsValue) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(o.MarshalJSON())
+}
+
+// UnmarshalText sets the variants text matches.
+func (o *OwnerTagsValue) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, o.UnmarshalJSON)
 }
 
 // Validate checks the value against the constraints of the spec.
