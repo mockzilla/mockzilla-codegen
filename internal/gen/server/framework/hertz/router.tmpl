@@ -5,9 +5,7 @@ func WithRouter(h *{{.Framework}}.Hertz) {{.Option}} {
 	}
 }
 
-// NewRouter registers every operation on a Hertz server. On a new server the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the server WithRouter gives it, the
-// middleware wraps each generated route and nothing else.
+// NewRouter registers every operation on a Hertz server.
 func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Hertz {
 	o := {{.NewOptions}}(opts...)
 {{- if .Routes}}
@@ -36,8 +34,6 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Hertz {
 	return h
 }
 
-// handle serves h as a hertz handler: the request is read into an http.Request, with the path
-// parameters hertz found, and the response is written into hertz's.
 func handle(h {{.Packages.http}}.Handler) {{.Packages.app}}.HandlerFunc {
 	return func(ctx {{.Packages.context}}.Context, c *{{.Packages.app}}.RequestContext) {
 		r, err := {{.Packages.http}}.NewRequestWithContext(ctx, string(c.Method()), string(c.URI().FullURI()), {{.Packages.bytes}}.NewReader(c.Request.Body()))
@@ -56,8 +52,6 @@ func handle(h {{.Packages.http}}.Handler) {{.Packages.app}}.HandlerFunc {
 	}
 }
 
-// responseWriter is an http.ResponseWriter over a hertz response: the headers go over with the
-// status, on the first write at the latest.
 type responseWriter struct {
 	response  *{{.Packages.protocol}}.Response
 	header    {{.Packages.http}}.Header

@@ -5,9 +5,7 @@ func WithRouter(r {{.Framework}}.Router) {{.Option}} {
 	}
 }
 
-// NewRouter registers every operation on a chi router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
-// wraps the generated routes and nothing else.
+// NewRouter registers every operation on a chi router.
 func NewRouter(svc {{.Service}}, opts ...{{.Option}}) {{.Framework}}.Router {
 	o := {{.NewOptions}}(opts...)
 {{- if .Routes}}

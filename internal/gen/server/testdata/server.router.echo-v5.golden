@@ -9,9 +9,7 @@ func WithRouter(e *echo.Echo) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on an Echo. On a new Echo the middleware WithMiddleware
-// adds wraps everything, unknown paths too; on the Echo WithRouter gives it, the middleware wraps
-// each generated route and nothing else.
+// NewRouter registers every operation on an Echo.
 func NewRouter(svc PetsInterface, opts ...ServerOption) *echo.Echo {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -39,11 +37,10 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *echo.Echo {
 	return e
 }
 
-// answerErrors gives an error a handler returns, such as the one of an unknown path, to echo's
-// error handler inside the middleware, so the middleware sees the response it writes.
 func answerErrors(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		if err := next(c); err != nil {
+			// Answered here, inside the middleware, so the middleware sees the response.
 			c.Echo().HTTPErrorHandler(c, err)
 		}
 		return nil

@@ -1,16 +1,14 @@
 {{- if .HasStream -}}
-// ErrMCPStreaming is what a tool answers when its operation streams its response, which a tool
-// result cannot carry; read such an operation through the client.
+// ErrMCPStreaming is what the tool of a streaming operation returns.
 var ErrMCPStreaming = {{.Errors}}.New("the operation answers with a stream, which an MCP tool cannot return")
 
 {{end -}}
-// MCPTools exposes the operations of the API as MCP tools, each calling the client.
+// MCPTools exposes the operations of the API as MCP tools.
 type MCPTools struct {
 	client {{.Client}}
 }
 
-// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
-// a panic in a tool and the first call would end the server.
+// NewMCPTools returns the tools that call c. A nil c panics.
 func NewMCPTools(c {{.Client}}) *MCPTools {
 	if c == nil {
 		panic("NewMCPTools: nil client")
@@ -18,8 +16,7 @@ func NewMCPTools(c {{.Client}}) *MCPTools {
 	return &MCPTools{client: c}
 }
 
-// Register adds every tool to s. To add a few, pass the definition and the handler of each to
-// mcp.AddTool instead.
+// Register adds every tool to s.
 func (t *MCPTools) Register(s *{{.MCP}}.Server) {
 {{- range .Tools}}
 	{{$.MCP}}.AddTool(s, t.{{.Name}}Tool(), t.{{.Name}})
@@ -27,8 +24,7 @@ func (t *MCPTools) Register(s *{{.MCP}}.Server) {
 }
 {{- range .Tools}}
 
-// {{.Name}}Tool is the definition of the {{.Tool}} tool: its name, its description and the schema
-// of its input.
+// {{.Name}}Tool is the definition of the {{.Tool}} tool.
 func (t *MCPTools) {{.Name}}Tool() *{{$.MCP}}.Tool {
 	return &{{$.MCP}}.Tool{
 		Name: {{quote .Tool}},
@@ -41,17 +37,13 @@ func (t *MCPTools) {{.Name}}Tool() *{{$.MCP}}.Tool {
 }
 {{- if .IsStream}}
 
-// {{.Name}} handles the {{.Tool}} tool. {{.Name}} answers with a stream, so it is ErrMCPStreaming.
+// {{.Name}} handles the {{.Tool}} tool.
 func (t *MCPTools) {{.Name}}(_ {{$.Context}}.Context, _ *{{$.MCP}}.CallToolRequest, _ {{.Input}}) (*{{$.MCP}}.CallToolResult, any, error) {
 	return nil, nil, ErrMCPStreaming
 }
 {{- else}}
 
-// {{.Name}} handles the {{.Tool}} tool: it calls {{.Name}} of the client and answers {{if not .HasResult}}ok{{else if .Text}}with the text it returns{{else if .File}}with the file it returns, as image or audio content when it is one{{else}}with what it returns as structured content{{end}}.
-{{- if .HasOtherSuccess}}
-// Another 2xx the spec lists answers ok.
-{{- end}}
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// {{.Name}} handles the {{.Tool}} tool.
 func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, {{if .IsRounded}}req{{else}}_{{end}} *{{$.MCP}}.CallToolRequest, {{if .HasInput}}in{{else}}_{{end}} {{.Input}}) (*{{$.MCP}}.CallToolResult, any, error) {
 {{- if .IsRounded}}
 	if err := {{$.Runtime}}.ToolInput(req.Params.Arguments, &in); err != nil {
@@ -98,8 +90,6 @@ func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, {{if .IsRounded}}req{{el
 {{- end}}
 {{- if .HasFile}}
 
-// fileResult answers with the bytes of f: as image or audio content when its media type is one,
-// else as structured content in base64.
 func (*MCPTools) fileResult(f {{.Runtime}}.File) (*{{.MCP}}.CallToolResult, any, error) {
 	data, err := f.Bytes()
 	if err != nil {

@@ -1,6 +1,6 @@
 {{- range .Inputs}}
+// {{.Type}} is the input of the {{.Tool}} tool.
 {{- if .Fields}}
-// {{.Type}} is the input of the {{.Tool}} tool: the parameters of the operation.
 type {{.Type}} struct {
 {{- range .Fields}}
 {{- with .Doc}}
@@ -10,7 +10,6 @@ type {{.Type}} struct {
 {{- end}}
 }
 {{- else}}
-// {{.Type}} is the input of the {{.Tool}} tool, which takes nothing.
 type {{.Type}} struct{}
 {{- end}}
 {{- end}}

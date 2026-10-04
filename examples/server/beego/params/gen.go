@@ -14,8 +14,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 type Point struct {
@@ -75,7 +74,7 @@ type ServiceInterface interface {
 	CookieStyles(ctx context.Context, opts *CookieStylesServiceRequestOptions) (*CookieStylesResponseData, error)
 }
 
-// PathStylesServiceRequestOptions is what PathStyles receives. RawRequest is the request as it came in.
+// PathStylesServiceRequestOptions is what PathStyles receives.
 type PathStylesServiceRequestOptions struct {
 	PathParams *PathStylesPathParams
 	RawRequest *http.Request
@@ -90,7 +89,7 @@ func (o *PathStylesServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// PathStylesResponseData is what PathStyles returns: the status, the headers and the body of the response.
+// PathStylesResponseData is what PathStyles returns.
 type PathStylesResponseData struct {
 	Status  int
 	Headers http.Header
@@ -99,7 +98,7 @@ type PathStylesResponseData struct {
 	contentType string
 }
 
-// NewPathStylesResponseData returns the response data of status 200 with body as application/json.
+// NewPathStylesResponseData returns the 200 response with its application/json body.
 func NewPathStylesResponseData(body Echo) *PathStylesResponseData {
 	return &PathStylesResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -131,12 +130,12 @@ func (r *PathStylesResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *PathStylesResponseData) ContentType() string {
 	return r.contentType
 }
 
-// QueryStylesServiceRequestOptions is what QueryStyles receives. RawRequest is the request as it came in.
+// QueryStylesServiceRequestOptions is what QueryStyles receives.
 type QueryStylesServiceRequestOptions struct {
 	Query      *QueryStylesQuery
 	RawRequest *http.Request
@@ -147,7 +146,7 @@ func (o *QueryStylesServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// QueryStylesResponseData is what QueryStyles returns: the status, the headers and the body of the response.
+// QueryStylesResponseData is what QueryStyles returns.
 type QueryStylesResponseData struct {
 	Status  int
 	Headers http.Header
@@ -156,7 +155,7 @@ type QueryStylesResponseData struct {
 	contentType string
 }
 
-// NewQueryStylesResponseData returns the response data of status 200 with body as application/json.
+// NewQueryStylesResponseData returns the 200 response with its application/json body.
 func NewQueryStylesResponseData(body Echo) *QueryStylesResponseData {
 	return &QueryStylesResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -188,12 +187,12 @@ func (r *QueryStylesResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *QueryStylesResponseData) ContentType() string {
 	return r.contentType
 }
 
-// HeaderStylesServiceRequestOptions is what HeaderStyles receives. RawRequest is the request as it came in.
+// HeaderStylesServiceRequestOptions is what HeaderStyles receives.
 type HeaderStylesServiceRequestOptions struct {
 	Headers    *HeaderStylesHeaders
 	RawRequest *http.Request
@@ -204,7 +203,7 @@ func (o *HeaderStylesServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// HeaderStylesResponseData is what HeaderStyles returns: the status, the headers and the body of the response.
+// HeaderStylesResponseData is what HeaderStyles returns.
 type HeaderStylesResponseData struct {
 	Status  int
 	Headers http.Header
@@ -213,7 +212,7 @@ type HeaderStylesResponseData struct {
 	contentType string
 }
 
-// NewHeaderStylesResponseData returns the response data of status 200 with body as application/json.
+// NewHeaderStylesResponseData returns the 200 response with its application/json body.
 func NewHeaderStylesResponseData(body Echo) *HeaderStylesResponseData {
 	return &HeaderStylesResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -245,12 +244,12 @@ func (r *HeaderStylesResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *HeaderStylesResponseData) ContentType() string {
 	return r.contentType
 }
 
-// CookieStylesServiceRequestOptions is what CookieStyles receives. RawRequest is the request as it came in.
+// CookieStylesServiceRequestOptions is what CookieStyles receives.
 type CookieStylesServiceRequestOptions struct {
 	Cookies    *CookieStylesCookies
 	RawRequest *http.Request
@@ -261,7 +260,7 @@ func (o *CookieStylesServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// CookieStylesResponseData is what CookieStyles returns: the status, the headers and the body of the response.
+// CookieStylesResponseData is what CookieStyles returns.
 type CookieStylesResponseData struct {
 	Status  int
 	Headers http.Header
@@ -270,7 +269,7 @@ type CookieStylesResponseData struct {
 	contentType string
 }
 
-// NewCookieStylesResponseData returns the response data of status 200 with body as application/json.
+// NewCookieStylesResponseData returns the 200 response with its application/json body.
 func NewCookieStylesResponseData(body Echo) *CookieStylesResponseData {
 	return &CookieStylesResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -302,7 +301,7 @@ func (r *CookieStylesResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *CookieStylesResponseData) ContentType() string {
 	return r.contentType
 }
@@ -325,9 +324,7 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
+// ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
@@ -352,7 +349,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	return o
 }
 
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+// WithMiddleware wraps the routes with mw, outermost first; on a new router, unknown paths too.
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
@@ -373,21 +370,19 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 	}
 }
 
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory.
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
 	}
 }
 
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+// HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  ServiceInterface
 	opts *ServerOptions
 }
 
-// responseData is what every response data type gives the adapter.
 type responseData interface {
 	StatusCode() int
 	Header() http.Header
@@ -537,17 +532,14 @@ func (a *HTTPAdapter) CookieStyles(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "CookieStyles", res)
 }
 
-// fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
-// failDecode answers a request whose body could not be read.
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
 }
 
-// write writes the response of the service.
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
@@ -564,9 +556,7 @@ func WithRouter(r *web.ControllerRegister) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a beego ControllerRegister. On a new one the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the one WithRouter gives it, the
-// middleware wraps each generated route and nothing else.
+// NewRouter registers every operation on a beego ControllerRegister.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *web.ControllerRegister {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -593,8 +583,6 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *web.ControllerRegist
 	return r
 }
 
-// handle serves h as a beego handler, with the path parameters beego found on the request.
-// Beego reads a form body before the handler, so the form goes back into the body for h.
 func handle(h http.Handler) web.HandleFunc {
 	return func(c *bcontext.Context) {
 		r := c.Request
@@ -603,6 +591,7 @@ func handle(h http.Handler) web.HandleFunc {
 				r.SetPathValue(key[1:], value)
 			}
 		}
+		// beego has read a form body already, so it goes back into the body for h.
 		if r.PostForm != nil && strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
 			r.Body = io.NopCloser(strings.NewReader(r.PostForm.Encode()))
 		}

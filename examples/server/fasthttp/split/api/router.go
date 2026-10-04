@@ -17,10 +17,7 @@ func WithRouter(r *router.Router) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a fasthttp router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths and OPTIONS requests too, which the router
-// leaves to the routes; on the router WithRouter gives it, the middleware wraps each generated
-// route and nothing else.
+// NewRouter registers every operation on a fasthttp router.
 func NewRouter(svc BooksInterface, opts ...ServerOption) *router.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -39,6 +36,7 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) *router.Router {
 		return r
 	}
 	r := router.New()
+	// The router would answer OPTIONS itself, past the middleware.
 	r.HandleOPTIONS = false
 	register(r, wrap)
 	r.NotFound = handle(wrap(http.NotFoundHandler()))
@@ -46,8 +44,6 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) *router.Router {
 	return r
 }
 
-// handle serves h as a fasthttp handler, with the path parameters the router found on the
-// request.
 func handle(h http.Handler) fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
 		fasthttpadaptor.NewFastHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -61,8 +57,6 @@ func handle(h http.Handler) fasthttp.RequestHandler {
 	}
 }
 
-// methodNotAllowed answers a known path asked with a method it does not take; the router sets
-// the Allow header before.
 func methodNotAllowed(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }

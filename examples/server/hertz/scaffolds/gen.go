@@ -14,8 +14,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 type TodoSchema struct {
@@ -33,7 +32,7 @@ type TodoInterface interface {
 	CreateTodo(ctx context.Context, opts *CreateTodoServiceRequestOptions) (*CreateTodoResponseData, error)
 }
 
-// ListTodosServiceRequestOptions is what ListTodos receives. RawRequest is the request as it came in.
+// ListTodosServiceRequestOptions is what ListTodos receives.
 type ListTodosServiceRequestOptions struct {
 	RawRequest *http.Request
 }
@@ -43,7 +42,7 @@ func (o *ListTodosServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// ListTodosResponseData is what ListTodos returns: the status, the headers and the body of the response.
+// ListTodosResponseData is what ListTodos returns.
 type ListTodosResponseData struct {
 	Status  int
 	Headers http.Header
@@ -52,7 +51,7 @@ type ListTodosResponseData struct {
 	contentType string
 }
 
-// NewListTodosResponseData returns the response data of status 200 with body as application/json.
+// NewListTodosResponseData returns the 200 response with its application/json body.
 func NewListTodosResponseData(body ListTodosResponse200) *ListTodosResponseData {
 	return &ListTodosResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -84,12 +83,12 @@ func (r *ListTodosResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *ListTodosResponseData) ContentType() string {
 	return r.contentType
 }
 
-// CreateTodoServiceRequestOptions is what CreateTodo receives. RawRequest is the request as it came in.
+// CreateTodoServiceRequestOptions is what CreateTodo receives.
 type CreateTodoServiceRequestOptions struct {
 	// Body sent as application/json.
 	Body       *TodoSchema
@@ -101,7 +100,7 @@ func (o *CreateTodoServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// CreateTodoResponseData is what CreateTodo returns: the status, the headers and the body of the response.
+// CreateTodoResponseData is what CreateTodo returns.
 type CreateTodoResponseData struct {
 	Status  int
 	Headers http.Header
@@ -110,7 +109,7 @@ type CreateTodoResponseData struct {
 	contentType string
 }
 
-// NewCreateTodoResponseData returns the response data of status 201 with body as application/json.
+// NewCreateTodoResponseData returns the 201 response with its application/json body.
 func NewCreateTodoResponseData(body *TodoSchema) *CreateTodoResponseData {
 	return &CreateTodoResponseData{Status: 201, Body: body, contentType: "application/json"}
 }
@@ -142,7 +141,7 @@ func (r *CreateTodoResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *CreateTodoResponseData) ContentType() string {
 	return r.contentType
 }
@@ -165,9 +164,7 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
+// ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
@@ -192,7 +189,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	return o
 }
 
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+// WithMiddleware wraps the routes with mw, outermost first; on a new router, unknown paths too.
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
@@ -213,21 +210,19 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 	}
 }
 
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory.
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
 	}
 }
 
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+// HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  TodoInterface
 	opts *ServerOptions
 }
 
-// responseData is what every response data type gives the adapter.
 type responseData interface {
 	StatusCode() int
 	Header() http.Header
@@ -285,17 +280,14 @@ func (a *HTTPAdapter) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "CreateTodo", res)
 }
 
-// fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
-// failDecode answers a request whose body could not be read.
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
 }
 
-// write writes the response of the service.
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
@@ -312,9 +304,7 @@ func WithRouter(h *server.Hertz) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a Hertz server. On a new server the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the server WithRouter gives it, the
-// middleware wraps each generated route and nothing else.
+// NewRouter registers every operation on a Hertz server.
 func NewRouter(svc TodoInterface, opts ...ServerOption) *server.Hertz {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -339,8 +329,6 @@ func NewRouter(svc TodoInterface, opts ...ServerOption) *server.Hertz {
 	return h
 }
 
-// handle serves h as a hertz handler: the request is read into an http.Request, with the path
-// parameters hertz found, and the response is written into hertz's.
 func handle(h http.Handler) app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		r, err := http.NewRequestWithContext(ctx, string(c.Method()), string(c.URI().FullURI()), bytes.NewReader(c.Request.Body()))
@@ -359,8 +347,6 @@ func handle(h http.Handler) app.HandlerFunc {
 	}
 }
 
-// responseWriter is an http.ResponseWriter over a hertz response: the headers go over with the
-// status, on the first write at the latest.
 type responseWriter struct {
 	response  *protocol.Response
 	header    http.Header

@@ -16,8 +16,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 type Pet struct {
@@ -60,7 +59,7 @@ type ServiceInterface interface {
 	Adopt(ctx context.Context, opts *AdoptServiceRequestOptions) (*AdoptResponseData, error)
 }
 
-// AdoptServiceRequestOptions is what Adopt receives. RawRequest is the request as it came in.
+// AdoptServiceRequestOptions is what Adopt receives.
 type AdoptServiceRequestOptions struct {
 	// Body sent as application/json.
 	Body       *Adoption
@@ -76,7 +75,7 @@ func (o *AdoptServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// AdoptResponseData is what Adopt returns: the status, the headers and the body of the response.
+// AdoptResponseData is what Adopt returns.
 type AdoptResponseData struct {
 	Status  int
 	Headers http.Header
@@ -85,7 +84,7 @@ type AdoptResponseData struct {
 	contentType string
 }
 
-// NewAdoptResponseData returns the response data of status 200 with body as application/json.
+// NewAdoptResponseData returns the 200 response with its application/json body.
 func NewAdoptResponseData(body *Adoption) *AdoptResponseData {
 	return &AdoptResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -117,7 +116,7 @@ func (r *AdoptResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *AdoptResponseData) ContentType() string {
 	return r.contentType
 }
@@ -140,9 +139,7 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
+// ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
@@ -167,7 +164,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	return o
 }
 
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+// WithMiddleware wraps the routes with mw, outermost first; on a new router, unknown paths too.
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
@@ -188,21 +185,19 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 	}
 }
 
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory.
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
 	}
 }
 
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+// HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  ServiceInterface
 	opts *ServerOptions
 }
 
-// responseData is what every response data type gives the adapter.
 type responseData interface {
 	StatusCode() int
 	Header() http.Header
@@ -244,17 +239,14 @@ func (a *HTTPAdapter) Adopt(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "Adopt", res)
 }
 
-// fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
-// failDecode answers a request whose body could not be read.
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
 }
 
-// write writes the response of the service.
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
@@ -271,9 +263,7 @@ func WithRouter(r chi.Router) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a chi router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
-// wraps the generated routes and nothing else.
+// NewRouter registers every operation on a chi router.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -431,19 +421,18 @@ func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, edit
 	return req, nil
 }
 
-// AdoptToolInput is the input of the adopt tool: the parameters of the operation.
+// AdoptToolInput is the input of the adopt tool.
 type AdoptToolInput struct {
 	// The request body, sent as application/json.
 	Body *Adoption `json:"body"`
 }
 
-// MCPTools exposes the operations of the API as MCP tools, each calling the client.
+// MCPTools exposes the operations of the API as MCP tools.
 type MCPTools struct {
 	client ClientInterface
 }
 
-// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
-// a panic in a tool and the first call would end the server.
+// NewMCPTools returns the tools that call c. A nil c panics.
 func NewMCPTools(c ClientInterface) *MCPTools {
 	if c == nil {
 		panic("NewMCPTools: nil client")
@@ -451,14 +440,12 @@ func NewMCPTools(c ClientInterface) *MCPTools {
 	return &MCPTools{client: c}
 }
 
-// Register adds every tool to s. To add a few, pass the definition and the handler of each to
-// mcp.AddTool instead.
+// Register adds every tool to s.
 func (t *MCPTools) Register(s *mcp.Server) {
 	mcp.AddTool(s, t.AdoptTool(), t.Adopt)
 }
 
-// AdoptTool is the definition of the adopt tool: its name, its description and the schema
-// of its input.
+// AdoptTool is the definition of the adopt tool.
 func (t *MCPTools) AdoptTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "adopt",
@@ -468,8 +455,7 @@ func (t *MCPTools) AdoptTool() *mcp.Tool {
 	}
 }
 
-// Adopt handles the adopt tool: it calls Adopt of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// Adopt handles the adopt tool.
 func (t *MCPTools) Adopt(ctx context.Context, _ *mcp.CallToolRequest, in AdoptToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &AdoptRequestOptions{
 		Body: in.Body,

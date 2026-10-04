@@ -44,26 +44,25 @@ type ToolsView struct {
 // ToolView is one tool: its definition and its handler. Name is the operation, Tool the tool
 // name. IsRounded says the handler decodes the arguments again, past the SDK's float64. Of the
 // result, Text is it as text and File as a file; with neither it is structured content.
-// HasOtherSuccess says another 2xx leaves it nil, HasNilCheck that the handler checks for nil.
+// HasNilCheck says the handler checks it for nil.
 type ToolView struct {
-	Name            string
-	Tool            string
-	Description     string
-	Schema          string
-	Input           string
-	Options         string
-	IsReadOnly      bool
-	IsIdempotent    bool
-	HasInput        bool
-	IsRounded       bool
-	Groups          []GroupView
-	Body            *AssignView
-	IsStream        bool
-	HasResult       bool
-	Text            string
-	File            string
-	HasOtherSuccess bool
-	HasNilCheck     bool
+	Name         string
+	Tool         string
+	Description  string
+	Schema       string
+	Input        string
+	Options      string
+	IsReadOnly   bool
+	IsIdempotent bool
+	HasInput     bool
+	IsRounded    bool
+	Groups       []GroupView
+	Body         *AssignView
+	IsStream     bool
+	HasResult    bool
+	Text         string
+	File         string
+	HasNilCheck  bool
 }
 
 // GroupView is the parameters of one location: the options field that holds them, the type of
@@ -146,8 +145,8 @@ func toolView(g *Generator, t *tool, s *gocode.Scope) ToolView {
 		if v.Text == "" {
 			v.File, isFilePointer = fileResult(c.MediaType, typ, s)
 		}
-		v.HasOtherSuccess = slices.ContainsFunc(t.op.Responses, func(x gomodel.Response) bool { return client.IsOtherSuccess(x, r.Status) })
-		v.HasNilCheck = isTextPointer || isFilePointer || v.HasOtherSuccess
+		hasOtherSuccess := slices.ContainsFunc(t.op.Responses, func(x gomodel.Response) bool { return client.IsOtherSuccess(x, r.Status) })
+		v.HasNilCheck = isTextPointer || isFilePointer || hasOtherSuccess
 	}
 	return v
 }

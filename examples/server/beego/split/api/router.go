@@ -18,9 +18,7 @@ func WithRouter(r *web.ControllerRegister) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a beego ControllerRegister. On a new one the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the one WithRouter gives it, the
-// middleware wraps each generated route and nothing else.
+// NewRouter registers every operation on a beego ControllerRegister.
 func NewRouter(svc BooksInterface, opts ...ServerOption) *web.ControllerRegister {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -44,8 +42,6 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) *web.ControllerRegister
 	return r
 }
 
-// handle serves h as a beego handler, with the path parameters beego found on the request.
-// Beego reads a form body before the handler, so the form goes back into the body for h.
 func handle(h http.Handler) web.HandleFunc {
 	return func(c *bcontext.Context) {
 		r := c.Request
@@ -54,6 +50,7 @@ func handle(h http.Handler) web.HandleFunc {
 				r.SetPathValue(key[1:], value)
 			}
 		}
+		// beego has read a form body already, so it goes back into the body for h.
 		if r.PostForm != nil && strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
 			r.Body = io.NopCloser(strings.NewReader(r.PostForm.Encode()))
 		}

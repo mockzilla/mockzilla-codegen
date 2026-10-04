@@ -17,8 +17,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 type Pet struct {
@@ -57,7 +56,7 @@ type ServiceInterface interface {
 	GetIcon(ctx context.Context, opts *GetIconServiceRequestOptions) (*GetIconResponseData, error)
 }
 
-// CountPetsServiceRequestOptions is what CountPets receives. RawRequest is the request as it came in.
+// CountPetsServiceRequestOptions is what CountPets receives.
 type CountPetsServiceRequestOptions struct {
 	RawRequest *http.Request
 }
@@ -67,7 +66,7 @@ func (o *CountPetsServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// CountPetsResponseData is what CountPets returns: the status, the headers and the body of the response.
+// CountPetsResponseData is what CountPets returns.
 type CountPetsResponseData struct {
 	Status  int
 	Headers http.Header
@@ -76,7 +75,7 @@ type CountPetsResponseData struct {
 	contentType string
 }
 
-// NewCountPetsResponseData returns the response data of status 200 with body as application/json.
+// NewCountPetsResponseData returns the 200 response with its application/json body.
 func NewCountPetsResponseData(body *CountPetsResponse200) *CountPetsResponseData {
 	return &CountPetsResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -108,12 +107,12 @@ func (r *CountPetsResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *CountPetsResponseData) ContentType() string {
 	return r.contentType
 }
 
-// FindPetServiceRequestOptions is what FindPet receives. RawRequest is the request as it came in.
+// FindPetServiceRequestOptions is what FindPet receives.
 type FindPetServiceRequestOptions struct {
 	Query      *FindPetQuery
 	RawRequest *http.Request
@@ -124,7 +123,7 @@ func (o *FindPetServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// FindPetResponseData is what FindPet returns: the status, the headers and the body of the response.
+// FindPetResponseData is what FindPet returns.
 type FindPetResponseData struct {
 	Status  int
 	Headers http.Header
@@ -133,12 +132,12 @@ type FindPetResponseData struct {
 	contentType string
 }
 
-// NewFindPetResponseData200 returns the response data of status 200 with body as application/json.
+// NewFindPetResponseData200 returns the 200 response with its application/json body.
 func NewFindPetResponseData200(body *Pet) *FindPetResponseData {
 	return &FindPetResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
 
-// NewFindPetResponseData204 returns the response data of status 204.
+// NewFindPetResponseData204 returns the 204 response.
 func NewFindPetResponseData204() *FindPetResponseData {
 	return &FindPetResponseData{Status: 204, contentType: ""}
 }
@@ -170,12 +169,12 @@ func (r *FindPetResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *FindPetResponseData) ContentType() string {
 	return r.contentType
 }
 
-// GetPhotoServiceRequestOptions is what GetPhoto receives. RawRequest is the request as it came in.
+// GetPhotoServiceRequestOptions is what GetPhoto receives.
 type GetPhotoServiceRequestOptions struct {
 	Query      *GetPhotoQuery
 	RawRequest *http.Request
@@ -186,7 +185,7 @@ func (o *GetPhotoServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// GetPhotoResponseData is what GetPhoto returns: the status, the headers and the body of the response.
+// GetPhotoResponseData is what GetPhoto returns.
 type GetPhotoResponseData struct {
 	Status  int
 	Headers http.Header
@@ -195,7 +194,7 @@ type GetPhotoResponseData struct {
 	contentType string
 }
 
-// NewGetPhotoResponseData returns the response data of status 200 with body as */*.
+// NewGetPhotoResponseData returns the 200 response with its */* body.
 func NewGetPhotoResponseData(body *GetPhotoResponse200) *GetPhotoResponseData {
 	return &GetPhotoResponseData{Status: 200, Body: body, contentType: "*/*"}
 }
@@ -227,12 +226,12 @@ func (r *GetPhotoResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *GetPhotoResponseData) ContentType() string {
 	return r.contentType
 }
 
-// GetIconServiceRequestOptions is what GetIcon receives. RawRequest is the request as it came in.
+// GetIconServiceRequestOptions is what GetIcon receives.
 type GetIconServiceRequestOptions struct {
 	RawRequest *http.Request
 }
@@ -242,7 +241,7 @@ func (o *GetIconServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// GetIconResponseData is what GetIcon returns: the status, the headers and the body of the response.
+// GetIconResponseData is what GetIcon returns.
 type GetIconResponseData struct {
 	Status  int
 	Headers http.Header
@@ -251,7 +250,7 @@ type GetIconResponseData struct {
 	contentType string
 }
 
-// NewGetIconResponseData returns the response data of status 200 with body as image/png.
+// NewGetIconResponseData returns the 200 response with its image/png body.
 func NewGetIconResponseData(body []byte) *GetIconResponseData {
 	return &GetIconResponseData{Status: 200, Body: body, contentType: "image/png"}
 }
@@ -283,7 +282,7 @@ func (r *GetIconResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *GetIconResponseData) ContentType() string {
 	return r.contentType
 }
@@ -306,9 +305,7 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
+// ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
@@ -333,7 +330,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	return o
 }
 
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+// WithMiddleware wraps the routes with mw, outermost first; on a new router, unknown paths too.
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
@@ -354,21 +351,19 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 	}
 }
 
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory.
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
 	}
 }
 
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+// HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  ServiceInterface
 	opts *ServerOptions
 }
 
-// responseData is what every response data type gives the adapter.
 type responseData interface {
 	StatusCode() int
 	Header() http.Header
@@ -457,17 +452,14 @@ func (a *HTTPAdapter) GetIcon(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "GetIcon", res)
 }
 
-// fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
-// failDecode answers a request whose body could not be read.
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
 }
 
-// write writes the response of the service.
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
@@ -484,9 +476,7 @@ func WithRouter(r chi.Router) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a chi router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
-// wraps the generated routes and nothing else.
+// NewRouter registers every operation on a chi router.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -776,29 +766,28 @@ func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, edit
 	return req, nil
 }
 
-// CountPetsToolInput is the input of the count_pets tool, which takes nothing.
+// CountPetsToolInput is the input of the count_pets tool.
 type CountPetsToolInput struct{}
 
-// FindPetToolInput is the input of the find_pet tool: the parameters of the operation.
+// FindPetToolInput is the input of the find_pet tool.
 type FindPetToolInput struct {
 	Name string `json:"name"`
 }
 
-// GetPhotoToolInput is the input of the get_photo tool: the parameters of the operation.
+// GetPhotoToolInput is the input of the get_photo tool.
 type GetPhotoToolInput struct {
 	Name string `json:"name"`
 }
 
-// GetIconToolInput is the input of the get_icon tool, which takes nothing.
+// GetIconToolInput is the input of the get_icon tool.
 type GetIconToolInput struct{}
 
-// MCPTools exposes the operations of the API as MCP tools, each calling the client.
+// MCPTools exposes the operations of the API as MCP tools.
 type MCPTools struct {
 	client ClientInterface
 }
 
-// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
-// a panic in a tool and the first call would end the server.
+// NewMCPTools returns the tools that call c. A nil c panics.
 func NewMCPTools(c ClientInterface) *MCPTools {
 	if c == nil {
 		panic("NewMCPTools: nil client")
@@ -806,8 +795,7 @@ func NewMCPTools(c ClientInterface) *MCPTools {
 	return &MCPTools{client: c}
 }
 
-// Register adds every tool to s. To add a few, pass the definition and the handler of each to
-// mcp.AddTool instead.
+// Register adds every tool to s.
 func (t *MCPTools) Register(s *mcp.Server) {
 	mcp.AddTool(s, t.CountPetsTool(), t.CountPets)
 	mcp.AddTool(s, t.FindPetTool(), t.FindPet)
@@ -815,8 +803,7 @@ func (t *MCPTools) Register(s *mcp.Server) {
 	mcp.AddTool(s, t.GetIconTool(), t.GetIcon)
 }
 
-// CountPetsTool is the definition of the count_pets tool: its name, its description and the schema
-// of its input.
+// CountPetsTool is the definition of the count_pets tool.
 func (t *MCPTools) CountPetsTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "count_pets",
@@ -826,8 +813,7 @@ func (t *MCPTools) CountPetsTool() *mcp.Tool {
 	}
 }
 
-// CountPets handles the count_pets tool: it calls CountPets of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// CountPets handles the count_pets tool.
 func (t *MCPTools) CountPets(ctx context.Context, _ *mcp.CallToolRequest, _ CountPetsToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &CountPetsRequestOptions{}
 	out, err := t.client.CountPets(ctx, opts)
@@ -837,8 +823,7 @@ func (t *MCPTools) CountPets(ctx context.Context, _ *mcp.CallToolRequest, _ Coun
 	return nil, runtime.ToolResult{Value: out}, nil
 }
 
-// FindPetTool is the definition of the find_pet tool: its name, its description and the schema
-// of its input.
+// FindPetTool is the definition of the find_pet tool.
 func (t *MCPTools) FindPetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "find_pet",
@@ -848,9 +833,7 @@ func (t *MCPTools) FindPetTool() *mcp.Tool {
 	}
 }
 
-// FindPet handles the find_pet tool: it calls FindPet of the client and answers with what it returns as structured content.
-// Another 2xx the spec lists answers ok.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// FindPet handles the find_pet tool.
 func (t *MCPTools) FindPet(ctx context.Context, _ *mcp.CallToolRequest, in FindPetToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &FindPetRequestOptions{
 		Query: &FindPetQuery{
@@ -867,8 +850,7 @@ func (t *MCPTools) FindPet(ctx context.Context, _ *mcp.CallToolRequest, in FindP
 	return nil, runtime.ToolResult{Value: out}, nil
 }
 
-// GetPhotoTool is the definition of the get_photo tool: its name, its description and the schema
-// of its input.
+// GetPhotoTool is the definition of the get_photo tool.
 func (t *MCPTools) GetPhotoTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "get_photo",
@@ -878,8 +860,7 @@ func (t *MCPTools) GetPhotoTool() *mcp.Tool {
 	}
 }
 
-// GetPhoto handles the get_photo tool: it calls GetPhoto of the client and answers with the file it returns, as image or audio content when it is one.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// GetPhoto handles the get_photo tool.
 func (t *MCPTools) GetPhoto(ctx context.Context, _ *mcp.CallToolRequest, in GetPhotoToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &GetPhotoRequestOptions{
 		Query: &GetPhotoQuery{
@@ -896,8 +877,7 @@ func (t *MCPTools) GetPhoto(ctx context.Context, _ *mcp.CallToolRequest, in GetP
 	return t.fileResult(*out)
 }
 
-// GetIconTool is the definition of the get_icon tool: its name, its description and the schema
-// of its input.
+// GetIconTool is the definition of the get_icon tool.
 func (t *MCPTools) GetIconTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "get_icon",
@@ -907,8 +887,7 @@ func (t *MCPTools) GetIconTool() *mcp.Tool {
 	}
 }
 
-// GetIcon handles the get_icon tool: it calls GetIcon of the client and answers with the file it returns, as image or audio content when it is one.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// GetIcon handles the get_icon tool.
 func (t *MCPTools) GetIcon(ctx context.Context, _ *mcp.CallToolRequest, _ GetIconToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &GetIconRequestOptions{}
 	out, err := t.client.GetIcon(ctx, opts)
@@ -918,8 +897,6 @@ func (t *MCPTools) GetIcon(ctx context.Context, _ *mcp.CallToolRequest, _ GetIco
 	return t.fileResult(runtime.NewFile(out, "", "image/png"))
 }
 
-// fileResult answers with the bytes of f: as image or audio content when its media type is one,
-// else as structured content in base64.
 func (*MCPTools) fileResult(f runtime.File) (*mcp.CallToolResult, any, error) {
 	data, err := f.Bytes()
 	if err != nil {

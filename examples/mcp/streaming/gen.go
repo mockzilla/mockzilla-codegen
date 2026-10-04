@@ -17,8 +17,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 type Prompt struct {
@@ -52,7 +51,7 @@ type ServiceInterface interface {
 	ListEvents(ctx context.Context, opts *ListEventsServiceRequestOptions) (*ListEventsResponseData, error)
 }
 
-// ChatServiceRequestOptions is what Chat receives. RawRequest is the request as it came in.
+// ChatServiceRequestOptions is what Chat receives.
 type ChatServiceRequestOptions struct {
 	// Body sent as application/json.
 	Body       *Prompt
@@ -64,7 +63,7 @@ func (o *ChatServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// ChatResponseData is what Chat returns: the status, the headers and the body of the response.
+// ChatResponseData is what Chat returns.
 type ChatResponseData struct {
 	Status  int
 	Headers http.Header
@@ -73,7 +72,7 @@ type ChatResponseData struct {
 	contentType string
 }
 
-// NewChatResponseData returns the response data of status 200 with body as application/json.
+// NewChatResponseData returns the 200 response with its application/json body.
 func NewChatResponseData(body *Reply) *ChatResponseData {
 	return &ChatResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -105,12 +104,12 @@ func (r *ChatResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *ChatResponseData) ContentType() string {
 	return r.contentType
 }
 
-// ListEventsServiceRequestOptions is what ListEvents receives. RawRequest is the request as it came in.
+// ListEventsServiceRequestOptions is what ListEvents receives.
 type ListEventsServiceRequestOptions struct {
 	RawRequest *http.Request
 }
@@ -120,7 +119,7 @@ func (o *ListEventsServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// ListEventsResponseData is what ListEvents returns: the status, the headers and the body of the response.
+// ListEventsResponseData is what ListEvents returns.
 type ListEventsResponseData struct {
 	Status  int
 	Headers http.Header
@@ -129,7 +128,7 @@ type ListEventsResponseData struct {
 	contentType string
 }
 
-// NewListEventsResponseData returns the response data of status 200 with body as text/event-stream.
+// NewListEventsResponseData returns the 200 response with its text/event-stream body.
 func NewListEventsResponseData(body string) *ListEventsResponseData {
 	return &ListEventsResponseData{Status: 200, Body: body, contentType: "text/event-stream"}
 }
@@ -161,7 +160,7 @@ func (r *ListEventsResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *ListEventsResponseData) ContentType() string {
 	return r.contentType
 }
@@ -184,9 +183,7 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
+// ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
@@ -211,7 +208,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	return o
 }
 
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+// WithMiddleware wraps the routes with mw, outermost first; on a new router, unknown paths too.
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
@@ -232,21 +229,19 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 	}
 }
 
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory.
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
 	}
 }
 
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+// HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  ServiceInterface
 	opts *ServerOptions
 }
 
-// responseData is what every response data type gives the adapter.
 type responseData interface {
 	StatusCode() int
 	Header() http.Header
@@ -304,17 +299,14 @@ func (a *HTTPAdapter) ListEvents(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "ListEvents", res)
 }
 
-// fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
-// failDecode answers a request whose body could not be read.
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
 }
 
-// write writes the response of the service.
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
@@ -331,9 +323,7 @@ func WithRouter(r chi.Router) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a chi router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
-// wraps the generated routes and nothing else.
+// NewRouter registers every operation on a chi router.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -565,26 +555,24 @@ func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, edit
 	return req, nil
 }
 
-// ChatToolInput is the input of the chat tool: the parameters of the operation.
+// ChatToolInput is the input of the chat tool.
 type ChatToolInput struct {
 	// The request body, sent as application/json.
 	Body *Prompt `json:"body"`
 }
 
-// ListEventsToolInput is the input of the list_events tool, which takes nothing.
+// ListEventsToolInput is the input of the list_events tool.
 type ListEventsToolInput struct{}
 
-// ErrMCPStreaming is what a tool answers when its operation streams its response, which a tool
-// result cannot carry; read such an operation through the client.
+// ErrMCPStreaming is what the tool of a streaming operation returns.
 var ErrMCPStreaming = errors.New("the operation answers with a stream, which an MCP tool cannot return")
 
-// MCPTools exposes the operations of the API as MCP tools, each calling the client.
+// MCPTools exposes the operations of the API as MCP tools.
 type MCPTools struct {
 	client ClientInterface
 }
 
-// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
-// a panic in a tool and the first call would end the server.
+// NewMCPTools returns the tools that call c. A nil c panics.
 func NewMCPTools(c ClientInterface) *MCPTools {
 	if c == nil {
 		panic("NewMCPTools: nil client")
@@ -592,15 +580,13 @@ func NewMCPTools(c ClientInterface) *MCPTools {
 	return &MCPTools{client: c}
 }
 
-// Register adds every tool to s. To add a few, pass the definition and the handler of each to
-// mcp.AddTool instead.
+// Register adds every tool to s.
 func (t *MCPTools) Register(s *mcp.Server) {
 	mcp.AddTool(s, t.ChatTool(), t.Chat)
 	mcp.AddTool(s, t.ListEventsTool(), t.ListEvents)
 }
 
-// ChatTool is the definition of the chat tool: its name, its description and the schema
-// of its input.
+// ChatTool is the definition of the chat tool.
 func (t *MCPTools) ChatTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "chat",
@@ -610,8 +596,7 @@ func (t *MCPTools) ChatTool() *mcp.Tool {
 	}
 }
 
-// Chat handles the chat tool: it calls Chat of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// Chat handles the chat tool.
 func (t *MCPTools) Chat(ctx context.Context, _ *mcp.CallToolRequest, in ChatToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &ChatRequestOptions{
 		Body: in.Body,
@@ -623,8 +608,7 @@ func (t *MCPTools) Chat(ctx context.Context, _ *mcp.CallToolRequest, in ChatTool
 	return nil, runtime.ToolResult{Value: out}, nil
 }
 
-// ListEventsTool is the definition of the list_events tool: its name, its description and the schema
-// of its input.
+// ListEventsTool is the definition of the list_events tool.
 func (t *MCPTools) ListEventsTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "list_events",
@@ -634,7 +618,7 @@ func (t *MCPTools) ListEventsTool() *mcp.Tool {
 	}
 }
 
-// ListEvents handles the list_events tool. ListEvents answers with a stream, so it is ErrMCPStreaming.
+// ListEvents handles the list_events tool.
 func (t *MCPTools) ListEvents(_ context.Context, _ *mcp.CallToolRequest, _ ListEventsToolInput) (*mcp.CallToolResult, any, error) {
 	return nil, nil, ErrMCPStreaming
 }

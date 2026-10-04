@@ -13,8 +13,7 @@ import (
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 )
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 type Pet struct {
@@ -115,7 +114,7 @@ type ServiceInterface interface {
 	PutPet(ctx context.Context, opts *PutPetServiceRequestOptions) (*PutPetResponseData, error)
 }
 
-// GetPetServiceRequestOptions is what GetPet receives. RawRequest is the request as it came in.
+// GetPetServiceRequestOptions is what GetPet receives.
 type GetPetServiceRequestOptions struct {
 	PathParams *GetPetPathParams
 	Query      *GetPetQuery
@@ -134,7 +133,7 @@ func (o *GetPetServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// GetPetResponseData is what GetPet returns: the status, the headers and the body of the response.
+// GetPetResponseData is what GetPet returns.
 type GetPetResponseData struct {
 	Status  int
 	Headers http.Header
@@ -143,17 +142,17 @@ type GetPetResponseData struct {
 	contentType string
 }
 
-// NewGetPetResponseData200 returns the response data of status 200 with body as application/json.
+// NewGetPetResponseData200 returns the 200 response with its application/json body.
 func NewGetPetResponseData200(body *Pet) *GetPetResponseData {
 	return &GetPetResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
 
-// NewGetPetResponseData404 returns the response data of status 404 with body as application/problem+json.
+// NewGetPetResponseData404 returns the 404 response with its application/problem+json body.
 func NewGetPetResponseData404(body *Problem) *GetPetResponseData {
 	return &GetPetResponseData{Status: 404, Body: body, contentType: "application/problem+json"}
 }
 
-// NewGetPetResponseData409 returns the response data of status 409 with body as application/problem+json.
+// NewGetPetResponseData409 returns the 409 response with its application/problem+json body.
 func NewGetPetResponseData409(body *Locked) *GetPetResponseData {
 	return &GetPetResponseData{Status: 409, Body: body, contentType: "application/problem+json"}
 }
@@ -185,12 +184,12 @@ func (r *GetPetResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *GetPetResponseData) ContentType() string {
 	return r.contentType
 }
 
-// PutPetServiceRequestOptions is what PutPet receives. RawRequest is the request as it came in.
+// PutPetServiceRequestOptions is what PutPet receives.
 type PutPetServiceRequestOptions struct {
 	PathParams *PutPetPathParams
 	// Body sent as application/json.
@@ -210,7 +209,7 @@ func (o *PutPetServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// PutPetResponseData is what PutPet returns: the status, the headers and the body of the response.
+// PutPetResponseData is what PutPet returns.
 type PutPetResponseData struct {
 	Status  int
 	Headers http.Header
@@ -219,7 +218,7 @@ type PutPetResponseData struct {
 	contentType string
 }
 
-// NewPutPetResponseData returns the response data of status 200 with body as application/json.
+// NewPutPetResponseData returns the 200 response with its application/json body.
 func NewPutPetResponseData(body *Pet) *PutPetResponseData {
 	return &PutPetResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -251,7 +250,7 @@ func (r *PutPetResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *PutPetResponseData) ContentType() string {
 	return r.contentType
 }
@@ -274,9 +273,7 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
+// ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
@@ -301,7 +298,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	return o
 }
 
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+// WithMiddleware wraps the routes with mw, outermost first; on a new router, unknown paths too.
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
@@ -322,21 +319,19 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 	}
 }
 
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory.
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
 	}
 }
 
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+// HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  ServiceInterface
 	opts *ServerOptions
 }
 
-// responseData is what every response data type gives the adapter.
 type responseData interface {
 	StatusCode() int
 	Header() http.Header
@@ -422,17 +417,14 @@ func (a *HTTPAdapter) PutPet(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "PutPet", res)
 }
 
-// fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
-// failDecode answers a request whose body could not be read.
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
 }
 
-// write writes the response of the service, once it passes the checks of the spec.
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if err := runtime.ValidateResponse(res.Payload()); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
@@ -453,10 +445,7 @@ func WithRouter(r *router.Router) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a fasthttp router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths and OPTIONS requests too, which the router
-// leaves to the routes; on the router WithRouter gives it, the middleware wraps each generated
-// route and nothing else.
+// NewRouter registers every operation on a fasthttp router.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *router.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -476,6 +465,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *router.Router {
 		return r
 	}
 	r := router.New()
+	// The router would answer OPTIONS itself, past the middleware.
 	r.HandleOPTIONS = false
 	register(r, wrap)
 	r.NotFound = handle(wrap(http.NotFoundHandler()))
@@ -483,8 +473,6 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *router.Router {
 	return r
 }
 
-// handle serves h as a fasthttp handler, with the path parameters the router found on the
-// request.
 func handle(h http.Handler) fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
 		fasthttpadaptor.NewFastHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -498,8 +486,6 @@ func handle(h http.Handler) fasthttp.RequestHandler {
 	}
 }
 
-// methodNotAllowed answers a known path asked with a method it does not take; the router sets
-// the Allow header before.
 func methodNotAllowed(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }
