@@ -99,6 +99,9 @@ func (f ErrorHandlerFunc) HandleError(w http.ResponseWriter, r *http.Request, st
 }
 
 func (DefaultErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, status int, err error) {
+	if errors.Is(err, ErrResponseCut) {
+		return
+	}
 	if !AcceptsJSON(r.Header.Get("Accept")) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_ = WriteBytes(w, status, []byte(err.Error()))
@@ -110,7 +113,9 @@ func (DefaultErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, s
 	if errors.As(err, &herr) || jsonErr != nil || string(data) == "{}" {
 		data, _ = json.Marshal(map[string]string{"error": err.Error()}) // strings always marshal
 	}
-	w.Header().Set("Content-Type", "application/json")
+	if !IsJSON(w.Header().Get("Content-Type")) {
+		w.Header().Set("Content-Type", "application/json")
+	}
 	_ = WriteBytes(w, status, data)
 }
 

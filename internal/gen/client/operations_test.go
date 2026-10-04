@@ -28,7 +28,9 @@ func TestBodyView(t *testing.T) {
 	}{
 		{name: "JSON", content: gomodel.Content{MediaType: "application/vnd.pet+json", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/vnd.pet+json"`}},
 		{name: "JSON without a schema", content: gomodel.Content{MediaType: "application/json"}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/json"`}},
+		{name: "JSON with parameters goes under them", content: gomodel.Content{MediaType: "application/json; charset=utf-8", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/json; charset=utf-8"`}},
 		{name: "A form", content: gomodel.Content{MediaType: "application/x-www-form-urlencoded", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FormBody", Value: "opts.Body"}},
+		{name: "A form in another case", content: gomodel.Content{MediaType: "Application/X-WWW-Form-Urlencoded; charset=utf-8", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FormBody", Value: "opts.Body"}},
 		{name: "Multipart into a struct", content: gomodel.Content{MediaType: "multipart/form-data", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "MultipartBody", Value: "opts.Body"}},
 		{name: "Multipart without a schema is bytes", content: gomodel.Content{MediaType: "multipart/form-data"}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "BytesBody", Value: "opts.Body", MediaType: `"multipart/form-data"`}},
 		{name: "A file streams", content: gomodel.Content{MediaType: "image/png", Type: fileType}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FileBody", Value: "*opts.Body", MediaType: `"image/png"`}},
@@ -216,35 +218,6 @@ func TestStreamBody(t *testing.T) {
 			assert.Equal(t, tc.want, r)
 			assert.Equal(t, tc.wantBody, c)
 			assert.Equal(t, tc.wantStreamOnly, IsStreamOnly(op))
-		})
-	}
-}
-
-func TestFrameType(t *testing.T) {
-	t.Parallel()
-
-	str := gomodel.Builtin{Name: "string"}
-	chunk := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Chunk", Kind: gomodel.KindStruct}}
-	note := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Note", Kind: gomodel.KindDefined, Target: str}}
-	tests := []struct {
-		name    string
-		content gomodel.Content
-		want    gomodel.Type
-	}{
-		{name: "A struct", content: gomodel.Content{Item: chunk}, want: chunk},
-		{name: "Anything JSON", content: gomodel.Content{Item: gomodel.Builtin{Name: "any"}}, want: gomodel.Builtin{Name: "any"}},
-		{name: "No schema is bytes", content: gomodel.Content{}, want: bytesType},
-		{name: "A string is bytes", content: gomodel.Content{Item: gomodel.Pointer{Elem: str}}, want: bytesType},
-		{name: "A defined string is bytes", content: gomodel.Content{Item: note}, want: bytesType},
-		{name: "A date-time is bytes", content: gomodel.Content{Item: gomodel.Qualified{Import: gomodel.Import{Path: "time"}, Name: "Time"}}, want: bytesType},
-		{name: "A string enum is bytes", content: gomodel.Content{Item: gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Kind", Kind: gomodel.KindDefined, Target: str, Enum: &gomodel.Enum{Base: str}}}}, want: bytesType},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			assert.Equal(t, tc.want, frameType(tc.content))
 		})
 	}
 }

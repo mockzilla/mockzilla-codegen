@@ -103,6 +103,17 @@ func TestDecode(t *testing.T) {
 	}
 }
 
+func TestDecodeFormResponse(t *testing.T) {
+	t.Parallel()
+
+	var got *rgb
+	targets := []Target{{Status: "200", MediaType: "application/x-www-form-urlencoded", Dst: &got}}
+
+	require.NoError(t, Decode(response(200, "application/x-www-form-urlencoded", nil), []byte("R=1&G=2"), targets))
+	assert.Equal(t, &rgb{R: 1, G: 2}, got)
+	require.Error(t, Decode(response(200, "application/x-www-form-urlencoded", nil), []byte("R=%zz"), targets))
+}
+
 func TestDecodeSuccess(t *testing.T) {
 	t.Parallel()
 

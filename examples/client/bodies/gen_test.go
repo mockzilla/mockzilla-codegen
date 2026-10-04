@@ -67,6 +67,21 @@ func postForm(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, note)
 }
 
+func getForm(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/x-www-form-urlencoded")
+	_, _ = io.WriteString(w, "text=hi&stars=2")
+}
+
+func postCharset(w http.ResponseWriter, r *http.Request) {
+	const charset = "application/json; charset=utf-8"
+	if r.Header.Get("Content-Type") != charset {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+	w.Header().Set("Content-Type", charset)
+	_, _ = io.Copy(w, r.Body)
+}
+
 func upload(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(1 << 20); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -159,6 +174,8 @@ func newClient(t *testing.T) *Client {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /json", postJSON)
 	mux.HandleFunc("POST /form", postForm)
+	mux.HandleFunc("GET /form", getForm)
+	mux.HandleFunc("POST /charset", postCharset)
 	mux.HandleFunc("POST /upload", upload)
 	mux.HandleFunc("POST /text", postText)
 	mux.HandleFunc("PUT /file", putFile)
@@ -200,6 +217,18 @@ func TestBodies(t *testing.T) {
 				return c.PostForm(ctx, &PostFormRequestOptions{Body: &Note{Text: "hi", Stars: new(2)}})
 			},
 			want: &Note{Text: "hi", Stars: new(2)},
+		},
+		{
+			name: "A form answer",
+			call: func() (any, error) { return c.GetForm(ctx, nil) },
+			want: &Note{Text: "hi", Stars: new(2)},
+		},
+		{
+			name: "A media type with parameters",
+			call: func() (any, error) {
+				return c.PostCharset(ctx, &PostCharsetRequestOptions{Body: &Note{Text: "hi"}})
+			},
+			want: &Note{Text: "hi"},
 		},
 		{
 			name: "Text",

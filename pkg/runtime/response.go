@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"reflect"
 	"slices"
 	"strconv"
@@ -195,8 +196,7 @@ func isSuccess(status string) bool {
 // for JSON, then a wildcard, then not at all. A response without a media type takes any target,
 // a JSON one first.
 func mediaRank(documented, actual string) int {
-	documented, _, _ = strings.Cut(strings.ToLower(documented), ";")
-	documented = strings.TrimSpace(documented)
+	documented = baseMediaType(documented)
 	switch {
 	case actual == "" && IsJSON(documented):
 		return 2
@@ -214,10 +214,7 @@ func mediaRank(documented, actual string) int {
 	return 0
 }
 
-// decodeBody reads body into the Dst of t, a pointer: as text into a string, as it is into bytes
-// and into a File, and as JSON into anything else or under a JSON media type that t does not
-// document as a wildcard. Text, bytes and files allocate the pointers on the way; JSON leaves a
-// pointer nil for null.
+// decodeBody reads body into the Dst of t, a pointer, by the type of Dst and the media type.
 func decodeBody(body []byte, mediaType string, t *Target) error {
 	target, err := pointer(t.Dst)
 	if err != nil {
@@ -239,6 +236,12 @@ func decodeBody(body []byte, mediaType string, t *Target) error {
 	case leaf.Kind() == reflect.Slice && leaf.Elem().Kind() == reflect.Uint8:
 		allocate(target).SetBytes(body)
 		return nil
+	case mediaType == "application/x-www-form-urlencoded":
+		values, parseErr := url.ParseQuery(string(body))
+		if parseErr != nil {
+			return parseErr
+		}
+		return assignForm(values, t.Dst)
 	}
 	return json.Unmarshal(body, t.Dst)
 }

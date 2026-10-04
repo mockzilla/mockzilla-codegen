@@ -10,6 +10,7 @@ import (
 	"context"
 	"io"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -67,6 +68,22 @@ func (mirror) PostAny(_ context.Context, opts *PostAnyServiceRequestOptions) (*P
 		return NewPostAnyResponseData(new("text xml: " + *opts.BodyTextXML)), nil
 	}
 	return NewPostAnyResponseData(new("any: " + string(opts.BodyAny))), nil
+}
+
+func (mirror) GetForm(context.Context, *GetFormServiceRequestOptions) (*GetFormResponseData, error) {
+	return NewGetFormResponseData(&Note{Text: "hi", Stars: new(2)}), nil
+}
+
+func (mirror) GetQuote(context.Context, *GetQuoteServiceRequestOptions) (*GetQuoteResponseData, error) {
+	return NewGetQuoteResponseData(new("hi")), nil
+}
+
+func (mirror) GetCount(context.Context, *GetCountServiceRequestOptions) (*GetCountResponseData, error) {
+	return NewGetCountResponseData(new(3)), nil
+}
+
+func (mirror) ListNotes(context.Context, *ListNotesServiceRequestOptions) (*ListNotesResponseData, error) {
+	return NewListNotesResponseData(slices.Values([]Note{{Text: "a"}, {Text: "b", Stars: new(1)}})), nil
 }
 
 func TestBodies(t *testing.T) {

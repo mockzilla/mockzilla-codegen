@@ -72,6 +72,10 @@ var Bodies = []Request{
 	{Name: "The first of them", Method: "POST", Path: "/any", Body: "<a/>", ContentType: "application/xml", WantBody: `xml: <a/>`},
 	{Name: "A wildcard takes every other media type", Method: "POST", Path: "/any", Body: "png", ContentType: "image/png", WantBody: `any: png`},
 	{Name: "A media type the operation does not take", Method: "POST", Path: "/text", Body: "{}", ContentType: "application/json", WantStatus: 415, WantBody: `{"error":"invalid request body: unsupported content type: application/json"}`},
+	{Name: "A form answer", Path: "/form", WantBody: `stars=2&text=hi`, WantHeaders: map[string]string{"Content-Type": "application/x-www-form-urlencoded"}},
+	{Name: "A string answered as JSON", Path: "/quote", WantBody: `"hi"`, WantHeaders: map[string]string{"Content-Type": "application/json"}},
+	{Name: "A number answered as text", Path: "/count", WantBody: `3`, WantHeaders: map[string]string{"Content-Type": "text/plain"}},
+	{Name: "One event per frame", Path: "/notes", WantBody: "data: {\"text\":\"a\"}\n\ndata: {\"text\":\"b\",\"stars\":1}\n\n", WantHeaders: map[string]string{"Content-Type": "text/event-stream"}},
 }
 
 // Errors are the requests of the errors example: requests and responses that fail validation, and
@@ -81,7 +85,7 @@ var Errors = []Request{
 	{Name: "The request fails validation", Path: "/pets/0", WantStatus: 400, WantBody: `{"error":"invalid request: path.id: must be at least 1"}`},
 	{Name: "A query value outside the enum", Path: "/pets/1?fields=color", WantStatus: 400, WantBody: `{"error":"invalid request: query.fields[0]: must be one of name, age"}`},
 	{Name: "The response fails validation", Path: "/pets/2", WantStatus: 500, WantBody: `{"error":"invalid response: name: must be at least 1 characters long"}`},
-	{Name: "A typed error carries the status of its response", Path: "/pets/9", WantStatus: 404, WantBody: `{"detail":"no pet 9"}`},
+	{Name: "A typed error carries the status and media type of its response", Path: "/pets/9", WantStatus: 404, WantBody: `{"detail":"no pet 9"}`, WantHeaders: map[string]string{"Content-Type": "application/problem+json"}},
 	{Name: "A wrapped typed error", Path: "/pets/4", WantStatus: 404, WantBody: `{"detail":"wrapped"}`},
 	{Name: "A typed error behind a pointer", Path: "/pets/5", WantStatus: 404, WantBody: `{"detail":"pointer"}`},
 	{Name: "A response type that is not an error is a response", Path: "/pets/3", WantStatus: 409, WantBody: `{"detail":"locked","until":"later"}`},

@@ -77,7 +77,25 @@ func (r *ListPetsResponseData) ContentType() string
   A range such as `4XX` and `default` take the status as their first argument. A response without
   a body takes no body.
 - The body is the JSON media type of the response, else its first one; the content type is
-  remembered and written with the response.
+  remembered and written with the response. A wildcard such as `*/*` sets none, so the body's Go
+  type picks it.
+- A response in a sequential media type, `text/event-stream` or a line-delimited JSON type such as
+  `application/x-ndjson`, takes its frames as an `iter.Seq` of the frame type. When the response
+  also has a body read whole, the frames constructor has the suffix `Stream`:
+
+```go
+func NewChatResponseData200(body *Reply) *ChatResponseData
+func NewChatResponseData200Stream(frames iter.Seq[Chunk]) *ChatResponseData
+
+return NewChatResponseData200Stream(func(yield func(Chunk) bool) {
+	for _, word := range words {
+		if !yield(Chunk{Text: word}) {
+			return // the client is gone
+		}
+	}
+}), nil
+```
+
 - A response that declares headers gets a struct for them, `ListPetsResponse200Headers`, and a
   `WithTypedHeaders` method that adds them; the method carries the status when several responses
   declare headers. A response under `components.responses` gets one struct for every operation
@@ -119,11 +137,19 @@ mux.HandleFunc("GET /pets", adapter.ListPets)
   with 415.
 - A required body that is missing is a 400; a missing optional body leaves its field nil.
 - A service that returns an error type of the spec (see `models.error-mapping`), as a value, a
-  pointer or wrapped, is answered with the status of the first response that carries the type and
-  the error as the body. Any other error is a 500 whose message does not reach the client.
+  pointer or wrapped, is answered with the status and the media type of the first response that
+  carries the type and the error as the body: the adapter sets the `Content-Type` before it calls
+  the error handler. Any other error is a 500 whose message does not reach the client.
 - A service that returns nil for both values is a 500 with `ErrNoResponse`.
-- The response is written with its status, headers and content type; a nil body sends the status
-  alone.
+- The response is written with its status, headers and content type, the body by its media type:
+  JSON as JSON, a string too; a form through `EncodeForm`; `multipart/form-data` as a form of the
+  struct; a sequential media type one frame per value, flushed as it goes, each line of a frame a
+  `data:` line under `text/event-stream`; a number or a boolean under `text/*` as its text. A
+  string, bytes or a `runtime.File` go as they are under every other media type, and a nil body
+  sends the status alone.
+- A body the server has no encoder for, such as a struct under `application/xml`, is a 500 of
+  kind `ErrorResponse`, and the generator warns about it (`server-body-unwritable`). Set `Body` to
+  a string, bytes or a `runtime.File` to send XML or YAML you encode yourself.
 
 Options are set with `ServerOption` functions on the adapter and on the router alike:
 
@@ -174,11 +200,13 @@ type ErrorHandler interface {
 | `ErrorDecode` | the body cannot be read, or has a media type the operation does not take | 400, 415 |
 | `ErrorValidation` | the request fails the checks of the spec | 400 |
 | `ErrorService` | the service returned an error, or no response | 500 |
-| `ErrorResponse` | the response fails the checks of the spec | 500 |
+| `ErrorResponse` | the response fails the checks of the spec, or has no encoder for its media type | 500 |
 
 `DefaultErrorHandler` writes `{"error": "..."}` when the request accepts JSON, and plain text
-otherwise. An error type of the spec is written as its own JSON. `ErrorHandlerFunc` turns a
-function into an `ErrorHandler`:
+otherwise. An error type of the spec is written as its own JSON, under the JSON media type its
+response documents, such as `application/problem+json`. An error that wraps `ErrResponseCut`
+happened once the status was out, such as a client that left a stream, and gets nothing more.
+`ErrorHandlerFunc` turns a function into an `ErrorHandler`:
 
 ```go
 NewRouter(svc, WithErrorHandler(ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request, status int, err error) {

@@ -107,6 +107,61 @@ func TestNew(t *testing.T) {
 	}, diags)
 }
 
+func TestNewWarnsOfBodiesTheServerCannotWrite(t *testing.T) {
+	t.Parallel()
+
+	note := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Note", Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}}
+	responses := []gomodel.Response{{Status: "200", Contents: []gomodel.Content{{MediaType: "application/xml", Type: note}}}}
+	m := &gomodel.Model{Operations: []*gomodel.Operation{
+		{Name: "GetXML", Spec: &spec.Operation{Method: "GET", Path: "/xml", Origin: spec.Origin{Pointer: "/paths/~1xml/get"}}, Responses: responses},
+		{Name: "Hook", Spec: &spec.Operation{Method: "POST", Path: "/hook", IsWebhook: true}, Responses: responses},
+	}}
+
+	_, diags := New(m, allOptions())
+
+	assert.Equal(t, []diag.Diagnostic{{
+		Severity: diag.Warning,
+		Code:     "server-body-unwritable",
+		Pointer:  "/paths/~1xml/get",
+		Message:  "GetXML answers 200 as application/xml, which the server cannot write Note as; set Body to a string, []byte or runtime.File",
+	}}, diags)
+}
+
+func TestIsWritable(t *testing.T) {
+	t.Parallel()
+
+	note := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Note", Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}}
+	integer := gomodel.Builtin{Name: "int"}
+	tests := []struct {
+		name    string
+		content gomodel.Content
+		want    bool
+	}{
+		{name: "A string anywhere", content: gomodel.Content{MediaType: "application/xml", Type: gomodel.Builtin{Name: "string"}}, want: true},
+		{name: "Bytes anywhere", content: gomodel.Content{MediaType: "application/xml"}, want: true},
+		{name: "A file anywhere", content: gomodel.Content{MediaType: "image/png", Type: fileType}, want: true},
+		{name: "Anything as it is", content: gomodel.Content{MediaType: "application/xml", Type: gomodel.Builtin{Name: "any"}}, want: true},
+		{name: "JSON with parameters", content: gomodel.Content{MediaType: "Application/JSON; charset=utf-8", Type: note}, want: true},
+		{name: "Frames", content: gomodel.Content{MediaType: "text/event-stream", Type: note}, want: true},
+		{name: "A wildcard as JSON", content: gomodel.Content{MediaType: "*/*", Type: note}, want: true},
+		{name: "A form", content: gomodel.Content{MediaType: "application/x-www-form-urlencoded", Type: note}, want: true},
+		{name: "A struct as multipart", content: gomodel.Content{MediaType: "multipart/form-data", Type: note}, want: true},
+		{name: "No struct as multipart", content: gomodel.Content{MediaType: "multipart/form-data", Type: integer}},
+		{name: "A number as text", content: gomodel.Content{MediaType: "text/plain", Type: integer}, want: true},
+		{name: "A time as text", content: gomodel.Content{MediaType: "text/plain", Type: gomodel.Qualified{Import: gomodel.Import{Path: "time"}, Name: "Time"}}, want: true},
+		{name: "A struct as text", content: gomodel.Content{MediaType: "text/plain", Type: note}},
+		{name: "A struct as XML", content: gomodel.Content{MediaType: "application/xml", Type: note}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, isWritable(tc.content))
+		})
+	}
+}
+
 func TestNewLeavesTheMethodToTheFramework(t *testing.T) {
 	t.Parallel()
 
@@ -524,6 +579,12 @@ func petModel() *gomodel.Model {
 		Bodies: []gomodel.Content{{MediaType: "application/json", Type: gomodel.Slice{Elem: gomodel.DeclRef{Decl: pet}}}},
 		Responses: []gomodel.Response{
 			{Status: "200", Contents: []gomodel.Content{{MediaType: "text/plain", Type: str}}},
+			{Status: "202", Contents: []gomodel.Content{{MediaType: "application/x-ndjson", Item: gomodel.DeclRef{Decl: pet}}}},
+			{Status: "203", Contents: []gomodel.Content{
+				{MediaType: "application/json", Type: gomodel.DeclRef{Decl: pet}},
+				{MediaType: "text/event-stream", Type: gomodel.DeclRef{Decl: pet}, Item: gomodel.DeclRef{Decl: pet}},
+			}},
+			{Status: "206", Contents: []gomodel.Content{{MediaType: "*/*", Type: gomodel.DeclRef{Decl: pet}}}},
 			{Status: "default", Contents: []gomodel.Content{{MediaType: "application/json"}}},
 		},
 	}

@@ -133,7 +133,7 @@ func TestWriteMultipart(t *testing.T) {
 		Count:    3,
 	}
 
-	data, contentType := writeForm(t, &in)
+	data, contentType := multipartOf(t, &in)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(data))
 	req.Header.Set("Content-Type", contentType)
@@ -159,7 +159,7 @@ func TestWriteMultipartParts(t *testing.T) {
 	t.Parallel()
 
 	when := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-	data, contentType := writeForm(t, stamped{Title: `a "quoted" \ name`, When: when, Raw: []byte{0, 1}, Any: map[string]int{"n": 1}, Ptrs: []*string{Ptr("p"), nil}})
+	data, contentType := multipartOf(t, stamped{Title: `a "quoted" \ name`, When: when, Raw: []byte{0, 1}, Any: map[string]int{"n": 1}, Ptrs: []*string{Ptr("p"), nil}})
 
 	_, params, err := mime.ParseMediaType(contentType)
 	require.NoError(t, err)
@@ -213,7 +213,7 @@ func TestWriteMultipartFailingWriter(t *testing.T) {
 		stamped{Raw: []byte{1}},
 	}
 	for _, v := range values {
-		data, _ := writeForm(t, v)
+		data, _ := multipartOf(t, v)
 
 		for n := range len(data) {
 			err := WriteMultipart(multipart.NewWriter(&failAfter{n: n}), v)
@@ -261,8 +261,8 @@ func TestMultipartSize(t *testing.T) {
 	}
 }
 
-// writeForm writes v as a multipart form and returns it with its content type.
-func writeForm(t *testing.T, v any) ([]byte, string) {
+// multipartOf writes v as a multipart form and returns it with its content type.
+func multipartOf(t *testing.T, v any) ([]byte, string) {
 	t.Helper()
 
 	var buf bytes.Buffer

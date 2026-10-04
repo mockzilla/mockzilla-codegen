@@ -18,7 +18,6 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -278,8 +277,7 @@ func (l *lfReader) Read(p []byte) (int, error) {
 // IsSequential reports a media type whose body is a sequence of frames: text/event-stream and
 // the line-delimited JSON types, with or without parameters.
 func IsSequential(mediaType string) bool {
-	mediaType, _, _ = strings.Cut(strings.ToLower(mediaType), ";")
-	mediaType = strings.TrimSpace(mediaType)
+	mediaType = baseMediaType(mediaType)
 	return mediaType == MediaTypeEventStream || slices.Contains(lineMediaTypes, mediaType)
 }
 

@@ -85,7 +85,7 @@ func envelopeFields(g *Generator, op *gomodel.Operation) []envelopeField {
 		names = append(names, name)
 		stream = &envelopeField{
 			name:      name,
-			typ:       frameType(c),
+			typ:       operation.FrameType(c),
 			doc:       name + " is the stream of a " + r.Status + " response as " + c.MediaType + ".",
 			status:    r.Status,
 			mediaType: c.MediaType,
@@ -137,10 +137,10 @@ func envelopeFields(g *Generator, op *gomodel.Operation) []envelopeField {
 	return out
 }
 
-// isDecodable reports a body the client decodes: JSON into anything, any media type into a string,
-// bytes or a file, and a wildcard media type into anything.
+// isDecodable reports JSON, a form or a wildcard into anything, else a string, bytes or a file.
 func isDecodable(c gomodel.Content) bool {
-	if runtime.IsJSON(c.MediaType) || strings.Contains(c.MediaType, "*") {
+	mediaType := operation.BaseMediaType(c.MediaType)
+	if runtime.IsJSON(mediaType) || mediaType == "application/x-www-form-urlencoded" || strings.Contains(mediaType, "*") {
 		return true
 	}
 	t := gomodel.Underlying(gomodel.Elem(operation.BodyType(c)))

@@ -5,7 +5,9 @@ package bodies
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
+	"iter"
 	"net/http"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -37,6 +39,10 @@ type PostAnyXMLRequestBody = string
 
 type PostAnyXMLRequestBody2 = string
 
+type GetQuoteResponse200 = string
+
+type GetCountResponse200 = int
+
 type UploadResponse200 map[string]any
 
 type PostTextResponse200 = string
@@ -49,8 +55,16 @@ type PostAnyResponse200 = string
 type ServiceInterface interface {
 	// PostJSON handles POST /json.
 	PostJSON(ctx context.Context, opts *PostJSONServiceRequestOptions) (*PostJSONResponseData, error)
+	// GetForm handles GET /form.
+	GetForm(ctx context.Context, opts *GetFormServiceRequestOptions) (*GetFormResponseData, error)
 	// PostForm handles POST /form.
 	PostForm(ctx context.Context, opts *PostFormServiceRequestOptions) (*PostFormResponseData, error)
+	// GetQuote handles GET /quote.
+	GetQuote(ctx context.Context, opts *GetQuoteServiceRequestOptions) (*GetQuoteResponseData, error)
+	// GetCount handles GET /count.
+	GetCount(ctx context.Context, opts *GetCountServiceRequestOptions) (*GetCountResponseData, error)
+	// ListNotes handles GET /notes.
+	ListNotes(ctx context.Context, opts *ListNotesServiceRequestOptions) (*ListNotesResponseData, error)
 	// Upload handles POST /upload.
 	Upload(ctx context.Context, opts *UploadServiceRequestOptions) (*UploadResponseData, error)
 	// PostText handles POST /text.
@@ -119,6 +133,62 @@ func (r *PostJSONResponseData) ContentType() string {
 	return r.contentType
 }
 
+// GetFormServiceRequestOptions is what GetForm receives.
+type GetFormServiceRequestOptions struct {
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *GetFormServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// GetFormResponseData is what GetForm returns.
+type GetFormResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewGetFormResponseData returns the 200 response with its application/x-www-form-urlencoded body.
+func NewGetFormResponseData(body *Note) *GetFormResponseData {
+	return &GetFormResponseData{Status: 200, Body: body, contentType: "application/x-www-form-urlencoded"}
+}
+
+// WithStatus sets the status code.
+func (r *GetFormResponseData) WithStatus(code int) *GetFormResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *GetFormResponseData) WithHeaders(h http.Header) *GetFormResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *GetFormResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *GetFormResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *GetFormResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType returns the media type of the body, empty for the default of its Go type.
+func (r *GetFormResponseData) ContentType() string {
+	return r.contentType
+}
+
 // PostFormServiceRequestOptions is what PostForm receives.
 type PostFormServiceRequestOptions struct {
 	// Body sent as application/x-www-form-urlencoded.
@@ -174,6 +244,174 @@ func (r *PostFormResponseData) Payload() any {
 
 // ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *PostFormResponseData) ContentType() string {
+	return r.contentType
+}
+
+// GetQuoteServiceRequestOptions is what GetQuote receives.
+type GetQuoteServiceRequestOptions struct {
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *GetQuoteServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// GetQuoteResponseData is what GetQuote returns.
+type GetQuoteResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewGetQuoteResponseData returns the 200 response with its application/json body.
+func NewGetQuoteResponseData(body *GetQuoteResponse200) *GetQuoteResponseData {
+	return &GetQuoteResponseData{Status: 200, Body: body, contentType: "application/json"}
+}
+
+// WithStatus sets the status code.
+func (r *GetQuoteResponseData) WithStatus(code int) *GetQuoteResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *GetQuoteResponseData) WithHeaders(h http.Header) *GetQuoteResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *GetQuoteResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *GetQuoteResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *GetQuoteResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType returns the media type of the body, empty for the default of its Go type.
+func (r *GetQuoteResponseData) ContentType() string {
+	return r.contentType
+}
+
+// GetCountServiceRequestOptions is what GetCount receives.
+type GetCountServiceRequestOptions struct {
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *GetCountServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// GetCountResponseData is what GetCount returns.
+type GetCountResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewGetCountResponseData returns the 200 response with its text/plain body.
+func NewGetCountResponseData(body *GetCountResponse200) *GetCountResponseData {
+	return &GetCountResponseData{Status: 200, Body: body, contentType: "text/plain"}
+}
+
+// WithStatus sets the status code.
+func (r *GetCountResponseData) WithStatus(code int) *GetCountResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *GetCountResponseData) WithHeaders(h http.Header) *GetCountResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *GetCountResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *GetCountResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *GetCountResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType returns the media type of the body, empty for the default of its Go type.
+func (r *GetCountResponseData) ContentType() string {
+	return r.contentType
+}
+
+// ListNotesServiceRequestOptions is what ListNotes receives.
+type ListNotesServiceRequestOptions struct {
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *ListNotesServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// ListNotesResponseData is what ListNotes returns.
+type ListNotesResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewListNotesResponseData returns the 200 response that streams frames as text/event-stream.
+func NewListNotesResponseData(frames iter.Seq[Note]) *ListNotesResponseData {
+	return &ListNotesResponseData{Status: 200, Body: frames, contentType: "text/event-stream"}
+}
+
+// WithStatus sets the status code.
+func (r *ListNotesResponseData) WithStatus(code int) *ListNotesResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *ListNotesResponseData) WithHeaders(h http.Header) *ListNotesResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *ListNotesResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *ListNotesResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *ListNotesResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType returns the media type of the body, empty for the default of its Go type.
+func (r *ListNotesResponseData) ContentType() string {
 	return r.contentType
 }
 
@@ -531,6 +769,22 @@ func (a *HTTPAdapter) PostJSON(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "PostJSON", res)
 }
 
+// GetForm handles GET /form.
+func (a *HTTPAdapter) GetForm(w http.ResponseWriter, r *http.Request) {
+	opts := &GetFormServiceRequestOptions{RawRequest: r}
+
+	res, err := a.svc.GetForm(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetForm", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetForm", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "GetForm", res)
+}
+
 // PostForm handles POST /form.
 func (a *HTTPAdapter) PostForm(w http.ResponseWriter, r *http.Request) {
 	opts := &PostFormServiceRequestOptions{RawRequest: r}
@@ -558,6 +812,54 @@ func (a *HTTPAdapter) PostForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.write(w, r, "PostForm", res)
+}
+
+// GetQuote handles GET /quote.
+func (a *HTTPAdapter) GetQuote(w http.ResponseWriter, r *http.Request) {
+	opts := &GetQuoteServiceRequestOptions{RawRequest: r}
+
+	res, err := a.svc.GetQuote(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetQuote", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetQuote", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "GetQuote", res)
+}
+
+// GetCount handles GET /count.
+func (a *HTTPAdapter) GetCount(w http.ResponseWriter, r *http.Request) {
+	opts := &GetCountServiceRequestOptions{RawRequest: r}
+
+	res, err := a.svc.GetCount(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetCount", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetCount", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "GetCount", res)
+}
+
+// ListNotes handles GET /notes.
+func (a *HTTPAdapter) ListNotes(w http.ResponseWriter, r *http.Request) {
+	opts := &ListNotesServiceRequestOptions{RawRequest: r}
+
+	res, err := a.svc.ListNotes(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListNotes", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListNotes", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "ListNotes", res)
 }
 
 // Upload handles POST /upload.
@@ -698,6 +1000,8 @@ func (a *HTTPAdapter) PostAny(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+	// A response that failed to write leaves its media type, which is not the error's.
+	w.Header().Del("Content-Type")
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
@@ -709,7 +1013,11 @@ func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, r
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	if err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
+	err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	switch {
+	case errors.Is(err, runtime.ErrContentType):
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+	case err != nil:
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
 	}
 }
@@ -733,7 +1041,11 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *server.Hertz {
 	}
 	register := func(h *server.Hertz, route func(http.Handler) http.Handler) {
 		h.POST("/json", handle(route(http.HandlerFunc(a.PostJSON))))
+		h.GET("/form", handle(route(http.HandlerFunc(a.GetForm))))
 		h.POST("/form", handle(route(http.HandlerFunc(a.PostForm))))
+		h.GET("/quote", handle(route(http.HandlerFunc(a.GetQuote))))
+		h.GET("/count", handle(route(http.HandlerFunc(a.GetCount))))
+		h.GET("/notes", handle(route(http.HandlerFunc(a.ListNotes))))
 		h.POST("/upload", handle(route(http.HandlerFunc(a.Upload))))
 		h.POST("/text", handle(route(http.HandlerFunc(a.PostText))))
 		h.PUT("/file", handle(route(http.HandlerFunc(a.PutFile))))
