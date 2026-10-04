@@ -9,12 +9,15 @@
 package server
 
 import (
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // ServiceView is the data of the service part. Context, HTTP and Runtime are the names the
@@ -58,15 +61,27 @@ type CheckView struct {
 }
 
 // ConstructorView makes the response data of one status. Status is the status literal, or the
-// name of the status argument when HasStatusArg; Body is the type of the body argument, empty for
-// none; ContentType is quoted.
+// name of the status argument when HasStatusArg; Arg is the name of the body argument and Body its
+// type, empty for none; ContentType is quoted.
 type ConstructorView struct {
 	Name         string
 	Doc          string
 	Status       string
 	HasStatusArg bool
+	Arg          string
 	Body         string
 	ContentType  string
+}
+
+// Constructor is one function that makes the response data of a status: its name, whether it
+// takes the status first, and the body it takes, when HasBody. With IsStream it takes the frames
+// of Body, an iter.Seq of operation.FrameType.
+type Constructor struct {
+	Name         string
+	HasStatusArg bool
+	Body         gomodel.Content
+	HasBody      bool
+	IsStream     bool
 }
 
 // HeadersView is a method that sets the typed headers of one status.
@@ -76,11 +91,27 @@ type HeadersView struct {
 	Doc    string
 }
 
-// Constructor names the function that makes the response data of r, a response of op, and says
-// whether it takes the status first: the key of r is no number, such as a range or default.
-func Constructor(n *naming.Namer, op *gomodel.Operation, r gomodel.Response) (name string, hasStatusArg bool) {
+// Constructors lists the functions that make the response data of r, a response of op: one for
+// its first body read whole, a JSON one when there is one, or for no body, and one for its first
+// sequential body, which takes the frames. With both, the second has the suffix Stream. Each takes
+// the status first when the key of r is no number, such as a range or default.
+func Constructors(n *naming.Namer, op *gomodel.Operation, r gomodel.Response) []Constructor {
+	name := n.ResponseConstructor(op.Name, r.Status, len(op.Responses) > 1)
 	_, err := strconv.Atoi(r.Status)
-	return n.ResponseConstructor(op.Name, r.Status, len(op.Responses) > 1), err != nil
+	hasStatusArg := err != nil
+
+	var out []Constructor
+	whole := slices.DeleteFunc(slices.Clone(r.Contents), isSequential)
+	if c, ok := operation.FirstBody(whole); ok || len(whole) == len(r.Contents) {
+		out = append(out, Constructor{Name: name, HasStatusArg: hasStatusArg, Body: c, HasBody: ok})
+	}
+	if i := slices.IndexFunc(r.Contents, isSequential); i >= 0 {
+		if len(out) > 0 {
+			name += "Stream"
+		}
+		out = append(out, Constructor{Name: name, HasStatusArg: hasStatusArg, Body: r.Contents[i], HasBody: true, IsStream: true})
+	}
+	return out
 }
 
 func serviceView(g *Generator, s *gocode.Scope) *ServiceView {
@@ -127,7 +158,9 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Operati
 	}
 
 	for _, r := range op.Responses {
-		v.Constructors = append(v.Constructors, constructorView(n, op, r, s))
+		for _, c := range Constructors(n, op, r) {
+			v.Constructors = append(v.Constructors, constructorView(c, r.Status, s))
+		}
 		if r.Headers != nil {
 			v.Headers = append(v.Headers, HeadersView{
 				Method: "WithTypedHeaders" + headerSuffix(n, r.Status, op),
@@ -139,22 +172,32 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Operati
 	return v
 }
 
-// constructorView makes the response data for the first body of r, a JSON one when there is one.
-func constructorView(n *naming.Namer, op *gomodel.Operation, r gomodel.Response, s *gocode.Scope) ConstructorView {
-	name, hasStatusArg := Constructor(n, op, r)
-	v := ConstructorView{Name: name, Status: r.Status, HasStatusArg: hasStatusArg, ContentType: gocode.Quote("")}
-	if hasStatusArg {
+func constructorView(c Constructor, status string, s *gocode.Scope) ConstructorView {
+	v := ConstructorView{Name: c.Name, Status: status, HasStatusArg: c.HasStatusArg, ContentType: gocode.Quote("")}
+	if c.HasStatusArg {
 		v.Status = "status"
 	}
 
-	doc := "returns the " + r.Status + " response"
-	if c, ok := operation.FirstBody(r.Contents); ok {
-		v.ContentType = gocode.Quote(c.MediaType)
-		v.Body = s.Expr(operation.BodyType(c))
-		doc += " with its " + c.MediaType + " body"
+	doc := "returns the " + status + " response"
+	switch {
+	case c.IsStream:
+		v.ContentType, v.Arg = gocode.Quote(c.Body.MediaType), "frames"
+		v.Body = gocode.Index(gocode.Selector(s.Import(gomodel.Import{Path: "iter"}), "Seq"), s.Expr(operation.FrameType(c.Body)))
+		doc += " that streams frames as " + c.Body.MediaType
+	case c.HasBody:
+		v.Arg, v.Body = "body", s.Expr(operation.BodyType(c.Body))
+		// A wildcard is no media type to send; the runtime picks one by the Go type.
+		if !strings.Contains(c.Body.MediaType, "*") {
+			v.ContentType = gocode.Quote(c.Body.MediaType)
+		}
+		doc += " with its " + c.Body.MediaType + " body"
 	}
 	v.Doc = doc + "."
 	return v
+}
+
+func isSequential(c gomodel.Content) bool {
+	return runtime.IsSequential(c.MediaType)
 }
 
 // headerSuffix tells the typed header methods apart when several statuses declare headers.

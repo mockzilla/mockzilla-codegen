@@ -77,6 +77,8 @@ func TestIsDecodable(t *testing.T) {
 		want    bool
 	}{
 		{name: "JSON into a struct", content: gomodel.Content{MediaType: "application/json", Type: pet}, want: true},
+		{name: "JSON with parameters", content: gomodel.Content{MediaType: "Application/JSON; charset=utf-8", Type: pet}, want: true},
+		{name: "A form into a struct", content: gomodel.Content{MediaType: "application/x-www-form-urlencoded", Type: pet}, want: true},
 		{name: "A wildcard into a struct", content: gomodel.Content{MediaType: "*/*", Type: pet}, want: true},
 		{name: "Text into a string", content: gomodel.Content{MediaType: "text/html", Type: gomodel.Builtin{Name: "string"}}, want: true},
 		{name: "Anything into bytes", content: gomodel.Content{MediaType: "image/png"}, want: true},

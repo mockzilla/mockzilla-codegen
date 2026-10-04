@@ -36,6 +36,7 @@ var (
 	stringType = gomodel.Builtin{Name: "string"}
 	bytesType  = gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}
 	fileType   = gomodel.Qualified{Import: gomodel.Import{Path: gomodel.RuntimePath}, Name: "File"}
+	anyType    = gomodel.Builtin{Name: "any"}
 )
 
 // handlerLocals are the variables a generated handler declares, c being the context of a Native
@@ -62,6 +63,7 @@ type AdapterView struct {
 	Runtime             string
 	HTTP                string
 	IO                  string
+	Errors              string
 	MaxMemory           int64
 	IsRequestValidated  bool
 	IsResponseValidated bool
@@ -148,11 +150,13 @@ type conversion struct {
 	isPointer bool
 }
 
-// TypedErrorView answers an error type of the spec with its status.
+// TypedErrorView answers an error type of the spec with its status, under its media type, which
+// is quoted.
 type TypedErrorView struct {
-	Var    string
-	Type   string
-	Status int
+	Var       string
+	Type      string
+	Status    int
+	MediaType string
 }
 
 func errorsView(s *gocode.Scope) *ErrorsView {
@@ -165,6 +169,7 @@ func adapterView(g *Generator, s *gocode.Scope) *AdapterView {
 		Runtime:             s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
 		HTTP:                s.Import(gomodel.Import{Path: "net/http"}),
 		IO:                  s.Import(gomodel.Import{Path: "io"}),
+		Errors:              s.Import(gomodel.Import{Path: "errors"}),
 		MaxMemory:           g.opts.MultipartMaxMemory,
 		IsRequestValidated:  g.opts.ValidateRequest,
 		IsResponseValidated: g.opts.ValidateResponse,
@@ -197,7 +202,7 @@ func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope) HandlerVi
 	fields := operation.BodyFields(op.Bodies, g.opts.Namer)
 	seen := []string{""}
 	for i, c := range op.Bodies {
-		mediaType := baseMediaType(c.MediaType)
+		mediaType := operation.BaseMediaType(c.MediaType)
 		isWildcard := strings.Contains(mediaType, "*")
 		switch {
 		case isWildcard && len(v.Wildcards) == 0:
@@ -246,7 +251,7 @@ func groupView(g *Generator, p gomodel.ParamGroup, s *gocode.Scope) GroupView {
 // wildcard media type into anything else decodes as JSON. Other pairs are taken in but not decoded.
 func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 	s := at.scope
-	mediaType := baseMediaType(c.MediaType)
+	mediaType := operation.BaseMediaType(c.MediaType)
 	v := BodyView{
 		Kind:        bodyNone,
 		MediaType:   gocode.Quote(mediaType),
@@ -283,13 +288,6 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 	return v
 }
 
-// baseMediaType is a media type as a request's Content-Type is compared with it: in lower case
-// and without parameters.
-func baseMediaType(mediaType string) string {
-	base, _, _ := strings.Cut(strings.ToLower(mediaType), ";")
-	return strings.TrimSpace(base)
-}
-
 // convert writes value, of the raw type, as the target type of a body field: converted when the
 // target is another type, and behind a pointer when the field holds one.
 func convert(value string, c conversion, s *gocode.Scope) string {
@@ -303,8 +301,8 @@ func convert(value string, c conversion, s *gocode.Scope) string {
 	return out
 }
 
-// typedErrors are the error types of the spec the operation answers with, each with the status of
-// the first response that carries it.
+// typedErrors are the error types of the spec the operation answers with, each with the status and
+// the media type of the first response that carries it.
 func typedErrors(op *gomodel.Operation, s *gocode.Scope) []TypedErrorView {
 	var out []TypedErrorView
 	var seen []*gomodel.Decl
@@ -315,7 +313,12 @@ func typedErrors(op *gomodel.Operation, s *gocode.Scope) []TypedErrorView {
 				continue
 			}
 			seen = append(seen, d)
-			out = append(out, TypedErrorView{Var: errorVar(d.Name, len(out)), Type: s.Expr(gomodel.DeclRef{Decl: d}), Status: operation.StatusOf(r.Status)})
+			out = append(out, TypedErrorView{
+				Var:       errorVar(d.Name, len(out)),
+				Type:      s.Expr(gomodel.DeclRef{Decl: d}),
+				Status:    operation.StatusOf(r.Status),
+				MediaType: gocode.Quote(c.MediaType),
+			})
 		}
 	}
 	return out

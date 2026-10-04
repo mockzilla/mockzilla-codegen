@@ -56,6 +56,15 @@ func (o *PostJSONRequestOptions) Validate() error {
 	return nil
 }
 
+// GetFormRequestOptions is what GetForm sends.
+type GetFormRequestOptions struct {
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *GetFormRequestOptions) Validate() error {
+	return nil
+}
+
 // PostFormRequestOptions is what PostForm sends.
 type PostFormRequestOptions struct {
 	// Body sent as application/x-www-form-urlencoded.
@@ -64,6 +73,17 @@ type PostFormRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *PostFormRequestOptions) Validate() error {
+	return nil
+}
+
+// PostCharsetRequestOptions is what PostCharset sends.
+type PostCharsetRequestOptions struct {
+	// Body sent as application/json; charset=utf-8.
+	Body *Note
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *PostCharsetRequestOptions) Validate() error {
 	return nil
 }
 
@@ -156,8 +176,12 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 type ClientInterface interface {
 	// PostJSON calls POST /json.
 	PostJSON(ctx context.Context, opts *PostJSONRequestOptions, editors ...RequestEditor) (*Note, error)
+	// GetForm calls GET /form.
+	GetForm(ctx context.Context, opts *GetFormRequestOptions, editors ...RequestEditor) (*Note, error)
 	// PostForm calls POST /form.
 	PostForm(ctx context.Context, opts *PostFormRequestOptions, editors ...RequestEditor) (*Note, error)
+	// PostCharset calls POST /charset.
+	PostCharset(ctx context.Context, opts *PostCharsetRequestOptions, editors ...RequestEditor) (*Note, error)
 	// Upload calls POST /upload.
 	Upload(ctx context.Context, opts *UploadRequestOptions, editors ...RequestEditor) (UploadResponse200, error)
 	// PostText calls POST /text.
@@ -264,6 +288,35 @@ func (c *Client) PostJSONRequest(ctx context.Context, opts *PostJSONRequestOptio
 	return c.newRequest(ctx, b, editors)
 }
 
+// GetForm calls GET /form.
+func (c *Client) GetForm(ctx context.Context, opts *GetFormRequestOptions, editors ...RequestEditor) (*Note, error) {
+	req, err := c.GetFormRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out *Note
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "200", MediaType: "application/x-www-form-urlencoded", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// GetFormRequest builds the request of GET /form.
+func (c *Client) GetFormRequest(ctx context.Context, opts *GetFormRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &GetFormRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/form")
+	return c.newRequest(ctx, b, editors)
+}
+
 // PostForm calls POST /form.
 func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions, editors ...RequestEditor) (*Note, error) {
 	req, err := c.PostFormRequest(ctx, opts, editors...)
@@ -295,6 +348,39 @@ func (c *Client) PostFormRequest(ctx context.Context, opts *PostFormRequestOptio
 		b.FormBody(opts.Body)
 	default:
 		return nil, runtime.ErrBodyEmpty
+	}
+	return c.newRequest(ctx, b, editors)
+}
+
+// PostCharset calls POST /charset.
+func (c *Client) PostCharset(ctx context.Context, opts *PostCharsetRequestOptions, editors ...RequestEditor) (*Note, error) {
+	req, err := c.PostCharsetRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out *Note
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "200", MediaType: "application/json; charset=utf-8", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PostCharsetRequest builds the request of POST /charset.
+func (c *Client) PostCharsetRequest(ctx context.Context, opts *PostCharsetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &PostCharsetRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodPost, "/charset")
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json; charset=utf-8")
 	}
 	return c.newRequest(ctx, b, editors)
 }

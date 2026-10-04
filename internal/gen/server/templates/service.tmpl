@@ -52,8 +52,8 @@ type {{.Data}} struct {
 {{- range .Constructors}}
 
 // {{.Name}} {{.Doc}}
-func {{.Name}}({{if .HasStatusArg}}status int{{end}}{{if and .HasStatusArg .Body}}, {{end}}{{if .Body}}body {{.Body}}{{end}}) *{{$op.Data}} {
-	return &{{$op.Data}}{Status: {{.Status}}, {{if .Body}}Body: body, {{end}}contentType: {{.ContentType}}}
+func {{.Name}}({{if .HasStatusArg}}status int{{end}}{{if and .HasStatusArg .Body}}, {{end}}{{if .Body}}{{.Arg}} {{.Body}}{{end}}) *{{$op.Data}} {
+	return &{{$op.Data}}{Status: {{.Status}}, {{if .Body}}Body: {{.Arg}}, {{end}}contentType: {{.ContentType}}}
 }
 {{- end}}
 

@@ -43,7 +43,8 @@ type HandlerError struct {
 }
 
 // ErrorHandler writes the response of a failed request. err is a *HandlerError, or an error type
-// of the spec returned by the service.
+// of the spec returned by the service, which comes with the Content-Type set to the media type the
+// spec documents for it.
 type ErrorHandler interface {
 	HandleError(w http.ResponseWriter, r *http.Request, status int, err error)
 }
@@ -52,7 +53,9 @@ type ErrorHandler interface {
 type ErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, status int, err error)
 
 // DefaultErrorHandler writes an error as {"error": "..."}, or an error type of the spec as its own
-// JSON, when the request accepts JSON, and as text otherwise.
+// JSON, when the request accepts JSON, and as text otherwise. JSON goes under the JSON media type
+// already set, such as the one the spec documents for an error type, else application/json. A
+// response cut short gets nothing more.
 type DefaultErrorHandler struct{}
 
 func (k ErrorKind) String() string {
@@ -99,6 +102,9 @@ func (f ErrorHandlerFunc) HandleError(w http.ResponseWriter, r *http.Request, st
 }
 
 func (DefaultErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, status int, err error) {
+	if errors.Is(err, ErrResponseCut) {
+		return
+	}
 	if !AcceptsJSON(r.Header.Get("Accept")) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_ = WriteBytes(w, status, []byte(err.Error()))
@@ -110,7 +116,9 @@ func (DefaultErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, s
 	if errors.As(err, &herr) || jsonErr != nil || string(data) == "{}" {
 		data, _ = json.Marshal(map[string]string{"error": err.Error()}) // strings always marshal
 	}
-	w.Header().Set("Content-Type", "application/json")
+	if !IsJSON(w.Header().Get("Content-Type")) {
+		w.Header().Set("Content-Type", "application/json")
+	}
 	_ = WriteBytes(w, status, data)
 }
 

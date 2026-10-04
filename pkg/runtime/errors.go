@@ -23,6 +23,7 @@ var (
 	ErrBodyValue    = errors.New("invalid body value")
 	ErrContentType  = errors.New("unsupported content type")
 	ErrNoResponse   = errors.New("the service returned no response")
+	ErrResponseCut  = errors.New("response cut short")
 	ErrBaseURL      = errors.New("invalid base URL")
 	ErrFrame        = errors.New("invalid stream frame")
 	ErrFrameSize    = errors.New("stream frame too large")

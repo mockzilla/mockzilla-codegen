@@ -119,6 +119,7 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 	if err != nil {
 {{- range .Errors}}
 		if {{.Var}}, ok := {{$.Runtime}}.AsError[{{.Type}}](err); ok {
+			w.Header().Set("Content-Type", {{.MediaType}})
 			a.opts.ErrorHandler.HandleError(w, r, {{.Status}}, {{.Var}})
 			{{$.Handler.Return}}
 		}
@@ -138,6 +139,8 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 {{- end}}
 
 func (a *HTTPAdapter) fail(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, err *{{.Runtime}}.HandlerError) {
+	// A response that failed to write leaves its media type, which is not the error's.
+	w.Header().Del("Content-Type")
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
@@ -155,7 +158,11 @@ func (a *HTTPAdapter) write(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	if err := {{.Runtime}}.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
+	err := {{.Runtime}}.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	switch {
+	case {{.Errors}}.Is(err, {{.Runtime}}.ErrContentType):
+		a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorResponse, OperationID: id, Err: err})
+	case err != nil:
 		a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorService, OperationID: id, Err: err})
 	}
 }

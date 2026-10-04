@@ -38,9 +38,17 @@ func ContentType(h http.Header) string {
 	return mediaType
 }
 
-// IsJSON reports a JSON media type: application/json or one with a +json suffix.
+// IsJSON reports a JSON media type: application/json or one with a +json suffix, with or without
+// parameters.
 func IsJSON(mediaType string) bool {
+	mediaType = baseMediaType(mediaType)
 	return mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
+}
+
+// baseMediaType is a media type in lower case and without its parameters.
+func baseMediaType(mediaType string) string {
+	mediaType, _, _ = strings.Cut(strings.ToLower(mediaType), ";")
+	return strings.TrimSpace(mediaType)
 }
 
 // DecodeJSON decodes a JSON body into dst, a pointer. An empty body is an error when the body is

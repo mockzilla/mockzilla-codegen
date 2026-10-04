@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"iter"
 	"net/http"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
@@ -293,6 +294,26 @@ type PingResponseData struct {
 // NewPingResponseData200 returns the 200 response with its text/plain body.
 func NewPingResponseData200(body *string) *PingResponseData {
 	return &PingResponseData{Status: 200, Body: body, contentType: "text/plain"}
+}
+
+// NewPingResponseData202 returns the 202 response that streams frames as application/x-ndjson.
+func NewPingResponseData202(frames iter.Seq[Pet]) *PingResponseData {
+	return &PingResponseData{Status: 202, Body: frames, contentType: "application/x-ndjson"}
+}
+
+// NewPingResponseData203 returns the 203 response with its application/json body.
+func NewPingResponseData203(body *Pet) *PingResponseData {
+	return &PingResponseData{Status: 203, Body: body, contentType: "application/json"}
+}
+
+// NewPingResponseData203Stream returns the 203 response that streams frames as text/event-stream.
+func NewPingResponseData203Stream(frames iter.Seq[Pet]) *PingResponseData {
+	return &PingResponseData{Status: 203, Body: frames, contentType: "text/event-stream"}
+}
+
+// NewPingResponseData206 returns the 206 response with its */* body.
+func NewPingResponseData206(body *Pet) *PingResponseData {
+	return &PingResponseData{Status: 206, Body: body, contentType: ""}
 }
 
 // NewPingResponseDataDefault returns the default response with its application/json body.

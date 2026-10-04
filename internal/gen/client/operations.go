@@ -215,7 +215,7 @@ func streamView(op *gomodel.Operation, s *gocode.Scope) *StreamView {
 	}
 	return &StreamView{
 		MediaType: c.MediaType,
-		Frame:     s.Expr(frameType(c)),
+		Frame:     s.Expr(operation.FrameType(c)),
 		Targets:   errorTargets(op, s),
 	}
 }
@@ -223,15 +223,6 @@ func streamView(op *gomodel.Operation, s *gocode.Scope) *StreamView {
 // streamType writes the pointer to a runtime.Stream of frame.
 func streamType(frame string, s *gocode.Scope) string {
 	return gocode.Deref(gocode.Index(gocode.Selector(s.Import(gomodel.Import{Path: gomodel.RuntimePath}), "Stream"), frame))
-}
-
-// frameType is the type of one frame of a sequential content: its item type, or bytes without one
-// or when its JSON is a string, such as a date-time or a string enum, which a frame carries as text.
-func frameType(c gomodel.Content) gomodel.Type {
-	if c.Item == nil || gomodel.JSONKinds(c.Item) == gomodel.JSONString {
-		return bytesType
-	}
-	return c.Item
 }
 
 // groupView adds each parameter of a location from its field of the group's struct.
@@ -262,7 +253,7 @@ func bodyView(c gomodel.Content, field string, s *gocode.Scope) BodyView {
 	v := BodyView{IsSet: gocode.NotNil(value), Value: value, MediaType: gocode.Quote(c.MediaType)}
 	base := gomodel.Elem(t)
 	under := gomodel.Underlying(base)
-	mediaType := strings.ToLower(c.MediaType)
+	mediaType := operation.BaseMediaType(c.MediaType)
 	isWildcard := strings.Contains(mediaType, "*")
 
 	switch {

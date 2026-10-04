@@ -87,7 +87,7 @@ func bodySchema(b *jsonschema.Builder, op *gomodel.Operation, c gomodel.Content)
 	case schema != nil:
 		s = b.Schema(schema)
 	case runtime.IsJSON(c.MediaType):
-	case strings.HasPrefix(c.MediaType, "text/"):
+	case strings.HasPrefix(operation.BaseMediaType(c.MediaType), "text/"):
 		s.Set("type", "string")
 	default:
 		s.Set("type", "string").Set("contentEncoding", "base64")

@@ -362,6 +362,24 @@ func TestDescribeResponses(t *testing.T) {
 	}
 }
 
+func TestDescribeStreamResponse(t *testing.T) {
+	t.Parallel()
+
+	doc := "openapi: 3.1.0\ninfo: {title: ping, version: \"1\"}\npaths:\n  /ping:\n    get:\n      operationId: ping\n      responses:\n" +
+		"        \"200\": {description: answer, content: {text/event-stream: {schema: {type: integer}}}}\n"
+
+	op := describe(run(t, workDir(t), "package: api\noutput: {file: ./api/gen.go}\nserver: {framework: chi}\n", doc)).Operations[0]
+
+	assert.Equal(t, []Response{{
+		Status:      "200",
+		Code:        200,
+		ContentType: "text/event-stream",
+		Body:        TypeRef{Name: "PingResponseItem", Package: "api", ImportPath: "example.com/work/api"},
+		IsStream:    true,
+		Constructor: TypeRef{Name: "NewPingResponseData", Package: "api", ImportPath: "example.com/work/api"},
+	}}, op.Responses)
+}
+
 func TestTypeRef(t *testing.T) {
 	t.Parallel()
 

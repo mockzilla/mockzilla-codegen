@@ -61,17 +61,19 @@ type Operation struct {
 // Response is one response of an operation. Status is its key as the spec writes it, such as 200,
 // 2XX or default. Code is the status code the generated code reads from that key: the key when it
 // is a number, the first digit times 100 when it has three characters and starts with a digit,
-// else 0. ContentType and Body are those of its JSON body, else of its first one; Body is empty
-// without one. IsRaw is set when the body has no schema: any, a string or bytes. Constructor is the
-// function that makes the response data of this status, empty without a server: it takes the
-// status first when HasStatusArg is set, which is when the key is no number, then the body when
-// there is one.
+// else 0. ContentType and Body are those of its JSON body, else of its first one read whole, else
+// of its first sequential one; Body is empty without one. IsRaw is set when the body has no
+// schema: any, a string or bytes. IsStream is set for a sequential body, whose Body is the type of
+// one frame. Constructor is the function that makes the response data of this status, empty
+// without a server: it takes the status first when HasStatusArg is set, which is when the key is
+// no number, then the body when there is one, or with IsStream an iter.Seq of Body.
 type Response struct {
 	Status       string
 	Code         int
 	ContentType  string
 	Body         TypeRef
 	IsRaw        bool
+	IsStream     bool
 	Constructor  TypeRef
 	HasStatusArg bool
 }
@@ -177,15 +179,16 @@ func describeResponses(namer *naming.Namer, op *gomodel.Operation, lay *layout.L
 	for _, r := range op.Responses {
 		code, _ := spec.StatusCode(r.Status)
 		res := Response{Status: r.Status, Code: code}
-		if c, ok := operation.FirstBody(r.Contents); ok {
-			res.ContentType = c.MediaType
-			res.Body = typeRef(operation.BodyType(c), lay)
-			res.IsRaw = c.Type == nil
+		c := server.Constructors(namer, op, r)[0]
+		switch {
+		case c.IsStream:
+			res.ContentType, res.Body, res.IsStream = c.Body.MediaType, typeRef(operation.FrameType(c.Body), lay), true
+		case c.HasBody:
+			res.ContentType, res.Body, res.IsRaw = c.Body.MediaType, typeRef(operation.BodyType(c.Body), lay), c.Body.Type == nil
 		}
 		if service != nil {
-			name, hasStatusArg := server.Constructor(namer, op, r)
-			res.Constructor = inFile(name, service)
-			res.HasStatusArg = hasStatusArg
+			res.Constructor = inFile(c.Name, service)
+			res.HasStatusArg = c.HasStatusArg
 		}
 		out = append(out, res)
 	}
