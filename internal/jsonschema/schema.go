@@ -11,6 +11,7 @@ package jsonschema
 import (
 	"encoding/json"
 	"fmt"
+	"iter"
 	"maps"
 	"slices"
 	"strconv"
@@ -50,27 +51,10 @@ func NewBuilder() *Builder {
 
 // Schema converts s. A nil schema is the empty one, which takes anything. A nullable schema takes
 // null: when its $ref, composition, enum or const could turn null away, it is anyOf of itself and
-// null, with its docs and values outside.
+// null, with its docs and values outside. A readOnly property is left out with its required entry,
+// since a request does not carry it; readOnly in an allOf member counts for the whole object.
 func (b *Builder) Schema(s *spec.Schema) *Object {
-	o := &Object{}
-	if s == nil {
-		return o
-	}
-	if s.Nullable && rejectsNull(s) {
-		return b.nullable(s)
-	}
-	if s.Ref != nil {
-		o.Set("$ref", "#/$defs/"+escapePointer(b.define(s.Ref)))
-	}
-
-	core(o, s)
-	b.composition(o, s)
-	b.objects(o, s)
-	b.arrays(o, s)
-	b.values(o, s)
-	limits(o, s)
-	b.pattern(o, s)
-	return o
+	return b.schema(s, nil)
 }
 
 // Document returns root with the $defs collected so far, compact. The definitions come sorted by
@@ -89,6 +73,30 @@ func (b *Builder) Document(root *Object) []byte {
 // Diagnostics are the warnings of the schemas converted so far.
 func (b *Builder) Diagnostics() []diag.Diagnostic {
 	return b.diags
+}
+
+// schema converts s; hidden are the readOnly properties of the object s is an allOf member of.
+func (b *Builder) schema(s *spec.Schema, hidden []string) *Object {
+	o := &Object{}
+	if s == nil {
+		return o
+	}
+	if s.Nullable && rejectsNull(s) {
+		return b.nullable(s)
+	}
+	if s.Ref != nil {
+		o.Set("$ref", "#/$defs/"+escapePointer(b.define(s.Ref)))
+	}
+
+	hidden = slices.Concat(hidden, readOnlyNames(s))
+	core(o, s)
+	b.composition(o, s, hidden)
+	b.objects(o, s, hidden)
+	b.arrays(o, s)
+	b.values(o, s)
+	limits(o, s)
+	b.pattern(o, s)
+	return o
 }
 
 // nullable writes s as anyOf of s without null and of null. The docs and values stay outside, so a
@@ -145,8 +153,15 @@ func core(o *Object, s *spec.Schema) {
 	setString(o, "contentMediaType", s.ContentMediaType)
 }
 
-func (b *Builder) composition(o *Object, s *spec.Schema) {
-	b.setList(o, "allOf", s.AllOf)
+// composition sets the subschemas; the allOf members of s hide its readOnly properties too.
+func (b *Builder) composition(o *Object, s *spec.Schema, hidden []string) {
+	if len(s.AllOf) > 0 {
+		members := make([]any, len(s.AllOf))
+		for i, m := range s.AllOf {
+			members[i] = b.schema(m, hidden)
+		}
+		o.Set("allOf", members)
+	}
 	b.setList(o, "oneOf", s.OneOf)
 	b.setList(o, "anyOf", s.AnyOf)
 	b.setSchema(o, "not", s.Not)
@@ -155,16 +170,19 @@ func (b *Builder) composition(o *Object, s *spec.Schema) {
 	b.setSchema(o, "else", s.Else)
 }
 
-func (b *Builder) objects(o *Object, s *spec.Schema) {
-	if len(s.Properties) > 0 {
-		props := &Object{}
-		for _, p := range s.Properties {
+func (b *Builder) objects(o *Object, s *spec.Schema, hidden []string) {
+	props := &Object{}
+	for _, p := range s.Properties {
+		if !slices.Contains(hidden, p.Name) {
 			props.Set(p.Name, b.Schema(p.Schema))
 		}
+	}
+	if props.Len() > 0 {
 		o.Set("properties", props)
 	}
-	if len(s.Required) > 0 {
-		o.Set("required", s.Required)
+	required := slices.DeleteFunc(slices.Clone(s.Required), func(name string) bool { return slices.Contains(hidden, name) })
+	if len(required) > 0 {
+		o.Set("required", required)
 	}
 
 	switch s.AdditionalProperties.Mode {
@@ -309,6 +327,54 @@ func rejectsNull(s *spec.Schema) bool {
 	isNull := func(v spec.Value) bool { return v.Kind == spec.KindNull }
 	return s.Ref != nil || len(s.AllOf) > 0 || len(s.OneOf) > 0 || len(s.AnyOf) > 0 || s.Not != nil || s.If != nil ||
 		len(s.Enum) > 0 && !slices.ContainsFunc(s.Enum, isNull) || s.Const != nil && !isNull(*s.Const)
+}
+
+// readOnlyNames are the readOnly properties of s and of what composes it.
+func readOnlyNames(s *spec.Schema) []string {
+	var names []string
+	for x := range composed(s) {
+		for _, p := range x.Properties {
+			if isReadOnly(p.Schema) {
+				names = append(names, p.Name)
+			}
+		}
+	}
+	return names
+}
+
+// isReadOnly reports s marked readOnly by itself or by what composes it.
+func isReadOnly(s *spec.Schema) bool {
+	for x := range composed(s) {
+		if x.ReadOnly {
+			return true
+		}
+	}
+	return false
+}
+
+// composed yields s, its allOf members and the targets of the $refs among them, at any depth, once
+// each.
+func composed(s *spec.Schema) iter.Seq[*spec.Schema] {
+	return func(yield func(*spec.Schema) bool) {
+		seen := map[*spec.Schema]bool{}
+		var walk func(x *spec.Schema) bool
+		walk = func(x *spec.Schema) bool {
+			if x == nil || seen[x] {
+				return true
+			}
+			seen[x] = true
+			if !yield(x) {
+				return false
+			}
+			for _, m := range x.AllOf {
+				if !walk(m) {
+					return false
+				}
+			}
+			return x.Ref == nil || walk(x.Ref.Target)
+		}
+		walk(s)
+	}
 }
 
 func setBound(o *Object, key, exclusiveKey string, b *spec.Bound) {

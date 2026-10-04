@@ -1,0 +1,30 @@
+openapi: 3.1.0
+info: {title: readOnly over MCP, version: "1"}
+paths:
+  /pets:
+    post:
+      operationId: addPet
+      summary: Add a pet
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+      responses:
+        "201":
+          description: the pet as stored
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+components:
+  schemas:
+    Stored:
+      type: object
+      properties:
+        id: {type: integer, readOnly: true, description: Given by the server.}
+    Pet:
+      allOf:
+        - $ref: '#/components/schemas/Stored'
+        - type: object
+          required: [id, name]
+          properties:
+            name: {type: string}
+            createdAt: {type: string, format: date-time, readOnly: true}
