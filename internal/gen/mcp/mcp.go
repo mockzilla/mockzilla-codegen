@@ -42,6 +42,7 @@ const (
 	maxToolName     = 128
 	maxHostToolName = 64
 	bodyID          = "body"
+	queryStringID   = "querystring"
 )
 
 //go:embed templates/*.tmpl
@@ -75,13 +76,14 @@ type Generator struct {
 // of its input, and the JSON schema of that input. An operation that answers with a stream only is
 // marked, since its tool returns an error.
 type tool struct {
-	op       *gomodel.Operation
-	name     string
-	desc     string
-	params   []param
-	body     *body
-	schema   string
-	isStream bool
+	op          *gomodel.Operation
+	name        string
+	desc        string
+	params      []param
+	queryString *body
+	body        *body
+	schema      string
+	isStream    bool
 }
 
 // param is one parameter of the input: the field of the parameter group it goes to and the
@@ -179,6 +181,9 @@ func (g *Generator) Parts() []layout.Part {
 			params = append(params, gomodel.DeclRef{Decl: p.group.Decl})
 			inputs = append(inputs, p.field.Type)
 		}
+		if t.queryString != nil {
+			inputs = append(inputs, operation.QueryStringType(t.op.QueryString))
+		}
 		if t.body != nil {
 			inputs = append(inputs, operation.BodyType(t.body.content))
 		}
@@ -216,6 +221,11 @@ func newTool(op *gomodel.Operation, n *naming.Namer) (*tool, []diag.Diagnostic) 
 			jsonReqs = append(jsonReqs, naming.Request{ID: id, Want: sp.Name, Fallback: sp.In + "_" + sp.Name, Order: len(jsonReqs)})
 		}
 	}
+	if qs := op.QueryString; qs != nil {
+		t.queryString = &body{content: qs.Content, field: operation.QueryStringField(op, n), isRequired: qs.Param.Required}
+		goReqs = append(goReqs, naming.Request{ID: queryStringID, Want: n.Exported(qs.Param.Name), Fallback: "QueryString" + n.Exported(qs.Param.Name), Order: len(goReqs)})
+		jsonReqs = append(jsonReqs, naming.Request{ID: queryStringID, Want: qs.Param.Name, Fallback: spec.InQueryString + "_" + qs.Param.Name, Order: len(jsonReqs)})
+	}
 	if c, field, ok := inputBody(op, n); ok {
 		t.body = &body{content: c, field: field, isRequired: op.Spec.Body != nil && op.Spec.Body.Required}
 		goReqs = append(goReqs, naming.Request{ID: bodyID, Want: "Body", Fallback: "RequestBody", Order: len(goReqs)})
@@ -226,6 +236,9 @@ func newTool(op *gomodel.Operation, n *naming.Namer) (*tool, []diag.Diagnostic) 
 	for i := range t.params {
 		id := strconv.Itoa(i)
 		t.params[i].goName, t.params[i].name = goNames.Names[id], jsonNames.Names[id]
+	}
+	if t.queryString != nil {
+		t.queryString.goName, t.queryString.name = goNames.Names[queryStringID], jsonNames.Names[queryStringID]
 	}
 	if t.body != nil {
 		t.body.goName, t.body.name = goNames.Names[bodyID], jsonNames.Names[bodyID]

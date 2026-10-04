@@ -104,6 +104,50 @@ func TestRequestBuilder(t *testing.T) {
 			wantErr: ErrParamMissing,
 		},
 		{
+			name: "A querystring as a form, after the query parameters",
+			build: func(b *RequestBuilder) {
+				b.QueryParam("blue", Param{Name: "color", Style: StyleForm})
+				b.QueryString(filter{Name: new("a&b"), Tags: []string{"x", "y"}}, Param{Name: "q"})
+			},
+			wantURL: "http://api.test/v1/pets?color=blue&name=a%26b&tags=x&tags=y",
+		},
+		{
+			name: "A querystring as JSON, every reserved byte escaped",
+			build: func(b *RequestBuilder) {
+				b.QueryString(filter{Name: new("a b+c")}, Param{Name: "q", IsJSON: true})
+			},
+			wantURL: "http://api.test/v1/pets?%7B%22name%22%3A%22a%20b%2Bc%22%7D",
+		},
+		{
+			name: "A nil querystring is left out",
+			build: func(b *RequestBuilder) {
+				b.QueryString((*filter)(nil), Param{Name: "q"})
+			},
+			wantURL: "http://api.test/v1/pets",
+		},
+		{
+			name: "A required querystring that is nil",
+			build: func(b *RequestBuilder) {
+				b.QueryString(nil, Param{Name: "q", IsRequired: true})
+			},
+			wantErr: ErrParamMissing,
+		},
+		{
+			name: "A querystring after an error",
+			build: func(b *RequestBuilder) {
+				b.QueryParam(nil, Param{Name: "needed", IsRequired: true})
+				b.QueryString(filter{}, Param{Name: "q"})
+			},
+			wantErr: ErrParamMissing,
+		},
+		{
+			name: "A querystring JSON cannot write",
+			build: func(b *RequestBuilder) {
+				b.QueryString(make(chan int), Param{Name: "q", IsJSON: true})
+			},
+			wantErrText: "json: unsupported type: chan int",
+		},
+		{
 			name: "A nil path parameter",
 			build: func(b *RequestBuilder) {
 				b.PathParam((*int)(nil), Param{Name: "id"})

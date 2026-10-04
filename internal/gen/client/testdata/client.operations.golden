@@ -204,6 +204,7 @@ func (c *PetClient) DeletePetRequest(ctx context.Context, opts *types.DeletePetR
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
+	b.QueryString(opts.Filter, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false})
 	switch {
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
@@ -260,6 +261,7 @@ func (c *PetClient) PingRequest(ctx context.Context, opts *types.PingRequestOpti
 		opts = &types.PingRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/ping")
+	b.QueryString(opts.BodyQueryString, runtime.Param{Name: "body", IsRequired: true, IsJSON: true})
 	switch {
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")

@@ -10,6 +10,7 @@ package gomodel
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
@@ -237,21 +238,8 @@ func (c *collector) encoding(mt *spec.MediaType) {
 	})
 }
 
-// params adds one struct per parameter location and walks the parameter schemas under it. A
-// querystring parameter gets none: nothing writes or reads one yet.
+// params adds one struct per parameter location and walks its schemas, then the querystring.
 func (c *collector) params(op *Operation) {
-	for _, p := range op.Spec.Params {
-		if p.In == spec.InQueryString {
-			c.diags.Append(diag.Diagnostic{
-				Severity: diag.Warning,
-				Code:     diag.CodeQueryStringUnsupported,
-				Pointer:  p.Origin.Pointer,
-				Origin:   origin(p.Origin),
-				Message:  fmt.Sprintf("querystring parameter %q is not supported yet; it gets no field and is neither sent nor read", p.Name),
-			})
-		}
-	}
-
 	for _, in := range paramOrder {
 		var list []*spec.Parameter
 		seen := map[string]bool{}
@@ -270,6 +258,16 @@ func (c *collector) params(op *Operation) {
 				continue
 			}
 			seen[p.Name] = true
+			if in != spec.InPath && p.Schema != nil && c.isUnionLost(p.Schema, map[*spec.Schema]bool{}) {
+				c.diags.Append(diag.Diagnostic{
+					Severity: diag.Warning,
+					Code:     diag.CodeParamUnsupported,
+					Pointer:  p.Origin.Pointer,
+					Origin:   origin(p.Origin),
+					Message:  fmt.Sprintf("%s parameter %q is a union of more than scalars; it gets no field and is neither sent nor read", in, p.Name),
+				})
+				continue
+			}
 			list = append(list, p)
 		}
 		if len(list) == 0 {
@@ -285,6 +283,92 @@ func (c *collector) params(op *Operation) {
 			c.walk(paramSchema(param), at.child(c.namer.InlineProperty("", param.Name)), ruleIfNeeded)
 		}
 	}
+	c.queryString(op)
+}
+
+// queryString walks the one querystring parameter of op that OpenAPI allows, in a form or JSON.
+func (c *collector) queryString(op *Operation) {
+	hasQuery := slices.ContainsFunc(op.Spec.Params, func(p *spec.Parameter) bool { return p.In == spec.InQuery })
+	for _, p := range op.Spec.Params {
+		if p.In != spec.InQueryString {
+			continue
+		}
+		var why string
+		switch {
+		case op.QueryString != nil:
+			why = fmt.Sprintf("the operation has querystring parameter %q already", op.QueryString.Param.Name)
+		case hasQuery:
+			why = "the operation has query parameters too"
+		case len(p.Contents) == 0:
+			why = "it has no content"
+		case !isQueryStringMedia(p.Contents[0].Name):
+			why = p.Contents[0].Name + " is not supported yet"
+		}
+		if why != "" {
+			c.diags.Append(diag.Diagnostic{
+				Severity: diag.Warning,
+				Code:     diag.CodeQueryStringUnsupported,
+				Pointer:  p.Origin.Pointer,
+				Origin:   origin(p.Origin),
+				Message:  fmt.Sprintf("querystring parameter %q gets no field and is neither sent nor read: %s", p.Name, why),
+			})
+			continue
+		}
+
+		mt := p.Contents[0]
+		op.QueryString = &QueryString{Param: p, Content: Content{MediaType: mt.Name}}
+		name := c.namer.InlineProperty(op.Name, p.Name)
+		c.walk(mt.Schema, place{name: name, fallback: name + "QueryString", rank: naming.RankOperation, part: PartParams}, ruleIfNeeded)
+	}
+}
+
+// isUnionLost reports a union, or a list of them, that a parameter cannot write as text.
+func (c *collector) isUnionLost(s *spec.Schema, on map[*spec.Schema]bool) bool {
+	if c.flat.goTypeOf(s) != nil {
+		return false
+	}
+	t := target(s)
+	f := c.flat.flatten(t)
+	switch classify(f) {
+	case shapeArray:
+		if f.Items == nil || on[t] {
+			return false
+		}
+		on[t] = true
+		defer delete(on, t)
+		return c.isUnionLost(f.Items, on)
+	case shapeUnion:
+		return !c.isScalar(s, on)
+	case shapeAny, shapePrimitive, shapeEnum, shapeStruct, shapeMap:
+	}
+	return false
+}
+
+// isScalar reports a schema a parameter writes as one text; a schema met again adds nothing.
+func (c *collector) isScalar(s *spec.Schema, on map[*spec.Schema]bool) bool {
+	if c.flat.goTypeOf(s) != nil {
+		return false
+	}
+	s = target(s)
+	if on[s] {
+		return true
+	}
+	on[s] = true
+	defer delete(on, s)
+
+	f := c.flat.flatten(s)
+	switch classify(f) {
+	case shapePrimitive, shapeEnum:
+		return true
+	case shapeUnion:
+		u := c.unions.read(f)
+		if !u.isTypeList && len(f.Properties) > 0 {
+			return false
+		}
+		return !slices.ContainsFunc(u.members, func(m unionMember) bool { return !c.isScalar(m.schema, on) })
+	case shapeAny, shapeStruct, shapeMap, shapeArray:
+	}
+	return false
 }
 
 // walk visits a schema once and names the children its type is built from. In a merged schema,
@@ -456,6 +540,13 @@ func partOf(sh shape, from string) string {
 }
 
 // paramSchema is a parameter's schema, or the schema of its one media type.
+// isQueryStringMedia reports a media type a querystring parameter is written in: a form or JSON.
+func isQueryStringMedia(mediaType string) bool {
+	base, _, _ := strings.Cut(strings.ToLower(mediaType), ";")
+	base = strings.TrimSpace(base)
+	return base == "application/x-www-form-urlencoded" || runtime.IsJSON(base)
+}
+
 func paramSchema(p *spec.Parameter) *spec.Schema {
 	if p.Schema == nil && len(p.Contents) > 0 {
 		return p.Contents[0].Schema

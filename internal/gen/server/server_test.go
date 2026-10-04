@@ -500,9 +500,9 @@ func allOptions() Options {
 	}
 }
 
-// petModel is a model with every shape the server writes: parameters of each location, one or
-// several bodies, bodies without a schema, responses with and without bodies, ranges, default,
-// typed headers and error types.
+// petModel is a model with every shape the server writes: parameters of each location with
+// defaults, querystrings, one or several bodies, bodies without a schema, responses with and
+// without bodies, ranges, default, typed headers and error types.
 func petModel() *gomodel.Model {
 	str := gomodel.Builtin{Name: "string"}
 	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}, Validation: &gomodel.Validation{}}
@@ -532,10 +532,10 @@ func petModel() *gomodel.Model {
 			{In: spec.InQuery, Decl: query, Params: []*spec.Parameter{
 				{Name: "limit", In: spec.InQuery, Style: "form", Explode: true},
 				{Name: "filter", In: spec.InQuery, Style: "deepObject", Explode: true, Required: true},
-			}},
+			}, Defaults: map[string]string{"limit": "20"}},
 			{In: spec.InHeader, Decl: headers, Params: []*spec.Parameter{
 				{Name: "X-Trace", In: spec.InHeader, Contents: []*spec.MediaType{{Name: "application/json"}}},
-			}},
+			}, Defaults: map[string]string{"X-Trace": `"none"`}},
 			{In: spec.InCookie, Decl: cookies, Params: []*spec.Parameter{
 				{Name: "session", In: spec.InCookie, Style: "form", Required: true},
 			}},
@@ -567,6 +567,11 @@ func petModel() *gomodel.Model {
 		Name:   "DeletePet",
 		Spec:   &spec.Operation{Method: "DELETE", Path: "/pets/{id}", Deprecated: true, Body: &spec.RequestBody{}},
 		Params: []gomodel.ParamGroup{{In: spec.InPath, Decl: path, Params: []*spec.Parameter{{Name: "id", In: spec.InPath, Style: "simple", Required: true}}}},
+		QueryString: &gomodel.QueryString{
+			Param:   &spec.Parameter{Name: "filter", In: spec.InQueryString},
+			Content: gomodel.Content{MediaType: "application/x-www-form-urlencoded", Type: gomodel.DeclRef{Decl: pet}},
+			Default: `{"name":"all"}`,
+		},
 		Bodies: []gomodel.Content{{MediaType: "application/json", Type: gomodel.Map{Key: str, Elem: str}}},
 		Responses: []gomodel.Response{
 			{Status: "204"},
@@ -574,9 +579,10 @@ func petModel() *gomodel.Model {
 		},
 	}
 	ping := &gomodel.Operation{
-		Name:   "Ping",
-		Spec:   &spec.Operation{Method: "GET", Path: "/ping"},
-		Bodies: []gomodel.Content{{MediaType: "application/json", Type: gomodel.Slice{Elem: gomodel.DeclRef{Decl: pet}}}},
+		Name:        "Ping",
+		Spec:        &spec.Operation{Method: "GET", Path: "/ping"},
+		QueryString: &gomodel.QueryString{Param: &spec.Parameter{Name: "body", In: spec.InQueryString, Required: true}, Content: gomodel.Content{MediaType: "application/json"}},
+		Bodies:      []gomodel.Content{{MediaType: "application/json", Type: gomodel.Slice{Elem: gomodel.DeclRef{Decl: pet}}}},
 		Responses: []gomodel.Response{
 			{Status: "200", Contents: []gomodel.Content{{MediaType: "text/plain", Type: str}}},
 			{Status: "202", Contents: []gomodel.Content{{MediaType: "application/x-ndjson", Item: gomodel.DeclRef{Decl: pet}}}},

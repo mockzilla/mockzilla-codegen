@@ -370,13 +370,21 @@ func petModel() *gomodel.Model {
 		Responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{{MediaType: "text/plain", Type: str}}}},
 	}
 	del := &gomodel.Operation{
-		Name:      "DeletePet",
-		Spec:      &spec.Operation{ID: "deletePet", Method: "DELETE", Path: "/pets/{id}", Origin: spec.Origin{Pointer: "/paths/~1pets~1{id}/delete"}, Deprecated: true, Extensions: xmcp(boolField("skip", false), strField("name", "remove-pet"))},
+		Name: "DeletePet",
+		Spec: &spec.Operation{ID: "deletePet", Method: "DELETE", Path: "/pets/{id}", Origin: spec.Origin{Pointer: "/paths/~1pets~1{id}/delete"}, Deprecated: true, Extensions: xmcp(boolField("skip", false), strField("name", "remove-pet"))},
+		QueryString: &gomodel.QueryString{
+			Param:   &spec.Parameter{Name: "n", In: spec.InQueryString, Contents: []*spec.MediaType{{Name: "application/json"}}},
+			Content: gomodel.Content{MediaType: "application/json", Type: gomodel.Builtin{Name: "int64"}},
+		},
 		Responses: []gomodel.Response{{Status: "204"}},
 	}
 	ping := &gomodel.Operation{
-		Name:      "Ping",
-		Spec:      &spec.Operation{ID: "ping", Method: "QUERY", Path: "/ping", Origin: spec.Origin{Pointer: "/paths/~1ping/query"}},
+		Name: "Ping",
+		Spec: &spec.Operation{ID: "ping", Method: "QUERY", Path: "/ping", Origin: spec.Origin{Pointer: "/paths/~1ping/query"}},
+		QueryString: &gomodel.QueryString{
+			Param:   &spec.Parameter{Name: "q", In: spec.InQueryString, Description: "What to look for.", Deprecated: true, Required: true, Contents: []*spec.MediaType{{Name: "application/json", Schema: petRef}}},
+			Content: gomodel.Content{MediaType: "application/json", Type: gomodel.DeclRef{Decl: pet}},
+		},
 		Responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{{MediaType: "text/plain"}}}},
 	}
 	noteOp := &gomodel.Operation{

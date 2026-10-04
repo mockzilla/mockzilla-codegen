@@ -36,6 +36,7 @@ type RequestBuilder struct {
 	path        string
 	pathQuery   string
 	query       url.Values
+	queryString string
 	header      http.Header
 	cookies     []*http.Cookie
 	body        io.Reader
@@ -83,6 +84,20 @@ func (b *RequestBuilder) QueryParam(v any, p Param) {
 		return
 	}
 	b.err = EncodeQuery(v, p, b.query)
+}
+
+// QueryString writes v as the whole query, JSON or a form; a nil value is left out unless required.
+func (b *RequestBuilder) QueryString(v any, p Param) {
+	if b.err != nil || b.skip(v, p) {
+		return
+	}
+	if p.IsJSON {
+		data, err := json.Marshal(v)
+		b.queryString, b.err = escape(string(data), isUnreserved), err
+		return
+	}
+	values, err := EncodeForm(v)
+	b.queryString, b.err = values.Encode(), err
 }
 
 // HeaderParam adds v as the header p. A nil value is left out, unless p is required.
@@ -189,8 +204,8 @@ func (b *RequestBuilder) FileBody(f File, mediaType string) {
 }
 
 // Build makes the request against base: the path goes after the base's, the query is the base's,
-// then the template's, then the query parameters encoded and sorted, and a File body streams. The
-// fragment of base is not sent. A placeholder that no PathParam filled is a missing parameter.
+// then the template's, the query parameters encoded and sorted and the querystring, and a File
+// body streams. The fragment of base is not sent. A placeholder no PathParam filled is missing.
 func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Request, error) {
 	if b.err != nil {
 		return nil, b.err
@@ -209,7 +224,7 @@ func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Reques
 		return nil, fmt.Errorf("%w: %w", ErrParamValue, err)
 	}
 
-	query := []string{escape(base.RawQuery, isQueryChar), escape(b.pathQuery, isQueryChar), b.query.Encode()}
+	query := []string{escape(base.RawQuery, isQueryChar), escape(b.pathQuery, isQueryChar), b.query.Encode(), b.queryString}
 	u.Path, u.RawQuery = path, strings.Join(slices.DeleteFunc(query, func(s string) bool { return s == "" }), "&")
 	u.ForceQuery, u.Fragment, u.RawFragment = false, "", ""
 
@@ -349,11 +364,16 @@ func escape(s string, keep func(byte) bool) string {
 // isSegmentChar reports a pchar of RFC 3986: unreserved, a sub-delimiter, : or @. The
 // sub-delimiters stay, since the styles write , ; = . between items.
 func isSegmentChar(c byte) bool {
+	return isUnreserved(c) || strings.IndexByte("!$&'()*+,;=:@", c) >= 0
+}
+
+// isUnreserved reports a byte RFC 3986 never escapes: a letter, a digit, or one of -._~.
+func isUnreserved(c byte) bool {
 	switch {
 	case 'a' <= c && c <= 'z', 'A' <= c && c <= 'Z', '0' <= c && c <= '9':
 		return true
 	}
-	return strings.IndexByte("-._~!$&'()*+,;=:@", c) >= 0
+	return strings.IndexByte("-._~", c) >= 0
 }
 
 // isQueryChar reports what a query of RFC 3986 holds as it is: a pchar, / or ?, and the % of an

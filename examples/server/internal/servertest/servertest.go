@@ -103,18 +103,18 @@ var Params = []Request{
 	},
 	{
 		Name:     "Every query style",
-		Path:     "/query?form=1&form=2&csv=a,b&space=a%20b&pipe=a|b&deep[x]=1&deep[y]=2&flat=x,3,y,4&json={\"x\":5}&id=7&needed=yes",
-		WantBody: `{"query":{"form":[1,2],"csv":["a","b"],"space":["a","b"],"pipe":["a","b"],"deep":{"x":1,"y":2},"flat":{"x":3,"y":4},"json":{"x":5},"id":7,"needed":"yes"}}`,
+		Path:     "/query?form=1&form=2&csv=a,b&space=a%20b&pipe=a|b&deep[x]=1&deep[y]=2&flat=x,3,y,4&json={\"x\":5}&id=7&needed=yes&limit=5",
+		WantBody: `{"query":{"form":[1,2],"csv":["a","b"],"space":["a","b"],"pipe":["a","b"],"deep":{"x":1,"y":2},"flat":{"x":3,"y":4},"json":{"x":5},"id":7,"needed":"yes","limit":5}}`,
 	},
 	{
 		Name:     "A union query parameter that is no number is a string",
 		Path:     "/query?id=a7&needed=yes",
-		WantBody: `{"query":{"id":"a7","needed":"yes"}}`,
+		WantBody: `{"query":{"id":"a7","needed":"yes","limit":20}}`,
 	},
 	{
-		Name:     "Query parameters left out stay nil",
+		Name:     "Query parameters left out stay nil or take their default",
 		Path:     "/query?needed=yes",
-		WantBody: `{"query":{"needed":"yes"}}`,
+		WantBody: `{"query":{"needed":"yes","limit":20}}`,
 	},
 	{
 		Name:       "A required query parameter left out",
@@ -146,6 +146,16 @@ var Params = []Request{
 		Path:     "/cookie",
 		Headers:  http.Header{"Cookie": {"session=abc; flags=1,2"}},
 		WantBody: `{"cookie":{"session":"abc","flags":[1,2]}}`,
+	},
+	{
+		Name:     "A querystring parameter reads the whole query",
+		Path:     "/search?name=rex&tag=a&tag=b",
+		WantBody: `{"search":{"name":"rex","tag":["a","b"]}}`,
+	},
+	{
+		Name:     "A querystring parameter left out stays nil",
+		Path:     "/search",
+		WantBody: `{"search":null}`,
 	},
 }
 

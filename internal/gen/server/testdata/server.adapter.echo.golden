@@ -86,7 +86,7 @@ func (a *HTTPAdapter) ListPets(c echo.Context) error {
 	opts := &ListPetsServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.Query = &ListPetsQuery{}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Limit); err != nil {
+	if err := runtime.DecodeQuery(query, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false, Default: "20"}, &opts.Query.Limit); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "limit", ParamLocation: "query", Err: err})
 		return nil
 	}
@@ -95,7 +95,7 @@ func (a *HTTPAdapter) ListPets(c echo.Context) error {
 		return nil
 	}
 	opts.Headers = &ListPetsHeaders{}
-	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Trace", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: true}, &opts.Headers.XTrace); err != nil {
+	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Trace", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: true, Default: `"none"`}, &opts.Headers.XTrace); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "X-Trace", ParamLocation: "header", Err: err})
 		return nil
 	}
@@ -209,6 +209,10 @@ func (a *HTTPAdapter) DeletePet(c echo.Context) error {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "DeletePet", ParamName: "id", ParamLocation: "path", Err: err})
 		return nil
 	}
+	if err := runtime.DecodeQueryString(r.URL.RawQuery, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false, Default: `{"name":"all"}`}, &opts.Filter); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "DeletePet", ParamName: "filter", ParamLocation: "querystring", Err: err})
+		return nil
+	}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
 		if err := a.opts.JSONDecoder(r.Body, &opts.Body, false); err != nil {
@@ -247,6 +251,10 @@ func (a *HTTPAdapter) DeletePet(c echo.Context) error {
 func (a *HTTPAdapter) Ping(c echo.Context) error {
 	w, r := c.Response(), c.Request()
 	opts := &PingServiceRequestOptions{RawRequest: r}
+	if err := runtime.DecodeQueryString(r.URL.RawQuery, runtime.Param{Name: "body", IsRequired: true, IsJSON: true}, &opts.BodyQueryString); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "Ping", ParamName: "body", ParamLocation: "querystring", Err: err})
+		return nil
+	}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
 		if err := a.opts.JSONDecoder(r.Body, &opts.Body, false); err != nil {

@@ -43,9 +43,14 @@ type ListPetsServiceRequestOptions struct {
 func (o *ListPetsServiceRequestOptions) Validate() error
 ```
 
-- One field per parameter location the operation uses, holding the struct of its parameters. A
-  `querystring` parameter (OpenAPI 3.2) gets none yet, see
-  [client](client.md#not-supported-yet).
+- One field per parameter location the operation uses, holding the struct of its parameters.
+- A `querystring` parameter (OpenAPI 3.2) is the whole query in one media type. It gets a field
+  of its own, named after it and typed by its schema: `Filter *SearchFilter`. A form reads the
+  query as form values, JSON reads it as percent-encoded JSON text. Any other media type gets no
+  field, and neither does a second `querystring` parameter or one next to query parameters, which
+  OpenAPI rules out. Generation warns (`querystring-unsupported`).
+- A query, header or cookie parameter whose union has an object or array variant gets no field:
+  no style writes it as text. Generation warns (`param-unsupported`).
 - `Body` holds the request body. An operation with several media types gets one field per media
   type, named after it: `BodyJSON`, `BodyForm`, `BodyMultipart`, `BodyText`. Two media types that
   would share a name are told apart by their type: `BodyXML` for `application/xml`, `BodyTextXML`
@@ -53,7 +58,7 @@ func (o *ListPetsServiceRequestOptions) Validate() error
 - A body without a schema is `any` for JSON, a `string` for `text/*`, and `[]byte` otherwise.
 - `RawRequest` is the request as it came in.
 - `Validate` calls the `Validate` of each parameter struct and body that has one, with the paths
-  `path`, `query`, `header`, `cookie` and `body`.
+  `path`, `query`, `header`, `cookie`, `querystring` and `body`.
 
 ## Response data
 
@@ -118,7 +123,10 @@ func (s *Service) ListPets(ctx context.Context, opts *ListPetsServiceRequestOpti
 the shape the framework takes: a `func(echo.Context) error` for echo and a `func(khttp.Context)
 error` for kratos, an `http.HandlerFunc` for every other framework. Each handler reads the parameters of every location with the
 runtime codecs, decodes the body by the request's `Content-Type`, validates the options when the
-config asks for it, calls the service and writes what it returns.
+config asks for it, calls the service and writes what it returns. A query, header, cookie or
+querystring parameter that is not there takes the `default` of its schema; the field stays a
+pointer, so the client still sends only what is set. A required parameter is never filled. A
+default that does not fit its schema is left out, and generation warns (`default-ignored`).
 
 ```go
 adapter := NewHTTPAdapter(svc, opts...)

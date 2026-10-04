@@ -225,6 +225,36 @@ func TestDecodeParamEdges(t *testing.T) {
 		{name: "Cookie object exploded", decode: func(dst any) error {
 			return DecodeCookie([]*http.Cookie{{Name: "R", Value: "1"}}, explode(StyleForm, true), dst)
 		}, dst: new(rgb), want: rgb{R: 1}},
+		{name: "Missing query takes its default", decode: func(dst any) error {
+			return DecodeQuery(nil, Param{Name: "color", Style: StyleForm, Default: `["red"]`}, dst)
+		}, dst: new([]string), want: []string{"red"}},
+		{name: "Missing required query ignores the default", decode: func(dst any) error {
+			return DecodeQuery(nil, Param{Name: "color", IsRequired: true, Default: `"red"`}, dst)
+		}, dst: new(string), wantErr: ErrParamMissing},
+		{name: "Missing header takes its default", decode: func(dst any) error {
+			return DecodeHeader(http.Header{}, Param{Name: "X-Limit", Default: "20"}, dst)
+		}, dst: new(*int), want: new(20)},
+		{name: "Querystring form", decode: func(dst any) error {
+			return DecodeQueryString("name=rex&tags=a&tags=b", Param{Name: "q"}, dst)
+		}, dst: new(filter), want: filter{Name: new("rex"), Tags: []string{"a", "b"}}},
+		{name: "Querystring JSON", decode: func(dst any) error {
+			return DecodeQueryString("%7B%22name%22%3A%22a+b%22%7D", Param{Name: "q", IsJSON: true}, dst)
+		}, dst: new(*filter), want: &filter{Name: new("a+b")}},
+		{name: "Missing querystring takes its default", decode: func(dst any) error {
+			return DecodeQueryString("", Param{Name: "q", IsJSON: true, Default: `{"name":"all"}`}, dst)
+		}, dst: new(filter), want: filter{Name: new("all")}},
+		{name: "Missing required querystring", decode: func(dst any) error {
+			return DecodeQueryString("", Param{Name: "q", IsRequired: true}, dst)
+		}, dst: new(filter), wantErr: ErrParamMissing},
+		{name: "Querystring form with a bad escape", decode: func(dst any) error {
+			return DecodeQueryString("name=%zz", Param{Name: "q"}, dst)
+		}, dst: new(filter), wantErr: ErrParamValue},
+		{name: "Querystring JSON with a bad escape", decode: func(dst any) error {
+			return DecodeQueryString("%zz", Param{Name: "q", IsJSON: true}, dst)
+		}, dst: new(filter), wantErr: ErrParamValue},
+		{name: "Querystring target that is no pointer", decode: func(dst any) error {
+			return DecodeQueryString("a=1", Param{Name: "q"}, dst)
+		}, dst: 1, wantErr: ErrParamValue},
 	}
 
 	for _, tc := range tests {

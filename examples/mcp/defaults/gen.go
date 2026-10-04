@@ -223,7 +223,7 @@ func (a *HTTPAdapter) Search(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "Search", ParamName: "q", ParamLocation: "query", Err: err})
 		return
 	}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "sort", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Sort); err != nil {
+	if err := runtime.DecodeQuery(query, runtime.Param{Name: "sort", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false, Default: `"name"`}, &opts.Query.Sort); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "Search", ParamName: "sort", ParamLocation: "query", Err: err})
 		return
 	}

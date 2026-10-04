@@ -56,17 +56,25 @@ func (o *CreatePetRequestOptions) Validate() error {
 // DeletePetRequestOptions is what DeletePet sends.
 type DeletePetRequestOptions struct {
 	PathParams *DeletePetPathParams
+	// Query sent as application/x-www-form-urlencoded.
+	Filter *Pet
 	// Body sent as application/json.
 	Body map[string]string
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *DeletePetRequestOptions) Validate() error {
-	return nil
+	var errs runtime.ValidationErrors
+	if o.Filter != nil {
+		errs.Append("querystring", o.Filter.Validate())
+	}
+	return errs.Err()
 }
 
 // PingRequestOptions is what Ping sends.
 type PingRequestOptions struct {
+	// Query sent as application/json.
+	BodyQueryString any
 	// Body sent as */*.
 	Body []Pet
 }

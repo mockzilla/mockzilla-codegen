@@ -133,7 +133,7 @@ func TestMisfit(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, tc.want, misfit(tc.value, tc.schema))
+			assert.Equal(t, tc.want, Misfit(tc.value, tc.schema))
 		})
 	}
 }

@@ -158,6 +158,7 @@ type QueryStylesQuery struct {
 	JSON   *Point              `json:"json,omitempty"`
 	ID     *QueryStylesQueryID `json:"id,omitempty"`
 	Needed string              `json:"needed"`
+	Limit  *int                `json:"limit,omitempty"`
 }
 
 // Validate checks the value against the constraints of the spec.
@@ -190,6 +191,11 @@ type CookieStylesCookies struct {
 	Flags   []int   `json:"flags,omitempty"`
 }
 
+type SearchFilter struct {
+	Name *string  `json:"name,omitempty"`
+	Tag  []string `json:"tag,omitempty"`
+}
+
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// PathStyles handles GET /path/{simple}/{label}/{matrix}/{list}.
@@ -200,6 +206,8 @@ type ServiceInterface interface {
 	HeaderStyles(ctx context.Context, opts *HeaderStylesServiceRequestOptions) (*HeaderStylesResponseData, error)
 	// CookieStyles handles GET /cookie.
 	CookieStyles(ctx context.Context, opts *CookieStylesServiceRequestOptions) (*CookieStylesResponseData, error)
+	// Search handles GET /search.
+	Search(ctx context.Context, opts *SearchServiceRequestOptions) (*SearchResponseData, error)
 }
 
 // PathStylesServiceRequestOptions is what PathStyles receives.
@@ -442,6 +450,64 @@ func (r *CookieStylesResponseData) ContentType() string {
 	return r.contentType
 }
 
+// SearchServiceRequestOptions is what Search receives.
+type SearchServiceRequestOptions struct {
+	// Query sent as application/x-www-form-urlencoded.
+	Filter     *SearchFilter
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *SearchServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// SearchResponseData is what Search returns.
+type SearchResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewSearchResponseData returns the 200 response with its application/json body.
+func NewSearchResponseData(body Echo) *SearchResponseData {
+	return &SearchResponseData{Status: 200, Body: body, contentType: "application/json"}
+}
+
+// WithStatus sets the status code.
+func (r *SearchResponseData) WithStatus(code int) *SearchResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *SearchResponseData) WithHeaders(h http.Header) *SearchResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *SearchResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *SearchResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *SearchResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType returns the media type of the body, empty for the default of its Go type.
+func (r *SearchResponseData) ContentType() string {
+	return r.contentType
+}
+
 // The error types the handlers use, as the runtime declares them.
 type (
 	ErrorKind           = runtime.ErrorKind
@@ -605,6 +671,10 @@ func (a *HTTPAdapter) QueryStyles(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "needed", ParamLocation: "query", Err: err})
 		return
 	}
+	if err := runtime.DecodeQuery(query, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false, Default: "20"}, &opts.Query.Limit); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "limit", ParamLocation: "query", Err: err})
+		return
+	}
 
 	res, err := a.svc.QueryStyles(r.Context(), opts)
 	if err != nil {
@@ -676,6 +746,26 @@ func (a *HTTPAdapter) CookieStyles(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "CookieStyles", res)
 }
 
+// Search handles GET /search.
+func (a *HTTPAdapter) Search(w http.ResponseWriter, r *http.Request) {
+	opts := &SearchServiceRequestOptions{RawRequest: r}
+	if err := runtime.DecodeQueryString(r.URL.RawQuery, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false}, &opts.Filter); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "Search", ParamName: "filter", ParamLocation: "querystring", Err: err})
+		return
+	}
+
+	res, err := a.svc.Search(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Search", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Search", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "Search", res)
+}
+
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
@@ -721,6 +811,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *web.ControllerRegist
 		r.AddMethod("GET", "/query", handle(route(http.HandlerFunc(a.QueryStyles))))
 		r.AddMethod("GET", "/header", handle(route(http.HandlerFunc(a.HeaderStyles))))
 		r.AddMethod("GET", "/cookie", handle(route(http.HandlerFunc(a.CookieStyles))))
+		r.AddMethod("GET", "/search", handle(route(http.HandlerFunc(a.Search))))
 	}
 
 	if r, _ := o.Router.(*web.ControllerRegister); r != nil {

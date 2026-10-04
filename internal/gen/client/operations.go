@@ -86,6 +86,7 @@ type OperationView struct {
 	Method          string
 	Path            string
 	Groups          []GroupView
+	QueryString     *ParamView
 	Bodies          []BodyView
 	IsBodyRequired  bool
 	IsSendable      bool
@@ -173,6 +174,14 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 	}
 	for _, p := range op.Params {
 		v.Groups = append(v.Groups, groupView(g, p))
+	}
+	if qs := op.QueryString; qs != nil {
+		v.QueryString = &ParamView{
+			Value:      gocode.Selector("opts", operation.QueryStringField(op, g.opts.Namer)),
+			Name:       gocode.Quote(qs.Param.Name),
+			IsRequired: qs.Param.Required,
+			IsJSON:     runtime.IsJSON(qs.Content.MediaType),
+		}
 	}
 	fields := operation.BodyFields(op.Bodies, g.opts.Namer)
 	for i, c := range op.Bodies {

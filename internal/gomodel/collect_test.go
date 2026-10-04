@@ -24,6 +24,8 @@ func TestCollector(t *testing.T) {
 	}{
 		{name: "operations", fixture: "operations", opts: testOptions()},
 		{name: "operations-reserved", fixture: "operations", opts: reserved},
+		{name: "params", fixture: "params", opts: server},
+		{name: "params-client", fixture: "params", opts: testOptions()},
 		{name: "refs", fixture: "refs", opts: testOptions()},
 		{name: "server", fixture: "server", opts: server},
 		{name: "streaming", fixture: "streaming", opts: testOptions()},

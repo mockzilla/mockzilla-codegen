@@ -235,7 +235,7 @@ func (b *Builder) values(o *Object, s *spec.Schema) {
 // with a warning, since the MCP SDK panics on it when the tool is added.
 func (b *Builder) samples(o *Object, s *spec.Schema) {
 	if s.Default != nil {
-		if why := misfit(*s.Default, s); why == "" {
+		if why := Misfit(*s.Default, s); why == "" {
 			o.Set("default", Value(*s.Default))
 		} else {
 			b.diags = append(b.diags, ignored(s, why))

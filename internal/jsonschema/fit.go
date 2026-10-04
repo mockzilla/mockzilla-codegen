@@ -23,12 +23,17 @@ import (
 // maxShown is the longest default a warning quotes.
 const maxShown = 40
 
-// misfit returns why the default v does not fit s, or "" when it fits.
-func misfit(v spec.Value, s *spec.Schema) string {
+// Misfit returns why the default v does not fit s, or "" when it fits.
+func Misfit(v spec.Value, s *spec.Schema) string {
 	if !isReadable(v) {
 		return "it holds a number too large for a float64"
 	}
 	return mismatch(v, s, "", map[*spec.Schema]bool{})
+}
+
+// Marshal writes v as compact JSON, its object fields in the order of the spec.
+func Marshal(v spec.Value) []byte {
+	return appendValue(nil, Value(v))
 }
 
 // mismatch returns why v, at the pointer at in the default, does not fit s, or "" when it fits.
@@ -292,7 +297,7 @@ func isReadable(v spec.Value) bool {
 
 // shown is v written compact as JSON when it is short enough to quote, else "".
 func shown(v spec.Value) string {
-	text := appendValue(nil, Value(v))
+	text := Marshal(v)
 	if len(text) > maxShown {
 		return ""
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 // OptionsView is the data of the options part: the request options type of every operation.
@@ -62,6 +63,13 @@ func requestOptionsView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Re
 		v.Fields = append(v.Fields, FieldView{Name: field, Type: s.Expr(gomodel.Pointer{Elem: gomodel.DeclRef{Decl: p.Decl}})})
 		if p.Decl.Validation != nil {
 			v.Checks = append(v.Checks, CheckView{Field: field, Path: gocode.Quote(p.In)})
+		}
+	}
+	if qs := op.QueryString; qs != nil {
+		field, t := operation.QueryStringField(op, n), operation.QueryStringType(qs)
+		v.Fields = append(v.Fields, FieldView{Name: field, Type: s.Expr(t), Doc: "Query sent as " + qs.Content.MediaType + "."})
+		if gomodel.Validates(t) {
+			v.Checks = append(v.Checks, CheckView{Field: field, Path: gocode.Quote(spec.InQueryString)})
 		}
 	}
 

@@ -120,6 +120,9 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 {{- end}}
 	}
 {{- end}}
+{{- with .QueryString}}
+	b.QueryString({{.Value}}, {{$.Runtime}}.Param{Name: {{.Name}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}})
+{{- end}}
 {{- end}}
 {{- if .Bodies}}
 	switch {
