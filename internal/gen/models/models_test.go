@@ -49,13 +49,14 @@ func TestParts(t *testing.T) {
 
 	g := New(&gomodel.Model{Decls: []*gomodel.Decl{pet, status, payment, query, pets}})
 
+	const reason = "and models.types can refer to each other's types"
 	assert.Equal(t, []layout.Part{
 		{ID: gomodel.PartTypes, Uses: []layout.PartID{gomodel.PartEnums, gomodel.PartUnions}},
-		{ID: gomodel.PartEnums},
-		{ID: gomodel.PartUnions, Uses: []layout.PartID{gomodel.PartTypes}},
-		{ID: gomodel.PartParams, Uses: []layout.PartID{gomodel.PartTypes}},
-		{ID: gomodel.PartBodies},
-		{ID: gomodel.PartResponses},
+		{ID: gomodel.PartEnums, Owner: gomodel.PartTypes, Reason: reason},
+		{ID: gomodel.PartUnions, Uses: []layout.PartID{gomodel.PartTypes}, Owner: gomodel.PartTypes, Reason: reason},
+		{ID: gomodel.PartParams, Uses: []layout.PartID{gomodel.PartTypes}, Owner: gomodel.PartTypes, Reason: reason},
+		{ID: gomodel.PartBodies, Owner: gomodel.PartTypes, Reason: reason},
+		{ID: gomodel.PartResponses, Owner: gomodel.PartTypes, Reason: reason},
 	}, g.Parts())
 }
 

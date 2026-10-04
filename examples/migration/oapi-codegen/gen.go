@@ -615,12 +615,12 @@ func WithRouter(r chi.Router) ServerOption {
 // NewRouter registers every operation on a chi router.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	register := func(r chi.Router) {
-		r.Get("/pets", adapter.ListPets)
-		r.Post("/pets", adapter.CreatePet)
-		r.Get("/pets/{id}", adapter.GetPet)
-		r.Delete("/pets/{id}", adapter.DeletePet)
+		r.Get("/pets", a.ListPets)
+		r.Post("/pets", a.CreatePet)
+		r.Get("/pets/{id}", a.GetPet)
+		r.Delete("/pets/{id}", a.DeletePet)
 	}
 
 	router, _ := o.Router.(chi.Router)

@@ -723,7 +723,7 @@ func WithRouter(r *web.ControllerRegister) ServerOption {
 // NewRouter registers every operation on a beego ControllerRegister.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *web.ControllerRegister {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -731,12 +731,12 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *web.ControllerRegist
 		return h
 	}
 	register := func(r *web.ControllerRegister, route func(http.Handler) http.Handler) {
-		r.AddMethod("POST", "/json", handle(route(http.HandlerFunc(adapter.PostJSON))))
-		r.AddMethod("POST", "/form", handle(route(http.HandlerFunc(adapter.PostForm))))
-		r.AddMethod("POST", "/upload", handle(route(http.HandlerFunc(adapter.Upload))))
-		r.AddMethod("POST", "/text", handle(route(http.HandlerFunc(adapter.PostText))))
-		r.AddMethod("PUT", "/file", handle(route(http.HandlerFunc(adapter.PutFile))))
-		r.AddMethod("POST", "/any", handle(route(http.HandlerFunc(adapter.PostAny))))
+		r.AddMethod("POST", "/json", handle(route(http.HandlerFunc(a.PostJSON))))
+		r.AddMethod("POST", "/form", handle(route(http.HandlerFunc(a.PostForm))))
+		r.AddMethod("POST", "/upload", handle(route(http.HandlerFunc(a.Upload))))
+		r.AddMethod("POST", "/text", handle(route(http.HandlerFunc(a.PostText))))
+		r.AddMethod("PUT", "/file", handle(route(http.HandlerFunc(a.PutFile))))
+		r.AddMethod("POST", "/any", handle(route(http.HandlerFunc(a.PostAny))))
 	}
 
 	if r, _ := o.Router.(*web.ControllerRegister); r != nil {

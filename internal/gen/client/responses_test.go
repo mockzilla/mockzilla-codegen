@@ -37,9 +37,21 @@ func TestEnvelopeFields(t *testing.T) {
 	g, _ := New(m, allOptions())
 	f := fixture{m: m, g: g, cfg: "output: {file: ./gen.go}\n"}
 
-	got := envelopeFields(g, op, f.scope(t, PartResponses))
+	fields := envelopeFields(g, op)
 
-	assert.Equal(t, []envelopeField{
+	type row struct {
+		FieldView
+		status    string
+		mediaType string
+		isStream  bool
+		isHeaders bool
+	}
+	s := f.scope(t, PartResponses)
+	got := make([]row, len(fields))
+	for i, field := range fields {
+		got[i] = row{FieldView: field.view(s), status: field.status, mediaType: field.mediaType, isStream: field.isStream, isHeaders: field.isHeaders}
+	}
+	assert.Equal(t, []row{
 		{FieldView: FieldView{Name: "JSON200", Type: "*Pet", Doc: "JSON200 is the body of a 200 response as application/json."}, status: "200", mediaType: "application/json"},
 		{FieldView: FieldView{Name: "XML200", Type: "*string", Doc: "XML200 is the body of a 200 response as text/xml."}, status: "200", mediaType: "text/xml"},
 		{FieldView: FieldView{Name: "ApplicationXML200", Type: "*string", Doc: "ApplicationXML200 is the body of a 200 response as application/xml; charset=utf-8."}, status: "200", mediaType: "application/xml; charset=utf-8"},

@@ -14,7 +14,7 @@ func WithRouter(mux *http.ServeMux) ServerOption {
 // NewRouter registers every operation on an http.ServeMux.
 func NewRouter(svc BooksInterface, opts ...ServerOption) http.Handler {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -22,7 +22,7 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) http.Handler {
 		return h
 	}
 	register := func(mux *http.ServeMux, route func(http.Handler) http.Handler) {
-		mux.Handle("GET /books/{isbn}", route(http.HandlerFunc(adapter.GetBook)))
+		mux.Handle("GET /books/{isbn}", route(http.HandlerFunc(a.GetBook)))
 	}
 
 	if mux, _ := o.Router.(*http.ServeMux); mux != nil {

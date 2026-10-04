@@ -9,13 +9,13 @@ func run() error {
 	ctx, stop := {{.Signal}}.NotifyContext({{.Context}}.Background(), {{.OS}}.Interrupt, {{.Syscall}}.SIGTERM)
 	defer stop()
 
-	router := {{.NewRouter}}({{.NewService}}(){{if .Middleware}}, {{.WithMiddleware}}(
+	handler := {{.NewRouter}}({{.NewService}}(){{if .Middleware}}, {{.WithMiddleware}}(
 {{- range .Middleware}}
 		{{.}},
 {{- end}}
 	){{end}})
 	srv := &{{.Packages.fasthttp}}.Server{
-		Handler:     router.Handler,
+		Handler:     handler.Handler,
 		ReadTimeout: {{.Timeout}},
 	}
 

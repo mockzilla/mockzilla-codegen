@@ -25,12 +25,13 @@ type PartID string
 
 // Part is a part a generator writes, with the parts its code refers to. Package, when set, is the
 // package name of the file that holds it, whatever its folder is called: main for a program.
-// Owner, when set, is the part whose types this one adds methods to, so both must share a folder.
+// Owner, when set, is the part whose folder this one must share, and Reason says why, after the ID.
 type Part struct {
 	ID      PartID
 	Uses    []PartID
 	Package string
 	Owner   PartID
+	Reason  string
 }
 
 type FileKind int
@@ -151,8 +152,7 @@ func (l *Layout) assign(def *File, cands []candidate, parts []Part) (map[string]
 	return used, nil
 }
 
-// sameFolder checks that every part with an owner is in the owner's folder, since methods must
-// be declared in the package of their type.
+// sameFolder checks that every part with an owner is in the owner's folder.
 func (l *Layout) sameFolder(parts []Part) error {
 	for _, p := range parts {
 		if p.Owner == "" {
@@ -160,7 +160,7 @@ func (l *Layout) sameFolder(parts []Part) error {
 		}
 		f, owner := l.byPart[p.ID], l.byPart[p.Owner]
 		if filepath.Dir(f.Path) != filepath.Dir(owner.Path) {
-			return fmt.Errorf("%w: %s adds methods to the types of %s, so %s must be in the folder of %s", ErrSplitParts, p.ID, p.Owner, f.Rel, owner.Rel)
+			return fmt.Errorf("%w: %s %s, so %s must be in the folder of %s", ErrSplitParts, p.ID, p.Reason, f.Rel, owner.Rel)
 		}
 	}
 	return nil

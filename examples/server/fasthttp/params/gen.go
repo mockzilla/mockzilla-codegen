@@ -559,7 +559,7 @@ func WithRouter(r *router.Router) ServerOption {
 // NewRouter registers every operation on a fasthttp router.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *router.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -567,10 +567,10 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *router.Router {
 		return h
 	}
 	register := func(r *router.Router, route func(http.Handler) http.Handler) {
-		r.GET("/path/{simple}/{label}/{matrix}/{list}", handle(route(http.HandlerFunc(adapter.PathStyles))))
-		r.GET("/query", handle(route(http.HandlerFunc(adapter.QueryStyles))))
-		r.GET("/header", handle(route(http.HandlerFunc(adapter.HeaderStyles))))
-		r.GET("/cookie", handle(route(http.HandlerFunc(adapter.CookieStyles))))
+		r.GET("/path/{simple}/{label}/{matrix}/{list}", handle(route(http.HandlerFunc(a.PathStyles))))
+		r.GET("/query", handle(route(http.HandlerFunc(a.QueryStyles))))
+		r.GET("/header", handle(route(http.HandlerFunc(a.HeaderStyles))))
+		r.GET("/cookie", handle(route(http.HandlerFunc(a.CookieStyles))))
 	}
 
 	if r, _ := o.Router.(*router.Router); r != nil {

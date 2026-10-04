@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../../config.schema.json
+spec: {path: ../api.yaml}
+output:
+  file: ./api/gen.go
+  files:
+    ./models/models.go: [models]
+server:
+  framework: std-http
+client: {}

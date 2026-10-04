@@ -22,7 +22,7 @@ func WithRouter(h *server.Hertz) ServerOption {
 // NewRouter registers every operation on a Hertz server.
 func NewRouter(svc BooksInterface, opts ...ServerOption) *server.Hertz {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -30,7 +30,7 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) *server.Hertz {
 		return h
 	}
 	register := func(h *server.Hertz, route func(http.Handler) http.Handler) {
-		h.GET("/books/:isbn", handle(route(http.HandlerFunc(adapter.GetBook))))
+		h.GET("/books/:isbn", handle(route(http.HandlerFunc(a.GetBook))))
 	}
 
 	if h, _ := o.Router.(*server.Hertz); h != nil {

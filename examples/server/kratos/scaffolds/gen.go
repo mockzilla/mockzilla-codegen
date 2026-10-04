@@ -308,14 +308,14 @@ func WithRouter(s *khttp.Server) ServerOption {
 // NewRouter registers every operation on a kratos HTTP server.
 func NewRouter(svc TodoInterface, opts ...ServerOption) *khttp.Server {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	filters := make([]khttp.FilterFunc, len(o.Middleware))
 	for i, mw := range o.Middleware {
 		filters[i] = mw
 	}
 	register := func(r *khttp.Router) {
-		r.GET("/todos", adapter.ListTodos)
-		r.POST("/todos", adapter.CreateTodo)
+		r.GET("/todos", a.ListTodos)
+		r.POST("/todos", a.CreateTodo)
 	}
 
 	if s, _ := o.Router.(*khttp.Server); s != nil {

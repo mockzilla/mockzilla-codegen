@@ -558,7 +558,7 @@ func WithRouter(s *ghttp.Server) ServerOption {
 // NewRouter registers every operation on a GoFrame server.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *ghttp.Server {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -566,10 +566,10 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *ghttp.Server {
 		return h
 	}
 	register := func(s *ghttp.Server, route func(http.Handler) http.Handler) {
-		s.BindHandler("GET:/path/{simple}/{label}/{matrix}/{list}", handle(route(http.HandlerFunc(adapter.PathStyles))))
-		s.BindHandler("GET:/query", handle(route(http.HandlerFunc(adapter.QueryStyles))))
-		s.BindHandler("GET:/header", handle(route(http.HandlerFunc(adapter.HeaderStyles))))
-		s.BindHandler("GET:/cookie", handle(route(http.HandlerFunc(adapter.CookieStyles))))
+		s.BindHandler("GET:/path/{simple}/{label}/{matrix}/{list}", handle(route(http.HandlerFunc(a.PathStyles))))
+		s.BindHandler("GET:/query", handle(route(http.HandlerFunc(a.QueryStyles))))
+		s.BindHandler("GET:/header", handle(route(http.HandlerFunc(a.HeaderStyles))))
+		s.BindHandler("GET:/cookie", handle(route(http.HandlerFunc(a.CookieStyles))))
 	}
 
 	if s, _ := o.Router.(*ghttp.Server); s != nil {

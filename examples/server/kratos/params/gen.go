@@ -565,16 +565,16 @@ func WithRouter(s *khttp.Server) ServerOption {
 // NewRouter registers every operation on a kratos HTTP server.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *khttp.Server {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	filters := make([]khttp.FilterFunc, len(o.Middleware))
 	for i, mw := range o.Middleware {
 		filters[i] = mw
 	}
 	register := func(r *khttp.Router) {
-		r.GET("/query", adapter.QueryStyles)
-		r.GET("/header", adapter.HeaderStyles)
-		r.GET("/cookie", adapter.CookieStyles)
-		r.GET("/path/{simple}/{label}/{matrix}/{list}", adapter.PathStyles)
+		r.GET("/query", a.QueryStyles)
+		r.GET("/header", a.HeaderStyles)
+		r.GET("/cookie", a.CookieStyles)
+		r.GET("/path/{simple}/{label}/{matrix}/{list}", a.PathStyles)
 	}
 
 	if s, _ := o.Router.(*khttp.Server); s != nil {

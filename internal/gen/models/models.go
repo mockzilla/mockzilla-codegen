@@ -59,7 +59,7 @@ func Templates() render.Set {
 }
 
 // Parts returns every models part, even one without declarations, with the parts its
-// declarations refer to.
+// declarations refer to. They share one folder: they often refer to each other in a cycle.
 func (g *Generator) Parts() []layout.Part {
 	out := make([]layout.Part, len(partOrder))
 	for i, id := range partOrder {
@@ -71,6 +71,9 @@ func (g *Generator) Parts() []layout.Part {
 		}
 
 		out[i] = layout.Part{ID: id}
+		if id != gomodel.PartTypes {
+			out[i].Owner, out[i].Reason = gomodel.PartTypes, "and "+gomodel.PartTypes+" can refer to each other's types"
+		}
 		for _, other := range partOrder {
 			if other != id && used[other] {
 				out[i].Uses = append(out[i].Uses, other)

@@ -14,13 +14,13 @@ func WithRouter(s *khttp.Server) ServerOption {
 // NewRouter registers every operation on a kratos HTTP server.
 func NewRouter(svc BooksInterface, opts ...ServerOption) *khttp.Server {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	filters := make([]khttp.FilterFunc, len(o.Middleware))
 	for i, mw := range o.Middleware {
 		filters[i] = mw
 	}
 	register := func(r *khttp.Router) {
-		r.GET("/books/{isbn}", adapter.GetBook)
+		r.GET("/books/{isbn}", a.GetBook)
 	}
 
 	if s, _ := o.Router.(*khttp.Server); s != nil {

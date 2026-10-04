@@ -9,11 +9,11 @@ func WithRouter(r {{.Framework}}.Router) {{.Option}} {
 func NewRouter(svc {{.Service}}, opts ...{{.Option}}) {{.Framework}}.Router {
 	o := {{.NewOptions}}(opts...)
 {{- if .Routes}}
-	adapter := {{.NewAdapter}}(svc, opts...)
+	a := {{.NewAdapter}}(svc, opts...)
 {{- end}}
 	register := func(r {{.Framework}}.Router) {
 {{- range .Routes}}
-		r.{{.Method}}({{.Pattern}}, adapter.{{.Operation}})
+		r.{{.Method}}({{.Pattern}}, a.{{.Operation}})
 {{- end}}
 {{- override "server.router-extra" .}}
 	}

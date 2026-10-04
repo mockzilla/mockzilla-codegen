@@ -14,9 +14,9 @@ func WithRouter(r chi.Router) ServerOption {
 // NewRouter registers every operation on a chi router.
 func NewRouter(svc BooksInterface, opts ...ServerOption) chi.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	register := func(r chi.Router) {
-		r.Get("/books/{isbn}", adapter.GetBook)
+		r.Get("/books/{isbn}", a.GetBook)
 	}
 
 	router, _ := o.Router.(chi.Router)

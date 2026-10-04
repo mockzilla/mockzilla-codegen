@@ -19,7 +19,7 @@ func WithRouter(r *web.ControllerRegister) ServerOption {
 // NewRouter registers every operation on a beego ControllerRegister.
 func NewRouter(svc PetsInterface, opts ...ServerOption) *web.ControllerRegister {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -27,10 +27,10 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *web.ControllerRegister 
 		return h
 	}
 	register := func(r *web.ControllerRegister, route func(http.Handler) http.Handler) {
-		r.AddMethod("GET", "/pets", handle(route(http.HandlerFunc(adapter.ListPets))))
-		r.AddMethod("POST", "/pets", handle(route(http.HandlerFunc(adapter.CreatePet))))
-		r.AddMethod("DELETE", "/pets/:id", handle(route(http.HandlerFunc(adapter.DeletePet))))
-		r.AddMethod("GET", "/ping", handle(route(http.HandlerFunc(adapter.Ping))))
+		r.AddMethod("GET", "/pets", handle(route(http.HandlerFunc(a.ListPets))))
+		r.AddMethod("POST", "/pets", handle(route(http.HandlerFunc(a.CreatePet))))
+		r.AddMethod("DELETE", "/pets/:id", handle(route(http.HandlerFunc(a.DeletePet))))
+		r.AddMethod("GET", "/ping", handle(route(http.HandlerFunc(a.Ping))))
 	}
 
 	if r, _ := o.Router.(*web.ControllerRegister); r != nil {

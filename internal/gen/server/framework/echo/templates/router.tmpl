@@ -9,7 +9,7 @@ func WithRouter(e *{{.Framework}}.Echo) {{.Option}} {
 func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Echo {
 	o := {{.NewOptions}}(opts...)
 {{- if .Routes}}
-	adapter := {{.NewAdapter}}(svc, opts...)
+	a := {{.NewAdapter}}(svc, opts...)
 {{- end}}
 	middleware := make([]{{.Framework}}.MiddlewareFunc, len(o.Middleware))
 	for i, mw := range o.Middleware {
@@ -17,7 +17,7 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Echo {
 	}
 	register := func(e *{{.Framework}}.Echo, m ...{{.Framework}}.MiddlewareFunc) {
 {{- range .Routes}}
-		e.{{.HTTPMethod}}({{.Pattern}}, adapter.{{.Operation}}, m...)
+		e.{{.HTTPMethod}}({{.Pattern}}, a.{{.Operation}}, m...)
 {{- end}}
 {{- override "server.router-extra" .}}
 	}

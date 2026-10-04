@@ -28,12 +28,14 @@ const waitDelay = 10 * time.Second
 type Command func(ctx context.Context, dir, name string, args ...string) ([]byte, error)
 
 // Variant is one config every spec is generated with. Config is YAML added to the package and
-// output keys the runner writes. Init, when set, is a call the runner makes on every package once
-// it builds, with %s standing for the package, such as %s.NewRouter(nil); a panic fails the job.
-// Imports are the other packages Init names.
+// output keys the runner writes. Files are the entries of output.files, the selectors of the parts
+// each file gets. Init, when set, is a call the runner makes on every package once it builds, with
+// %s standing for the package, such as %s.NewRouter(nil); a panic fails the job. Imports are the
+// other packages Init names.
 type Variant struct {
 	Name    string
 	Config  string
+	Files   map[string][]string
 	Init    string
 	Imports []string
 }

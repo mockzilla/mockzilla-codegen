@@ -25,7 +25,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	router := scaffolds.NewRouter(scaffolds.NewTodo(), scaffolds.WithMiddleware(
+	handler := scaffolds.NewRouter(scaffolds.NewTodo(), scaffolds.WithMiddleware(
 		scaffolds.RequestIDMiddleware,
 		scaffolds.RecoverMiddleware,
 		scaffolds.LoggingMiddleware,
@@ -34,7 +34,7 @@ func run() error {
 	))
 	srv := &http.Server{
 		Addr:              ":9000",
-		Handler:           router,
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

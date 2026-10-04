@@ -16,6 +16,7 @@ import (
 	"io/fs"
 	"maps"
 	"os"
+	"strings"
 )
 
 // Cache holds the keys of the jobs that passed with one build of the tool, Tool being its hash.
@@ -59,13 +60,15 @@ func (c *Cache) Save(path string) error {
 	return errors.Join(enc.Encode(c), f.Close())
 }
 
-// Key is the cache key of job: the hash of its spec file and its variant name.
+// Key is the cache key of job: the hash of its spec file, its variant name, and a hash of the
+// config it is generated with and the call it is checked with, so a changed variant runs again.
 func Key(job Job) (string, error) {
 	sum, err := HashFiles(job.Spec.Path)
 	if err != nil {
 		return "", err
 	}
-	return sum + " " + job.Variant.Name, nil
+	run := sha256.Sum256([]byte(strings.Join(append([]string{config(job), job.Variant.Init}, job.Variant.Imports...), "\x00")))
+	return sum + " " + job.Variant.Name + " " + hex.EncodeToString(run[:8]), nil
 }
 
 // HashFiles returns the hex SHA-256 of the files' contents, in order.

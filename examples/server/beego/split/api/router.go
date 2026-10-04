@@ -21,7 +21,7 @@ func WithRouter(r *web.ControllerRegister) ServerOption {
 // NewRouter registers every operation on a beego ControllerRegister.
 func NewRouter(svc BooksInterface, opts ...ServerOption) *web.ControllerRegister {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -29,7 +29,7 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) *web.ControllerRegister
 		return h
 	}
 	register := func(r *web.ControllerRegister, route func(http.Handler) http.Handler) {
-		r.AddMethod("GET", "/books/:isbn", handle(route(http.HandlerFunc(adapter.GetBook))))
+		r.AddMethod("GET", "/books/:isbn", handle(route(http.HandlerFunc(a.GetBook))))
 	}
 
 	if r, _ := o.Router.(*web.ControllerRegister); r != nil {

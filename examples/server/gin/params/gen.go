@@ -557,7 +557,7 @@ func WithRouter(e *gin.Engine) ServerOption {
 // NewRouter registers every operation on a gin Engine.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *gin.Engine {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -565,10 +565,10 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *gin.Engine {
 		return h
 	}
 	register := func(e *gin.Engine, route func(http.Handler) http.Handler) {
-		e.GET("/path/:simple/:label/:matrix/:list", handle(route(http.HandlerFunc(adapter.PathStyles))))
-		e.GET("/query", handle(route(http.HandlerFunc(adapter.QueryStyles))))
-		e.GET("/header", handle(route(http.HandlerFunc(adapter.HeaderStyles))))
-		e.GET("/cookie", handle(route(http.HandlerFunc(adapter.CookieStyles))))
+		e.GET("/path/:simple/:label/:matrix/:list", handle(route(http.HandlerFunc(a.PathStyles))))
+		e.GET("/query", handle(route(http.HandlerFunc(a.QueryStyles))))
+		e.GET("/header", handle(route(http.HandlerFunc(a.HeaderStyles))))
+		e.GET("/cookie", handle(route(http.HandlerFunc(a.CookieStyles))))
 	}
 
 	if e, _ := o.Router.(*gin.Engine); e != nil {

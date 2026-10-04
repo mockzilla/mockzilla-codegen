@@ -26,7 +26,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	router := api.NewRouter(books.NewBooks(), api.WithMiddleware(
+	handler := api.NewRouter(books.NewBooks(), api.WithMiddleware(
 		books.RequestIDMiddleware,
 		books.RecoverMiddleware,
 		books.LoggingMiddleware,
@@ -35,7 +35,7 @@ func run() error {
 	))
 	srv := &http.Server{
 		Addr:              ":8080",
-		Handler:           router,
+		Handler:           handler,
 		ReadHeaderTimeout: 30 * time.Second,
 	}
 
