@@ -214,9 +214,10 @@ return stream.Err()
   skipped.
 
 With `with-response: true`, the envelope gains a `Stream<status>` field and
-`<Op>StreamWithResponse` fills it: for a streamed response, `Body` is nil and
-`HTTPResponse.Body` stays open until the stream is closed; any other response is read and decoded
-into the usual fields, and is no error.
+`<Op>StreamWithResponse` fills it: for a streamed response, `Body` is nil,
+`HTTPResponse.Body` stays open until the stream is closed, and `Headers<status>` is filled as for
+any other response. A header that does not decode is an error and closes the stream. Any other
+response is read and decoded into the usual fields, and is no error.
 
 The helpers work off any `*http.Response`: `runtime.NewStream[T]` picks the framing from the
 `Content-Type`, `runtime.NewEventStream[T]` and `runtime.NewLineStream[T]` set it;

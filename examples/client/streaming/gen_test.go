@@ -21,8 +21,8 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// chat answers whole as JSON, or as chunks ended by [DONE] when the prompt asks for a stream. An
-// empty prompt is rejected.
+// chat answers whole as JSON, or as chunks ended by [DONE] when the prompt asks for a stream, and
+// names its model in a header. An empty prompt is rejected.
 func chat(w http.ResponseWriter, r *http.Request) {
 	var prompt Prompt
 	_ = json.NewDecoder(r.Body).Decode(&prompt)
@@ -32,6 +32,7 @@ func chat(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, `{"detail":"a prompt needs text"}`)
 		return
 	}
+	w.Header().Set("X-Model", "small")
 	if prompt.Stream == nil || !*prompt.Stream {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"text":"hello there"}`)
@@ -131,6 +132,7 @@ func TestChatStreamWithResponse(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, res.StatusCode())
 	assert.Nil(t, res.Body, "the body is left to the stream")
+	assert.Equal(t, &ChatResponse200Headers{XModel: new("small")}, res.Headers200)
 	require.True(t, stream.Next())
 	assert.Equal(t, Chunk{Text: "hello"}, stream.Current())
 

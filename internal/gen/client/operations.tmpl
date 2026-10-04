@@ -158,17 +158,18 @@ func (c *{{$.Client}}) {{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, op
 	}
 
 	out := &{{.Response}}{HTTPResponse: res, Body: body}
-	if {{$.Runtime}}.IsStreaming(res) {
-		out.{{.Stream.Field}} = {{$.Runtime}}.NewStream[{{.Stream.Frame}}](res)
-		return out, nil
-	}
 {{- if .EnvelopeTargets}}
-	if err = {{$.Runtime}}.Decode(res, body, []{{$.Runtime}}.Target{
+	out.{{.Stream.Field}}, err = {{$.Runtime}}.DecodeStream[{{.Stream.Frame}}](res, body, []{{$.Runtime}}.Target{
 {{- range .EnvelopeTargets}}
 		{Status: {{.Status}}, {{if .IsHeaders}}IsHeaders: true{{else}}MediaType: {{.MediaType}}{{end}}, Dst: {{.Dst}}},
 {{- end}}
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
+	}
+{{- else}}
+	if {{$.Runtime}}.IsStreaming(res) {
+		out.{{.Stream.Field}} = {{$.Runtime}}.NewStream[{{.Stream.Frame}}](res)
 	}
 {{- end}}
 	return out, nil
