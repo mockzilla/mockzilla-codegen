@@ -77,8 +77,23 @@ AwsBothAddress struct models.types
   Geo *AnimalAddressGeo json=geo omitempty
   Zip *string json=zip omitempty
 AwsAlias alias Animal models.types deprecated doc="Alias doc"
+Ext alias time.Duration models.types
+Typed alias time.Duration models.types doc="How long."
+TypedNumber alias int64 models.types
+TypedMixed alias time.Duration models.types
+TypedTwice alias time.Duration models.types
+TypedSame alias time.Duration models.types doc="Same type."
+TypedThrough alias time.Duration models.types
+TypedRoot alias time.Duration models.types
+TypedProps struct models.types
+  Wait *time.Duration json=wait omitempty doc="Inline."
+  Nested map[string]any json=nested omitempty
 ---
 warning allof-conflict 37:7 /components/schemas/Conflict: allOf members disagree on the type (string, integer); keeping string
 error allof-cycle 52:7 /components/schemas/Loop2: allOf includes itself through /components/schemas/Loop1; the loop is left out
 warning alias-cycle 104:13 /components/schemas/ChainA: types refer to each other in a loop (ChainA = ChainB = ChainA); ChainA becomes any
 error allof-cycle 107:7 /components/schemas/WithChain: allOf includes itself through /components/schemas/ChainA; the loop is left out
+warning allof-conflict 137:7 /components/schemas/TypedMixed: allOf member /components/schemas/Ext sets x-go-type time.Duration; keeping it, what /components/schemas/Animal adds is not generated
+warning allof-conflict 141:7 /components/schemas/TypedTwice: allOf members set x-go-type time.Duration and time.Time; keeping time.Duration
+warning allof-conflict 149:7 /components/schemas/TypedThrough: allOf member /components/schemas/Typed sets x-go-type time.Duration; keeping it, what /components/schemas/TypedThrough/allOf/1 adds is not generated
+warning allof-conflict 164:11 /components/schemas/TypedProps/properties/nested: allOf member /components/schemas/TypedProps/properties/nested/allOf/0 sets x-go-type map[string]any; keeping it, what /components/schemas/TypedProps/properties/nested/allOf/1 adds is not generated

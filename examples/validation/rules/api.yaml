@@ -23,3 +23,12 @@ components:
         labels: {type: object, maxProperties: 2, additionalProperties: {type: string, minLength: 1}}
         kind: {type: string, const: item}
         size: {$ref: '#/components/schemas/Size'}
+        token: {type: string, format: byte, maxLength: 8}
+        stock:
+          allOf:
+            - {type: integer, minimum: 0, maximum: 100}
+            - {minimum: 10}
+        ref:
+          allOf:
+            - {type: string, pattern: '^[A-Z]'}
+            - {pattern: '[0-9]$'}

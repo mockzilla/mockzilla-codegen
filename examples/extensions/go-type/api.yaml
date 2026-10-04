@@ -25,3 +25,7 @@ components:
     Port:
       type: integer
       x-go-type: uint16
+    Delay:
+      allOf:
+        - {type: integer, x-go-type: time.Duration}
+        - {description: How long to wait before a retry.}

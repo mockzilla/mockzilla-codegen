@@ -68,25 +68,19 @@ type Payment struct {
 	Wallet *Wallet `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
 func (p Payment) MarshalJSON() ([]byte, error) {
-	var set []any
-	if p.Card != nil {
-		set = append(set, p.Card)
-	}
-	if p.Bank != nil {
-		set = append(set, p.Bank)
-	}
-	if p.Wallet != nil {
-		set = append(set, p.Wallet)
-	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalTagged(nil, p.union(), p.Card, p.Bank, p.Wallet)
 }
 
 // UnmarshalJSON sets the variants data matches.
 func (p *Payment) UnmarshalJSON(data []byte) error {
 	*p = Payment{}
-	return runtime.UnmarshalUnion(data, runtime.Union{
+	return runtime.UnmarshalUnion(data, p.union())
+}
+
+func (p *Payment) union() runtime.Union {
+	return runtime.Union{
 		Discriminator: "type",
 		Shared:        []string{"type"},
 		Variants: []runtime.Variant{
@@ -115,13 +109,14 @@ func (p *Payment) UnmarshalJSON(data []byte) error {
 				Into:     runtime.Into(&p.Wallet),
 			},
 		},
-	})
+	}
 }
 
 // Validate checks the value against the constraints of the spec.
 func (p Payment) Validate() error {
 	var errs runtime.ValidationErrors
 	errs.Append("", runtime.ExactlyOne(p.Card != nil, p.Bank != nil, p.Wallet != nil))
+	errs.Append("", runtime.DiscriminatorError(p.MarshalJSON()))
 	if p.Wallet != nil {
 		errs.Append("", p.Wallet.Validate())
 	}
@@ -134,22 +129,19 @@ type Tolerant struct {
 	Unknown *Unknown `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
 func (t Tolerant) MarshalJSON() ([]byte, error) {
-	var set []any
-	if t.Card != nil {
-		set = append(set, t.Card)
-	}
-	if t.Unknown != nil {
-		set = append(set, t.Unknown)
-	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalTagged(nil, t.union(), t.Card, t.Unknown)
 }
 
 // UnmarshalJSON sets the variants data matches.
 func (t *Tolerant) UnmarshalJSON(data []byte) error {
 	*t = Tolerant{}
-	return runtime.UnmarshalUnion(data, runtime.Union{
+	return runtime.UnmarshalUnion(data, t.union())
+}
+
+func (t *Tolerant) union() runtime.Union {
+	return runtime.Union{
 		Discriminator: "type",
 		Shared:        []string{"type"},
 		Variants: []runtime.Variant{
@@ -170,13 +162,14 @@ func (t *Tolerant) UnmarshalJSON(data []byte) error {
 				Into:      runtime.Into(&t.Unknown),
 			},
 		},
-	})
+	}
 }
 
 // Validate checks the value against the constraints of the spec.
 func (t Tolerant) Validate() error {
 	var errs runtime.ValidationErrors
 	errs.Append("", runtime.ExactlyOne(t.Card != nil, t.Unknown != nil))
+	errs.Append("", runtime.DiscriminatorError(t.MarshalJSON()))
 	return errs.Err()
 }
 
@@ -185,22 +178,19 @@ type Inline struct {
 	Square *InlineSquare `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
 func (i Inline) MarshalJSON() ([]byte, error) {
-	var set []any
-	if i.Circle != nil {
-		set = append(set, i.Circle)
-	}
-	if i.Square != nil {
-		set = append(set, i.Square)
-	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalTagged(nil, i.union(), i.Circle, i.Square)
 }
 
 // UnmarshalJSON sets the variants data matches.
 func (i *Inline) UnmarshalJSON(data []byte) error {
 	*i = Inline{}
-	return runtime.UnmarshalUnion(data, runtime.Union{
+	return runtime.UnmarshalUnion(data, i.union())
+}
+
+func (i *Inline) union() runtime.Union {
+	return runtime.Union{
 		Discriminator: "kind",
 		Shared:        []string{"kind"},
 		Variants: []runtime.Variant{
@@ -219,13 +209,14 @@ func (i *Inline) UnmarshalJSON(data []byte) error {
 				Into:   runtime.Into(&i.Square),
 			},
 		},
-	})
+	}
 }
 
 // Validate checks the value against the constraints of the spec.
 func (i Inline) Validate() error {
 	var errs runtime.ValidationErrors
 	errs.Append("", runtime.ExactlyOne(i.Circle != nil, i.Square != nil))
+	errs.Append("", runtime.DiscriminatorError(i.MarshalJSON()))
 	if i.Circle != nil {
 		errs.Append("", i.Circle.Validate())
 	}

@@ -55,6 +55,7 @@ Pet struct models.types
   ? Again path=again pointer guarded pattern(patternPetTagsItem)
   ? Status path=status pointer guarded nested
   ? Pets path=pets guarded nested
+  ? Blob path=blob guarded minLength(base64 1) maxLength(base64 8) pattern(base64 patternPetName)
   ? Loose path=loose guarded minItems(1)
   ? Bag path=bag guarded minProperties(1)
   ? Dates path=dates guarded uniqueJSON()
@@ -106,8 +107,38 @@ Inner struct models.types
   A *string json=a omitempty
 Wrapper struct models.types
   Inner *Inner json=inner omitempty
+Strict struct models.types
+  Range *int json=range omitempty
+  Tie *float64 json=tie omitempty
+  Code *string json=code omitempty
+  List []string json=list omitempty
+  Bag map[string]any json=bag omitempty
+  Even *int json=even omitempty
+  Wrapped *Wrapped json=wrapped omitempty
+  ? validate
+  ? Range path=range pointer guarded minimum(5) maximum(10)
+  ? Tie path=tie pointer guarded minimum(5 exclusive) maximum(9 exclusive)
+  ? Code path=code pointer guarded minLength(3) maxLength(5) pattern(patternStrictCode) pattern(patternStrictCode2)
+  ? List path=list guarded minItems(2) maxItems(3)
+  ? Bag path=bag guarded minProperties(2) maxProperties(3)
+  ? Even path=even pointer guarded multipleOf(2) multipleOf(3)
+  ? Wrapped path=wrapped pointer guarded pattern(patternStrictCode) pattern(patternStrictCode2) pattern(patternStrictWrapped)
+Code alias string models.types
+Wrapped alias string models.types
+Cat struct models.types
+  Kind *string json=kind omitempty
+Dog struct models.types
+  Kind *string json=kind omitempty
+Tagged union models.unions
+  | oneOf discriminator=kind
+  | Cat *Cat kinds=object values=Cat known=kind
+  | Dog *Dog kinds=object values=Dog known=kind
+  ? validate count=ExactlyOne discriminated
 pattern patternPetName models.types "^[A-Z]"
 pattern patternPetTagsItem models.types "^[a-z]+$"
 pattern patternPetAccent models.types "^\\x{00e9}"
+pattern patternStrictCode models.types "^a"
+pattern patternStrictCode2 models.types "z$"
+pattern patternStrictWrapped models.types "b"
 ---
 warning pattern-unsupported 45:16 /components/schemas/Pet/properties/ahead: pattern "^(?=a)" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?=`); it is not used

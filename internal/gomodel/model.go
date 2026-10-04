@@ -190,8 +190,9 @@ func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 		}
 	}
 
-	flat := newFlattener(&diags)
-	r := readers{flat: flat, unions: newUnionReader(opts.Namer, flat), ext: newExtReader(opts.Namer, &diags), hasHeaders: opts.HasResponseHeaders}
+	ext := newExtReader(opts.Namer, &diags)
+	flat := newFlattener(ext, &diags)
+	r := readers{flat: flat, unions: newUnionReader(opts.Namer, flat), ext: ext, hasHeaders: opts.HasResponseHeaders}
 	c := newCollector(doc, r, &diags)
 	c.run(ops)
 	types := resolveTypes(c.pending, reserved, &diags)

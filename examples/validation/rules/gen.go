@@ -13,6 +13,8 @@ const _ = runtime.SupportsGeneratorV2
 
 var (
 	patternItemCode = regexp.MustCompile(`^[A-Z]{3}$`)
+	patternItemRef  = regexp.MustCompile(`^[A-Z]`)
+	patternItemRef2 = regexp.MustCompile(`[0-9]$`)
 )
 
 type Code = string
@@ -30,6 +32,9 @@ type Item struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	Kind   *string           `json:"kind,omitempty"`
 	Size   *Size             `json:"size,omitempty"`
+	Token  []byte            `json:"token,omitempty"`
+	Stock  *int              `json:"stock,omitempty"`
+	Ref    *string           `json:"ref,omitempty"`
 }
 
 // Validate checks the value against the constraints of the spec.
@@ -82,6 +87,17 @@ func (i Item) Validate() error {
 	}
 	if i.Size != nil {
 		errs.Append("size", i.Size.Validate())
+	}
+	if i.Token != nil {
+		errs.Append("token", runtime.MaxLength(runtime.Base64(i.Token), 8))
+	}
+	if i.Stock != nil {
+		errs.Append("stock", runtime.Minimum(*i.Stock, 10, false))
+		errs.Append("stock", runtime.Maximum(*i.Stock, 100, false))
+	}
+	if i.Ref != nil {
+		errs.Append("ref", runtime.Pattern(*i.Ref, patternItemRef))
+		errs.Append("ref", runtime.Pattern(*i.Ref, patternItemRef2))
 	}
 	return errs.Err()
 }

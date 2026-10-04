@@ -43,11 +43,12 @@ type ValidateView struct {
 	Response *MethodView
 }
 
-// MethodView is the body of one Validate method: Count checks how many union variants are set.
+// MethodView is the body of one Validate method; Count and Discriminator are union checks.
 type MethodView struct {
-	Runtime string
-	Count   string
-	Checks  []CheckView
+	Runtime       string
+	Count         string
+	Discriminator string
+	Checks        []CheckView
 }
 
 // CheckView checks one value. Every text is a Go expression: Calls return an error that is added
@@ -135,6 +136,10 @@ func methodView(d *gomodel.Decl, rt string, side methodSide) MethodView {
 		m.Count = gocode.Call(gocode.Selector(rt, v.Count), args...)
 	}
 
+	if v.IsDiscriminated {
+		m.Discriminator = gocode.Call(gocode.Selector(rt, "DiscriminatorError"), gocode.Call(gocode.Selector(r, "MarshalJSON")))
+	}
+
 	for _, c := range v.Checks {
 		if c.Side == side.skip {
 			continue
@@ -198,6 +203,9 @@ func checkView(c *gomodel.Check, at checkAt, rt string, side methodSide) CheckVi
 
 // ruleCall is the runtime call that checks rule r on value.
 func ruleCall(r gomodel.Rule, rt, value string) string {
+	if r.IsBase64 {
+		value = gocode.Call(gocode.Selector(rt, "Base64"), value)
+	}
 	args := []string{value}
 	switch r.Kind {
 	case gomodel.RulePattern:

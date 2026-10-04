@@ -28,6 +28,7 @@ func TestChecksOfValues(t *testing.T) {
 		{name: "Too short", err: MinLength(level("a"), 2), want: "must be at least 2 characters long"},
 		{name: "Max length", err: MaxLength("abc", 3)},
 		{name: "Too long", err: MaxLength("abcd", 3), want: "must be at most 3 characters long"},
+		{name: "Base64 counts the encoded text", err: MaxLength(Base64([]byte("hello!!")), 8), want: "must be at most 8 characters long"},
 		{name: "Pattern matches", err: Pattern("abc", letters)},
 		{name: "Pattern fails", err: Pattern("ab1", letters), want: "must match ^[a-z]+$"},
 		{name: "Format passes", err: Format("0f8fad5b-d9cb-469f-a165-70867728950e", "uuid")},

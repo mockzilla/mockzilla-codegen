@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -25,6 +26,11 @@ type Number interface {
 	~int | ~int8 | ~int16 | ~int32 | ~int64 |
 		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
 		~float32 | ~float64
+}
+
+// Base64 is the text encoding/json writes for b, which the length and pattern of format byte count.
+func Base64(b []byte) string {
+	return base64.StdEncoding.EncodeToString(b)
 }
 
 // MinLength checks that s has at least n characters.

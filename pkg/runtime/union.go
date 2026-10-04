@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"math/bits"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -112,6 +113,49 @@ func UnmarshalUnionText(raw []byte, decode func(data []byte) error) error {
 		return nil
 	}
 	return err
+}
+
+// tag fills an empty discriminator value and checks that the value picks a variant of set.
+func (u Union) tag(data []byte, set []int) ([]byte, error) {
+	var obj map[string]json.RawMessage
+	_ = json.Unmarshal(data, &obj) // MarshalUnion wrote an object
+	value := discriminatorValue(obj[u.Discriminator])
+	first := u.Variants[set[0]]
+	if value == "" && len(set) == 1 && len(first.Values) == 1 {
+		value = first.Values[0]
+		obj[u.Discriminator], _ = json.Marshal(value)
+		tag, _ := json.Marshal(map[string]string{u.Discriminator: value})
+		data, _ = MergeObjects(data, tag) // both are objects
+	}
+
+	picked, rest, err := u.discriminate(obj)
+	isSet := func(i int) bool { return slices.Contains(set, i) }
+	subject := strconv.Quote(value)
+	if value == "" {
+		subject = "an empty value"
+	}
+	var msg string
+	switch {
+	case picked >= 0 && isSet(picked):
+		return data, nil
+	case picked >= 0:
+		msg = subject + " picks " + u.Variants[picked].Name + ", not " + u.names(set)
+	case value == "" && len(first.Values) > 0:
+		msg = "must be set, " + first.Name + " takes " + strings.Join(first.Values, " or ")
+	case err == nil && slices.ContainsFunc(rest, isSet):
+		return data, nil
+	default:
+		msg = subject + " picks no variant"
+	}
+	return nil, ValidationError{Field: u.Discriminator, Message: msg}
+}
+
+func (u Union) names(set []int) string {
+	names := make([]string, len(set))
+	for i, v := range set {
+		names[i] = u.Variants[v].Name
+	}
+	return strings.Join(names, " and ")
 }
 
 // discriminate returns the variant the discriminator value picks, else -1 and the variants left to

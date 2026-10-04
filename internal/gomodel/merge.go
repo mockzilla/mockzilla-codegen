@@ -9,11 +9,14 @@ package gomodel
 
 import (
 	"cmp"
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"slices"
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/extension"
 	"github.com/mockzilla/mockzilla-codegen/internal/oasdoc"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
@@ -31,10 +34,11 @@ var typeWords = []struct {
 	{spec.TypeNull, "null"},
 }
 
-// mergePart is one schema whose own keywords go into a merge.
+// mergePart is one schema whose own keywords go into a merge; from is set for a merged $ref target.
 type mergePart struct {
 	schema    *spec.Schema
 	isForeign bool
+	from      *merged
 }
 
 // partWalk collects the parts of one merge; onStack finds allOf cycles.
@@ -51,6 +55,8 @@ type merged struct {
 	schema  *spec.Schema
 	foreign map[*spec.Schema]bool
 	refs    []*spec.Ref
+	joint   jointChecks
+	goType  *extension.Type
 }
 
 // flattener merges allOf members into one schema. The spec IR is never changed: merged schemas
@@ -60,14 +66,22 @@ type flattener struct {
 	inProgress map[*spec.Schema]bool
 	// isWrapper marks the $ref made around a foreign schema when it is merged with another.
 	isWrapper map[*spec.Schema]bool
+	ext       *extReader
 	diags     *diag.Collector
 }
 
-func newFlattener(diags *diag.Collector) *flattener {
+// jointChecks are the patterns and factors that all have to hold, where a schema keeps one of each.
+type jointChecks struct {
+	patterns  []*spec.Schema
+	multiples []json.Number
+}
+
+func newFlattener(ext *extReader, diags *diag.Collector) *flattener {
 	return &flattener{
 		memo:       map[*spec.Schema]*merged{},
 		inProgress: map[*spec.Schema]bool{},
 		isWrapper:  map[*spec.Schema]bool{},
+		ext:        ext,
 		diags:      diags,
 	}
 }
@@ -98,6 +112,9 @@ func (f *flattener) merged(s *spec.Schema) *merged {
 
 	m := &merged{schema: &spec.Schema{Origin: s.Origin, Extensions: s.Extensions}, foreign: map[*spec.Schema]bool{}}
 	f.memo[s] = m
+	if f.ownType(s) == nil {
+		f.typeFrom(m, w.parts)
+	}
 	for _, p := range w.parts {
 		f.merge(m, p)
 	}
@@ -119,10 +136,15 @@ func (f *flattener) collect(s *spec.Schema, isForeign bool, w *partWalk) {
 	w.seen[s], w.onStack[s] = true, true
 	defer delete(w.onStack, s)
 
-	if s.Ref != nil && s.Ref.Target != nil {
+	// The x-go-type of a member stands for all it is made of.
+	isTyped := s != w.root && f.ownType(s) != nil
+	if s.Ref != nil && s.Ref.Target != nil && !isTyped {
 		f.collectRef(s.Ref.Target, w)
 	}
 	w.parts = append(w.parts, mergePart{schema: s, isForeign: isForeign})
+	if isTyped {
+		return
+	}
 	for _, m := range members(s) {
 		f.collect(m, isForeign, w)
 	}
@@ -158,15 +180,75 @@ func (f *flattener) collectRef(t *spec.Schema, w *partWalk) {
 		f.collect(t, true, w)
 	case !w.seen[m.schema]:
 		w.seen[m.schema] = true
-		w.parts = append(w.parts, mergePart{schema: m.schema, isForeign: true})
+		w.parts = append(w.parts, mergePart{schema: m.schema, isForeign: true, from: m})
 	}
+}
+
+// typeFrom gives the merge the x-go-type of the first part that sets one and warns about the rest.
+func (f *flattener) typeFrom(m *merged, parts []mergePart) {
+	i := slices.IndexFunc(parts, func(p mergePart) bool { return f.partType(p) != nil })
+	if i < 0 {
+		return
+	}
+	typed := parts[i]
+	m.goType = f.partType(typed)
+	for _, p := range parts[i+1:] {
+		other := f.partType(p)
+		var msg string
+		switch {
+		case other != nil && *other != *m.goType:
+			msg = fmt.Sprintf("allOf members set x-go-type %s and %s; keeping %s", m.goType.Name, other.Name, m.goType.Name)
+		case other == nil && addsType(p.schema, typed.schema):
+			msg = fmt.Sprintf("allOf member %s sets x-go-type %s; keeping it, what %s adds is not generated", typed.schema.Origin.Pointer, m.goType.Name, p.schema.Origin.Pointer)
+		default:
+			continue
+		}
+		f.diags.Append(diag.Diagnostic{
+			Severity: diag.Warning,
+			Code:     diag.CodeAllOfConflict,
+			Pointer:  m.schema.Origin.Pointer,
+			Origin:   origin(m.schema.Origin),
+			Message:  msg,
+		})
+		return
+	}
+}
+
+// goTypeOf is the x-go-type of s: its own, else that of the first member of its merge.
+func (f *flattener) goTypeOf(s *spec.Schema) *extension.Type {
+	if t := f.ownType(s); t != nil {
+		return t
+	}
+	if m := f.merged(s); m != nil {
+		return m.goType
+	}
+	return nil
+}
+
+func (f *flattener) ownType(s *spec.Schema) *extension.Type {
+	return f.ext.of(s.Extensions, s.Origin).GoType
+}
+
+func (f *flattener) partType(p mergePart) *extension.Type {
+	if t := f.ownType(p.schema); t != nil || p.from == nil {
+		return t
+	}
+	return p.from.goType
 }
 
 // merge adds the keywords of one part. Docs come from parts not reached through a $ref, so a
 // schema does not take the description of the type it extends.
 func (f *flattener) merge(m *merged, p mergePart) {
 	dst, s := m.schema, p.schema
-	f.mergeTypes(dst, s)
+	if !mergeTypes(dst, s) && m.goType == nil {
+		f.diags.Append(diag.Diagnostic{
+			Severity: diag.Warning,
+			Code:     diag.CodeAllOfConflict,
+			Pointer:  dst.Origin.Pointer,
+			Origin:   origin(dst.Origin),
+			Message:  fmt.Sprintf("allOf members disagree on the type (%s, %s); keeping %s", typeSetText(dst.Types), typeSetText(s.Types), typeSetText(dst.Types)),
+		})
+	}
 	isSole := soleMember(s) != nil
 	dst.Nullable = dst.Nullable || s.Nullable || s.Types == spec.TypeNull || isSole && hasNullMember(s)
 	dst.ReadOnly = dst.ReadOnly || s.ReadOnly
@@ -182,6 +264,10 @@ func (f *flattener) merge(m *merged, p mergePart) {
 
 	dst.Format = cmp.Or(dst.Format, s.Format)
 	dst.Pattern = cmp.Or(dst.Pattern, s.Pattern)
+	if p.from != nil {
+		m.joint.join(p.from.joint)
+	}
+	m.joint.add(s)
 	dst.ContentEncoding = cmp.Or(dst.ContentEncoding, s.ContentEncoding)
 	dst.ContentMediaType = cmp.Or(dst.ContentMediaType, s.ContentMediaType)
 	for _, r := range s.Required {
@@ -217,34 +303,6 @@ func (f *flattener) merge(m *merged, p mergePart) {
 		dst.Examples = s.Examples
 	}
 	mergeLimits(&dst.Limits, s.Limits)
-}
-
-// mergeTypes keeps the types both allow; a number and an integer give an integer.
-func (f *flattener) mergeTypes(m, s *spec.Schema) {
-	switch {
-	case s.Types == 0, s.Types == spec.TypeNull:
-		return
-	case m.Types == 0:
-		m.Types = s.Types
-		return
-	}
-
-	t := m.Types & s.Types
-	if m.Types.Has(spec.TypeNumber) && s.Types.Has(spec.TypeInteger) || m.Types.Has(spec.TypeInteger) && s.Types.Has(spec.TypeNumber) {
-		t |= spec.TypeInteger
-	}
-	if t != 0 {
-		m.Types = t
-		return
-	}
-
-	f.diags.Append(diag.Diagnostic{
-		Severity: diag.Warning,
-		Code:     diag.CodeAllOfConflict,
-		Pointer:  m.Origin.Pointer,
-		Origin:   origin(m.Origin),
-		Message:  fmt.Sprintf("allOf members disagree on the type (%s, %s); keeping %s", typeSetText(m.Types), typeSetText(s.Types), typeSetText(m.Types)),
-	})
 }
 
 func (f *flattener) mergeProperty(m *merged, prop *spec.Property, isForeign bool) {
@@ -300,6 +358,35 @@ func (f *flattener) side(s *spec.Schema, isForeign bool) *spec.Schema {
 	return w
 }
 
+// add takes the pattern and the multipleOf of s, each once.
+func (c *jointChecks) add(s *spec.Schema) {
+	c.addPattern(s)
+	if n := s.Limits.MultipleOf; n != nil {
+		c.addMultiple(*n)
+	}
+}
+
+func (c *jointChecks) join(other jointChecks) {
+	for _, p := range other.patterns {
+		c.addPattern(p)
+	}
+	for _, n := range other.multiples {
+		c.addMultiple(n)
+	}
+}
+
+func (c *jointChecks) addPattern(s *spec.Schema) {
+	if s.Pattern != "" && !slices.ContainsFunc(c.patterns, func(p *spec.Schema) bool { return p.Pattern == s.Pattern }) {
+		c.patterns = append(c.patterns, s)
+	}
+}
+
+func (c *jointChecks) addMultiple(n json.Number) {
+	if !slices.Contains(c.multiples, n) {
+		c.multiples = append(c.multiples, n)
+	}
+}
+
 func allOfCycle(root, through *spec.Schema) diag.Diagnostic {
 	return diag.Diagnostic{
 		Severity: diag.Error,
@@ -315,18 +402,82 @@ func isSameRef(a, b *spec.Schema) bool {
 	return ra != nil && rb != nil && ra.Target == rb.Target
 }
 
-// mergeLimits keeps the first value set for each limit.
+// mergeLimits keeps the strictest of each limit; MultipleOf keeps the first, jointChecks keep all.
 func mergeLimits(dst *spec.Limits, src spec.Limits) {
-	dst.Minimum = cmp.Or(dst.Minimum, src.Minimum)
-	dst.Maximum = cmp.Or(dst.Maximum, src.Maximum)
+	dst.Minimum = tighter(dst.Minimum, src.Minimum, 1)
+	dst.Maximum = tighter(dst.Maximum, src.Maximum, -1)
 	dst.MultipleOf = cmp.Or(dst.MultipleOf, src.MultipleOf)
-	dst.MinLength = cmp.Or(dst.MinLength, src.MinLength)
-	dst.MaxLength = cmp.Or(dst.MaxLength, src.MaxLength)
-	dst.MinItems = cmp.Or(dst.MinItems, src.MinItems)
-	dst.MaxItems = cmp.Or(dst.MaxItems, src.MaxItems)
-	dst.MinProperties = cmp.Or(dst.MinProperties, src.MinProperties)
-	dst.MaxProperties = cmp.Or(dst.MaxProperties, src.MaxProperties)
+	dst.MinLength = larger(dst.MinLength, src.MinLength)
+	dst.MaxLength = smaller(dst.MaxLength, src.MaxLength)
+	dst.MinItems = larger(dst.MinItems, src.MinItems)
+	dst.MaxItems = smaller(dst.MaxItems, src.MaxItems)
+	dst.MinProperties = larger(dst.MinProperties, src.MinProperties)
+	dst.MaxProperties = smaller(dst.MaxProperties, src.MaxProperties)
 	dst.UniqueItems = dst.UniqueItems || src.UniqueItems
+}
+
+// tighter is the larger minimum (sign 1) or the smaller maximum (-1), the exclusive one on a tie.
+func tighter(a, b *spec.Bound, sign int) *spec.Bound {
+	if a == nil || b == nil {
+		return cmp.Or(a, b)
+	}
+	x, isA := new(big.Rat).SetString(a.Value.String())
+	y, isB := new(big.Rat).SetString(b.Value.String())
+	if !isA || !isB {
+		return a
+	}
+	switch c := x.Cmp(y) * sign; {
+	case c < 0, c == 0 && b.Exclusive:
+		return b
+	}
+	return a
+}
+
+func larger(a, b *int64) *int64 {
+	if a == nil || b != nil && *b > *a {
+		return b
+	}
+	return a
+}
+
+func smaller(a, b *int64) *int64 {
+	if a == nil || b != nil && *b < *a {
+		return b
+	}
+	return a
+}
+
+// mergeTypes keeps the types both allow, and reports false when they allow none in common.
+func mergeTypes(m, s *spec.Schema) bool {
+	switch {
+	case s.Types == 0, s.Types == spec.TypeNull:
+		return true
+	case m.Types == 0:
+		m.Types = s.Types
+		return true
+	}
+
+	if t := commonTypes(m.Types, s.Types); t != 0 {
+		m.Types = t
+		return true
+	}
+	return false
+}
+
+// addsType reports a shape or a type in s that the x-go-type of typed leaves out.
+func addsType(s, typed *spec.Schema) bool {
+	return len(s.Properties) > 0 || s.AdditionalProperties.Mode != spec.AdditionalUnset || s.Items != nil ||
+		len(s.PrefixItems) > 0 || isUnion(s) || s.Then != nil || s.Else != nil ||
+		s.Types&^spec.TypeNull != 0 && typed.Types&^spec.TypeNull != 0 && commonTypes(s.Types, typed.Types)&^spec.TypeNull == 0
+}
+
+// commonTypes are the types a and b both allow; a number and an integer give an integer.
+func commonTypes(a, b spec.TypeSet) spec.TypeSet {
+	t := a & b
+	if a.Has(spec.TypeNumber) && b.Has(spec.TypeInteger) || a.Has(spec.TypeInteger) && b.Has(spec.TypeNumber) {
+		t |= spec.TypeInteger
+	}
+	return t
 }
 
 func typeSetText(t spec.TypeSet) string {

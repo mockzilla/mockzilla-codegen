@@ -146,17 +146,10 @@ type Contact struct {
 	Other *string `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set, merged with the shared properties.
+// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
 func (c Contact) MarshalJSON() ([]byte, error) {
-	var set []any
-	if c.Email != nil {
-		set = append(set, c.Email)
-	}
-	if c.Other != nil {
-		set = append(set, c.Other)
-	}
 	type plain Contact
-	return runtime.MarshalUnion(plain(c), set...)
+	return runtime.MarshalTagged(plain(c), c.union(), c.Email, c.Other)
 }
 
 // UnmarshalJSON sets the variants data matches, and the shared properties.
@@ -166,7 +159,11 @@ func (c *Contact) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, (*plain)(c)); err != nil {
 		return err
 	}
-	return runtime.UnmarshalUnion(data, runtime.Union{
+	return runtime.UnmarshalUnion(data, c.union())
+}
+
+func (c *Contact) union() runtime.Union {
+	return runtime.Union{
 		Discriminator: "kind",
 		Shared:        []string{"id", "kind"},
 		Variants: []runtime.Variant{
@@ -185,7 +182,7 @@ func (c *Contact) UnmarshalJSON(data []byte) error {
 				Into:      runtime.Into(&c.Other),
 			},
 		},
-	})
+	}
 }
 
 type Person struct {
@@ -193,14 +190,10 @@ type Person struct {
 	Name *string `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set, merged with the shared properties.
+// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
 func (p Person) MarshalJSON() ([]byte, error) {
-	var set []any
-	if p.Name != nil {
-		set = append(set, p.Name)
-	}
 	type plain Person
-	return runtime.MarshalUnion(plain(p), set...)
+	return runtime.MarshalTagged(plain(p), p.union(), p.Name)
 }
 
 // UnmarshalJSON sets the variants data matches, and the shared properties.
@@ -210,7 +203,11 @@ func (p *Person) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, (*plain)(p)); err != nil {
 		return err
 	}
-	return runtime.UnmarshalUnion(data, runtime.Union{
+	return runtime.UnmarshalUnion(data, p.union())
+}
+
+func (p *Person) union() runtime.Union {
+	return runtime.Union{
 		IsAnyOf:       true,
 		Discriminator: "kind",
 		Shared:        []string{"kind"},
@@ -221,5 +218,5 @@ func (p *Person) UnmarshalJSON(data []byte) error {
 				Into: runtime.Into(&p.Name),
 			},
 		},
-	})
+	}
 }

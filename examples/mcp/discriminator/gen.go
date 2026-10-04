@@ -37,22 +37,19 @@ type Animal struct {
 	Dog *Dog `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
 func (a Animal) MarshalJSON() ([]byte, error) {
-	var set []any
-	if a.Cat != nil {
-		set = append(set, a.Cat)
-	}
-	if a.Dog != nil {
-		set = append(set, a.Dog)
-	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalTagged(nil, a.union(), a.Cat, a.Dog)
 }
 
 // UnmarshalJSON sets the variants data matches.
 func (a *Animal) UnmarshalJSON(data []byte) error {
 	*a = Animal{}
-	return runtime.UnmarshalUnion(data, runtime.Union{
+	return runtime.UnmarshalUnion(data, a.union())
+}
+
+func (a *Animal) union() runtime.Union {
+	return runtime.Union{
 		Discriminator: "kind",
 		Shared:        []string{"kind"},
 		Variants: []runtime.Variant{
@@ -73,13 +70,14 @@ func (a *Animal) UnmarshalJSON(data []byte) error {
 				Into:     runtime.Into(&a.Dog),
 			},
 		},
-	})
+	}
 }
 
 // Validate checks the value against the constraints of the spec.
 func (a Animal) Validate() error {
 	var errs runtime.ValidationErrors
 	errs.Append("", runtime.ExactlyOne(a.Cat != nil, a.Dog != nil))
+	errs.Append("", runtime.DiscriminatorError(a.MarshalJSON()))
 	return errs.Err()
 }
 

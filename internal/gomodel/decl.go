@@ -112,9 +112,10 @@ type Decl struct {
 // how many union variants are set, empty for none. HasResponse adds ValidateResponse, whose checks
 // differ from those of Validate.
 type Validation struct {
-	Count       string
-	Checks      []*Check
-	HasResponse bool
+	Count           string
+	IsDiscriminated bool
+	Checks          []*Check
+	HasResponse     bool
 }
 
 // Check is what Validate checks of one value. Field is the Go field it lives in, empty for the value
@@ -140,6 +141,7 @@ type Rule struct {
 	Kind        RuleKind
 	Number      string
 	IsExclusive bool
+	IsBase64    bool
 	Format      string
 	Pattern     *Pattern
 	Const       spec.Value
