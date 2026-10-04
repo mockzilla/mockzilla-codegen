@@ -88,12 +88,3 @@ A type with a sensitive value gets two methods:
 
 JSON encoding stays raw: `json.Marshal(user)` sends the real values, `json.Marshal(user.Masked())`
 the masked ones. A regex pattern RE2 cannot compile falls back to the full mask, with a warning.
-
-## Coming from oapi-codegen
-
-- `x-oapi-codegen-extra-tags` is `x-go-extra-tags`, and `x-oapi-codegen-only-honour-go-name` is
-  `x-go-name-exact`. The old names are ignored like any other `x-*` key.
-- `x-go-type-name` on a component declares the type under the new name only. oapi-codegen also
-  kept an alias under the component name.
-- `x-mcp` picks the tools of the [MCP](mcp.md) block as it did, with `name` checked against what
-  the SDK takes.
