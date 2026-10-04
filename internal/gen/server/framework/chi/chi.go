@@ -20,7 +20,7 @@ import (
 
 const importPath = "github.com/go-chi/chi/v5"
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 var _ framework.Framework = Framework{}

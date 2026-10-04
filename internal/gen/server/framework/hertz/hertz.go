@@ -19,7 +19,7 @@ import (
 
 const importPath = "github.com/cloudwego/hertz/pkg/app/server"
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // pattern writes routes as hertz takes them: a literal colon or star cannot be escaped, and the

@@ -30,7 +30,7 @@ func TestFramework(t *testing.T) {
 		{Path: "net/http"},
 		{Path: "strings"},
 	}, fw.Imports())
-	for _, name := range []string{"router.tmpl", "scaffold-main.tmpl"} {
+	for _, name := range []string{"templates/router.tmpl", "templates/scaffold-main.tmpl"} {
 		_, err := fw.Templates().Open(name)
 		require.NoError(t, err)
 	}

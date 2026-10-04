@@ -24,7 +24,7 @@ const (
 	varsPath   = "github.com/zeromicro/go-zero/rest/pathvar"
 )
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // pattern writes routes as go-zero takes them: a parameter fills its segment, and a literal

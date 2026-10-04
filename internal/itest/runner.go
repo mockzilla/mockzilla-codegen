@@ -34,7 +34,7 @@ const (
 	checkTest   = "TestInit"
 )
 
-//go:embed check.tmpl
+//go:embed templates/check.tmpl
 var checkSource string
 
 // checkTemplate writes the test file of a batch from its checks.

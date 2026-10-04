@@ -81,7 +81,7 @@ type Framework interface {
 	// PathParam writes the expression that reads a path parameter in a handler, where r is the
 	// request and c the framework's context, when the handler has one.
 	PathParam(s *gocode.Scope, name string) string
-	// Templates holds router.tmpl, the template of the router part.
+	// Templates holds templates/router.tmpl, the template of the router part.
 	Templates() fs.FS
 }
 

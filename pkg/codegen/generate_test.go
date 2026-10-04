@@ -581,7 +581,7 @@ func TestGenerationRenderErrors(t *testing.T) {
 			lay, err := layout.Plan(cfg, gen.Parts(), layout.Module{})
 			require.NoError(t, err)
 			set := models.Templates()
-			set.FS = fstest.MapFS{"part.tmpl": {Data: []byte(tc.tmpl)}}
+			set.FS = fstest.MapFS{"templates/part.tmpl": {Data: []byte(tc.tmpl)}}
 			engine, err := render.New([]render.Set{set}, render.Options{Format: true})
 			require.NoError(t, err)
 			g := &generation{cfg: cfg, gen: gen, lay: lay, engine: engine}

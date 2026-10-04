@@ -44,7 +44,7 @@ const (
 	bodyID          = "body"
 )
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // safeMethods are the HTTP methods that read only; idempotentMethods can be repeated. OpenAPI

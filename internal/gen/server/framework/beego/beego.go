@@ -18,7 +18,7 @@ import (
 
 const importPath = "github.com/beego/beego/v2/server/web"
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // pattern writes routes as beego takes them: a literal colon, star or question mark cannot be

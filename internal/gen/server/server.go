@@ -11,6 +11,7 @@ package server
 import (
 	"embed"
 	"io/fs"
+	"path"
 	"slices"
 	"time"
 
@@ -46,7 +47,7 @@ const (
 	PartRouter  layout.PartID = "server.router"
 )
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // The blocks of the server templates a config may override.
@@ -245,7 +246,7 @@ func Blocks() []string {
 
 // ownsMain reports whether fw brings the template of the main scaffold.
 func ownsMain(fw framework.Framework) bool {
-	_, err := fs.Stat(fw.Templates(), mainTemplate)
+	_, err := fs.Stat(fw.Templates(), path.Join(render.Dir, mainTemplate))
 	return err == nil
 }
 
