@@ -33,11 +33,11 @@ func fakeSet() Set {
 	return Set{
 		Name: "fake",
 		FS: fstest.MapFS{
-			"part.tmpl": {Data: []byte(`{{with override "fake.header" .}}{{.}}` + "\n\n" + `{{end}}` +
+			"templates/part.tmpl": {Data: []byte(`{{with override "fake.header" .}}{{.}}` + "\n\n" + `{{end}}` +
 				`{{range .}}type {{.}} struct{}{{override "fake.extra" .}}` + "\n" + `{{end}}`)},
-			"owner.tmpl": {Data: []byte(`// Owned by {{.owner}}.{{override "fake.extra" .}}`)},
-			"other.tmpl": {Data: []byte(`{{.Missing}}`)},
-			"README.md":  {Data: []byte("not a template {{")},
+			"templates/owner.tmpl": {Data: []byte(`// Owned by {{.owner}}.{{override "fake.extra" .}}`)},
+			"templates/other.tmpl": {Data: []byte(`{{.Missing}}`)},
+			"templates/README.md":  {Data: []byte("not a template {{")},
 		},
 		Parts:  map[layout.PartID]string{"fake.types": "part.tmpl", "fake.owner": "owner.tmpl", "fake.broken": "other.tmpl"},
 		Blocks: []string{"fake.extra", "fake.header"},
@@ -368,13 +368,18 @@ func TestNewLoadErrors(t *testing.T) {
 			wantMsg: "load templates: fake: permission denied",
 		},
 		{
+			name:    "No templates folder",
+			set:     Set{Name: "fake", FS: fstest.MapFS{"bad.tmpl": {Data: []byte("{{if}}")}}},
+			wantMsg: "load templates: fake: open templates: file does not exist",
+		},
+		{
 			name:    "Unreadable template",
-			set:     Set{Name: "fake", FS: fstest.MapFS{"dir.tmpl/x": {}}},
-			wantMsg: "load templates: fake/dir.tmpl: read dir.tmpl: invalid argument",
+			set:     Set{Name: "fake", FS: fstest.MapFS{"templates/dir.tmpl/x": {}}},
+			wantMsg: "load templates: fake/dir.tmpl: read templates/dir.tmpl: invalid argument",
 		},
 		{
 			name:    "Template that does not parse",
-			set:     Set{Name: "fake", FS: fstest.MapFS{"bad.tmpl": {Data: []byte("{{if}}")}}},
+			set:     Set{Name: "fake", FS: fstest.MapFS{"templates/bad.tmpl": {Data: []byte("{{if}}")}}},
 			wantMsg: "load templates: fake/bad.tmpl: template: fake/bad.tmpl:1: missing value for if",
 		},
 	}

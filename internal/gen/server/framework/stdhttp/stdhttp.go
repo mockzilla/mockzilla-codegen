@@ -28,7 +28,7 @@ const (
 	methodMarks = "!#$%&'*+-.^_`|~"
 )
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // wildcardSegment is a segment that is one parameter and nothing else.

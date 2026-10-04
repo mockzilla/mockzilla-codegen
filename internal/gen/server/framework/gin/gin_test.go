@@ -26,7 +26,7 @@ func TestFramework(t *testing.T) {
 	assert.Equal(t, "gin", fw.Name())
 	assert.Equal(t, framework.NetHTTP, fw.Family())
 	assert.Equal(t, []gomodel.Import{{Path: "github.com/gin-gonic/gin"}, {Path: "net/http"}}, fw.Imports())
-	_, err := fw.Templates().Open("router.tmpl")
+	_, err := fw.Templates().Open("templates/router.tmpl")
 	require.NoError(t, err)
 }
 

@@ -25,7 +25,7 @@ func TestFramework(t *testing.T) {
 	assert.Equal(t, "hertz", fw.Name())
 	assert.Equal(t, framework.NetHTTP, fw.Family())
 	assert.Equal(t, gomodel.Import{Path: "github.com/cloudwego/hertz/pkg/app/server"}, fw.Imports()[0])
-	for _, name := range []string{"router.tmpl", "scaffold-main.tmpl"} {
+	for _, name := range []string{"templates/router.tmpl", "templates/scaffold-main.tmpl"} {
 		_, err := fw.Templates().Open(name)
 		require.NoError(t, err)
 	}

@@ -1,10 +1,10 @@
 # Adding a framework
 
 A framework is a package under `internal/gen/server/framework/<name>` that implements
-`framework.Framework` and holds the template of the router part. Everything else, the service
-contract, the adapter, the errors and the scaffolds, is shared: the adapter's handlers take the
-shape the framework asks for, and the router template registers them. The interface is frozen;
-a framework that needs more is a reason to talk, not to widen it.
+`framework.Framework` and holds the template of the router part in `templates/router.tmpl`.
+Everything else, the service contract, the adapter, the errors and the scaffolds, is shared: the
+adapter's handlers take the shape the framework asks for, and the router template registers them.
+The interface is frozen; a framework that needs more is a reason to talk, not to widen it.
 
 ## The interface
 
@@ -30,7 +30,7 @@ type Framework interface {
 | `Conflicts` | the routes the framework holds together, in the order they are registered, and each route it cannot hold next to an earlier one with the reason |
 | `Handler` | the shape of the adapter's handlers, see below |
 | `PathParam` | the expression that reads a path parameter in a handler |
-| `Templates` | an `fs.FS` with `router.tmpl`, and `scaffold-main.tmpl` for a framework that serves in its own way |
+| `Templates` | an `fs.FS` whose `templates` folder holds `router.tmpl`, and `scaffold-main.tmpl` for a framework that serves in its own way |
 
 `RoutePattern` and `Conflicts` are where the framework's rules live. Together they promise that
 the generated router never panics: a spec path the framework rejects and a route it cannot hold

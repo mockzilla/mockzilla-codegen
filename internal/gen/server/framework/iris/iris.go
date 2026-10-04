@@ -22,7 +22,7 @@ import (
 
 const importPath = "github.com/kataras/iris/v12"
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // wholeSegment is a segment that is one parameter and nothing else.

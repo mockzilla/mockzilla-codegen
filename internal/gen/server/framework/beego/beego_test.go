@@ -31,7 +31,7 @@ func TestFramework(t *testing.T) {
 		{Path: "net/http"},
 		{Path: "strings"},
 	}, fw.Imports())
-	_, err := fw.Templates().Open("router.tmpl")
+	_, err := fw.Templates().Open("templates/router.tmpl")
 	require.NoError(t, err)
 }
 

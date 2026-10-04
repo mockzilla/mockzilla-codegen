@@ -25,7 +25,7 @@ const (
 	wildcard = "{rest:*}"
 )
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 var _ framework.Framework = Framework{}

@@ -22,7 +22,7 @@ import (
 
 const importPath = "github.com/gogf/gf/v2/net/ghttp"
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 var _ framework.Framework = Framework{}
