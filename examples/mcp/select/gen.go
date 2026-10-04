@@ -844,7 +844,7 @@ func (t *MCPTools) GetItemTool() *mcp.Tool {
 }
 
 // GetItem handles the fetch_item tool: it calls GetItem of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool.
+// An error of the client is the error of the tool, with the body of a response outside 2xx.
 func (t *MCPTools) GetItem(ctx context.Context, _ *mcp.CallToolRequest, in GetItemToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &GetItemRequestOptions{
 		PathParams: &GetItemPathParams{
@@ -859,7 +859,7 @@ func (t *MCPTools) GetItem(ctx context.Context, _ *mcp.CallToolRequest, in GetIt
 	}
 	out, err := t.client.GetItem(ctx, opts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, runtime.ToolError(err)
 	}
 	return nil, runtime.ToolResult{Value: out}, nil
 }
@@ -876,7 +876,7 @@ func (t *MCPTools) DeleteItemTool() *mcp.Tool {
 }
 
 // DeleteItem handles the delete_item tool: it calls DeleteItem of the client and answers ok.
-// An error of the client is the error of the tool.
+// An error of the client is the error of the tool, with the body of a response outside 2xx.
 func (t *MCPTools) DeleteItem(ctx context.Context, _ *mcp.CallToolRequest, in DeleteItemToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &DeleteItemRequestOptions{
 		PathParams: &DeleteItemPathParams{
@@ -884,7 +884,7 @@ func (t *MCPTools) DeleteItem(ctx context.Context, _ *mcp.CallToolRequest, in De
 		},
 	}
 	if err := t.client.DeleteItem(ctx, opts); err != nil {
-		return nil, nil, err
+		return nil, nil, runtime.ToolError(err)
 	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "ok"}}}, nil, nil
 }

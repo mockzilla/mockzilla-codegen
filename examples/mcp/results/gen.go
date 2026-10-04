@@ -540,12 +540,12 @@ func (t *MCPTools) CountPetsTool() *mcp.Tool {
 }
 
 // CountPets handles the count_pets tool: it calls CountPets of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool.
+// An error of the client is the error of the tool, with the body of a response outside 2xx.
 func (t *MCPTools) CountPets(ctx context.Context, _ *mcp.CallToolRequest, _ CountPetsToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &CountPetsRequestOptions{}
 	out, err := t.client.CountPets(ctx, opts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, runtime.ToolError(err)
 	}
 	return nil, runtime.ToolResult{Value: out}, nil
 }
@@ -562,7 +562,7 @@ func (t *MCPTools) FindPetTool() *mcp.Tool {
 }
 
 // FindPet handles the find_pet tool: it calls FindPet of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool.
+// An error of the client is the error of the tool, with the body of a response outside 2xx.
 func (t *MCPTools) FindPet(ctx context.Context, _ *mcp.CallToolRequest, in FindPetToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &FindPetRequestOptions{
 		Query: &FindPetQuery{
@@ -571,7 +571,7 @@ func (t *MCPTools) FindPet(ctx context.Context, _ *mcp.CallToolRequest, in FindP
 	}
 	out, err := t.client.FindPet(ctx, opts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, runtime.ToolError(err)
 	}
 	return nil, runtime.ToolResult{Value: out}, nil
 }

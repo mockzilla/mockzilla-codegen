@@ -7,6 +7,9 @@ package runtime
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,6 +51,63 @@ func TestToolResult(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, string(got))
+		})
+	}
+}
+
+func TestToolError(t *testing.T) {
+	t.Parallel()
+
+	long := strings.Repeat("a", 5000)
+	split := strings.Repeat("a", 4095) + "é" + strings.Repeat("b", 10)
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "An error of no response is kept", err: errors.New("dial failed"), want: "dial failed"},
+		{name: "A response without a body is kept", err: &APIError{Status: 404}, want: "unexpected status 404 Not Found"},
+		{name: "A body of white space is kept", err: &APIError{Status: 404, Body: []byte(" \n")}, want: "unexpected status 404 Not Found"},
+		{
+			name: "The body follows the message",
+			err:  &APIError{Status: 404, Body: []byte("{\"detail\":\"no such pet\"}\n")},
+			want: "unexpected status 404 Not Found\n{\"detail\":\"no such pet\"}",
+		},
+		{
+			name: "The body follows the message of the error type",
+			err:  &APIError{Status: 409, Body: []byte(`{"detail":"taken"}`), Err: errors.New("taken")},
+			want: "unexpected status 409 Conflict: taken\n{\"detail\":\"taken\"}",
+		},
+		{
+			name: "A wrapped response error is found",
+			err:  fmt.Errorf("get pet: %w", &APIError{Status: 500, Body: []byte("down")}),
+			want: "get pet: unexpected status 500 Internal Server Error\ndown",
+		},
+		{
+			name: "A body that is no text gives its size",
+			err:  &APIError{Status: 500, Body: []byte{0xff, 0xfe, 0x00}},
+			want: "unexpected status 500 Internal Server Error\n(3 bytes, not UTF-8 text)",
+		},
+		{
+			name: "A long body is cut",
+			err:  &APIError{Status: 502, Body: []byte(long)},
+			want: "unexpected status 502 Bad Gateway\n" + long[:4096] + "\n(904 more bytes left out)",
+		},
+		{
+			name: "A long body is cut where a character starts",
+			err:  &APIError{Status: 502, Body: []byte(split)},
+			want: "unexpected status 502 Bad Gateway\n" + split[:4095] + "\n(12 more bytes left out)",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := ToolError(tc.err)
+
+			require.EqualError(t, got, tc.want)
+			assert.ErrorIs(t, got, tc.err)
 		})
 	}
 }
