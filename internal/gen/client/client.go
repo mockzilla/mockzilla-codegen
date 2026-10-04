@@ -11,6 +11,7 @@ package client
 import (
 	"embed"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
@@ -20,6 +21,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/render"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 // The client parts.
@@ -53,9 +55,10 @@ type Generator struct {
 	ops  []*gomodel.Operation
 }
 
-// New returns the generator of m's operations. Without HasStreams, it warns about every operation
-// whose 2xx responses come only in sequential media types, which the plain method reads whole and
-// so never returns from while the server keeps sending.
+// New returns the generator of m's operations. It warns about every operation whose path holds a
+// placeholder no path parameter fills, since its methods always fail. Without HasStreams, it also
+// warns about every operation whose 2xx responses come only in sequential media types, which the
+// plain method reads whole and so never returns from while the server keeps sending.
 func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 	g := &Generator{opts: opts}
 	var diags []diag.Diagnostic
@@ -64,6 +67,18 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 			continue
 		}
 		g.ops = append(g.ops, op)
+
+		origin := diag.Origin{File: op.Spec.Origin.File, Line: op.Spec.Origin.Line, Col: op.Spec.Origin.Col}
+		if names := unfilled(op); len(names) > 0 {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Warning,
+				Code:     diag.CodePathParamMissing,
+				Pointer:  op.Spec.Origin.Pointer,
+				Origin:   origin,
+				Message:  "no path parameter fills {" + strings.Join(names, "}, {") + "} in " + op.Spec.Path + ", so " + op.Name + " always fails",
+			})
+		}
+
 		if opts.HasStreams || !IsStreamOnly(op) {
 			continue
 		}
@@ -73,7 +88,7 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 			Severity: diag.Warning,
 			Code:     diag.CodeStreamOnly,
 			Pointer:  op.Spec.Origin.Pointer,
-			Origin:   diag.Origin{File: op.Spec.Origin.File, Line: op.Spec.Origin.Line, Col: op.Spec.Origin.Col},
+			Origin:   origin,
 			Message:  op.Name + " answers only as " + c.MediaType + ", which " + op.Name + " reads whole; set client.streaming to read it as it arrives",
 		})
 	}
@@ -138,5 +153,33 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 		return responsesView(g, s)
 	default:
 		return operationsView(g, s)
+	}
+}
+
+// unfilled lists, each once, the placeholders in the path of op, its query included, that no path
+// parameter fills. The runtime sends no fragment, so a placeholder after a # needs none.
+func unfilled(op *gomodel.Operation) []string {
+	filled := map[string]bool{}
+	for _, group := range op.Params {
+		if group.In != spec.InPath {
+			continue
+		}
+		for _, p := range group.Params {
+			filled[p.Name] = true
+		}
+	}
+
+	var names []string
+	path, _, _ := strings.Cut(op.Spec.Path, "#")
+	for {
+		_, rest, ok := strings.Cut(path, "{")
+		if !ok {
+			return names
+		}
+		name, after, _ := strings.Cut(rest, "}")
+		if !filled[name] && !slices.Contains(names, name) {
+			names = append(names, name)
+		}
+		path = after
 	}
 }

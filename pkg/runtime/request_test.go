@@ -163,6 +163,42 @@ func TestRequestBuilder(t *testing.T) {
 			wantErrText: "parameter is required: tags",
 		},
 		{
+			name: "A query in the template goes ahead of the query parameters, a fragment is not sent",
+			path: "/rest?method=flickr.photos.search&q=cats#search",
+			build: func(b *RequestBuilder) {
+				b.QueryParam("dogs", Param{Name: "q", Style: StyleForm})
+			},
+			wantURL: "http://api.test/v1/rest?method=flickr.photos.search&q=cats&q=dogs",
+		},
+		{
+			name: "A path parameter in the query of the template is escaped for a query",
+			path: "/orders/{id}?end={end}&{key}=1",
+			build: func(b *RequestBuilder) {
+				b.PathParam("a b", Param{Name: "id", Style: StyleSimple})
+				b.PathParam("a b&c=d", Param{Name: "end", Style: StyleSimple})
+				b.PathParam(colors, Param{Name: "key", Style: StyleSimple})
+			},
+			wantURL: "http://api.test/v1/orders/a%20b?end=a+b%26c%3Dd&blue%2Cblack%2Cbrown=1",
+		},
+		{
+			name:    "A ? after the # is part of the fragment",
+			path:    "/#Action=List?x=1",
+			build:   func(b *RequestBuilder) { b.QueryParam("List", Param{Name: "Action", Style: StyleForm}) },
+			wantURL: "http://api.test/v1/?Action=List",
+		},
+		{
+			name:    "Keys without values and bytes a query cannot carry",
+			path:    "/sellers?id&email&note=a b\"c\"&sum=%2B",
+			build:   func(*RequestBuilder) {},
+			wantURL: "http://api.test/v1/sellers?id&email&note=a%20b%22c%22&sum=%2B",
+		},
+		{
+			name:        "A placeholder in the query that no path parameter filled",
+			path:        "/search?query={query}",
+			build:       func(b *RequestBuilder) { b.QueryParam("go", Param{Name: "query", Style: StyleForm}) },
+			wantErrText: "parameter is required: query",
+		},
+		{
 			name:       "A JSON body",
 			build:      func(b *RequestBuilder) { b.JSONBody(color, "application/vnd.color+json") },
 			wantHeader: http.Header{"Content-Type": {"application/vnd.color+json"}},

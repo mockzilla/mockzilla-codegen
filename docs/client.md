@@ -105,6 +105,15 @@ func (o *CreatePetRequestOptions) Validate() error
   `filter[tags]=a&filter[tags]=b`, and an object inside it nested, `filter[size][x]=1`. The other
   styles have no way to write a list or object inside an object, so setting one is
   `runtime.ErrParamValue`.
+- A `?` in a path of the spec starts a query, which is sent as written, ahead of the query
+  parameters: `/rest?method=photos.search` with `text` set sends
+  `/rest?method=photos.search&text=fox`. A key written there and declared as a query parameter goes
+  out twice. A path parameter fills its placeholder in the query too, escaped for a query. A `#`
+  starts a fragment, which is not sent: `/#Action=ListUsers` goes to `/`, with the `Action` query
+  parameter the spec declares next to it.
+- A placeholder that no path parameter fills, such as `{query}` in `/search?query={query}` when
+  `query` is a query parameter, is `runtime.ErrParamMissing` on every call. Generation warns about
+  it (`path-param-missing`).
 - The body goes as its media type: JSON for `application/json` and `+json`,
   `application/x-www-form-urlencoded` through `EncodeForm`, `multipart/form-data` through
   `EncodeMultipart` (a `runtime.File` streams as a file part), a `runtime.File` body streamed,

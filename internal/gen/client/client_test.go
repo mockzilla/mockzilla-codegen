@@ -65,6 +65,41 @@ func TestNewWarnsAboutStreamOnlyOperationsWithoutStreams(t *testing.T) {
 	}}, diags)
 }
 
+func TestNewWarnsAboutPlaceholdersNoPathParameterFills(t *testing.T) {
+	t.Parallel()
+
+	id := &spec.Parameter{Name: "id", In: spec.InPath}
+	m := &gomodel.Model{Operations: []*gomodel.Operation{
+		{
+			Name: "Search",
+			Spec: &spec.Operation{
+				Method: "GET",
+				Path:   "/pets/{id}/{kind}?q={query}&k={kind}#{tag}",
+				Origin: spec.Origin{Pointer: "/paths/~1pets~1{id}~1{kind}?q={query}&k={kind}#{tag}/get", File: "api.yaml", Line: 9, Col: 5},
+			},
+			Params: []gomodel.ParamGroup{
+				{In: spec.InPath, Params: []*spec.Parameter{id}},
+				{In: spec.InQuery, Params: []*spec.Parameter{{Name: "query", In: spec.InQuery}}},
+			},
+		},
+		{
+			Name:   "GetPet",
+			Spec:   &spec.Operation{Method: "GET", Path: "/pets/{id}?full={id}#{tag}"},
+			Params: []gomodel.ParamGroup{{In: spec.InPath, Params: []*spec.Parameter{id}}},
+		},
+	}}
+
+	_, diags := New(m, Options{})
+
+	assert.Equal(t, []diag.Diagnostic{{
+		Severity: diag.Warning,
+		Code:     diag.CodePathParamMissing,
+		Pointer:  "/paths/~1pets~1{id}~1{kind}?q={query}&k={kind}#{tag}/get",
+		Origin:   diag.Origin{File: "api.yaml", Line: 9, Col: 5},
+		Message:  "no path parameter fills {kind}, {query} in /pets/{id}/{kind}?q={query}&k={kind}#{tag}, so Search always fails",
+	}}, diags)
+}
+
 func TestTemplates(t *testing.T) {
 	t.Parallel()
 

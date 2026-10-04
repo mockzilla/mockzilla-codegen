@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info:
+  title: Path keys with a query or a fragment
+  version: 1.0.0
+paths:
+  /rest?method=photos.search:
+    get:
+      operationId: searchPhotos
+      parameters:
+        - {name: text, in: query, schema: {type: string}}
+      responses:
+        "204": {description: Found}
+  /orders?end={end}&page={page}:
+    get:
+      operationId: listOrders
+      parameters:
+        - {name: end, in: path, required: true, schema: {type: string, format: date}}
+        - {name: page, in: path, required: true, schema: {type: integer}}
+      responses:
+        "204": {description: Listed}
+  /files/{id}#share:
+    put:
+      operationId: shareFile
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "204": {description: Shared}
+  /#Action=ListUsers:
+    get:
+      operationId: listUsers
+      parameters:
+        - {name: Action, in: query, required: true, schema: {type: string, enum: [ListUsers]}}
+      responses:
+        "204": {description: Listed}
+  /search?query={query}:
+    get:
+      operationId: search
+      parameters:
+        - {name: query, in: query, required: true, schema: {type: string}}
+      responses:
+        "204": {description: Found}
