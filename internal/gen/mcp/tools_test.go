@@ -71,3 +71,37 @@ func TestTextResult(t *testing.T) {
 		})
 	}
 }
+
+func TestFileResult(t *testing.T) {
+	t.Parallel()
+
+	photo := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Photo", Part: gomodel.PartTypes, Kind: gomodel.KindAlias, Target: fileType}}
+	tests := []struct {
+		name        string
+		mediaType   string
+		typ         gomodel.Type
+		want        string
+		wantPointer bool
+	}{
+		{name: "A file is dereferenced", mediaType: "*/*", typ: gomodel.Pointer{Elem: fileType}, want: "*out", wantPointer: true},
+		{name: "An alias of a file is dereferenced", mediaType: "application/pdf", typ: gomodel.Pointer{Elem: photo}, want: "*out", wantPointer: true},
+		{name: "Image bytes take their media type", mediaType: "image/png", typ: bytesType, want: `runtime.NewFile(out, "", "image/png")`},
+		{name: "Audio bytes take their media type", mediaType: "audio/wav", typ: bytesType, want: `runtime.NewFile(out, "", "audio/wav")`},
+		{name: "Bytes under a wildcard are no file", mediaType: "image/*", typ: bytesType},
+		{name: "Other bytes are no file", mediaType: "application/octet-stream", typ: bytesType},
+		{name: "A string is no file", mediaType: "image/svg+xml", typ: gomodel.Builtin{Name: "string"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			m := &gomodel.Model{}
+			g, _ := New(m, testOptions())
+			got, isPointer := fileResult(tc.mediaType, tc.typ, fixture{m: m, g: g, cfg: "output: {file: ./gen.go}\n"}.scope(t, PartTools))
+
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantPointer, isPointer)
+		})
+	}
+}

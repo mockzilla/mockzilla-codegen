@@ -53,5 +53,8 @@ type UploadToolInput struct {
 	Body *Upload `json:"body,omitempty"`
 }
 
+// PhotoToolInput is the input of the photo tool, which takes nothing.
+type PhotoToolInput struct{}
+
 // TailToolInput is the input of the tail tool, which takes nothing.
 type TailToolInput struct{}

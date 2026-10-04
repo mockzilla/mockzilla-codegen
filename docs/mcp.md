@@ -34,6 +34,8 @@ func (t *MCPTools) ListPets(ctx context.Context, req *mcp.CallToolRequest, in Li
 - `NewMCPTools` takes the client interface, so the tools call the generated client or a test
   double. `Register` adds every tool to a server. To expose a few, add each yourself:
   `mcp.AddTool(s, t.ListPetsTool(), t.ListPets)`.
+- `NewMCPTools` panics on a nil client. The SDK does not recover a panic in a tool, so a nil
+  client would end the server at the first call.
 - `<Op>Tool` is the definition of a tool: its name, its description, the schema of its input, and
   hints: a tool of a `GET`, `HEAD`, `OPTIONS`, `TRACE` or `QUERY` operation is marked read-only
   and idempotent, one of a `PUT` or `DELETE` idempotent.
@@ -46,8 +48,11 @@ func (t *MCPTools) ListPets(ctx context.Context, req *mcp.CallToolRequest, in Li
   digits then keeps all of them, and a default the SDK filled in stays. A host written in
   JavaScript may round such an integer before the server gets it.
 - The tool name is the operation ID in snake case: `listPets` and `list-pets` give `list_pets`.
-  Two operations whose names collide are numbered, `list_pets2`, with a `name-clash` note. The
-  description is the operation's summary and description.
+  Two operations whose names collide are numbered, `list_pets2`, with a `name-clash` note. Some
+  hosts take only letters, digits, `_` and `-` up to 64 characters. A longer name, or one with a
+  dot, is kept with an `mcp-tool-name` warning; `x-mcp.name` sets another.
+- The description is the operation's summary and description. An operation with neither is
+  described by its method and path, `GET /pets`.
 - Webhooks get no tool, since they come in.
 
 A server that serves the tools over stdio, for a desktop assistant:
@@ -92,6 +97,9 @@ validates every call against:
   and typed by its schema, with the parameter's description. Required parameters and path
   parameters are required properties. A parameter with `content` instead of a schema takes the
   schema of its media type.
+- A header parameter named `Accept`, `Content-Type` or `Authorization` is not in the input, since
+  OpenAPI ignores it. The client sets the first two. A token goes on the client with
+  `WithRequestEditor`, as in the server above, so the assistant never sees it.
 - `body` for the request body, with the schema of its JSON media type, else of its first one. A body
   without a schema is anything for JSON, a string for `text/*`, and a base64 string otherwise. A
   required body is a required property. A body the client sends as bytes, such as an `image/png`
@@ -134,11 +142,15 @@ validates every call against:
 - A response body comes back as structured content, the JSON of what the client method returns,
   and as text content holding the same JSON, which every client reads.
 - Structured content is always a JSON object, since clients before protocol 2026-07-28 take
-  nothing else there. An object comes as it is. Anything else, such as a list, a number, or the
-  null of a 2xx without a body, comes as `{"result": <value>}`. The generated handler returns
-  `runtime.ToolResult{Value: out}`, which writes it that way.
+  nothing else there. An object comes as it is. Anything else, such as a list or a number, comes
+  as `{"result": <value>}`. The generated handler returns `runtime.ToolResult{Value: out}`, which
+  writes it that way.
 - A `text/*` body comes back as text content alone.
-- An operation without a response body answers with the text `ok`.
+- A file comes back as image content when the response names an `image/*` media type, as audio
+  content for `audio/*`, so the assistant sees or hears it. Any other file comes as base64 under
+  `result`. Bytes without a schema take the media type the spec documents, unless it is a wildcard.
+- An operation without a response body answers with the text `ok`. So does another 2xx the spec
+  lists next to the one with the body, such as a 204, since the client does not read its body.
 - An error of the client is the error of the tool: `IsError` is set and the text is the error's
   message. A response outside 2xx, or a 2xx the spec does not list, reads
   `unexpected status 404 Not Found`, followed by the message of the error type when the spec
@@ -172,7 +184,7 @@ paths:
 | Property | Effect |
 |---|---|
 | `skip` | `true` leaves the operation out, `false` keeps it, also under `default-skip: true` |
-| `name` | the tool name: letters, digits, `_`, `-` and `.`, up to 128 characters; anything else is left out with an `mcp-tool-name` warning |
+| `name` | the tool name: letters, digits, `_`, `-` and `.`, up to 128 characters; anything else is left out with an `mcp-tool-name` warning, and a name over 64 characters or with a dot is kept with one |
 | `description` | the tool description, instead of the summary and description |
 
 | `default-skip` | `x-mcp.skip` | Tool |
@@ -201,8 +213,8 @@ res, _ := session.CallTool(ctx, &mcp.CallToolParams{Name: "list_pets", Arguments
 
 The [examples](../examples/mcp) do this for the tools of a pet store, for a spec that picks its
 tools with `x-mcp`, for one that streams, for one with a default that does not fit, for
-patterns, for nullable schemas of 3.0, and for results that are no object. The pet store example also sends an
-id above 2^53.
+patterns, for nullable schemas of 3.0, and for results that are no object or a file. The pet
+store example also sends an id above 2^53.
 
 ## Layout
 
