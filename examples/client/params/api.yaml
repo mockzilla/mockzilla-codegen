@@ -25,6 +25,8 @@ paths:
         - {name: deep, in: query, style: deepObject, schema: {$ref: '#/components/schemas/Point'}}
         - {name: flat, in: query, explode: false, schema: {$ref: '#/components/schemas/Point'}}
         - {name: json, in: query, content: {application/json: {schema: {$ref: '#/components/schemas/Point'}}}}
+        - {name: filter, in: query, style: deepObject, schema: {$ref: '#/components/schemas/Filter'}}
+        - {name: where, in: query, explode: false, schema: {$ref: '#/components/schemas/Filter'}}
         - {name: needed, in: query, required: true, schema: {type: string}}
       responses:
         "200":
@@ -61,6 +63,12 @@ components:
       properties:
         x: {type: integer}
         y: {type: integer}
+    Filter:
+      type: object
+      properties:
+        name: {type: string}
+        tags: {type: array, items: {type: string}}
+        size: {$ref: '#/components/schemas/Point'}
     Echo:
       type: object
       additionalProperties: true

@@ -70,6 +70,24 @@ func TestStyles(t *testing.T) {
 			}},
 		},
 		{
+			name: "A deep object with a list and an object inside",
+			call: func() (Echo, error) {
+				return c.QueryStyles(ctx, &QueryStylesRequestOptions{Query: &QueryStylesQuery{
+					Filter: &Filter{Name: new("a"), Tags: []string{"b", "c"}, Size: &Point{X: new(1)}}, Needed: "yes",
+				}})
+			},
+			want: Echo{"query": map[string]any{"filter": map[string]any{"name": "a", "tags": []any{"b", "c"}, "size": map[string]any{"x": 1.0}}, "needed": "yes"}},
+		},
+		{
+			name: "An object whose list is unset",
+			call: func() (Echo, error) {
+				return c.QueryStyles(ctx, &QueryStylesRequestOptions{Query: &QueryStylesQuery{
+					Filter: &Filter{Name: new("a"), Tags: []string{}}, Where: &Filter{Name: new("b")}, Needed: "yes",
+				}})
+			},
+			want: Echo{"query": map[string]any{"filter": map[string]any{"name": "a"}, "where": map[string]any{"name": "b"}, "needed": "yes"}},
+		},
+		{
 			name: "Query parameters left out stay out",
 			call: func() (Echo, error) {
 				return c.QueryStyles(ctx, &QueryStylesRequestOptions{Query: &QueryStylesQuery{Needed: "yes"}})
@@ -122,4 +140,7 @@ func TestMissingParameters(t *testing.T) {
 
 	_, err = c.PathStylesRequest(ctx, nil)
 	require.EqualError(t, err, "parameter is required: simple", "a path group left out leaves its placeholders")
+
+	_, err = c.QueryStylesRequest(ctx, &QueryStylesRequestOptions{Query: &QueryStylesQuery{Where: &Filter{Tags: []string{"a"}}}})
+	require.ErrorIs(t, err, runtime.ErrParamValue, "only a deep object can hold a list")
 }

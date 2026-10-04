@@ -22,6 +22,12 @@ type Point struct {
 	Y *int `json:"y,omitempty"`
 }
 
+type Filter struct {
+	Name *string  `json:"name,omitempty"`
+	Tags []string `json:"tags,omitempty"`
+	Size *Point   `json:"size,omitempty"`
+}
+
 type Echo map[string]any
 
 type PathStylesPathParams struct {
@@ -48,6 +54,8 @@ type QueryStylesQuery struct {
 	Deep   *Point   `json:"deep,omitempty"`
 	Flat   *Point   `json:"flat,omitempty"`
 	JSON   *Point   `json:"json,omitempty"`
+	Filter *Filter  `json:"filter,omitempty"`
+	Where  *Filter  `json:"where,omitempty"`
 	Needed string   `json:"needed"`
 }
 
@@ -461,6 +469,14 @@ func (a *HTTPAdapter) QueryStyles(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "json", ParamLocation: "query", Err: err})
 		return
 	}
+	if err := runtime.DecodeQuery(query, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Filter); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "filter", ParamLocation: "query", Err: err})
+		return
+	}
+	if err := runtime.DecodeQuery(query, runtime.Param{Name: "where", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Where); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "where", ParamLocation: "query", Err: err})
+		return
+	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.Query.Needed); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "needed", ParamLocation: "query", Err: err})
 		return
@@ -759,6 +775,8 @@ func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesReques
 		b.QueryParam(opts.Query.Deep, runtime.Param{Name: "deep", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.Flat, runtime.Param{Name: "flat", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.JSON, runtime.Param{Name: "json", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: true})
+		b.QueryParam(opts.Query.Filter, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false})
+		b.QueryParam(opts.Query.Where, runtime.Param{Name: "where", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.Needed, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
 	return c.newRequest(ctx, b)

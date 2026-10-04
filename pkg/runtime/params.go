@@ -9,6 +9,7 @@ import (
 	"encoding"
 	"encoding/json"
 	"fmt"
+	"iter"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -199,18 +200,13 @@ func EncodeQuery(v any, p Param, q url.Values) error {
 
 	switch t := t.(type) {
 	case []pair:
-		switch {
-		case p.Style == StyleDeepObject:
-			for _, f := range t {
-				q.Add(p.Name+"["+f.name+"]", f.value)
-			}
-		case p.IsExplode:
+		if p.IsExplode || p.Style == StyleDeepObject {
 			for _, f := range t {
 				q.Add(f.name, f.value)
 			}
-		default:
-			q.Add(p.Name, join(t, separator(p.Style), false))
+			return nil
 		}
+		q.Add(p.Name, join(t, separator(p.Style), false))
 	case []string:
 		if p.IsExplode {
 			for _, item := range t {
@@ -433,8 +429,8 @@ func shapeOf(t reflect.Type) shape {
 	return shapeValue
 }
 
-// encodeTree writes v as text: one string, a list of strings, or name-value pairs. A nil pointer
-// gives nil.
+// encodeTree writes v as text: one string, a list of strings, or name-value pairs, which a
+// deepObject names by their whole key. A nil pointer gives nil.
 func encodeTree(v any, p Param) (any, error) {
 	rv := reflect.ValueOf(v)
 	for rv.Kind() == reflect.Pointer {
@@ -450,56 +446,110 @@ func encodeTree(v any, p Param) (any, error) {
 
 	switch shapeOf(rv.Type()) {
 	case shapeList:
-		out := make([]string, rv.Len())
-		for i := range rv.Len() {
-			s, err := text(rv.Index(i))
-			if err != nil {
-				return nil, err
-			}
-			out[i] = s
-		}
-		return out, nil
+		return itemTexts(rv)
 	case shapeObject:
+		if p.Style == StyleDeepObject {
+			return deepPairs(p.Name, rv)
+		}
 		return pairs(rv)
 	default:
 		return text(rv)
 	}
 }
 
+func itemTexts(rv reflect.Value) ([]string, error) {
+	out := make([]string, rv.Len())
+	for i := range rv.Len() {
+		s, err := text(rv.Index(i))
+		if err != nil {
+			return nil, err
+		}
+		out[i] = s
+	}
+	return out, nil
+}
+
 func pairs(rv reflect.Value) ([]pair, error) {
 	var out []pair
-	add := func(name string, v reflect.Value) error {
-		for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
-			if v.IsNil() {
-				return nil
-			}
-			v = v.Elem()
-		}
+	for name, v := range properties(rv) {
 		s, err := text(v)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		out = append(out, pair{name: name, value: s})
-		return nil
 	}
+	return out, nil
+}
 
-	if rv.Kind() == reflect.Map {
-		for _, key := range sortedMapKeys(rv) {
-			if err := add(key.String(), rv.MapIndex(key)); err != nil {
+// deepPairs writes the object rv under key as deepObject nests it: key[name] for each property,
+// at any depth, and one pair per item of a list.
+func deepPairs(key string, rv reflect.Value) ([]pair, error) {
+	var out []pair
+	for name, v := range properties(rv) {
+		field := key + "[" + name + "]"
+		switch shapeOf(v.Type()) {
+		case shapeObject:
+			inner, err := deepPairs(field, v)
+			if err != nil {
 				return nil, err
 			}
-		}
-		return out, nil
-	}
-	for i := range rv.NumField() {
-		f := rv.Type().Field(i)
-		if name := jsonName(f); name != "" && f.IsExported() {
-			if err := add(name, rv.Field(i)); err != nil {
+			out = append(out, inner...)
+		case shapeList:
+			texts, err := itemTexts(v)
+			if err != nil {
 				return nil, err
 			}
+			for _, s := range texts {
+				out = append(out, pair{name: field, value: s})
+			}
+		default:
+			s, err := text(v)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, pair{name: field, value: s})
 		}
 	}
 	return out, nil
+}
+
+// properties yields the name and value of each property of rv, a struct or a map, in the order
+// they are written. An unset property is left out: a nil pointer or interface, or a list or map
+// with no items.
+func properties(rv reflect.Value) iter.Seq2[string, reflect.Value] {
+	return func(yield func(string, reflect.Value) bool) {
+		if rv.Kind() == reflect.Map {
+			for _, key := range sortedMapKeys(rv) {
+				if v, ok := present(rv.MapIndex(key)); ok && !yield(key.String(), v) {
+					return
+				}
+			}
+			return
+		}
+		for i := range rv.NumField() {
+			f := rv.Type().Field(i)
+			name := jsonName(f)
+			if name == "" || !f.IsExported() {
+				continue
+			}
+			if v, ok := present(rv.Field(i)); ok && !yield(name, v) {
+				return
+			}
+		}
+	}
+}
+
+// present is what v holds behind pointers and interfaces, and false when that is nothing or a
+// list or map with no items.
+func present(v reflect.Value) (reflect.Value, bool) {
+	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return v, false
+		}
+		v = v.Elem()
+	}
+	isEmpty := (v.Kind() == reflect.Slice || v.Kind() == reflect.Map) && v.Len() == 0
+	return v, !isEmpty
 }
 
 // text writes one value as a parameter carries it.

@@ -100,7 +100,11 @@ func (o *CreatePetRequestOptions) Validate() error
   sends none of its parameters; a required parameter that is nil is `runtime.ErrParamMissing`
   before anything is sent, and so is a path parameter, whatever the spec says.
 - Parameters are written in the style of the spec with the runtime codecs, path values escaped
-  so that the delimiters of the styles survive.
+  so that the delimiters of the styles survive. An object leaves out a property that is nil or a
+  list or map with no items. A `deepObject` writes a list inside it once per item,
+  `filter[tags]=a&filter[tags]=b`, and an object inside it nested, `filter[size][x]=1`. The other
+  styles have no way to write a list or object inside an object, so setting one is
+  `runtime.ErrParamValue`.
 - The body goes as its media type: JSON for `application/json` and `+json`,
   `application/x-www-form-urlencoded` through `EncodeForm`, `multipart/form-data` through
   `EncodeMultipart` (a `runtime.File` streams as a file part), a `runtime.File` body streamed,
