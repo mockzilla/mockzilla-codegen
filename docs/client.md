@@ -119,7 +119,8 @@ func (o *CreatePetRequestOptions) Validate() error
   it (`path-param-missing`).
 - The body goes as its media type: JSON for `application/json` and `+json`,
   `application/x-www-form-urlencoded` through `EncodeForm`, `multipart/form-data` through
-  `EncodeMultipart` (a `runtime.File` streams as a file part), a `runtime.File` body streamed,
+  `EncodeMultipart` (a `runtime.File` streams as a file part, named `blob` when it has no name, as
+  browsers name a Blob), a `runtime.File` body streamed,
   text and bytes as they are. With several body fields, the first one set is sent. A required body
   with none set is `runtime.ErrBodyEmpty`; a body the client cannot write, such as XML into a
   struct, is `runtime.ErrContentType`. A wildcard media type sends its field as JSON, text or bytes,

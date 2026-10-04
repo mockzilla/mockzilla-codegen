@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info: {title: files over MCP, version: "1"}
+paths:
+  /pets/{id}/photo:
+    put:
+      operationId: setPhoto
+      summary: Set the photo of a pet
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          image/png: {schema: {type: string, format: binary}}
+      responses:
+        "200":
+          description: what the server got
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Received'}}
+  /notes:
+    post:
+      operationId: addNote
+      summary: Add a note with an attachment
+      requestBody:
+        required: true
+        content:
+          multipart/form-data: {schema: {$ref: '#/components/schemas/Note'}}
+      responses:
+        "200":
+          description: what the server got
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Received'}}
+components:
+  schemas:
+    Note:
+      type: object
+      required: [title, attachment]
+      properties:
+        title: {type: string}
+        attachment: {type: string, format: binary}
+    Received:
+      type: object
+      required: [text, contentType]
+      properties:
+        title: {type: string}
+        name: {type: string}
+        text: {type: string}
+        contentType: {type: string}

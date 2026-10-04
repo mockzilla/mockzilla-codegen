@@ -34,6 +34,9 @@ var typeNames = []struct {
 	{spec.TypeNull, "null"},
 }
 
+// base64Formats are the formats of bytes, which a JSON document holds as base64.
+var base64Formats = []string{"binary", "byte"}
+
 // Builder converts schemas into one document and collects what they refer to in its $defs: a
 // component under its name, anything else under its JSON pointer.
 type Builder struct {
@@ -134,7 +137,11 @@ func core(o *Object, s *spec.Schema) {
 	setBool(o, "deprecated", s.Deprecated)
 	setBool(o, "readOnly", s.ReadOnly)
 	setBool(o, "writeOnly", s.WriteOnly)
-	setString(o, "contentEncoding", s.ContentEncoding)
+	encoding := s.ContentEncoding
+	if encoding == "" && slices.Contains(base64Formats, strings.ToLower(s.Format)) {
+		encoding = "base64"
+	}
+	setString(o, "contentEncoding", encoding)
 	setString(o, "contentMediaType", s.ContentMediaType)
 }
 

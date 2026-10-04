@@ -1,5 +1,7 @@
 package types
 
+import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+
 // ListPetsToolInput is the input of the list_pets tool: the parameters of the operation.
 type ListPetsToolInput struct {
 	// How many at most.
@@ -27,8 +29,11 @@ type GetPetToolInput struct {
 // GetPet2ToolInput is the input of the get_pet2 tool, which takes nothing.
 type GetPet2ToolInput struct{}
 
-// PutPetToolInput is the input of the put_pet tool, which takes nothing.
-type PutPetToolInput struct{}
+// PutPetToolInput is the input of the put_pet tool: the parameters of the operation.
+type PutPetToolInput struct {
+	// The request body, sent as image/png.
+	Body *runtime.File `json:"body,omitempty"`
+}
 
 // DeletePetToolInput is the input of the remove-pet tool, which takes nothing.
 type DeletePetToolInput struct{}

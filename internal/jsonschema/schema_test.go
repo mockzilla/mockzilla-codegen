@@ -52,6 +52,9 @@ func TestSchema(t *testing.T) {
 			schema: &spec.Schema{Types: spec.TypeString, Format: "date-time", Title: "When", Description: "A time.", Deprecated: true, ReadOnly: true, WriteOnly: true, ContentEncoding: "base64", ContentMediaType: "image/png"},
 			want:   `{"type":"string","format":"date-time","title":"When","description":"A time.","deprecated":true,"readOnly":true,"writeOnly":true,"contentEncoding":"base64","contentMediaType":"image/png"}`,
 		},
+		{name: "Binary is base64", schema: &spec.Schema{Types: spec.TypeString, Format: "binary"}, want: `{"type":"string","format":"binary","contentEncoding":"base64"}`},
+		{name: "Byte in any case is base64", schema: &spec.Schema{Types: spec.TypeString, Format: "Byte"}, want: `{"type":"string","format":"Byte","contentEncoding":"base64"}`},
+		{name: "The encoding the schema names stays", schema: &spec.Schema{Types: spec.TypeString, Format: "binary", ContentEncoding: "base32"}, want: `{"type":"string","format":"binary","contentEncoding":"base32"}`},
 		{
 			name:   "Composition",
 			schema: &spec.Schema{AllOf: []*spec.Schema{str}, OneOf: []*spec.Schema{str, nil}, AnyOf: []*spec.Schema{str}, Not: str, If: str, Then: str, Else: str},

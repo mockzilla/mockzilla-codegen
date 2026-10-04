@@ -94,8 +94,11 @@ validates every call against:
   schema of its media type.
 - `body` for the request body, with the schema of its JSON media type, else of its first one. A body
   without a schema is anything for JSON, a string for `text/*`, and a base64 string otherwise. A
-  required body is a required property. A body that is a file stream is left out, since JSON
-  cannot carry it.
+  required body is a required property. A body the client sends as bytes, such as an `image/png`
+  file, names its media type in `contentMediaType` unless its schema names one.
+- Bytes come as base64: a schema of `format: binary` or `format: byte`, a whole body or a file
+  field of a form, gets `contentEncoding: base64` unless it names an encoding. A file decoded from
+  base64 has no name; in a form it goes out as `blob`.
 - Two parameters of one name in two locations, or a parameter named `body`, are told apart by the
   location: `query_id`, `request_body`. The Go fields follow: `QueryID`, `RequestBody`.
 - Schemas of components go to `$defs` once and are referred to, so a schema that refers to itself
