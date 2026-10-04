@@ -37,9 +37,17 @@ func Held(t Type) Type {
 	return elemType(t, true)
 }
 
+// Elem is the type a pointer points to, or t itself.
+func Elem(t Type) Type {
+	if p, ok := t.(Pointer); ok {
+		return p.Elem
+	}
+	return t
+}
+
 // Validates reports whether a value of type t, or of the type t points to, has a Validate method.
 func Validates(t Type) bool {
-	d, ok := validated(elem(t))
+	d, ok := validated(Elem(t))
 	return ok && (d == nil || d.Validation != nil)
 }
 
@@ -56,7 +64,7 @@ func Underlying(t Type) Type {
 
 // StructDecl is the struct declaration a value of type t is, through pointers and aliases, or nil.
 func StructDecl(t Type) *Decl {
-	if r, ok := unalias(elem(t)).(DeclRef); ok && r.Decl.Kind == KindStruct {
+	if r, ok := unalias(Elem(t)).(DeclRef); ok && r.Decl.Kind == KindStruct {
 		return r.Decl
 	}
 	return nil

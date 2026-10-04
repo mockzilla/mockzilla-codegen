@@ -62,6 +62,7 @@ func TestContentType(t *testing.T) {
 
 	assert.Equal(t, "application/json", ContentType(http.Header{"Content-Type": {"application/json; charset=utf-8"}}))
 	assert.Empty(t, ContentType(http.Header{"Content-Type": {"not/valid/type;;"}}))
+	assert.Equal(t, "text/event-stream", ContentType(http.Header{"Content-Type": {"text/event-stream; charset"}}), "a parameter without a value")
 	assert.True(t, IsJSON("application/vnd.api+json"))
 	assert.False(t, IsJSON("text/plain"))
 }

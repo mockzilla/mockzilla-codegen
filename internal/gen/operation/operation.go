@@ -26,11 +26,10 @@ const deprecatedNote = "Deprecated: the spec marks it deprecated."
 
 // groupFields name the fields that hold the parameters of each location.
 var groupFields = map[string]string{
-	spec.InPath:        "PathParams",
-	spec.InQuery:       "Query",
-	spec.InQueryString: "QueryString",
-	spec.InHeader:      "Headers",
-	spec.InCookie:      "Cookies",
+	spec.InPath:   "PathParams",
+	spec.InQuery:  "Query",
+	spec.InHeader: "Headers",
+	spec.InCookie: "Cookies",
 }
 
 // styleNames are the runtime constants of the parameter styles.
@@ -48,7 +47,7 @@ var styleNames = map[string]string{
 var defaultStyles = map[string]string{spec.InPath: "simple", spec.InQuery: "form", spec.InHeader: "simple", spec.InCookie: "form"}
 
 // GroupField names the options field that holds the parameters of location in: PathParams,
-// Query, QueryString, Headers or Cookies.
+// Query, Headers or Cookies.
 func GroupField(in string, n *naming.Namer) string {
 	return cmp.Or(groupFields[in], n.Exported(in))
 }

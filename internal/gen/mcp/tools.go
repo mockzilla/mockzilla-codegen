@@ -82,7 +82,7 @@ type AssignView struct {
 
 func toolsView(g *Generator, s *gocode.Scope) *ToolsView {
 	v := &ToolsView{
-		Client: s.Symbol(client.PartOperations, g.opts.Client+"Interface"),
+		Client: s.Symbol(client.PartOperations, g.opts.Namer.Interface(g.opts.Client)),
 		MCP:    s.Import(gomodel.Import{Path: SDKPath}),
 		User:   g.opts.User,
 	}

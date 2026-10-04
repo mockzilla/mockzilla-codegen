@@ -136,7 +136,7 @@ func OptionsFrom(cfg *config.Config) Options {
 	if s := cfg.Server; s != nil {
 		name := cmp.Or(s.Name, "Service")
 		opts.IsServer, opts.HasResponseHeaders = true, true
-		opts.Reserved = append(opts.Reserved, name+"Interface")
+		opts.Reserved = append(opts.Reserved, n.Interface(name))
 		opts.Reserved = append(opts.Reserved, serverNames...)
 		if s.Scaffold.Service != "" {
 			opts.Reserved = append(opts.Reserved, name, "New"+name, "ErrNotImplemented")
@@ -148,7 +148,7 @@ func OptionsFrom(cfg *config.Config) Options {
 	}
 	if c := cfg.Client; c != nil {
 		name := cmp.Or(c.Name, "Client")
-		opts.Reserved = append(opts.Reserved, name, "New"+name, name+"Option", name+"Interface", "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithTimeout", "WithRequestEditor")
+		opts.Reserved = append(opts.Reserved, name, "New"+name, n.ClientOption(name), n.Interface(name), "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithTimeout", "WithRequestEditor")
 		opts.OperationSuffixes = append(opts.OperationSuffixes, n.ClientRequestOptions(""))
 		opts.Methods.Client = []string{"Request"}
 		stream := []string{"Stream"}

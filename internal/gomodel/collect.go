@@ -28,7 +28,7 @@ const (
 	ruleAlways
 )
 
-var paramOrder = []string{spec.InPath, spec.InQuery, spec.InQueryString, spec.InHeader, spec.InCookie}
+var paramOrder = []string{spec.InPath, spec.InQuery, spec.InHeader, spec.InCookie}
 
 // pending is a declaration found by the walk. Its name is base's final name plus name, or name
 // alone without a base, so an inline type follows a renamed parent.
@@ -129,16 +129,27 @@ func (c *collector) run(ops []*Operation) {
 		if b := op.Spec.Body; b != nil {
 			isMultiple := countInline(b.Contents) > 1
 			for _, mt := range b.Contents {
+				c.encoding(mt)
 				name := n.RequestBody(op.Name, mt.Name, isMultiple)
 				at := place{name: name, rank: naming.RankOperation, part: PartBodies}
 				c.media(mt, at, place{name: n.ArrayItem(name), rank: naming.RankOperation, part: PartBodies})
 			}
 		}
+		frames := 0
+		for _, r := range op.Spec.Responses {
+			frames += countFrames(r.Contents)
+		}
 		for _, r := range op.Spec.Responses {
 			isMultiple := countInline(r.Contents) > 1
+			hasFrames := countFrames(r.Contents) > 1
 			for _, mt := range r.Contents {
+				c.encoding(mt)
 				at := place{name: n.Response(op.Name, r.Status, mt.Name, isMultiple), rank: naming.RankOperation, part: PartResponses}
-				c.media(mt, at, place{name: n.ResponseItem(op.Name), rank: naming.RankOperation, part: PartResponses})
+				item := n.ResponseItem(op.Name)
+				if frames > 1 {
+					item = n.ArrayItem(n.Response(op.Name, r.Status, mt.Name, hasFrames))
+				}
+				c.media(mt, at, place{name: item, rank: naming.RankOperation, part: PartResponses})
 			}
 			if c.hasHeaders && len(r.Headers) > 0 {
 				c.responseHeaders(op, r)
@@ -212,8 +223,35 @@ func (c *collector) media(mt *spec.MediaType, at, item place) {
 	c.walk(mt.ItemSchema, item, ruleUnlessRef)
 }
 
-// params adds one struct per parameter location and walks the parameter schemas under it.
+// encoding warns about the encoding object of mt, which nothing reads yet.
+func (c *collector) encoding(mt *spec.MediaType) {
+	if len(mt.Encodings) == 0 {
+		return
+	}
+	c.diags.Append(diag.Diagnostic{
+		Severity: diag.Warning,
+		Code:     diag.CodeEncodingIgnored,
+		Pointer:  mt.Origin.Pointer + "/encoding",
+		Origin:   origin(mt.Origin),
+		Message:  "the encoding of " + mt.Name + " is not supported yet; its parts are written and read by their schema types",
+	})
+}
+
+// params adds one struct per parameter location and walks the parameter schemas under it. A
+// querystring parameter gets none: nothing writes or reads one yet.
 func (c *collector) params(op *Operation) {
+	for _, p := range op.Spec.Params {
+		if p.In == spec.InQueryString {
+			c.diags.Append(diag.Diagnostic{
+				Severity: diag.Warning,
+				Code:     diag.CodeQueryStringUnsupported,
+				Pointer:  p.Origin.Pointer,
+				Origin:   origin(p.Origin),
+				Message:  fmt.Sprintf("querystring parameter %q is not supported yet; it gets no field and is neither sent nor read", p.Name),
+			})
+		}
+	}
+
 	for _, in := range paramOrder {
 		var list []*spec.Parameter
 		seen := map[string]bool{}
@@ -430,6 +468,22 @@ func countInline(contents []*spec.MediaType) int {
 	n := 0
 	for _, mt := range contents {
 		if mt.Schema != nil && refOf(mt.Schema) == nil {
+			n++
+		}
+	}
+	return n
+}
+
+// countFrames counts the inline schemas of one frame in contents: an itemSchema, or the schema of
+// a sequential media type, which describes one event in specs before 3.2.
+func countFrames(contents []*spec.MediaType) int {
+	n := 0
+	for _, mt := range contents {
+		frame := mt.ItemSchema
+		if frame == nil && runtime.IsSequential(mt.Name) {
+			frame = mt.Schema
+		}
+		if frame != nil && refOf(frame) == nil {
 			n++
 		}
 	}

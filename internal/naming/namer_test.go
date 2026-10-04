@@ -224,6 +224,8 @@ func TestSuffixes(t *testing.T) {
 		{name: "Response data", got: n.ResponseData("GetPet"), want: "GetPetResponseData"},
 		{name: "Client request options", got: n.ClientRequestOptions("GetPet"), want: "GetPetRequestOptions"},
 		{name: "Client response", got: n.ClientResponse("GetPet"), want: "GetPetResponse"},
+		{name: "Client option", got: n.ClientOption("PetClient"), want: "PetClientOption"},
+		{name: "Interface", got: n.Interface("PetClient"), want: "PetClientInterface"},
 		{name: "Tool input", got: n.ToolInput("GetPet"), want: "GetPetToolInput"},
 		{name: "Enum constant", got: n.EnumConst("Status", "in_progress"), want: "StatusInProgress"},
 		{name: "Enum constant for a number", got: n.EnumConst("Level", "-1"), want: "LevelMinus1"},

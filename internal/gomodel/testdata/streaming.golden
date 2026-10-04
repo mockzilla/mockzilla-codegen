@@ -10,6 +10,12 @@ ChatResponseItem struct models.responses
   Text *string json=text omitempty
 GetEventsResponseItem struct models.responses
   Seq *int json=seq omitempty
+GetFeedEventStreamResponse200Item struct models.responses
+  Seq *int json=seq omitempty
+GetFeedNdjsonResponse200Item struct models.responses
+  Line *string json=line omitempty
+GetFeedResponseDefaultItem struct models.responses
+  Code *int json=code omitempty
 op Chat POST /chat
   body application/x-ndjson - item ChatRequestBodyItem
   response 200 application/json Reply
@@ -17,6 +23,10 @@ op Chat POST /chat
 op GetEvents GET /events
   response 200 text/event-stream GetEventsResponseItem item GetEventsResponseItem
   response 202 text/event-stream - item Reply
+op GetFeed GET /feed
+  response 200 text/event-stream GetFeedEventStreamResponse200Item item GetFeedEventStreamResponse200Item
+  response 200 application/x-ndjson - item GetFeedNdjsonResponse200Item
+  response default text/event-stream - item GetFeedResponseDefaultItem
 op TailLogs GET /logs
   response 200 application/jsonl - item LinesItem
   response 200 text/plain Lines

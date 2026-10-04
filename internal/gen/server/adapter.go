@@ -188,9 +188,6 @@ func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope) HandlerVi
 		Options: s.Symbol(PartService, g.opts.Namer.ServiceRequestOptions(op.Name)),
 	}
 	for _, p := range op.Params {
-		if decoders[p.In] == "" {
-			continue
-		}
 		v.HasQuery = v.HasQuery || p.In == spec.InQuery
 		v.Groups = append(v.Groups, groupView(g, p, s))
 	}

@@ -205,9 +205,6 @@ func newTool(op *gomodel.Operation, n *naming.Namer) (*tool, []diag.Diagnostic) 
 	t := &tool{op: op, name: n.Snake(n.Exported(op.Spec.ID)), desc: description(op.Spec), isStream: client.IsStreamOnly(op)}
 	var goReqs, jsonReqs []naming.Request
 	for _, p := range op.Params {
-		if !slices.Contains(inputLocations, p.In) {
-			continue
-		}
 		for i, f := range p.Decl.Struct.Fields {
 			sp := p.Params[i]
 			if isIgnoredHeader(sp) {

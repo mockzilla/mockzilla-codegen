@@ -12,6 +12,7 @@ paths:
         - {name: filter, in: query, content: {application/json: {schema: {type: object, properties: {q: {type: string}}}}}}
         - {name: X-Trace-ID, in: header, required: true, description: Trace, schema: {type: string}}
         - {name: session, in: cookie, schema: {type: string}}
+        - {name: raw, in: querystring, content: {application/x-www-form-urlencoded: {schema: {type: object}}}}
         - $ref: '#/components/parameters/order'
         - $ref: '#/components/parameters/limit'
       responses:
@@ -45,6 +46,10 @@ paths:
             schema: {type: string}
           application/xml:
             schema: {$ref: '#/components/schemas/Pet'}
+          multipart/form-data:
+            schema: {type: object, properties: {photo: {type: string, format: binary}}}
+            encoding:
+              photo: {contentType: image/png}
       responses:
         "201":
           description: created

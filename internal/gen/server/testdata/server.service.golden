@@ -24,11 +24,10 @@ type PetsInterface interface {
 
 // ListPetsServiceRequestOptions is what ListPets receives. RawRequest is the request as it came in.
 type ListPetsServiceRequestOptions struct {
-	Query       *ListPetsQuery
-	Headers     *ListPetsHeaders
-	Cookies     *ListPetsCookies
-	QueryString *ListPetsQueryString
-	RawRequest  *http.Request
+	Query      *ListPetsQuery
+	Headers    *ListPetsHeaders
+	Cookies    *ListPetsCookies
+	RawRequest *http.Request
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.

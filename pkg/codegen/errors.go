@@ -12,6 +12,7 @@ var (
 	ErrFramework    = errors.New("no router for the framework")
 	ErrTemplateFile = errors.New("read template file")
 	ErrExtraFile    = errors.New("extra file")
+	ErrNameClash    = errors.New("name declared twice")
 
 	errTypeRef = errors.New("type")
 	errImport  = errors.New("import")

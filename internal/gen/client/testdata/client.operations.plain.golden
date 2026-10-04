@@ -153,8 +153,8 @@ func (c *PetClient) DeletePetRequest(ctx context.Context, opts *types.DeletePetR
 
 // Deprecated: the spec marks it deprecated.
 //
-// DeletePet sends the request. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// DeletePet sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
+// the error type of its status when the spec documents one.
 func (c *PetClient) DeletePet(ctx context.Context, opts *types.DeletePetRequestOptions) error {
 	req, err := c.DeletePetRequest(ctx, opts)
 	if err != nil {
@@ -217,8 +217,8 @@ func (c *PetClient) QueryRequest(ctx context.Context, opts *types.QueryRequestOp
 	return c.newRequest(ctx, b)
 }
 
-// Query sends the request. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// Query sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
+// the error type of its status when the spec documents one.
 func (c *PetClient) Query(ctx context.Context, opts *types.QueryRequestOptions) error {
 	req, err := c.QueryRequest(ctx, opts)
 	if err != nil {

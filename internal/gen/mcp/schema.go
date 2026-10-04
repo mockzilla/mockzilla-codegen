@@ -20,9 +20,6 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// inputLocations are the parameter locations the client sends, so the input holds them.
-var inputLocations = []string{spec.InPath, spec.InQuery, spec.InHeader, spec.InCookie}
-
 var (
 	fileType  = gomodel.Qualified{Import: gomodel.Import{Path: gomodel.RuntimePath}, Name: "File"}
 	bytesType = gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}

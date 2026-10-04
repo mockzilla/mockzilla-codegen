@@ -1019,8 +1019,12 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API.
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
+// panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
+	}
 	return func(c *Client) {
 		c.doer = d
 	}
@@ -1034,7 +1038,13 @@ func WithTimeout(d time.Duration) ClientOption {
 }
 
 // WithRequestEditor runs fns on every request before it is sent, after any editor added before.
+// A nil editor panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
 	return func(c *Client) {
 		c.editors = append(c.editors, fns...)
 	}
@@ -1367,8 +1377,8 @@ func (c *Client) PutXMLRequest(ctx context.Context, opts *PutXMLRequestOptions) 
 	}
 }
 
-// PutXML sends the request. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// PutXML sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
+// the error type of its status when the spec documents one.
 func (c *Client) PutXML(ctx context.Context, opts *PutXMLRequestOptions) error {
 	req, err := c.PutXMLRequest(ctx, opts)
 	if err != nil {

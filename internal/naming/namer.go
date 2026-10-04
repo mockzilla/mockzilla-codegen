@@ -157,6 +157,16 @@ func (n *Namer) ClientResponse(op string) string {
 	return op + "Response"
 }
 
+// ClientOption names the option type of a client: ClientOption.
+func (n *Namer) ClientOption(client string) string {
+	return client + "Option"
+}
+
+// Interface names the interface of a service or a client: ServiceInterface, ClientInterface.
+func (n *Namer) Interface(name string) string {
+	return name + "Interface"
+}
+
 // ToolInput names what the MCP tool of an operation receives.
 func (n *Namer) ToolInput(op string) string {
 	return op + "ToolInput"

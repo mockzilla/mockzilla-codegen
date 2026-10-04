@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -198,10 +199,26 @@ func (g *generation) place() error {
 	if err != nil {
 		return err
 	}
+	if err = g.checkNames(); err != nil {
+		return err
+	}
 	if len(g.cfg.ExtraFiles) > 0 {
 		g.api = describe(g)
 	}
 	return nil
+}
+
+// checkNames fails when the service and the client have one name in one package, where both
+// declare the same interface.
+func (g *generation) checkNames() error {
+	if g.srv == nil || g.cl == nil || g.srv.Interface() != g.cl.Interface() {
+		return nil
+	}
+	service, ops := g.lay.FileOf(server.PartService), g.lay.FileOf(client.PartOperations)
+	if filepath.Dir(service.Path) != filepath.Dir(ops.Path) {
+		return nil
+	}
+	return fmt.Errorf("%w: server.name and client.name are both %q, so package %s declares %s twice; name one of them differently", ErrNameClash, g.cfg.Server.Name, service.Package, g.srv.Interface())
 }
 
 // load loads the templates, the block overrides and the extra files of the config. The blocks of

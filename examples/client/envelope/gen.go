@@ -456,8 +456,12 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API.
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
+// panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
+	}
 	return func(c *Client) {
 		c.doer = d
 	}
@@ -471,7 +475,13 @@ func WithTimeout(d time.Duration) ClientOption {
 }
 
 // WithRequestEditor runs fns on every request before it is sent, after any editor added before.
+// A nil editor panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
 	return func(c *Client) {
 		c.editors = append(c.editors, fns...)
 	}
@@ -572,7 +582,7 @@ func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions) (
 
 // SubmitJobWithResponse is SubmitJob with the whole response: its status, its headers, its raw
 // body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here.
+// no error here. A body or header that does not decode is an error, returned with the response.
 func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobRequestOptions) (*SubmitJobResponse, error) {
 	req, err := c.SubmitJobRequest(ctx, opts)
 	if err != nil {
@@ -591,7 +601,7 @@ func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobReque
 		{Status: "201", IsHeaders: true, Dst: &out.Headers201},
 		{Status: "202", IsHeaders: true, Dst: &out.Headers202},
 	}); err != nil {
-		return nil, err
+		return out, err
 	}
 	return out, nil
 }
@@ -635,7 +645,7 @@ func (c *Client) GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions) (
 
 // GetJobLogWithResponse is GetJobLog with the whole response: its status, its headers, its raw
 // body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here.
+// no error here. A body or header that does not decode is an error, returned with the response.
 func (c *Client) GetJobLogWithResponse(ctx context.Context, opts *GetJobLogRequestOptions) (*GetJobLogResponse, error) {
 	req, err := c.GetJobLogRequest(ctx, opts)
 	if err != nil {
@@ -651,7 +661,7 @@ func (c *Client) GetJobLogWithResponse(ctx context.Context, opts *GetJobLogReque
 		{Status: "200", MediaType: "text/plain", Dst: &out.Text200},
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 	}); err != nil {
-		return nil, err
+		return out, err
 	}
 	return out, nil
 }

@@ -30,6 +30,22 @@ paths:
           content:
             text/event-stream:
               itemSchema: {$ref: '#/components/schemas/Reply'}
+  /feed:
+    get:
+      operationId: getFeed
+      responses:
+        "200":
+          description: two frame schemas, named by their response
+          content:
+            text/event-stream:
+              schema: {type: object, properties: {seq: {type: integer}}}
+            application/x-ndjson:
+              itemSchema: {type: object, properties: {line: {type: string}}}
+        default:
+          description: errors, as they come
+          content:
+            text/event-stream:
+              itemSchema: {type: object, properties: {code: {type: integer}}}
   /logs:
     get:
       operationId: tailLogs

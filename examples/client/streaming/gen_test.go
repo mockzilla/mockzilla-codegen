@@ -43,12 +43,13 @@ func chat(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, "data: {\"text\":\"hello\"}\n\ndata: {\"text\":\" there\",\"done\":true}\n\ndata: [DONE]\n\n")
 }
 
-// events sends two events with ids, a comment, a retry hint and data split over two lines, then
-// keeps the connection open until the client goes away.
-func events(w http.ResponseWriter, r *http.Request) {
+// listEvents sends two events with ids, a comment, a retry hint and data split over two lines, with
+// an event of empty data between them to keep the connection alive, then keeps the connection open
+// until the client goes away.
+func listEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	_, _ = io.WriteString(w, ": welcome\nretry: 3000\nid: 1\nevent: change\ndata: {\"seq\":1,\"kind\":\"created\",\"at\":\"2026-01-02T03:04:05Z\",\n"+
-		"data: \"actor\":{\"name\":\"ada\"},\"tags\":[\"new\"]}\n\nid: 2\ndata: {\"seq\":2,\"kind\":\"deleted\"}\n\n")
+		"data: \"actor\":{\"name\":\"ada\"},\"tags\":[\"new\"]}\n\ndata:\n\nid: 2\ndata: {\"seq\":2,\"kind\":\"deleted\"}\n\n")
 	w.(http.Flusher).Flush()
 	<-r.Context().Done()
 }
@@ -70,7 +71,7 @@ func newClient(t *testing.T) *Client {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chat", chat)
-	mux.HandleFunc("GET /events", events)
+	mux.HandleFunc("GET /events", listEvents)
 	mux.HandleFunc("GET /logs/{job}", tailLog)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)

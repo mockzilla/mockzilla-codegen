@@ -91,6 +91,7 @@ func TestSuccessBody(t *testing.T) {
 
 	str := gomodel.Builtin{Name: "string"}
 	text, jsonBody := gomodel.Content{MediaType: "text/plain", Type: str}, gomodel.Content{MediaType: "application/json", Type: str}
+	xml := gomodel.Content{MediaType: "application/xml", Type: gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Pet", Kind: gomodel.KindStruct}}}
 	tests := []struct {
 		name      string
 		responses []gomodel.Response
@@ -105,6 +106,13 @@ func TestSuccessBody(t *testing.T) {
 			responses: []gomodel.Response{{Status: "204"}, {Status: "202", Contents: []gomodel.Content{text}}, {Status: "200", Contents: []gomodel.Content{text, jsonBody}}},
 			want:      gomodel.Response{Status: "200", Contents: []gomodel.Content{text, jsonBody}},
 			wantBody:  jsonBody,
+			wantOK:    true,
+		},
+		{
+			name:      "A body the client cannot decode is passed over",
+			responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{xml}}, {Status: "201", Contents: []gomodel.Content{xml, text}}},
+			want:      gomodel.Response{Status: "201", Contents: []gomodel.Content{xml, text}},
+			wantBody:  text,
 			wantOK:    true,
 		},
 		{
@@ -228,6 +236,8 @@ func TestFrameType(t *testing.T) {
 		{name: "No schema is bytes", content: gomodel.Content{}, want: bytesType},
 		{name: "A string is bytes", content: gomodel.Content{Item: gomodel.Pointer{Elem: str}}, want: bytesType},
 		{name: "A defined string is bytes", content: gomodel.Content{Item: note}, want: bytesType},
+		{name: "A date-time is bytes", content: gomodel.Content{Item: gomodel.Qualified{Import: gomodel.Import{Path: "time"}, Name: "Time"}}, want: bytesType},
+		{name: "A string enum is bytes", content: gomodel.Content{Item: gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Kind", Kind: gomodel.KindDefined, Target: str, Enum: &gomodel.Enum{Base: str}}}}, want: bytesType},
 	}
 
 	for _, tc := range tests {

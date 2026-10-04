@@ -693,8 +693,12 @@ func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
 	return c, nil
 }
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API.
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
+// panics.
 func WithHTTPClient(d HTTPDoer) PetClientOption {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
+	}
 	return func(c *PetClient) {
 		c.doer = d
 	}
@@ -708,7 +712,13 @@ func WithTimeout(d time.Duration) PetClientOption {
 }
 
 // WithRequestEditor runs fns on every request before it is sent, after any editor added before.
+// A nil editor panics.
 func WithRequestEditor(fns ...RequestEditor) PetClientOption {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
 	return func(c *PetClient) {
 		c.editors = append(c.editors, fns...)
 	}
@@ -830,7 +840,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions) 
 
 // ListPetsWithResponse is ListPets with the whole response: its status, its headers, its raw
 // body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here.
+// no error here. A body or header that does not decode is an error, returned with the response.
 func (c *PetClient) ListPetsWithResponse(ctx context.Context, opts *ListPetsRequestOptions) (*ListPetsResponse, error) {
 	req, err := c.ListPetsRequest(ctx, opts)
 	if err != nil {
@@ -846,7 +856,7 @@ func (c *PetClient) ListPetsWithResponse(ctx context.Context, opts *ListPetsRequ
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
 	}); err != nil {
-		return nil, err
+		return out, err
 	}
 	return out, nil
 }
@@ -891,7 +901,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions
 
 // CreatePetWithResponse is CreatePet with the whole response: its status, its headers, its raw
 // body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here.
+// no error here. A body or header that does not decode is an error, returned with the response.
 func (c *PetClient) CreatePetWithResponse(ctx context.Context, opts *CreatePetRequestOptions) (*CreatePetResponse, error) {
 	req, err := c.CreatePetRequest(ctx, opts)
 	if err != nil {
@@ -908,7 +918,7 @@ func (c *PetClient) CreatePetWithResponse(ctx context.Context, opts *CreatePetRe
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
 		{Status: "201", IsHeaders: true, Dst: &out.Headers201},
 	}); err != nil {
-		return nil, err
+		return out, err
 	}
 	return out, nil
 }
@@ -950,7 +960,7 @@ func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions) (*Pe
 
 // GetPetWithResponse is GetPet with the whole response: its status, its headers, its raw
 // body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here.
+// no error here. A body or header that does not decode is an error, returned with the response.
 func (c *PetClient) GetPetWithResponse(ctx context.Context, opts *GetPetRequestOptions) (*GetPetResponse, error) {
 	req, err := c.GetPetRequest(ctx, opts)
 	if err != nil {
@@ -966,7 +976,7 @@ func (c *PetClient) GetPetWithResponse(ctx context.Context, opts *GetPetRequestO
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "404", MediaType: "application/json", Dst: &out.JSON404},
 	}); err != nil {
-		return nil, err
+		return out, err
 	}
 	return out, nil
 }
@@ -983,8 +993,8 @@ func (c *PetClient) DeletePetRequest(ctx context.Context, opts *DeletePetRequest
 	return c.newRequest(ctx, b)
 }
 
-// DeletePet sends the request. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// DeletePet sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
+// the error type of its status when the spec documents one.
 func (c *PetClient) DeletePet(ctx context.Context, opts *DeletePetRequestOptions) error {
 	req, err := c.DeletePetRequest(ctx, opts)
 	if err != nil {
@@ -999,7 +1009,7 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *DeletePetRequestOptions
 
 // DeletePetWithResponse is DeletePet with the whole response: its status, its headers, its raw
 // body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here.
+// no error here. A body or header that does not decode is an error, returned with the response.
 func (c *PetClient) DeletePetWithResponse(ctx context.Context, opts *DeletePetRequestOptions) (*DeletePetResponse, error) {
 	req, err := c.DeletePetRequest(ctx, opts)
 	if err != nil {

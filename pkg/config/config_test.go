@@ -179,6 +179,22 @@ func TestValidate(t *testing.T) {
 			issues: []Issue{{Key: "server.scaffold.main", Message: "needs server.scaffold.service, which main starts"}},
 		},
 		{
+			name: "Server and client names that are no Go identifiers",
+			edit: func(c *Config) {
+				c.Server, c.Client = &Server{Framework: "chi", Name: "pet-service"}, &Client{Name: "pet client"}
+			},
+			issues: []Issue{
+				{Key: "server.name", Message: `"pet-service" is not a valid Go identifier`},
+				{Key: "client.name", Message: `"pet client" is not a valid Go identifier`},
+			},
+		},
+		{
+			name: "Server and client names that are Go identifiers pass",
+			edit: func(c *Config) {
+				c.Server, c.Client = &Server{Framework: "chi", Name: "petService"}, &Client{Name: "PetClient"}
+			},
+		},
+		{
 			name:   "MCP needs a client",
 			edit:   func(c *Config) { c.MCP = &MCP{} },
 			issues: []Issue{{Key: "mcp", Message: "needs a client block"}},

@@ -31,8 +31,12 @@ func New{{.Name}}(baseURL string, opts ...{{.Option}}) (*{{.Name}}, error) {
 	return c, nil
 }
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API.
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
+// panics.
 func WithHTTPClient(d HTTPDoer) {{.Option}} {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
+	}
 	return func(c *{{.Name}}) {
 		c.doer = d
 	}
@@ -50,7 +54,13 @@ func WithTimeout(d {{.Time}}.Duration) {{.Option}} {
 }
 
 // WithRequestEditor runs fns on every request before it is sent, after any editor added before.
+// A nil editor panics.
 func WithRequestEditor(fns ...RequestEditor) {{.Option}} {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
 	return func(c *{{.Name}}) {
 		c.editors = append(c.editors, fns...)
 	}
