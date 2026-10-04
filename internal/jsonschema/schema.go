@@ -10,6 +10,7 @@ package jsonschema
 
 import (
 	"encoding/json"
+	"fmt"
 	"maps"
 	"slices"
 	"strconv"
@@ -65,6 +66,7 @@ func (b *Builder) Schema(s *spec.Schema) *Object {
 	b.arrays(o, s)
 	b.values(o, s)
 	limits(o, s)
+	b.pattern(o, s)
 	return o
 }
 
@@ -217,6 +219,21 @@ func (b *Builder) samples(o *Object, s *spec.Schema) {
 	}
 }
 
+// pattern sets the pattern of s in the form compilePattern gives. One Go's regexp cannot compile
+// is left out with a warning, since the MCP SDK panics on it when the tool is added.
+func (b *Builder) pattern(o *Object, s *spec.Schema) {
+	if s.Pattern == "" {
+		return
+	}
+	re, err := compilePattern(s.Pattern)
+	if err != nil {
+		b.diags = append(b.diags, unsupported(s, err))
+		return
+	}
+
+	o.Set("pattern", re.String())
+}
+
 // limits sets the bounds; an exclusive one is written as 2020-12 does, with the bound as the value.
 func limits(o *Object, s *spec.Schema) {
 	l := s.Limits
@@ -327,6 +344,17 @@ func ignored(s *spec.Schema, why string) diag.Diagnostic {
 		Pointer:  s.Origin.Pointer,
 		Origin:   diag.Origin{File: s.Origin.File, Line: s.Origin.Line, Col: s.Origin.Col},
 		Message:  subject + " does not fit its schema, so the tool input leaves it out: " + why,
+	}
+}
+
+// unsupported is the warning for the pattern of s, which Go's regexp cannot compile for err.
+func unsupported(s *spec.Schema, err error) diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.Warning,
+		Code:     diag.CodePatternUnsupported,
+		Pointer:  s.Origin.Pointer,
+		Origin:   diag.Origin{File: s.Origin.File, Line: s.Origin.Line, Col: s.Origin.Col},
+		Message:  fmt.Sprintf("pattern %q is not RE2 (%v), so the tool input leaves it out", s.Pattern, err),
 	}
 }
 

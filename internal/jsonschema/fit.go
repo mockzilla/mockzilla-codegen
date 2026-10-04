@@ -9,6 +9,7 @@
 package jsonschema
 
 import (
+	"cmp"
 	"encoding/json"
 	"math"
 	"slices"
@@ -63,7 +64,7 @@ func mismatch(v spec.Value, s *spec.Schema, at string, on map[*spec.Schema]bool)
 }
 
 // valueMismatch checks the keywords on v itself: type, enum, const, the bounds of a number and the
-// length of a string.
+// length and pattern of a string.
 func valueMismatch(v spec.Value, s *spec.Schema, at string) string {
 	got := jsonType(v)
 	want := typeList(s)
@@ -81,7 +82,7 @@ func valueMismatch(v spec.Value, s *spec.Schema, at string) string {
 	case spec.KindNumber:
 		return numberMismatch(v.Num, s.Limits, at)
 	case spec.KindString:
-		return lengthMismatch(v.Str, s.Limits, at)
+		return cmp.Or(lengthMismatch(v.Str, s.Limits, at), patternMismatch(v.Str, s.Pattern, at))
 	case spec.KindNull, spec.KindBool, spec.KindArray, spec.KindObject:
 	}
 	return ""
@@ -124,6 +125,17 @@ func lengthMismatch(str string, l spec.Limits, at string) string {
 		return where(at) + " is longer than " + strconv.FormatInt(*l.MaxLength, 10) + " characters"
 	}
 	return ""
+}
+
+// patternMismatch checks str against pattern. A pattern the document leaves out checks nothing.
+func patternMismatch(str, pattern, at string) string {
+	if pattern == "" {
+		return ""
+	}
+	if re, err := compilePattern(pattern); err != nil || re.MatchString(str) {
+		return ""
+	}
+	return where(at) + " does not match the pattern " + strconv.Quote(pattern)
 }
 
 // compositionMismatch checks allOf, anyOf, oneOf, not and if, then and else.
