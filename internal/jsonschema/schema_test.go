@@ -221,6 +221,84 @@ func TestSchemaRefs(t *testing.T) {
 	}
 }
 
+func TestSchemaLeavesOutReadOnly(t *testing.T) {
+	t.Parallel()
+
+	str := &spec.Schema{Types: spec.TypeString}
+	integer := &spec.Schema{Types: spec.TypeInteger}
+	id := &spec.Schema{Types: spec.TypeInteger, ReadOnly: true}
+	idRef := &spec.Ref{Pointer: "/components/schemas/ID", Name: "ID", Target: id}
+	stored := &spec.Schema{Types: spec.TypeObject, Properties: []*spec.Property{{Name: "id", Schema: id}, {Name: "name", Schema: str}}}
+	storedRef := &spec.Ref{Pointer: "/components/schemas/Stored", Name: "Stored", Target: stored}
+	loop := &spec.Schema{Types: spec.TypeObject, Required: []string{"id"}, Properties: []*spec.Property{{Name: "id", Schema: id}}}
+	loopRef := &spec.Ref{Pointer: "/components/schemas/Loop", Name: "Loop", Target: loop}
+	loop.AllOf = []*spec.Schema{{Ref: loopRef}}
+	tests := []struct {
+		name   string
+		schema *spec.Schema
+		want   string
+	}{
+		{
+			name:   "A readOnly property is left out with its required entry",
+			schema: &spec.Schema{Types: spec.TypeObject, Required: []string{"id", "name"}, Properties: []*spec.Property{{Name: "id", Schema: id}, {Name: "name", Schema: str}}},
+			want:   `{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}`,
+		},
+		{
+			name:   "Only readOnly properties leave an object without properties",
+			schema: &spec.Schema{Types: spec.TypeObject, Required: []string{"id"}, Properties: []*spec.Property{{Name: "id", Schema: id}}},
+			want:   `{"type":"object"}`,
+		},
+		{
+			name:   "A property readOnly through its $ref",
+			schema: &spec.Schema{Types: spec.TypeObject, Required: []string{"id", "name"}, Properties: []*spec.Property{{Name: "id", Schema: &spec.Schema{Ref: idRef}}, {Name: "name", Schema: str}}},
+			want:   `{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}`,
+		},
+		{
+			name:   "A property readOnly through an allOf member",
+			schema: &spec.Schema{Types: spec.TypeObject, Properties: []*spec.Property{{Name: "id", Schema: &spec.Schema{Types: spec.TypeInteger, AllOf: []*spec.Schema{{ReadOnly: true}, str}}}}},
+			want:   `{"type":"object"}`,
+		},
+		{
+			name:   "A required entry next to a $ref leaves out what its target holds readOnly",
+			schema: &spec.Schema{Ref: storedRef, Required: []string{"id", "name"}},
+			want:   `{"$ref":"#/$defs/Stored","required":["name"],"$defs":{"Stored":{"type":"object","properties":{"name":{"type":"string"}}}}}`,
+		},
+		{
+			name: "An allOf member leaves out what another member holds readOnly",
+			schema: &spec.Schema{AllOf: []*spec.Schema{
+				{Ref: storedRef},
+				{Types: spec.TypeObject, Required: []string{"id", "name", "age"}, Properties: []*spec.Property{{Name: "id", Schema: integer}, {Name: "age", Schema: integer}}},
+			}},
+			want: `{"allOf":[{"$ref":"#/$defs/Stored"},{"type":"object","properties":{"age":{"type":"integer"}},"required":["name","age"]}],"$defs":{"Stored":{"type":"object","properties":{"name":{"type":"string"}}}}}`,
+		},
+		{
+			name: "A nested object keeps a property its parent holds readOnly",
+			schema: &spec.Schema{Types: spec.TypeObject, Properties: []*spec.Property{
+				{Name: "id", Schema: id},
+				{Name: "owner", Schema: &spec.Schema{Types: spec.TypeObject, Required: []string{"id"}, Properties: []*spec.Property{{Name: "id", Schema: integer}}}},
+			}},
+			want: `{"type":"object","properties":{"owner":{"type":"object","properties":{"id":{"type":"integer"}},"required":["id"]}}}`,
+		},
+		{
+			name:   "An allOf that refers to itself ends",
+			schema: &spec.Schema{Ref: loopRef},
+			want:   `{"$ref":"#/$defs/Loop","$defs":{"Loop":{"type":"object","allOf":[{"$ref":"#/$defs/Loop"}]}}}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			b := NewBuilder()
+
+			got := b.Document(b.Schema(tc.schema))
+
+			assert.Equal(t, tc.want, string(got))
+		})
+	}
+}
+
 func TestDocumentSortsDefinitions(t *testing.T) {
 	t.Parallel()
 

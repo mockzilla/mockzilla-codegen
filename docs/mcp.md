@@ -102,8 +102,11 @@ validates every call against:
 - Two parameters of one name in two locations, or a parameter named `body`, are told apart by the
   location: `query_id`, `request_body`. The Go fields follow: `QueryID`, `RequestBody`.
 - Schemas of components go to `$defs` once and are referred to, so a schema that refers to itself
-  ends. Keywords come over as they are: types, formats, bounds, lengths, enums, defaults,
-  `readOnly` and `deprecated`. Discriminators and `x-*` extensions are left out.
+  ends. Keywords come over as they are: types, formats, bounds, lengths, enums, defaults and
+  `deprecated`. Discriminators and `x-*` extensions are left out.
+- A `readOnly` property is not in the input and not required, since a request does not carry it.
+  `Validate` leaves it out the same way. A property `readOnly` in one `allOf` member is left out of
+  every member, as the Go type merges them.
 - A nullable schema takes null. `null` joins its types, and a schema without types takes null
   already. When its `$ref`, a composition, an enum without `null` or a const would turn null away,
   as in the 3.0 form `{nullable: true, allOf: [{$ref: Pet}]}`, the schema becomes `anyOf` of itself
