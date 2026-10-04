@@ -7,6 +7,7 @@ package bodies
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -68,6 +69,14 @@ func (echo) PostAny(_ context.Context, opts *PostAnyServiceRequestOptions) (*Pos
 		return NewPostAnyResponseData(new("text xml: " + *opts.BodyTextXML)), nil
 	}
 	return NewPostAnyResponseData(new("any: " + string(opts.BodyAny))), nil
+}
+
+func (echo) GetAnyText(context.Context, *GetAnyTextServiceRequestOptions) (*GetAnyTextResponseData, error) {
+	return NewGetAnyTextResponseData(new(`{"type":"A+"}`)).WithHeaders(http.Header{"Content-Type": {"application/json"}}), nil
+}
+
+func (echo) GetAnyBytes(context.Context, *GetAnyBytesServiceRequestOptions) (*GetAnyBytesResponseData, error) {
+	return NewGetAnyBytesResponseData([]byte(`{"type":"A+"}`)).WithHeaders(http.Header{"Content-Type": {"application/json"}}), nil
 }
 
 func newClient(t *testing.T) *Client {
@@ -138,6 +147,16 @@ func TestBodies(t *testing.T) {
 			name: "A wildcard sends bytes as an octet stream",
 			call: func() (any, error) { return c.PostAny(ctx, &PostAnyRequestOptions{BodyAny: []byte("png")}) },
 			want: new("any: png"),
+		},
+		{
+			name: "A wildcard string takes a JSON answer as it came",
+			call: func() (any, error) { return c.GetAnyText(ctx, nil) },
+			want: new(`{"type":"A+"}`),
+		},
+		{
+			name: "Wildcard bytes take a JSON answer as it came",
+			call: func() (any, error) { return c.GetAnyBytes(ctx, nil) },
+			want: []byte(`{"type":"A+"}`),
 		},
 	}
 
