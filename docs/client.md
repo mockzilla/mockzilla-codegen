@@ -26,7 +26,8 @@ func WithRequestEditor(fns ...RequestEditor) PetClientOption
 ```
 
 - `NewPetClient` needs a base URL with a scheme and a host, such as `https://api.example.test/v1`;
-  the path of every operation goes after its path.
+  the path of every operation goes after its path. Its query, such as `?key=abc`, comes first in
+  the query of every request. Its fragment is not sent.
 - The client sends with an `http.Client`. `WithHTTPClient` replaces it with anything that has the
   `Do` method of `*http.Client`, so retries, tracing and transports are set up there.
 - A call gives up after `client.timeout`, whatever sends it. `WithTimeout` sets another limit, and

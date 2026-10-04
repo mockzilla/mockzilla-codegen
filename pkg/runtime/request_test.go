@@ -193,6 +193,27 @@ func TestRequestBuilder(t *testing.T) {
 			wantURL: "http://api.test/v1/sellers?id&email&note=a%20b%22c%22&sum=%2B",
 		},
 		{
+			name: "The query of the base goes first, then the template's, then the parameters",
+			base: "http://api.test/v1?key=a b&q=x#top",
+			path: "/rest?method=search",
+			build: func(b *RequestBuilder) {
+				b.QueryParam("dogs", Param{Name: "q", Style: StyleForm})
+			},
+			wantURL: "http://api.test/v1/rest?key=a%20b&q=x&method=search&q=dogs",
+		},
+		{
+			name:    "The query of the base alone",
+			base:    "http://api.test/v1?key=abc",
+			build:   func(*RequestBuilder) {},
+			wantURL: "http://api.test/v1/pets?key=abc",
+		},
+		{
+			name:    "An empty query and a fragment of the base are not sent",
+			base:    "http://api.test/v1?#top",
+			build:   func(*RequestBuilder) {},
+			wantURL: "http://api.test/v1/pets",
+		},
+		{
 			name:        "A placeholder in the query that no path parameter filled",
 			path:        "/search?query={query}",
 			build:       func(b *RequestBuilder) { b.QueryParam("go", Param{Name: "query", Style: StyleForm}) },
