@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -49,6 +50,91 @@ func TestMarshalUnion(t *testing.T) {
 			require.NoError(t, err)
 			assert.JSONEq(t, tc.want, string(got))
 			assert.Equal(t, tc.want, string(got))
+		})
+	}
+}
+
+func TestMarshalTagged(t *testing.T) {
+	t.Parallel()
+
+	type tagged struct {
+		Type string `json:"type"`
+		Name string `json:"name"`
+	}
+	pets := Union{Discriminator: "type", Variants: []Variant{
+		{Name: "Cat", Values: []string{"cat"}},
+		{Name: "Dog", Values: []string{"dog"}},
+	}}
+	kitties := Union{Discriminator: "type", Variants: []Variant{
+		{Name: "Cat", Values: []string{"cat", "kitty"}},
+		{Name: "Dog", Values: []string{"dog"}, IsDefault: true},
+	}}
+	open := Union{Discriminator: "type", Variants: []Variant{
+		{Name: "Cat", Values: []string{"cat"}},
+		{Name: "Other"},
+	}}
+
+	tests := []struct {
+		name     string
+		shared   any
+		u        Union
+		variants []any
+		want     string
+		wantErr  string
+	}{
+		{name: "Nothing set is null", u: pets, variants: []any{(*tagged)(nil), (*tagged)(nil)}, want: `null`},
+		{name: "A missing value is filled", u: pets, variants: []any{&cat{Name: "a"}, (*dog)(nil)}, want: `{"name":"a","meow":false,"type":"cat"}`},
+		{name: "An empty value is filled in place", u: pets, variants: []any{&tagged{Name: "a"}, nil}, want: `{"type":"cat","name":"a"}`},
+		{name: "A value that picks the variant stays", u: pets, variants: []any{nil, &tagged{Type: "dog"}}, want: `{"type":"dog","name":""}`},
+		{name: "The shared properties carry the value", shared: tagged{Type: "dog"}, u: pets, variants: []any{nil, &dog{}}, want: `{"type":"dog","name":"","bark":false}`},
+		{name: "A value of another variant", u: pets, variants: []any{&tagged{Type: "dog"}, nil}, wantErr: `type: "dog" picks Dog, not Cat`},
+		{name: "An unknown value", u: pets, variants: []any{&tagged{Type: "nope"}, nil}, wantErr: `type: "nope" picks no variant`},
+		{name: "Two values are not filled", u: kitties, variants: []any{&cat{}, nil}, wantErr: `type: an empty value picks Dog, not Cat`},
+		{name: "One of two values stays", u: kitties, variants: []any{&tagged{Type: "kitty"}, nil}, want: `{"type":"kitty","name":""}`},
+		{name: "An empty value needs a default", u: Union{Discriminator: "type", Variants: kitties.Variants[:1]}, variants: []any{&cat{}}, wantErr: `type: must be set, Cat takes cat or kitty`},
+		{name: "The default takes an empty value", u: kitties, variants: []any{nil, &tagged{}}, want: `{"type":"dog","name":""}`},
+		{name: "A variant without values takes any value", u: open, variants: []any{nil, &tagged{Type: "x"}}, want: `{"type":"x","name":""}`},
+		{name: "Two variants set and an empty value", u: pets, variants: []any{&cat{}, &dog{}}, wantErr: `type: must be set, Cat takes cat`},
+		{name: "A value that is no object is written as it is", u: pets, variants: []any{new("x"), nil}, want: `"x"`},
+		{name: "A variant that fails to marshal", u: pets, variants: []any{func() {}, nil}, wantErr: "json: unsupported type: func()"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := MarshalTagged(tc.shared, tc.u, tc.variants...)
+
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, string(got))
+		})
+	}
+}
+
+func TestDiscriminatorError(t *testing.T) {
+	t.Parallel()
+
+	own := ValidationError{Field: "type", Message: "picks no variant"}
+	tests := []struct {
+		name string
+		err  error
+		want error
+	}{
+		{name: "No error", err: nil},
+		{name: "The discriminator error", err: own, want: own},
+		{name: "An error of a nested union is its own", err: &json.MarshalerError{Err: own}},
+		{name: "Any other error", err: errors.New("broken")},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, DiscriminatorError(nil, tc.err))
 		})
 	}
 }

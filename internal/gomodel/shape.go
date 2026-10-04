@@ -11,6 +11,7 @@ import (
 	"math/bits"
 	"slices"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/extension"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
@@ -59,7 +60,11 @@ func isUnion(s *spec.Schema) bool {
 // the caller.
 func hasShape(s *spec.Schema) bool {
 	return len(s.Properties) > 0 || s.AdditionalProperties.Mode != spec.AdditionalUnset || s.Items != nil ||
-		len(s.PrefixItems) > 0 || len(s.Enum) > 0 || isUnion(s) || s.Then != nil || s.Else != nil
+		len(s.PrefixItems) > 0 || len(s.Enum) > 0 || isUnion(s) || s.Then != nil || s.Else != nil || hasGoType(s)
+}
+
+func hasGoType(s *spec.Schema) bool {
+	return slices.ContainsFunc(s.Extensions, func(e spec.Extension) bool { return e.Name == extension.GoType })
 }
 
 // members are the schemas a schema is made of besides its own keywords: its allOf members and

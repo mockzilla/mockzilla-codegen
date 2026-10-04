@@ -124,3 +124,43 @@ components:
       allOf:
         - $ref: '#/components/schemas/Animal'
         - {description: Alias doc, deprecated: true}
+    Ext: {type: integer, x-go-type: time.Duration}
+    Typed:
+      allOf:
+        - {type: integer, x-go-type: time.Duration}
+        - {description: How long., minimum: 0}
+    TypedNumber:
+      allOf:
+        - {type: integer, x-go-type: int64}
+        - {type: number, maximum: 9}
+    TypedMixed:
+      allOf:
+        - $ref: '#/components/schemas/Ext'
+        - $ref: '#/components/schemas/Animal'
+    TypedTwice:
+      allOf:
+        - {x-go-type: time.Duration}
+        - {x-go-type: time.Time}
+    TypedSame:
+      allOf:
+        - $ref: '#/components/schemas/Ext'
+        - {x-go-type: time.Duration, description: Same type.}
+    TypedThrough:
+      allOf:
+        - $ref: '#/components/schemas/Typed'
+        - properties: {extra: {type: string}}
+    TypedRoot:
+      x-go-type: time.Duration
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+    TypedProps:
+      type: object
+      properties:
+        wait:
+          allOf:
+            - {type: integer, x-go-type: time.Duration}
+            - {description: Inline.}
+        nested:
+          allOf:
+            - {x-go-type: 'map[string]any'}
+            - properties: {deep: {type: object, properties: {a: {type: string}}}}

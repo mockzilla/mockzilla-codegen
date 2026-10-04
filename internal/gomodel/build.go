@@ -92,8 +92,8 @@ func (b *builder) declare(d *Decl, s *spec.Schema, sh shape) {
 	set := b.ext.of(s.Extensions, s.Origin)
 	d.DeprecatedReason, d.enumNames = set.DeprecatedReason, set.EnumNames
 
-	if set.GoType != nil {
-		d.Kind, d.Target = KindAlias, goType(set.GoType, b.opts.Imports)
+	if t := b.flat.goTypeOf(s); t != nil {
+		d.Kind, d.Target = KindAlias, goType(t, b.opts.Imports)
 		return
 	}
 	if r := refOf(s); r != nil {
@@ -284,8 +284,8 @@ func (b *builder) typeOf(s *spec.Schema) Type {
 	if d, ok := b.decls[s]; ok {
 		return DeclRef{Decl: d}
 	}
-	if set := b.ext.of(s.Extensions, s.Origin); set.GoType != nil {
-		return goType(set.GoType, b.opts.Imports)
+	if t := b.flat.goTypeOf(s); t != nil {
+		return goType(t, b.opts.Imports)
 	}
 	if r := refOf(s); r != nil {
 		return b.typeOf(r.Target)

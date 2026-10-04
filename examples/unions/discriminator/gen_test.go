@@ -72,3 +72,48 @@ func TestInlineJSON(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(`{"kind":"square","side":2}`), &got))
 	assert.Equal(t, Inline{Square: &InlineSquare{Kind: new("square"), Side: new(2.0)}}, got)
 }
+
+func TestPaymentMarshalDiscriminator(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   Payment
+		want    string
+		wantErr string
+	}{
+		{name: "An empty value gets the only one", value: Payment{Bank: &Bank{Iban: "DE00"}}, want: `{"type":"Bank","iban":"DE00"}`},
+		{name: "A value that picks the variant stays", value: Payment{Card: &Card{Type: "credit_card", Number: "1"}}, want: `{"type":"credit_card","number":"1"}`},
+		{name: "Two values are not chosen from", value: Payment{Card: &Card{Number: "1"}}, wantErr: "type: must be set, Card takes card or credit_card"},
+		{name: "A value of another variant", value: Payment{Card: &Card{Type: "Bank", Number: "1"}}, wantErr: `type: "Bank" picks Bank, not Card`},
+		{name: "An unknown value", value: Payment{Bank: &Bank{Type: "cash"}}, wantErr: `type: "cash" picks no variant`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			out, err := json.Marshal(tc.value)
+
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				require.EqualError(t, tc.value.Validate(), tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.JSONEq(t, tc.want, string(out))
+			assert.NoError(t, tc.value.Validate())
+		})
+	}
+}
+
+func TestTolerantMarshalDefault(t *testing.T) {
+	t.Parallel()
+
+	out, err := json.Marshal(Tolerant{Unknown: &Unknown{Type: new("cash")}})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"type":"cash"}`, string(out))
+
+	_, err = json.Marshal(Tolerant{Card: &Card{Type: "cash"}})
+	require.ErrorContains(t, err, `type: "cash" picks Unknown, not Card`)
+}

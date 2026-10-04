@@ -13,7 +13,7 @@ Extensions change what mockzilla-codegen writes for one schema, property or para
 | `x-go-json-ignore` | property | JSON tag `-` |
 | `x-omitempty` | property | `omitempty` on (`true`) or off (`false`) |
 | `x-go-extra-tags` | property | extra struct tags; they win over `models.extra-tags` on the same key |
-| `x-enum-names` | enum schema | constant names, in value order |
+| `x-enum-names` | enum schema | constant names, in value order, used as written |
 | `x-deprecated-reason` | schema, property | the text of `// Deprecated:` when `deprecated: true` is set |
 | `x-sensitive-data` | property | masked in `Masked()` and in logs |
 | `x-mcp` | operation | MCP tool settings: `skip`, `name`, `description` ([MCP](mcp.md#x-mcp)) |
@@ -55,6 +55,8 @@ type Port = uint16
   pointer type written this way gets no extra pointer. A package it names, as in `[]uuid.UUID`,
   is imported when the config's `imports` list it.
 - A component with `x-go-type` becomes an alias of that type; its properties are not generated.
+- So does an `allOf` with a member that has `x-go-type`. What the other members add is not
+  generated, with a warning; members that only add docs or limits get none.
 - The type is not validated, and a union takes any JSON for it.
 
 ## Names

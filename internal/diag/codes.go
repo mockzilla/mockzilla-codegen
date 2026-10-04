@@ -31,6 +31,7 @@ const (
 	CodeExtensionUnknown       = "extension-unknown"
 	CodeExtensionValue         = "extension-value"
 	CodeEnumIgnored            = "enum-ignored"
+	CodeEnumNameUnexported     = "enum-name-unexported"
 	CodeEnumValue              = "enum-value"
 	CodeDefaultIgnored         = "default-ignored"
 	CodeAllOfConflict          = "allof-conflict"

@@ -10,6 +10,18 @@ type {{.Name}} struct {
 {{- end}}
 }
 {{- with .Union}}
+{{- if .Discriminator}}
+
+// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
+func ({{.Receiver}} {{$.Name}}) MarshalJSON() ([]byte, error) {
+{{- if .JSON}}
+	type plain {{$.Name}}
+	return {{.Runtime}}.MarshalTagged(plain({{.Receiver}}), {{.Receiver}}.union(){{range .Variants}}, {{$.Union.Receiver}}.{{.Name}}{{end}})
+{{- else}}
+	return {{.Runtime}}.MarshalTagged(nil, {{.Receiver}}.union(){{range .Variants}}, {{$.Union.Receiver}}.{{.Name}}{{end}})
+{{- end}}
+}
+{{- else}}
 
 // MarshalJSON writes the variants that are set{{if .JSON}}, merged with the shared properties{{end}}.
 func ({{.Receiver}} {{$.Name}}) MarshalJSON() ([]byte, error) {
@@ -26,6 +38,7 @@ func ({{.Receiver}} {{$.Name}}) MarshalJSON() ([]byte, error) {
 	return {{.Runtime}}.MarshalUnion(nil, set...)
 {{- end}}
 }
+{{- end}}
 
 // UnmarshalJSON sets the variants data matches{{if .JSON}}, and the shared properties{{end}}.
 func ({{.Receiver}} *{{$.Name}}) UnmarshalJSON(data []byte) error {
@@ -36,42 +49,14 @@ func ({{.Receiver}} *{{$.Name}}) UnmarshalJSON(data []byte) error {
 		return err
 	}
 {{- end}}
-	return {{.Runtime}}.UnmarshalUnion(data, {{.Runtime}}.Union{
-{{- if .IsAnyOf}}
-		IsAnyOf: true,
-{{- end}}
-{{- with .Discriminator}}
-		Discriminator: {{.}},
-{{- end}}
-{{- with .Shared}}
-		Shared: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },
-{{- end}}
-		Variants: []{{.Runtime}}.Variant{
-{{- range .Variants}}
-			{
-				Name: {{quote .Name}},
-				Kind: {{range $i, $k := .Kinds}}{{if $i}} | {{end}}{{$.Union.Runtime}}.{{$k}}{{end}},
-{{- with .Values}}
-				Values: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },
-{{- end}}
-{{- if .IsDefault}}
-				IsDefault: true,
-{{- end}}
-{{- with .Required}}
-				Required: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },
-{{- end}}
-{{- if .HasKnown}}
-				Known: []string{ {{- range $i, $v := .Known}}{{if $i}}, {{end}}{{$v}}{{end -}} },
-{{- end}}
-{{- if .IsClosed}}
-				IsClosed: true,
-{{- end}}
-				Into: {{$.Union.Runtime}}.Into(&{{$.Union.Receiver}}.{{.Name}}),
-			},
-{{- end}}
-		},
-	})
+	return {{.Runtime}}.UnmarshalUnion(data, {{if .Discriminator}}{{.Receiver}}.union(){{else}}{{template "models/variants.tmpl" .}}{{end}})
 }
+{{- if .Discriminator}}
+
+func ({{.Receiver}} *{{$.Name}}) union() {{.Runtime}}.Union {
+	return {{template "models/variants.tmpl" .}}
+}
+{{- end}}
 {{- if .IsText}}
 
 // MarshalText writes the variant that is set as text.

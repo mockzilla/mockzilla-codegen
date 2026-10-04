@@ -17,3 +17,6 @@ type Host struct {
 }
 
 type Port = uint16
+
+// How long to wait before a retry.
+type Delay = time.Duration

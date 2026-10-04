@@ -67,6 +67,10 @@ components:
       type: integer
       enum: [1, 2, 3]
       x-enum-names: [LevelLow, LevelMid]
+    Shade:
+      type: string
+      enum: [light, dark]
+      x-enum-names: [light, Dark]
     Legacy:
       type: object
       deprecated: true

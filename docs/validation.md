@@ -52,8 +52,8 @@ that checks nothing has no `Validate`.
 
 | Keyword | Applies to | Check |
 |---|---|---|
-| `minLength`, `maxLength` | strings | characters, not bytes |
-| `pattern` | strings | Go `regexp` (RE2) |
+| `minLength`, `maxLength` | strings | characters, not bytes; for `format: byte` the base64 text |
+| `pattern` | strings | Go `regexp` (RE2); for `format: byte` the base64 text |
 | `format` | strings | `uuid`, `uri`, `uri-reference`, `ipv4`, `ipv6`, `hostname`, `date`, `date-time`, `email` |
 | `minimum`, `maximum`, exclusive forms | numbers | 3.0 boolean and 3.1 numeric forms alike |
 | `multipleOf` | numbers | |
@@ -62,7 +62,7 @@ that checks nothing has no `Validate`.
 | `const` | strings, numbers, booleans | |
 | `enum` | enum types | the value is one of the constants |
 | `required` | pointers, slices, maps | not nil |
-| `oneOf`, `anyOf` | unions | how many variants are set, then each set variant |
+| `oneOf`, `anyOf` | unions | how many variants are set, the discriminator value, then each set variant |
 
 - A value of a declared type is checked by calling its `Validate`: fields, array items, map values
   and union variants alike.
@@ -71,6 +71,8 @@ that checks nothing has no `Validate`.
   `date` a `runtime.Date`, `email` a `runtime.Email` whose `Validate` checks the address.
 - A keyword that does not fit the Go type is left out: `minLength` on a number, a `const` of 2.5 on
   an integer.
+- Under `allOf`, every member's limits hold: the strictest of each is checked, and every `pattern`
+  and `multipleOf`.
 
 ### required
 

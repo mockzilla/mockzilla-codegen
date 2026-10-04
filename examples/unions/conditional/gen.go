@@ -32,17 +32,10 @@ type Shipping struct {
 	Else *ShippingElse `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set, merged with the shared properties.
+// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
 func (s Shipping) MarshalJSON() ([]byte, error) {
-	var set []any
-	if s.Then != nil {
-		set = append(set, s.Then)
-	}
-	if s.Else != nil {
-		set = append(set, s.Else)
-	}
 	type plain Shipping
-	return runtime.MarshalUnion(plain(s), set...)
+	return runtime.MarshalTagged(plain(s), s.union(), s.Then, s.Else)
 }
 
 // UnmarshalJSON sets the variants data matches, and the shared properties.
@@ -52,7 +45,11 @@ func (s *Shipping) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, (*plain)(s)); err != nil {
 		return err
 	}
-	return runtime.UnmarshalUnion(data, runtime.Union{
+	return runtime.UnmarshalUnion(data, s.union())
+}
+
+func (s *Shipping) union() runtime.Union {
+	return runtime.Union{
 		Discriminator: "kind",
 		Shared:        []string{"kind"},
 		Variants: []runtime.Variant{
@@ -71,12 +68,13 @@ func (s *Shipping) UnmarshalJSON(data []byte) error {
 				Into:      runtime.Into(&s.Else),
 			},
 		},
-	})
+	}
 }
 
 // Validate checks the value against the constraints of the spec.
 func (s Shipping) Validate() error {
 	var errs runtime.ValidationErrors
 	errs.Append("", runtime.ExactlyOne(s.Then != nil, s.Else != nil))
+	errs.Append("", runtime.DiscriminatorError(s.MarshalJSON()))
 	return errs.Err()
 }

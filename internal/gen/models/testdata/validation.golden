@@ -42,6 +42,7 @@ type Pet struct {
 	Labels map[string]string `json:"labels"`
 	Owner  *Owner            `json:"owner"`
 	Secret string            `json:"secret"`
+	Photo  []byte            `json:"photo"`
 }
 
 // Validate checks the value against the constraints of the spec, as a request carries it.
@@ -84,6 +85,10 @@ func (p Pet) Validate() error {
 		errs.Append("owner", p.Owner.Validate())
 	}
 	errs.Append("secret", runtime.MinLength(p.Secret, 8))
+	if p.Photo != nil {
+		errs.Append("photo", runtime.MaxLength(runtime.Base64(p.Photo), 8))
+		errs.Append("photo", runtime.Pattern(runtime.Base64(p.Photo), patternPetCode))
+	}
 	return errs.Err()
 }
 
@@ -125,6 +130,10 @@ func (p Pet) ValidateResponse() error {
 	}
 	if p.Owner != nil {
 		errs.Append("owner", p.Owner.ValidateResponse())
+	}
+	if p.Photo != nil {
+		errs.Append("photo", runtime.MaxLength(runtime.Base64(p.Photo), 8))
+		errs.Append("photo", runtime.Pattern(runtime.Base64(p.Photo), patternPetCode))
 	}
 	return errs.Err()
 }
@@ -228,4 +237,49 @@ func (c Choice) Validate() error {
 // Error returns the message at detail.
 func (c Choice) Error() string {
 	return runtime.ErrorMessage(c, "detail", "Choice")
+}
+
+type Tagged struct {
+	Owner *Owner `json:"-"`
+	Empty *Empty `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
+func (t Tagged) MarshalJSON() ([]byte, error) {
+	return runtime.MarshalTagged(nil, t.union(), t.Owner, t.Empty)
+}
+
+// UnmarshalJSON sets the variants data matches.
+func (t *Tagged) UnmarshalJSON(data []byte) error {
+	*t = Tagged{}
+	return runtime.UnmarshalUnion(data, t.union())
+}
+
+func (t *Tagged) union() runtime.Union {
+	return runtime.Union{
+		Discriminator: "kind",
+		Shared:        []string{"kind"},
+		Variants: []runtime.Variant{
+			{
+				Name:   "Owner",
+				Kind:   runtime.KindObject,
+				Values: []string{"owner"},
+				Into:   runtime.Into(&t.Owner),
+			},
+			{
+				Name:   "Empty",
+				Kind:   runtime.KindObject,
+				Values: []string{"empty"},
+				Into:   runtime.Into(&t.Empty),
+			},
+		},
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (t Tagged) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(t.Owner != nil, t.Empty != nil))
+	errs.Append("", runtime.DiscriminatorError(t.MarshalJSON()))
+	return errs.Err()
 }
