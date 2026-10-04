@@ -22,6 +22,13 @@ type rgb struct {
 	B int `json:"B"`
 }
 
+type filter struct {
+	Name   *string           `json:"name,omitempty"`
+	Tags   []string          `json:"tags,omitempty"`
+	Size   *rgb              `json:"size,omitempty"`
+	Labels map[string]string `json:"labels,omitempty"`
+}
+
 var (
 	colors = []string{"blue", "black", "brown"}
 	color  = rgb{R: 100, G: 200, B: 150}
@@ -96,6 +103,14 @@ func TestQueryStyles(t *testing.T) {
 		{name: "Pipe delimited object", param: explode(StylePipeDelimited, false), value: color, text: "color=R|100|G|200|B|150"},
 		{name: "Deep object", param: explode(StyleDeepObject, true), value: color, text: "color[R]=100&color[G]=200&color[B]=150"},
 		{name: "Deep object into a map", param: explode(StyleDeepObject, true), value: map[string]string{"R": "100"}, text: "color[R]=100"},
+		{
+			name:  "Deep object with a list, an object and a map inside",
+			param: explode(StyleDeepObject, false),
+			value: filter{Name: new("a"), Tags: []string{"x", "y"}, Size: &rgb{R: 1}, Labels: map[string]string{"k": "v"}},
+			text:  "color[name]=a&color[tags]=x&color[tags]=y&color[size][R]=1&color[size][G]=0&color[size][B]=0&color[labels][k]=v",
+		},
+		{name: "Deep object with a list of one", param: explode(StyleDeepObject, false), value: filter{Tags: []string{"x"}}, text: "color[tags]=x"},
+		{name: "Form object with its list unset", param: explode(StyleForm, false), value: filter{Name: new("a")}, text: "color=name,a"},
 		{name: "JSON", param: Param{Name: "color", IsJSON: true}, value: color, text: `color={"R":100,"G":200,"B":150}`},
 	}
 
@@ -247,6 +262,13 @@ func TestEncodeParamEdges(t *testing.T) {
 	_, err = EncodeHeader(map[string]chan int{"a": nil}, p)
 	require.ErrorIs(t, err, ErrParamValue)
 	require.ErrorIs(t, EncodeQuery(struct{ C chan int }{}, p, q), ErrParamValue)
+	require.ErrorIs(t, EncodeQuery(filter{Tags: []string{"x"}}, p, q), ErrParamValue, "only a deep object writes a list inside")
+	deep := explode(StyleDeepObject, false)
+	for _, value := range []any{struct{ C chan int }{}, struct{ L []chan int }{L: []chan int{nil}}, struct{ O struct{ C chan int } }{}} {
+		require.ErrorIs(t, EncodeQuery(value, deep, q), ErrParamValue)
+	}
+	require.NoError(t, EncodeQuery(filter{Tags: []string{}, Labels: map[string]string{}}, deep, q))
+	assert.Empty(t, q, "an empty list or map is left out")
 	_, err = EncodePath(func() {}, Param{IsJSON: true})
 	require.Error(t, err)
 	require.ErrorIs(t, DecodeHeader(http.Header{}, p, 1), ErrParamValue)
