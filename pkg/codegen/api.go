@@ -61,12 +61,11 @@ type Operation struct {
 // Response is one response of an operation. Status is its key as the spec writes it, such as 200,
 // 2XX or default. Code is the status code the generated code reads from that key: the key when it
 // is a number, the first digit times 100 when it has three characters and starts with a digit,
-// else 0. ContentType and Body are those of its JSON body, else of its first one read whole, else
-// of its first sequential one; Body is empty without one. IsRaw is set when the body has no
-// schema: any, a string or bytes. IsStream is set for a sequential body, whose Body is the type of
-// one frame. Constructor is the function that makes the response data of this status, empty
-// without a server: it takes the status first when HasStatusArg is set, which is when the key is
-// no number, then the body when there is one, or with IsStream an iter.Seq of Body.
+// else 0. ContentType and Body are those of its JSON body, else of its first one; Body is empty
+// without one. IsRaw is set when the body has no schema: any, a string or bytes. Constructor is the
+// function that makes the response data of this status, empty without a server: it takes the
+// status first when HasStatusArg is set, which is when the key is no number, then the body when
+// there is one. With IsStream it takes an iter.Seq of Body, one frame.
 type Response struct {
 	Status       string
 	Code         int

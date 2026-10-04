@@ -20,13 +20,7 @@ import (
 
 var lineBreaks = strings.NewReplacer("\r\n", "\n", "\r", "\n")
 
-// Write writes a response: its headers, then body by the media type of the Content-Type it ends
-// up with. A nil body sends the status alone and a File streams as it is. Under a JSON media type
-// the body is JSON, a string too; under any other a string or bytes go as they are, and without a
-// media type anything else is JSON. A nil pointer sends the status alone. A form goes through
-// EncodeForm, multipart/form-data through WriteMultipart, a sequential media type one frame per
-// value of an iter.Seq, or one frame for any other value, and a scalar under text/* as its text.
-// Any other body is an ErrContentType. An error once the status is out wraps ErrResponseCut.
+// Write writes the headers, then body encoded for the media type of its Content-Type.
 func Write(w http.ResponseWriter, status int, headers http.Header, body any) error {
 	for key, values := range headers {
 		w.Header()[key] = values
@@ -106,7 +100,6 @@ func WriteFile(w http.ResponseWriter, status int, f File) error {
 	return cut(err)
 }
 
-// rawBody is the text of a string or bytes, behind pointers or not.
 func rawBody(body any) ([]byte, bool) {
 	v := reflect.ValueOf(body)
 	for v.Kind() == reflect.Pointer && !v.IsNil() {
@@ -140,9 +133,8 @@ func writeForm(w http.ResponseWriter, status int, body any) error {
 	return WriteBytes(w, status, []byte(values.Encode()))
 }
 
-// writeMultipart writes body as a multipart form under a boundary of its own. It writes the form
-// once without its files first, so a body that is no form fails before the status goes out.
 func writeMultipart(w http.ResponseWriter, status int, body any) error {
+	// A dry run fails a body that is no form while an error response can still follow.
 	if _, _, err := multipartSize(body); err != nil {
 		return err
 	}
@@ -152,9 +144,6 @@ func writeMultipart(w http.ResponseWriter, status int, body any) error {
 	return cut(WriteMultipart(mw, body))
 }
 
-// writeFrames writes the frames of body, flushing after the status and after each frame. Under
-// text/event-stream each line of a frame is a data line and a blank line ends the frame; under
-// any other sequential media type a frame is one line.
 func writeFrames(w http.ResponseWriter, status int, mediaType string, body any) error {
 	rc := http.NewResponseController(w)
 	w.WriteHeader(status)
@@ -191,7 +180,6 @@ func writeFrames(w http.ResponseWriter, status int, mediaType string, body any) 
 	return nil
 }
 
-// framesOf is the values of body when it is an iter.Seq, none for a nil one, else body alone.
 func framesOf(body any) iter.Seq[any] {
 	v := reflect.ValueOf(body)
 	if v.Kind() != reflect.Func || !v.Type().CanSeq() {
@@ -209,7 +197,6 @@ func framesOf(body any) iter.Seq[any] {
 	}
 }
 
-// flush sends what is written so far, unless the writer cannot flush.
 func flush(rc *http.ResponseController) error {
 	if err := rc.Flush(); err != nil && !errors.Is(err, http.ErrNotSupported) {
 		return cut(err)
@@ -217,7 +204,6 @@ func flush(rc *http.ResponseController) error {
 	return nil
 }
 
-// cut marks an error that happens once the status is out, which no error response can follow.
 func cut(err error) error {
 	if err == nil {
 		return nil

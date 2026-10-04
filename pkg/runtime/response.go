@@ -214,10 +214,7 @@ func mediaRank(documented, actual string) int {
 	return 0
 }
 
-// decodeBody reads body into the Dst of t, a pointer: as text into a string, as it is into bytes
-// and into a File, as a form into anything else under application/x-www-form-urlencoded, and as
-// JSON into anything else or under a JSON media type that t does not document as a wildcard.
-// Text, bytes and files allocate the pointers on the way; JSON leaves a pointer nil for null.
+// decodeBody reads body into the Dst of t, a pointer, by the type of Dst and the media type.
 func decodeBody(body []byte, mediaType string, t *Target) error {
 	target, err := pointer(t.Dst)
 	if err != nil {

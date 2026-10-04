@@ -43,8 +43,7 @@ type HandlerError struct {
 }
 
 // ErrorHandler writes the response of a failed request. err is a *HandlerError, or an error type
-// of the spec returned by the service, which comes with the Content-Type set to the media type the
-// spec documents for it.
+// of the spec returned by the service.
 type ErrorHandler interface {
 	HandleError(w http.ResponseWriter, r *http.Request, status int, err error)
 }
@@ -53,9 +52,7 @@ type ErrorHandler interface {
 type ErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, status int, err error)
 
 // DefaultErrorHandler writes an error as {"error": "..."}, or an error type of the spec as its own
-// JSON, when the request accepts JSON, and as text otherwise. JSON goes under the JSON media type
-// already set, such as the one the spec documents for an error type, else application/json. A
-// response cut short gets nothing more.
+// JSON, when the request accepts JSON, and as text otherwise.
 type DefaultErrorHandler struct{}
 
 func (k ErrorKind) String() string {

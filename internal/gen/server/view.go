@@ -60,9 +60,7 @@ type CheckView struct {
 	Path  string
 }
 
-// ConstructorView makes the response data of one status. Status is the status literal, or the
-// name of the status argument when HasStatusArg; Arg is the name of the body argument and Body its
-// type, empty for none; ContentType is quoted.
+// ConstructorView is one response constructor; Status is a literal or the status argument.
 type ConstructorView struct {
 	Name         string
 	Doc          string
@@ -73,9 +71,7 @@ type ConstructorView struct {
 	ContentType  string
 }
 
-// Constructor is one function that makes the response data of a status: its name, whether it
-// takes the status first, and the body it takes, when HasBody. With IsStream it takes the frames
-// of Body, an iter.Seq of operation.FrameType.
+// Constructor is one function that makes the response data of a status.
 type Constructor struct {
 	Name         string
 	HasStatusArg bool
@@ -91,10 +87,7 @@ type HeadersView struct {
 	Doc    string
 }
 
-// Constructors lists the functions that make the response data of r, a response of op: one for
-// its first body read whole, a JSON one when there is one, or for no body, and one for its first
-// sequential body, which takes the frames. With both, the second has the suffix Stream. Each takes
-// the status first when the key of r is no number, such as a range or default.
+// Constructors lists the constructors of r: one for its body read whole, one for its frames.
 func Constructors(n *naming.Namer, op *gomodel.Operation, r gomodel.Response) []Constructor {
 	name := n.ResponseConstructor(op.Name, r.Status, len(op.Responses) > 1)
 	_, err := strconv.Atoi(r.Status)

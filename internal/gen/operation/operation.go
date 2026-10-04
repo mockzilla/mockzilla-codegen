@@ -92,8 +92,7 @@ func BodyType(c gomodel.Content) gomodel.Type {
 	return bytesType
 }
 
-// FrameType is the type of one frame of a sequential content: its item type, or bytes without one
-// or when its JSON is a string, such as a date-time or a string enum, which a frame carries as text.
+// FrameType is the type of one frame: the item type, or bytes for none and for text.
 func FrameType(c gomodel.Content) gomodel.Type {
 	if c.Item == nil || gomodel.JSONKinds(c.Item) == gomodel.JSONString {
 		return bytesType
@@ -101,8 +100,7 @@ func FrameType(c gomodel.Content) gomodel.Type {
 	return c.Item
 }
 
-// BaseMediaType is a media type as the generated code compares it: in lower case and without
-// parameters.
+// BaseMediaType is a media type in lower case and without its parameters.
 func BaseMediaType(mediaType string) string {
 	base, _, _ := strings.Cut(strings.ToLower(mediaType), ";")
 	return strings.TrimSpace(base)

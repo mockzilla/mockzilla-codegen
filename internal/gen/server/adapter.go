@@ -150,8 +150,7 @@ type conversion struct {
 	isPointer bool
 }
 
-// TypedErrorView answers an error type of the spec with its status, under its media type, which
-// is quoted.
+// TypedErrorView answers an error type of the spec with its status and quoted media type.
 type TypedErrorView struct {
 	Var       string
 	Type      string
@@ -301,8 +300,7 @@ func convert(value string, c conversion, s *gocode.Scope) string {
 	return out
 }
 
-// typedErrors are the error types of the spec the operation answers with, each with the status and
-// the media type of the first response that carries it.
+// typedErrors are the error types the operation answers with, by the first response of each.
 func typedErrors(op *gomodel.Operation, s *gocode.Scope) []TypedErrorView {
 	var out []TypedErrorView
 	var seen []*gomodel.Decl

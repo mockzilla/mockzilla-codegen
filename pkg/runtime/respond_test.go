@@ -21,6 +21,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type note string
+
+// brokenWriter counts its flushes and fails them from number flushFails on.
+type brokenWriter struct {
+	*httptest.ResponseRecorder
+	isWriteBroken bool
+	flushes       int
+	flushFails    int
+}
+
+func (w *brokenWriter) Write(p []byte) (int, error) {
+	if w.isWriteBroken {
+		return 0, errors.New("gone")
+	}
+	return w.ResponseRecorder.Write(p)
+}
+
+func (w *brokenWriter) FlushError() error {
+	w.flushes++
+	if w.flushFails > 0 && w.flushes >= w.flushFails {
+		return errors.New("gone")
+	}
+	return nil
+}
+
 func TestWrite(t *testing.T) {
 	t.Parallel()
 
@@ -99,33 +124,6 @@ func TestWriteMultipartResponse(t *testing.T) {
 	form, err := multipart.NewReader(w.Body, params["boundary"]).ReadForm(1 << 10)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"Cat"}, form.Value["title"])
-}
-
-// note is a defined string type.
-type note string
-
-// brokenWriter fails its writes when isWriteBroken, and its flushes from the one numbered
-// flushFails on, when that is above 0. It counts the flushes.
-type brokenWriter struct {
-	*httptest.ResponseRecorder
-	isWriteBroken bool
-	flushes       int
-	flushFails    int
-}
-
-func (w *brokenWriter) Write(p []byte) (int, error) {
-	if w.isWriteBroken {
-		return 0, errors.New("gone")
-	}
-	return w.ResponseRecorder.Write(p)
-}
-
-func (w *brokenWriter) FlushError() error {
-	w.flushes++
-	if w.flushFails > 0 && w.flushes >= w.flushFails {
-		return errors.New("gone")
-	}
-	return nil
 }
 
 func TestWriteCut(t *testing.T) {

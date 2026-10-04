@@ -103,8 +103,7 @@ type routeIssue struct {
 	reason string
 }
 
-// New returns the generator of the server parts of m, a warning for each operation the router
-// cannot serve, and one for each response body the server cannot write under its media type.
+// New returns the generator of the server parts of m, with its warnings.
 func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 	g := &Generator{opts: opts, ops: m.Operations}
 	var issues []routeIssue
@@ -293,9 +292,7 @@ func warning(op *gomodel.Operation, code, message string) diag.Diagnostic {
 	}
 }
 
-// isWritable reports a response body the server writes under its media type: a string, bytes, a
-// file or a value of type any under every one, anything else as JSON, under a wildcard, as a form
-// and frame by frame, a struct as a multipart form, and a scalar as text.
+// isWritable reports a body runtime.Write encodes under its media type.
 func isWritable(c gomodel.Content) bool {
 	mediaType := operation.BaseMediaType(c.MediaType)
 	base := gomodel.Elem(operation.BodyType(c))
