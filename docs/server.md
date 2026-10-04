@@ -133,6 +133,9 @@ adapter := NewHTTPAdapter(svc, opts...)
 mux.HandleFunc("GET /pets", adapter.ListPets)
 ```
 
+- A handler first puts the name of its operation, `ListPets`, on the request's context. The
+  service, a wrapper of it and the error handler read it with `runtime.OperationID(ctx)`. The
+  router's middleware runs before the handler, so it does not see the name.
 - A body arrives in a media type the operation documents: JSON (`application/json` and `+json`)
   through the JSON decoder, `application/x-www-form-urlencoded` through `DecodeForm`,
   `multipart/form-data` into a struct with `DecodeMultipart`, and any other media type into a

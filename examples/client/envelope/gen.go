@@ -262,7 +262,7 @@ func (c *Client) SubmitJobRequest(ctx context.Context, opts *SubmitJobRequestOpt
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "SubmitJob", b, editors)
 }
 
 // GetJobLog calls GET /jobs/{id}/log.
@@ -318,10 +318,11 @@ func (c *Client) GetJobLogRequest(ctx context.Context, opts *GetJobLogRequestOpt
 	if opts.Headers != nil {
 		b.HeaderParam(opts.Headers.Accept, runtime.Param{Name: "accept", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "GetJobLog", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

@@ -216,6 +216,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // Search handles GET /search.
 func (a *HTTPAdapter) Search(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "Search"))
 	opts := &SearchServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.Query = &SearchQuery{}
@@ -414,10 +415,11 @@ func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions, 
 		b.QueryParam(opts.Query.Sort, runtime.Param{Name: "sort", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.Limit, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Search", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

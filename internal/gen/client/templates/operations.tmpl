@@ -141,13 +141,14 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 	}
 {{- end}}
 {{- if .IsSendable}}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, {{quote .Name}}, b, editors)
 {{- end}}
 }
 {{- end}}
 {{- if .Operations}}
 
-func (c *{{.Client}}) newRequest(ctx {{.Context}}.Context, b *{{.Runtime}}.RequestBuilder, editors []RequestEditor) (*{{.HTTP}}.Request, error) {
+func (c *{{.Client}}) newRequest(ctx {{.Context}}.Context, id string, b *{{.Runtime}}.RequestBuilder, editors []RequestEditor) (*{{.HTTP}}.Request, error) {
+	ctx = {{.Runtime}}.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

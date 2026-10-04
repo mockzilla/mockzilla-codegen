@@ -380,7 +380,7 @@ func (c *Client) PathStylesRequest(ctx context.Context, opts *PathStylesRequestO
 		b.PathParam(opts.PathParams.Matrix, runtime.Param{Name: "matrix", Style: runtime.StyleMatrix, IsExplode: false, IsRequired: true, IsJSON: false})
 		b.PathParam(opts.PathParams.List, runtime.Param{Name: "list", Style: runtime.StyleSimple, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "PathStyles", b, editors)
 }
 
 // QueryStyles calls GET /query.
@@ -422,7 +422,7 @@ func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesReques
 		b.QueryParam(opts.Query.ID, runtime.Param{Name: "id", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.Needed, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "QueryStyles", b, editors)
 }
 
 // HeaderStyles calls GET /header.
@@ -457,7 +457,7 @@ func (c *Client) HeaderStylesRequest(ctx context.Context, opts *HeaderStylesRequ
 		b.HeaderParam(opts.Headers.XWhen, runtime.Param{Name: "X-When", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.HeaderParam(opts.Headers.XLimit, runtime.Param{Name: "X-Limit", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "HeaderStyles", b, editors)
 }
 
 // CookieStyles calls GET /cookie.
@@ -490,7 +490,7 @@ func (c *Client) CookieStylesRequest(ctx context.Context, opts *CookieStylesRequ
 		b.CookieParam(opts.Cookies.Session, runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.CookieParam(opts.Cookies.Flags, runtime.Param{Name: "flags", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "CookieStyles", b, editors)
 }
 
 // Search calls GET /search.
@@ -520,7 +520,7 @@ func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions, 
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/search")
 	b.QueryString(opts.Filter, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false})
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Search", b, editors)
 }
 
 // Find calls POST /search.
@@ -550,10 +550,11 @@ func (c *Client) FindRequest(ctx context.Context, opts *FindRequestOptions, edit
 	}
 	b := runtime.NewRequestBuilder(http.MethodPost, "/search")
 	b.QueryString(opts.Q, runtime.Param{Name: "q", IsRequired: true, IsJSON: true})
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Find", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

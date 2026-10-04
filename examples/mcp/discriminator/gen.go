@@ -242,6 +242,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // AddAnimal handles POST /animals.
 func (a *HTTPAdapter) AddAnimal(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "AddAnimal"))
 	opts := &AddAnimalServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
@@ -441,10 +442,11 @@ func (c *Client) AddAnimalRequest(ctx context.Context, opts *AddAnimalRequestOpt
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "AddAnimal", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

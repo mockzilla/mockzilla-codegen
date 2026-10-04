@@ -428,6 +428,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // Search handles QUERY /search.
 func (a *HTTPAdapter) Search(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "Search"))
 	opts := &SearchServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
@@ -457,6 +458,7 @@ func (a *HTTPAdapter) Search(w http.ResponseWriter, r *http.Request) {
 
 // PurgeSearch handles PURGE /search.
 func (a *HTTPAdapter) PurgeSearch(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "PurgeSearch"))
 	opts := &PurgeSearchServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.PurgeSearch(r.Context(), opts)
@@ -473,6 +475,7 @@ func (a *HTTPAdapter) PurgeSearch(w http.ResponseWriter, r *http.Request) {
 
 // ListPets handles GET /pets/.
 func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListPets"))
 	opts := &ListPetsServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.ListPets(r.Context(), opts)
@@ -489,6 +492,7 @@ func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
 
 // GetPet handles GET /pets/{pet-id}.
 func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetPet"))
 	opts := &GetPetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetPetPathParams{}
 	if err := runtime.DecodePath(r.PathValue("pet_id"), runtime.Param{Name: "pet-id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.PetID); err != nil {
@@ -510,6 +514,7 @@ func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
 
 // GetFile handles GET /files/*.
 func (a *HTTPAdapter) GetFile(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetFile"))
 	opts := &GetFileServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetFile(r.Context(), opts)

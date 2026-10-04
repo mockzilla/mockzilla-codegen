@@ -379,6 +379,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // CountPets handles GET /pets/count.
 func (a *HTTPAdapter) CountPets(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "CountPets"))
 	opts := &CountPetsServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.CountPets(r.Context(), opts)
@@ -395,6 +396,7 @@ func (a *HTTPAdapter) CountPets(w http.ResponseWriter, r *http.Request) {
 
 // FindPet handles GET /pets/find.
 func (a *HTTPAdapter) FindPet(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "FindPet"))
 	opts := &FindPetServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.Query = &FindPetQuery{}
@@ -417,6 +419,7 @@ func (a *HTTPAdapter) FindPet(w http.ResponseWriter, r *http.Request) {
 
 // GetPhoto handles GET /pets/photo.
 func (a *HTTPAdapter) GetPhoto(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetPhoto"))
 	opts := &GetPhotoServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.Query = &GetPhotoQuery{}
@@ -439,6 +442,7 @@ func (a *HTTPAdapter) GetPhoto(w http.ResponseWriter, r *http.Request) {
 
 // GetIcon handles GET /pets/icon.
 func (a *HTTPAdapter) GetIcon(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetIcon"))
 	opts := &GetIconServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetIcon(r.Context(), opts)
@@ -657,7 +661,7 @@ func (c *Client) CountPetsRequest(ctx context.Context, opts *CountPetsRequestOpt
 		opts = &CountPetsRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/pets/count")
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "CountPets", b, editors)
 }
 
 // FindPet calls GET /pets/find.
@@ -692,7 +696,7 @@ func (c *Client) FindPetRequest(ctx context.Context, opts *FindPetRequestOptions
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Name, runtime.Param{Name: "name", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "FindPet", b, editors)
 }
 
 // GetPhoto calls GET /pets/photo.
@@ -726,7 +730,7 @@ func (c *Client) GetPhotoRequest(ctx context.Context, opts *GetPhotoRequestOptio
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Name, runtime.Param{Name: "name", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "GetPhoto", b, editors)
 }
 
 // GetIcon calls GET /pets/icon.
@@ -757,10 +761,11 @@ func (c *Client) GetIconRequest(ctx context.Context, opts *GetIconRequestOptions
 		opts = &GetIconRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/pets/icon")
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "GetIcon", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

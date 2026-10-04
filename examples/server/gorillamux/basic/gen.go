@@ -441,6 +441,7 @@ func NewHTTPAdapter(svc PetsInterface, opts ...ServerOption) *HTTPAdapter {
 
 // ListPets handles GET /pets.
 func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListPets"))
 	opts := &ListPetsServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.Query = &ListPetsQuery{}
@@ -463,6 +464,7 @@ func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
 
 // CreatePet handles POST /pets.
 func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreatePet"))
 	opts := &CreatePetServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
@@ -492,6 +494,7 @@ func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
 
 // GetPet handles GET /pets/{id}.
 func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetPet"))
 	opts := &GetPetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetPetPathParams{}
 	if err := runtime.DecodePath(mux.Vars(r)["id"], runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -513,6 +516,7 @@ func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
 
 // DeletePet handles DELETE /pets/{id}.
 func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "DeletePet"))
 	opts := &DeletePetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeletePetPathParams{}
 	if err := runtime.DecodePath(mux.Vars(r)["id"], runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -534,6 +538,7 @@ func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
 
 // Ping handles GET /ping.
 func (a *HTTPAdapter) Ping(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "Ping"))
 	opts := &PingServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.Ping(r.Context(), opts)
