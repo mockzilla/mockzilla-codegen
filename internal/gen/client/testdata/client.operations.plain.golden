@@ -50,7 +50,7 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *types.ListPetsReq
 	if opts.Cookies != nil {
 		b.CookieParam(opts.Cookies.Session, runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "ListPets", b, editors)
 }
 
 // CreatePet calls POST /pets.
@@ -106,7 +106,7 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *types.CreatePetR
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "CreatePet", b, editors)
 }
 
 // DeletePet calls DELETE /pets/{id}.
@@ -140,7 +140,7 @@ func (c *PetClient) DeletePetRequest(ctx context.Context, opts *types.DeletePetR
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "DeletePet", b, editors)
 }
 
 // Ping calls GET /ping.
@@ -174,7 +174,7 @@ func (c *PetClient) PingRequest(ctx context.Context, opts *types.PingRequestOpti
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Ping", b, editors)
 }
 
 // Query calls QUERY /pets/query.
@@ -200,7 +200,7 @@ func (c *PetClient) QueryRequest(ctx context.Context, opts *types.QueryRequestOp
 	case opts.Body != nil:
 		b.TextBody(*opts.Body, "text/plain")
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Query", b, editors)
 }
 
 // Chat calls POST /chat.
@@ -251,7 +251,7 @@ func (c *PetClient) ChatRequest(ctx context.Context, opts *types.ChatRequestOpti
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Chat", b, editors)
 }
 
 // Tail calls GET /tail.
@@ -293,10 +293,11 @@ func (c *PetClient) TailRequest(ctx context.Context, opts *types.TailRequestOpti
 		opts = &types.TailRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/tail")
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Tail", b, editors)
 }
 
-func (c *PetClient) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *PetClient) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

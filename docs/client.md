@@ -40,6 +40,9 @@ func WithRequestEditor(fns ...RequestEditor) PetClientOption
 - Request editors run on every request before it is sent, in the order they were added, and stop
   the request when they return an error. They are the place for credentials. A method takes
   editors of its own too, see [Methods](#methods).
+- The context of a request holds the name of its operation, `ListPets`. Editors and the
+  `HTTPDoer` read it with `runtime.OperationID(ctx)` or `runtime.OperationID(req.Context())`, to
+  tag a metric or a trace span.
 
 `PetClientInterface` lists every method of the client but `<Op>Request`, so a test double can
 stand in for it. The client satisfies it, which is checked at compile time. A

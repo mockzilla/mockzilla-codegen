@@ -246,6 +246,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // CreateOrder handles POST /orders.
 func (a *HTTPAdapter) CreateOrder(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreateOrder"))
 	opts := &CreateOrderServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
@@ -275,6 +276,7 @@ func (a *HTTPAdapter) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 // GetOrder handles GET /orders/{id}.
 func (a *HTTPAdapter) GetOrder(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetOrder"))
 	opts := &GetOrderServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.PathParams = &models.GetOrderPathParams{}
@@ -487,7 +489,7 @@ func (c *Client) CreateOrderRequest(ctx context.Context, opts *CreateOrderReques
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "CreateOrder", b, editors)
 }
 
 // GetOrder calls GET /orders/{id}.
@@ -522,10 +524,11 @@ func (c *Client) GetOrderRequest(ctx context.Context, opts *GetOrderRequestOptio
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Expand, runtime.Param{Name: "expand", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "GetOrder", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

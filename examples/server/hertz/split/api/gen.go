@@ -156,6 +156,7 @@ func NewHTTPAdapter(svc BooksInterface, opts ...ServerOption) *HTTPAdapter {
 
 // GetBook handles GET /books/{isbn}.
 func (a *HTTPAdapter) GetBook(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetBook"))
 	opts := &GetBookServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &models.GetBookPathParams{}
 	if err := runtime.DecodePath(r.PathValue("isbn"), runtime.Param{Name: "isbn", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Isbn); err != nil {

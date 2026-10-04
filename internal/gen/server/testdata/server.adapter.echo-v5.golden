@@ -83,6 +83,7 @@ func NewHTTPAdapter(svc PetsInterface, opts ...ServerOption) *HTTPAdapter {
 // ListPets handles GET /pets.
 func (a *HTTPAdapter) ListPets(c *echo.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListPets"))
 	opts := &ListPetsServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.Query = &ListPetsQuery{}
@@ -130,6 +131,7 @@ func (a *HTTPAdapter) ListPets(c *echo.Context) error {
 // CreatePet handles POST /pets.
 func (a *HTTPAdapter) CreatePet(c *echo.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreatePet"))
 	opts := &CreatePetServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
@@ -203,6 +205,7 @@ func (a *HTTPAdapter) CreatePet(c *echo.Context) error {
 // DeletePet handles DELETE /pets/{id}.
 func (a *HTTPAdapter) DeletePet(c *echo.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "DeletePet"))
 	opts := &DeletePetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeletePetPathParams{}
 	if err := runtime.DecodePath(c.Param("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -250,6 +253,7 @@ func (a *HTTPAdapter) DeletePet(c *echo.Context) error {
 // Ping handles GET /ping.
 func (a *HTTPAdapter) Ping(c *echo.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "Ping"))
 	opts := &PingServiceRequestOptions{RawRequest: r}
 	if err := runtime.DecodeQueryString(r.URL.RawQuery, runtime.Param{Name: "body", IsRequired: true, IsJSON: true}, &opts.BodyQueryString); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "Ping", ParamName: "body", ParamLocation: "querystring", Err: err})

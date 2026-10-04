@@ -228,6 +228,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // AddTag handles POST /tags.
 func (a *HTTPAdapter) AddTag(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "AddTag"))
 	opts := &AddTagServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.Query = &AddTagQuery{}
@@ -440,10 +441,11 @@ func (c *Client) AddTagRequest(ctx context.Context, opts *AddTagRequestOptions, 
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "AddTag", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

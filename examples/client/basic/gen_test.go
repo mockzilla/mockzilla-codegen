@@ -281,6 +281,26 @@ func TestCallEditors(t *testing.T) {
 	assert.Equal(t, []string{"client 1", "client 2"}, <-seen, "the editors of a call stay with that call")
 }
 
+func TestOperationID(t *testing.T) {
+	t.Parallel()
+
+	var seen []string
+	record := func(ctx context.Context, _ *http.Request) error {
+		seen = append(seen, "editor "+runtime.OperationID(ctx))
+		return nil
+	}
+	doer := doerFunc(func(req *http.Request) (*http.Response, error) {
+		seen = append(seen, "doer "+runtime.OperationID(req.Context()))
+		return http.DefaultClient.Do(req)
+	})
+	c := newClient(t, WithHTTPClient(doer), WithRequestEditor(record))
+
+	_, err := c.Ping(context.Background(), nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"editor Ping", "doer Ping"}, seen)
+}
+
 func TestRequestEditorError(t *testing.T) {
 	t.Parallel()
 

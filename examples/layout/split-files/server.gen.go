@@ -242,6 +242,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // CreateOrder handles POST /orders.
 func (a *HTTPAdapter) CreateOrder(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreateOrder"))
 	opts := &CreateOrderServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
@@ -271,6 +272,7 @@ func (a *HTTPAdapter) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 // GetOrder handles GET /orders/{id}.
 func (a *HTTPAdapter) GetOrder(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetOrder"))
 	opts := &GetOrderServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.PathParams = &GetOrderPathParams{}

@@ -254,7 +254,7 @@ func (c *Client) AddPetRequest(ctx context.Context, opts *AddPetRequestOptions, 
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "AddPet", b, editors)
 }
 
 // GetPet calls GET /pets/{id}.
@@ -290,7 +290,7 @@ func (c *Client) GetPetRequest(ctx context.Context, opts *GetPetRequestOptions, 
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Fields, runtime.Param{Name: "fields", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "GetPet", b, editors)
 }
 
 // PutPet calls PUT /pets/{id}.
@@ -328,10 +328,11 @@ func (c *Client) PutPetRequest(ctx context.Context, opts *PutPetRequestOptions, 
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "PutPet", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

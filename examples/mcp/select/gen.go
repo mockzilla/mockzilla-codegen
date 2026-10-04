@@ -390,6 +390,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // GetItem handles GET /items/{id}.
 func (a *HTTPAdapter) GetItem(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetItem"))
 	opts := &GetItemServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.PathParams = &GetItemPathParams{}
@@ -422,6 +423,7 @@ func (a *HTTPAdapter) GetItem(w http.ResponseWriter, r *http.Request) {
 
 // PutItem handles PUT /items/{id}.
 func (a *HTTPAdapter) PutItem(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "PutItem"))
 	opts := &PutItemServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PutItemPathParams{}
 	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -456,6 +458,7 @@ func (a *HTTPAdapter) PutItem(w http.ResponseWriter, r *http.Request) {
 
 // DeleteItem handles DELETE /items/{id}.
 func (a *HTTPAdapter) DeleteItem(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "DeleteItem"))
 	opts := &DeleteItemServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeleteItemPathParams{}
 	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -477,6 +480,7 @@ func (a *HTTPAdapter) DeleteItem(w http.ResponseWriter, r *http.Request) {
 
 // Reset handles POST /internal/reset.
 func (a *HTTPAdapter) Reset(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "Reset"))
 	opts := &ResetServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.Reset(r.Context(), opts)
@@ -709,7 +713,7 @@ func (c *Client) GetItemRequest(ctx context.Context, opts *GetItemRequestOptions
 	if opts.Headers != nil {
 		b.HeaderParam(opts.Headers.XTenant, runtime.Param{Name: "X-Tenant", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "GetItem", b, editors)
 }
 
 // PutItem calls PUT /items/{id}.
@@ -749,7 +753,7 @@ func (c *Client) PutItemRequest(ctx context.Context, opts *PutItemRequestOptions
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "PutItem", b, editors)
 }
 
 // DeleteItem calls DELETE /items/{id}.
@@ -776,7 +780,7 @@ func (c *Client) DeleteItemRequest(ctx context.Context, opts *DeleteItemRequestO
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "DeleteItem", b, editors)
 }
 
 // Reset calls POST /internal/reset.
@@ -800,10 +804,11 @@ func (c *Client) ResetRequest(ctx context.Context, opts *ResetRequestOptions, ed
 		opts = &ResetRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodPost, "/internal/reset")
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Reset", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

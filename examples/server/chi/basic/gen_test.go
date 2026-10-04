@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mockzilla/mockzilla-codegen/examples/server/internal/servertest"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 var errBoom = errors.New("boom")
@@ -62,6 +63,15 @@ func (*service) Ping(context.Context, *PingServiceRequestOptions) (*PingResponse
 	return NewPingResponseData(new("pong")), nil
 }
 
+// idService answers a ping with the operation its context holds.
+type idService struct {
+	*service
+}
+
+func (idService) Ping(ctx context.Context, _ *PingServiceRequestOptions) (*PingResponseData, error) {
+	return NewPingResponseData(new(runtime.OperationID(ctx))), nil
+}
+
 func TestRouter(t *testing.T) {
 	t.Parallel()
 
@@ -99,11 +109,12 @@ func TestWithRouterAndMiddleware(t *testing.T) {
 func TestErrorHandler(t *testing.T) {
 	t.Parallel()
 
-	handler := ErrorHandlerFunc(func(w http.ResponseWriter, _ *http.Request, status int, err error) {
+	handler := ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request, status int, err error) {
 		var herr *HandlerError
 		require.ErrorAs(t, err, &herr)
 		w.Header().Set("X-Kind", herr.Kind.String())
 		w.Header().Set("X-Operation", herr.OperationID)
+		w.Header().Set("X-Context-Operation", runtime.OperationID(r.Context()))
 		w.WriteHeader(status)
 	})
 	router := NewRouter(&service{pets: map[int]Pet{}}, WithErrorHandler(handler))
@@ -114,6 +125,19 @@ func TestErrorHandler(t *testing.T) {
 	assert.Equal(t, 400, rec.Code)
 	assert.Equal(t, "parse", rec.Header().Get("X-Kind"))
 	assert.Equal(t, "GetPet", rec.Header().Get("X-Operation"))
+	assert.Equal(t, "GetPet", rec.Header().Get("X-Context-Operation"), "the error handler sees the operation on the request")
+}
+
+func TestServiceSeesOperationID(t *testing.T) {
+	t.Parallel()
+
+	router := NewRouter(idService{&service{pets: map[int]Pet{}}})
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, httptest.NewRequest("GET", "/ping", nil))
+
+	assert.Equal(t, 200, rec.Code)
+	assert.Equal(t, "Ping", rec.Body.String())
 }
 
 func TestAdapterAlone(t *testing.T) {
