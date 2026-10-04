@@ -686,8 +686,9 @@ func (c *Client) GetItemRequest(ctx context.Context, opts *GetItemRequestOptions
 
 // Fetch an item
 //
-// GetItem returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// GetItem returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) GetItem(ctx context.Context, opts *GetItemRequestOptions) (*Item, error) {
 	req, err := c.GetItemRequest(ctx, opts)
 	if err != nil {
@@ -727,8 +728,9 @@ func (c *Client) PutItemRequest(ctx context.Context, opts *PutItemRequestOptions
 
 // Replace an item, which stays out of MCP by default
 //
-// PutItem returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// PutItem returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) PutItem(ctx context.Context, opts *PutItemRequestOptions) (*Item, error) {
 	req, err := c.PutItemRequest(ctx, opts)
 	if err != nil {

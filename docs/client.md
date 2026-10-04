@@ -58,8 +58,10 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
 - Every operation has the same shape, even one without parameters or body, and `opts` may be nil
   when there is nothing to send. Webhooks get no method, since they come in.
 - The method returns the body of the lowest 2xx response the spec documents with a body: its JSON
-  media type, else its first one. An operation without such a response returns the error alone.
-  A 2xx response without a body gives the zero value.
+  media type, else its first one. An operation without such a response returns the error alone
+  and takes any 2xx. Another 2xx the spec documents, or one without a body, gives the zero value.
+- A 2xx the spec does not list, such as 202 where it documents 201 and 204, is a
+  `*runtime.APIError` with the raw body and no error type: `default` never covers a 2xx.
 - A response outside 2xx is a `*runtime.APIError` with the status, the headers and the raw body.
   When the spec documents an error type for the status (see `models.error-mapping`), the body is
   decoded into it and `errors.As` finds it through the `APIError`:
@@ -265,6 +267,6 @@ Generated clients use these helpers of the runtime package, next to the codecs t
   `DecodeMultipart` read.
 - `Send` sends with a `Doer` and reads the body within a timeout; `DecodeSuccess` and `Decode`
   fill the targets of the response, `DecodeHeaders` a struct of typed headers; `APIError` is the
-  error of a status outside 2xx.
+  error of a status outside 2xx, or of a 2xx the spec does not list.
 - `Stream[T]` reads a sequential response frame by frame; `SendStream`, `OpenStream`,
   `IsStreaming` and `IsSequential` are what the stream methods are built on.

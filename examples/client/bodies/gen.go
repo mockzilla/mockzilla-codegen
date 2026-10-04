@@ -1184,8 +1184,9 @@ func (c *Client) PostJSONRequest(ctx context.Context, opts *PostJSONRequestOptio
 	return c.newRequest(ctx, b)
 }
 
-// PostJSON returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// PostJSON returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) PostJSON(ctx context.Context, opts *PostJSONRequestOptions) (*Note, error) {
 	req, err := c.PostJSONRequest(ctx, opts)
 	if err != nil {
@@ -1220,8 +1221,9 @@ func (c *Client) PostFormRequest(ctx context.Context, opts *PostFormRequestOptio
 	return c.newRequest(ctx, b)
 }
 
-// PostForm returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// PostForm returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions) (*Note, error) {
 	req, err := c.PostFormRequest(ctx, opts)
 	if err != nil {
@@ -1256,8 +1258,9 @@ func (c *Client) UploadRequest(ctx context.Context, opts *UploadRequestOptions) 
 	return c.newRequest(ctx, b)
 }
 
-// Upload returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// Upload returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) Upload(ctx context.Context, opts *UploadRequestOptions) (UploadResponse200, error) {
 	req, err := c.UploadRequest(ctx, opts)
 	if err != nil {
@@ -1292,8 +1295,9 @@ func (c *Client) PostTextRequest(ctx context.Context, opts *PostTextRequestOptio
 	return c.newRequest(ctx, b)
 }
 
-// PostText returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// PostText returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) PostText(ctx context.Context, opts *PostTextRequestOptions) (*PostTextResponse200, error) {
 	req, err := c.PostTextRequest(ctx, opts)
 	if err != nil {
@@ -1328,8 +1332,9 @@ func (c *Client) PutFileRequest(ctx context.Context, opts *PutFileRequestOptions
 	return c.newRequest(ctx, b)
 }
 
-// PutFile returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// PutFile returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) PutFile(ctx context.Context, opts *PutFileRequestOptions) (*PutFileResponse200, error) {
 	req, err := c.PutFileRequest(ctx, opts)
 	if err != nil {
@@ -1393,8 +1398,9 @@ func (c *Client) PostAnyRequest(ctx context.Context, opts *PostAnyRequestOptions
 	return c.newRequest(ctx, b)
 }
 
-// PostAny returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// PostAny returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) PostAny(ctx context.Context, opts *PostAnyRequestOptions) (*PostAnyResponse200, error) {
 	req, err := c.PostAnyRequest(ctx, opts)
 	if err != nil {
@@ -1423,8 +1429,9 @@ func (c *Client) GetAnyTextRequest(ctx context.Context, opts *GetAnyTextRequestO
 	return c.newRequest(ctx, b)
 }
 
-// GetAnyText returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// GetAnyText returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions) (*GetAnyTextResponse200, error) {
 	req, err := c.GetAnyTextRequest(ctx, opts)
 	if err != nil {
@@ -1453,8 +1460,9 @@ func (c *Client) GetAnyBytesRequest(ctx context.Context, opts *GetAnyBytesReques
 	return c.newRequest(ctx, b)
 }
 
-// GetAnyBytes returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// GetAnyBytes returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOptions) ([]byte, error) {
 	req, err := c.GetAnyBytesRequest(ctx, opts)
 	if err != nil {

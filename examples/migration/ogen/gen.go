@@ -783,8 +783,9 @@ func (c *Client) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOptio
 	return c.newRequest(ctx, b)
 }
 
-// ListPets returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// ListPets returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) ListPets(ctx context.Context, opts *ListPetsRequestOptions) (ListPetsResponse200, error) {
 	req, err := c.ListPetsRequest(ctx, opts)
 	if err != nil {
@@ -820,8 +821,9 @@ func (c *Client) CreatePetRequest(ctx context.Context, opts *CreatePetRequestOpt
 	return c.newRequest(ctx, b)
 }
 
-// CreatePet returns the body of a 201 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// CreatePet returns the body of a 201 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) CreatePet(ctx context.Context, opts *CreatePetRequestOptions) (*Pet, error) {
 	req, err := c.CreatePetRequest(ctx, opts)
 	if err != nil {
@@ -854,8 +856,9 @@ func (c *Client) GetPetRequest(ctx context.Context, opts *GetPetRequestOptions) 
 	return c.newRequest(ctx, b)
 }
 
-// GetPet returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// GetPet returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) GetPet(ctx context.Context, opts *GetPetRequestOptions) (*Pet, error) {
 	req, err := c.GetPetRequest(ctx, opts)
 	if err != nil {

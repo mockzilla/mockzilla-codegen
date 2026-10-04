@@ -109,8 +109,81 @@ func (p PutPetPathParams) Validate() error {
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
+	AddPet(ctx context.Context, opts *AddPetServiceRequestOptions) (*AddPetResponseData, error)
 	GetPet(ctx context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error)
 	PutPet(ctx context.Context, opts *PutPetServiceRequestOptions) (*PutPetResponseData, error)
+}
+
+// AddPetServiceRequestOptions is what AddPet receives. RawRequest is the request as it came in.
+type AddPetServiceRequestOptions struct {
+	// Body sent as application/json.
+	Body       *Pet
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *AddPetServiceRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.Body != nil {
+		errs.Append("body", o.Body.Validate())
+	}
+	return errs.Err()
+}
+
+// AddPetResponseData is what AddPet returns: the status, the headers and the body of the response.
+type AddPetResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewAddPetResponseData201 returns the response data of status 201 with body as application/json.
+func NewAddPetResponseData201(body *Pet) *AddPetResponseData {
+	return &AddPetResponseData{Status: 201, Body: body, contentType: "application/json"}
+}
+
+// NewAddPetResponseData204 returns the response data of status 204.
+func NewAddPetResponseData204() *AddPetResponseData {
+	return &AddPetResponseData{Status: 204, contentType: ""}
+}
+
+// NewAddPetResponseDataDefault returns the response data of status default with body as application/problem+json.
+func NewAddPetResponseDataDefault(status int, body *Problem) *AddPetResponseData {
+	return &AddPetResponseData{Status: status, Body: body, contentType: "application/problem+json"}
+}
+
+// WithStatus sets the status code.
+func (r *AddPetResponseData) WithStatus(code int) *AddPetResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *AddPetResponseData) WithHeaders(h http.Header) *AddPetResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *AddPetResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *AddPetResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *AddPetResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *AddPetResponseData) ContentType() string {
+	return r.contentType
 }
 
 // GetPetServiceRequestOptions is what GetPet receives. RawRequest is the request as it came in.
@@ -347,6 +420,43 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
 }
 
+// AddPet handles POST /pets.
+func (a *HTTPAdapter) AddPet(w http.ResponseWriter, r *http.Request) {
+	opts := &AddPetServiceRequestOptions{RawRequest: r}
+	switch contentType := runtime.ContentType(r.Header); contentType {
+	case "application/json":
+		if err := a.opts.JSONDecoder(r.Body, &opts.Body, true); err != nil {
+			a.failDecode(w, r, "AddPet", err)
+			return
+		}
+	case "":
+		a.failDecode(w, r, "AddPet", runtime.ErrBodyEmpty)
+		return
+	default:
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "AddPet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return
+	}
+	if err := opts.Validate(); err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "AddPet", Err: err})
+		return
+	}
+
+	res, err := a.svc.AddPet(r.Context(), opts)
+	if err != nil {
+		if problem, ok := runtime.AsError[Problem](err); ok {
+			a.opts.ErrorHandler.HandleError(w, r, 500, problem)
+			return
+		}
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "AddPet", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "AddPet", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "AddPet", res)
+}
+
 // GetPet handles GET /pets/{id}.
 func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
 	opts := &GetPetServiceRequestOptions{RawRequest: r}
@@ -458,6 +568,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
 	register := func(r chi.Router) {
+		r.Post("/pets", adapter.AddPet)
 		r.Get("/pets/{id}", adapter.GetPet)
 		r.Put("/pets/{id}", adapter.PutPet)
 	}
@@ -544,6 +655,21 @@ func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*ht
 	return req, nil
 }
 
+// AddPetRequestOptions is what AddPet sends: its parameters by location, and its body.
+type AddPetRequestOptions struct {
+	// Body sent as application/json.
+	Body *Pet
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *AddPetRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.Body != nil {
+		errs.Append("body", o.Body.Validate())
+	}
+	return errs.Err()
+}
+
 // GetPetRequestOptions is what GetPet sends: its parameters by location, and its body.
 type GetPetRequestOptions struct {
 	PathParams *GetPetPathParams
@@ -584,11 +710,51 @@ func (o *PutPetRequestOptions) Validate() error {
 // ClientInterface is what Client implements: one method per operation, so a test double can
 // stand in for the client.
 type ClientInterface interface {
+	AddPet(ctx context.Context, opts *AddPetRequestOptions) (*Pet, error)
 	GetPet(ctx context.Context, opts *GetPetRequestOptions) (*Pet, error)
 	PutPet(ctx context.Context, opts *PutPetRequestOptions) (*Pet, error)
 }
 
 var _ ClientInterface = (*Client)(nil)
+
+// AddPetRequest builds the request of AddPet, with the editors of the client applied.
+func (c *Client) AddPetRequest(ctx context.Context, opts *AddPetRequestOptions) (*http.Request, error) {
+	if opts == nil {
+		opts = &AddPetRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodPost, "/pets")
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json")
+	default:
+		return nil, runtime.ErrBodyEmpty
+	}
+	return c.newRequest(ctx, b)
+}
+
+// AddPet returns the body of a 201 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
+func (c *Client) AddPet(ctx context.Context, opts *AddPetRequestOptions) (*Pet, error) {
+	req, err := c.AddPetRequest(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out *Pet
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "201", MediaType: "application/json", Dst: &out},
+		{Status: "204"},
+		{Status: "default", MediaType: "application/problem+json", Dst: new(Problem)},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
 
 // GetPetRequest builds the request of GetPet, with the editors of the client applied.
 func (c *Client) GetPetRequest(ctx context.Context, opts *GetPetRequestOptions) (*http.Request, error) {
@@ -605,8 +771,9 @@ func (c *Client) GetPetRequest(ctx context.Context, opts *GetPetRequestOptions) 
 	return c.newRequest(ctx, b)
 }
 
-// GetPet returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// GetPet returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) GetPet(ctx context.Context, opts *GetPetRequestOptions) (*Pet, error) {
 	req, err := c.GetPetRequest(ctx, opts)
 	if err != nil {
@@ -645,8 +812,9 @@ func (c *Client) PutPetRequest(ctx context.Context, opts *PutPetRequestOptions) 
 	return c.newRequest(ctx, b)
 }
 
-// PutPet returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// PutPet returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) PutPet(ctx context.Context, opts *PutPetRequestOptions) (*Pet, error) {
 	req, err := c.PutPetRequest(ctx, opts)
 	if err != nil {

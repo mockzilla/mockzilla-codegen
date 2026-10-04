@@ -117,7 +117,14 @@ func TestDecodeSuccess(t *testing.T) {
 	}{
 		{name: "The body of a 2xx", res: response(200, "application/json", nil), body: `{"R":1}`, want: envelope{JSON200: &rgb{R: 1}}},
 		{name: "A 2xx without a body", res: response(204, "", nil)},
-		{name: "A 2xx with a body nothing documents", res: response(202, "application/json", nil), body: `{}`},
+		{name: "A listed 2xx whose body is not read", res: response(204, "application/json", nil), body: `{"R":1}`},
+		{
+			name:    "A 2xx nothing lists",
+			res:     response(202, "application/json", nil),
+			body:    `{}`,
+			wantMsg: "unexpected status 202 Accepted",
+			wantAPI: &APIError{Status: 202, Header: http.Header{"Content-Type": {"application/json"}}, Body: []byte(`{}`)},
+		},
 		{name: "A 2xx in a media type no target takes", res: response(200, "text/html", nil), body: "<html>", wantErr: ErrContentType, wantMsg: "unsupported content type: text/html"},
 		{
 			name:    "An error status decoded into its error type",
@@ -155,6 +162,7 @@ func TestDecodeSuccess(t *testing.T) {
 			var got envelope
 			list := []Target{
 				{Status: "200", MediaType: "application/json", Dst: &got.JSON200},
+				{Status: "204"},
 				{Status: "404", MediaType: "application/json", Dst: new(notFound)},
 				{Status: "499", MediaType: "text/plain", Dst: new(string)},
 			}
@@ -184,6 +192,67 @@ func TestDecodeSuccess(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tc.want, got)
 			}
+		})
+	}
+}
+
+func TestDecodeSuccessOfA2xx(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		code    int
+		targets func(*envelope) []Target
+		want    envelope
+		wantAPI bool
+	}{
+		{
+			name: "Default lists no 2xx",
+			code: 202,
+			targets: func(e *envelope) []Target {
+				return []Target{{Status: "200", MediaType: "application/json", Dst: &e.JSON200}, {Status: "default", MediaType: "application/json", Dst: &e.JSONDefault}}
+			},
+			wantAPI: true,
+		},
+		{
+			name: "A range lists every 2xx",
+			code: 203,
+			targets: func(e *envelope) []Target {
+				return []Target{{Status: "2xx", MediaType: "application/json", Dst: &e.JSON200}}
+			},
+			want: envelope{JSON200: &rgb{R: 1}},
+		},
+		{
+			name: "A code goes before the range",
+			code: 201,
+			targets: func(e *envelope) []Target {
+				return []Target{{Status: "2XX", MediaType: "application/json", Dst: &e.JSON200}, {Status: "201"}}
+			},
+		},
+		{
+			name: "Without a 2xx target any 2xx is taken",
+			code: 202,
+			targets: func(e *envelope) []Target {
+				return []Target{{Status: "404", MediaType: "application/json", Dst: &e.JSON404}}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got envelope
+			err := DecodeSuccess(response(tc.code, "application/json", nil), []byte(`{"R":1}`), tc.targets(&got))
+
+			assert.Equal(t, tc.want, got)
+			if !tc.wantAPI {
+				require.NoError(t, err)
+				return
+			}
+			var apiErr *APIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, &APIError{Status: tc.code, Header: http.Header{"Content-Type": {"application/json"}}, Body: []byte(`{"R":1}`)}, apiErr)
 		})
 	}
 }

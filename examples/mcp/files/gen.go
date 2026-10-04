@@ -495,8 +495,9 @@ func (c *Client) SetPhotoRequest(ctx context.Context, opts *SetPhotoRequestOptio
 
 // Set the photo of a pet
 //
-// SetPhoto returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// SetPhoto returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) SetPhoto(ctx context.Context, opts *SetPhotoRequestOptions) (*Received, error) {
 	req, err := c.SetPhotoRequest(ctx, opts)
 	if err != nil {
@@ -533,8 +534,9 @@ func (c *Client) AddNoteRequest(ctx context.Context, opts *AddNoteRequestOptions
 
 // Add a note with an attachment
 //
-// AddNote returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// AddNote returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) AddNote(ctx context.Context, opts *AddNoteRequestOptions) (*Received, error) {
 	req, err := c.AddNoteRequest(ctx, opts)
 	if err != nil {
