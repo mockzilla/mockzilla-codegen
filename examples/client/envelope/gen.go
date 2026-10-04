@@ -546,8 +546,9 @@ func (c *Client) SubmitJobRequest(ctx context.Context, opts *SubmitJobRequestOpt
 //
 // Small jobs run at once and come back as 201; large ones are queued as 202.
 //
-// SubmitJob returns the body of a 201 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// SubmitJob returns the body of a 201 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions) (*Result, error) {
 	req, err := c.SubmitJobRequest(ctx, opts)
 	if err != nil {
@@ -561,6 +562,7 @@ func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions) (
 	var out *Result
 	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
 		{Status: "201", MediaType: "application/json", Dst: &out},
+		{Status: "202"},
 		{Status: "400", MediaType: "application/problem+json", Dst: new(Problem)},
 	}); err != nil {
 		return nil, err
@@ -609,8 +611,9 @@ func (c *Client) GetJobLogRequest(ctx context.Context, opts *GetJobLogRequestOpt
 	return c.newRequest(ctx, b)
 }
 
-// GetJobLog returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// GetJobLog returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions) (GetJobLogJSONResponse200, error) {
 	req, err := c.GetJobLogRequest(ctx, opts)
 	if err != nil {

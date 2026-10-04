@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -17,6 +18,7 @@ import (
 // Target is a field one documented response is decoded into. Status is the status as the spec
 // writes it: 200, 2XX or default; MediaType is the content's and Dst points at the field. With
 // IsHeaders, Dst is the struct of the typed headers of the status, read from the response headers.
+// Without Dst, the target documents a status whose body is not read.
 type Target struct {
 	Status    string
 	MediaType string
@@ -24,9 +26,9 @@ type Target struct {
 	IsHeaders bool
 }
 
-// APIError is a response outside 2xx from a method that returns the body of a 2xx response. Err
-// is the body decoded into the error type the spec documents for the status, nil without one; it
-// is what errors.As unwraps to.
+// APIError is a response that a method returning the body of a 2xx response does not take: a
+// status outside 2xx, or a 2xx the spec does not list. Err is the body decoded into the error type
+// the spec documents for the status, nil without one; it is what errors.As unwraps to.
 type APIError struct {
 	Status int
 	Header http.Header
@@ -35,12 +37,13 @@ type APIError struct {
 }
 
 // matched is what a response selects among the targets: those of the best status, then the
-// body target that takes the response's media type. IsUntaken reports body targets of the status
-// that none takes the media type of.
+// body target that takes the response's media type. IsListed reports a target of the status, and
+// isUntaken body targets of the status that none takes the media type of.
 type matched struct {
 	body      *Target
 	headers   *Target
 	mediaType string
+	isListed  bool
 	isUntaken bool
 }
 
@@ -75,13 +78,16 @@ func Decode(res *http.Response, body []byte, targets []Target) error {
 	return nil
 }
 
-// DecodeSuccess is Decode for a method that returns the body of a 2xx response: a body in a media
-// type no target of the status takes is an error, and a status outside 2xx is an *APIError, which
-// carries the body decoded into the target of the status when that is an error type.
+// DecodeSuccess is Decode for a method that returns the body of a 2xx response. A 2xx takes the
+// targets of its code or its range only, never default, and one that none lists is an *APIError
+// when any target lists a 2xx; without such a target, which is a method that returns no body, it
+// is no error. A body in a media type no target of the status takes is an error. A status outside
+// 2xx is an *APIError, which carries the body decoded into the target of the status when that is
+// an error type.
 func DecodeSuccess(res *http.Response, body []byte, targets []Target) error {
-	m := match(res, targets)
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		apiErr := &APIError{Status: res.StatusCode, Header: res.Header, Body: body}
+		m := match(res, targets)
 		if m.body != nil && len(body) > 0 {
 			if typed, ok := m.body.Dst.(error); ok && decodeBody(body, m.mediaType, m.body) == nil {
 				apiErr.Err = typed
@@ -90,7 +96,11 @@ func DecodeSuccess(res *http.Response, body []byte, targets []Target) error {
 		return apiErr
 	}
 
+	successes := slices.DeleteFunc(slices.Clone(targets), func(t Target) bool { return !isSuccess(t.Status) })
+	m := match(res, successes)
 	switch {
+	case !m.isListed && len(successes) > 0:
+		return &APIError{Status: res.StatusCode, Header: res.Header, Body: body}
 	case len(body) == 0:
 		return nil
 	case m.body != nil:
@@ -138,10 +148,11 @@ func match(res *http.Response, targets []Target) matched {
 		return m
 	}
 
+	m.isListed = true
 	bodyRank, hasBody := 0, false
 	for i := range targets {
 		t := &targets[i]
-		if statusRank(t.Status, res.StatusCode) != best {
+		if t.Dst == nil || statusRank(t.Status, res.StatusCode) != best {
 			continue
 		}
 		if t.IsHeaders {
@@ -172,6 +183,12 @@ func statusRank(status string, code int) int {
 		return 1
 	}
 	return 0
+}
+
+// isSuccess reports a documented 2xx status: a code from 200 to 299, or the range 2XX.
+func isSuccess(status string) bool {
+	code, err := strconv.Atoi(status)
+	return err == nil && code >= 200 && code <= 299 || strings.EqualFold(status, "2XX")
 }
 
 // mediaRank says how well a documented media type fits the response's: the same one, then JSON

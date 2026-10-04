@@ -447,8 +447,9 @@ func (c *Client) CountPetsRequest(ctx context.Context, opts *CountPetsRequestOpt
 
 // Count the pets
 //
-// CountPets returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// CountPets returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) CountPets(ctx context.Context, opts *CountPetsRequestOptions) (*CountPetsResponse200, error) {
 	req, err := c.CountPetsRequest(ctx, opts)
 	if err != nil {
@@ -482,8 +483,9 @@ func (c *Client) FindPetRequest(ctx context.Context, opts *FindPetRequestOptions
 
 // Find a pet by name
 //
-// FindPet returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// FindPet returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) FindPet(ctx context.Context, opts *FindPetRequestOptions) (*Pet, error) {
 	req, err := c.FindPetRequest(ctx, opts)
 	if err != nil {
@@ -497,6 +499,7 @@ func (c *Client) FindPet(ctx context.Context, opts *FindPetRequestOptions) (*Pet
 	var out *Pet
 	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
 		{Status: "200", MediaType: "application/json", Dst: &out},
+		{Status: "204"},
 	}); err != nil {
 		return nil, err
 	}
