@@ -61,13 +61,13 @@ var methodConsts = map[string]string{
 var wildcardMediaTypes = map[string]string{encodeJSON: "application/json", encodeText: "text/plain", encodeBytes: "application/octet-stream"}
 
 // OperationsView is the data of the operations part. Client is the client type as the file writes
-// it; Interface is the interface it implements.
+// it.
 type OperationsView struct {
 	Client       string
-	Interface    string
 	Context      string
 	HTTP         string
 	Runtime      string
+	Slices       string
 	HasEnvelopes bool
 	User         map[string]any
 	Operations   []OperationView
@@ -78,36 +78,31 @@ type OperationsView struct {
 // net/http constant or a quoted method; Path is quoted. IsSendable is false when the body is
 // required and the client can send none of its media types, so the request is never built.
 // Success is the status of the response the plain method returns the body of, as the spec writes
-// it, empty for none; Result is that body's type and Zero the value returned on an error. Targets
-// are what the plain method decodes, with the other documented 2xx statuses when it has a Result,
-// EnvelopeTargets what the HasEnvelopes method decodes into the envelope Response. Stream is the
-// Stream method of an operation that answers in a sequential media type, nil without HasStreams.
+// it, empty for none; Zero is the value returned on an error. Targets are what the plain method
+// decodes, with the other documented 2xx statuses when it has a Result, EnvelopeTargets what the
+// HasEnvelopes method decodes into the envelope Response. Stream is the Stream method of an
+// operation that answers in a sequential media type, nil without HasStreams.
 type OperationView struct {
-	Name            string
-	Doc             string
+	SignatureView
 	Method          string
 	Path            string
-	Options         string
 	Groups          []GroupView
 	Bodies          []BodyView
 	IsBodyRequired  bool
 	IsSendable      bool
 	Success         string
-	Result          string
 	Zero            string
 	Targets         []TargetView
-	Response        string
 	EnvelopeTargets []TargetView
 	Stream          *StreamView
 }
 
 // StreamView is the Stream method of an operation. MediaType is the sequential media type it asks
-// for; Frame is the type of one frame and Type the stream type the method returns; Targets are the
-// error bodies it decodes; Field is the envelope field that holds the stream.
+// for; Frame is the type of one frame; Targets are the error bodies it decodes; Field is the
+// envelope field that holds the stream.
 type StreamView struct {
 	MediaType string
 	Frame     string
-	Type      string
 	Targets   []TargetView
 	Field     string
 }
@@ -154,7 +149,6 @@ type TargetView struct {
 func operationsView(g *Generator, s *gocode.Scope) *OperationsView {
 	v := &OperationsView{
 		Client:       s.Symbol(PartCore, g.opts.Name),
-		Interface:    g.Interface(),
 		HasEnvelopes: g.opts.HasEnvelopes,
 		User:         g.opts.User,
 	}
@@ -165,6 +159,7 @@ func operationsView(g *Generator, s *gocode.Scope) *OperationsView {
 	v.Context = s.Import(gomodel.Import{Path: "context"})
 	v.HTTP = s.Import(gomodel.Import{Path: "net/http"})
 	v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
+	v.Slices = s.Import(gomodel.Import{Path: "slices"})
 	for _, op := range g.ops {
 		v.Operations = append(v.Operations, operationView(g, op, s, v.HTTP))
 	}
@@ -172,19 +167,16 @@ func operationsView(g *Generator, s *gocode.Scope) *OperationsView {
 }
 
 func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg string) OperationView {
-	n := g.opts.Namer
 	v := OperationView{
-		Name:           op.Name,
-		Doc:            operation.Doc(op.Spec),
+		SignatureView:  signatureView(g, op, s),
 		Method:         methodExpr(op.Spec.Method, httpPkg),
 		Path:           gocode.Quote(op.Spec.Path),
-		Options:        s.Symbol(PartOptions, n.ClientRequestOptions(op.Name)),
 		IsBodyRequired: op.Spec.Body != nil && op.Spec.Body.Required,
 	}
 	for _, p := range op.Params {
 		v.Groups = append(v.Groups, groupView(g, p))
 	}
-	fields := operation.BodyFields(op.Bodies, n)
+	fields := operation.BodyFields(op.Bodies, g.opts.Namer)
 	for i, c := range op.Bodies {
 		v.Bodies = append(v.Bodies, bodyView(c, fields[i], s))
 	}
@@ -192,7 +184,6 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 
 	if r, c, ok := SuccessBody(op); ok {
 		v.Success = r.Status
-		v.Result = s.Expr(operation.BodyType(c))
 		v.Zero = gocode.Zero(operation.BodyType(c))
 		v.Targets = append(v.Targets, TargetView{Status: gocode.Quote(r.Status), MediaType: gocode.Quote(c.MediaType), Dst: gocode.AddressOf("out")})
 		v.Targets = append(v.Targets, otherSuccesses(op, r.Status)...)
@@ -203,7 +194,6 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 		v.Stream = streamView(op, s)
 	}
 	if g.opts.HasEnvelopes {
-		v.Response = s.Symbol(PartResponses, n.ClientResponse(op.Name))
 		for _, f := range envelopeFields(g, op, s) {
 			if f.isStream {
 				v.Stream.Field = f.Name
@@ -226,11 +216,9 @@ func streamView(op *gomodel.Operation, s *gocode.Scope) *StreamView {
 	if !ok {
 		return nil
 	}
-	frame := s.Expr(frameType(c))
 	return &StreamView{
 		MediaType: c.MediaType,
-		Frame:     frame,
-		Type:      streamType(frame, s),
+		Frame:     s.Expr(frameType(c)),
 		Targets:   errorTargets(op, s),
 	}
 }

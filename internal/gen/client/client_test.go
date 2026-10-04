@@ -161,6 +161,7 @@ func TestTemplates(t *testing.T) {
 
 	assert.Equal(t, "client", set.Name)
 	assert.Equal(t, map[layout.PartID]string{PartCore: "core.tmpl", PartOptions: "options.tmpl", PartOperations: "operations.tmpl", PartResponses: "responses.tmpl"}, set.Parts)
+	assert.Equal(t, []string{"client.interface-header"}, set.Blocks)
 	_, err := render.New([]render.Set{set}, render.Options{})
 	require.NoError(t, err)
 }
@@ -178,8 +179,8 @@ func TestParts(t *testing.T) {
 		{
 			name: "Plain methods",
 			want: []layout.Part{
-				{ID: PartCore},
 				{ID: PartOptions, Uses: requests},
+				{ID: PartCore, Uses: []layout.PartID{PartOptions, gomodel.PartResponses, gomodel.PartTypes}},
 				{ID: PartOperations, Uses: []layout.PartID{PartCore, PartOptions, gomodel.PartResponses, gomodel.PartTypes}, Owner: PartCore},
 			},
 		},
@@ -187,10 +188,10 @@ func TestParts(t *testing.T) {
 			name:         "With envelopes",
 			withResponse: true,
 			want: []layout.Part{
-				{ID: PartCore},
 				{ID: PartOptions, Uses: requests},
-				{ID: PartOperations, Uses: []layout.PartID{PartCore, PartOptions, PartResponses, gomodel.PartResponses, gomodel.PartTypes}, Owner: PartCore},
 				{ID: PartResponses, Uses: responses},
+				{ID: PartCore, Uses: []layout.PartID{PartOptions, PartResponses, gomodel.PartResponses, gomodel.PartTypes}},
+				{ID: PartOperations, Uses: []layout.PartID{PartCore, PartOptions, PartResponses, gomodel.PartResponses, gomodel.PartTypes}, Owner: PartCore},
 			},
 		},
 	}
@@ -252,10 +253,38 @@ func TestViewWithoutOperations(t *testing.T) {
 	assert.Contains(t, core, "// WithHTTPClient sets another. A call has no time limit unless WithTimeout sets one.\n")
 	assert.Contains(t, core, "c := &PetClient{baseURL: u, doer: &http.Client{}}\n")
 	assert.Contains(t, core, "// WithTimeout sets how long a call may take, 0 for no limit.\nfunc WithTimeout(d time.Duration) PetClientOption {\n")
+	assert.Contains(t, core, "\ntype PetClientInterface interface {\n}\n\nvar _ PetClientInterface = (*PetClient)(nil)\n")
 	assert.Equal(t, "package types\n", string(f.render(t, PartOptions)))
 	assert.Equal(t, "package types\n", string(f.render(t, PartResponses)))
-	assert.Equal(t, "package api\n\n// PetClientInterface is what PetClient implements: one method per operation, so a test double can\n"+
-		"// stand in for the client.\ntype PetClientInterface interface {\n}\n\nvar _ PetClientInterface = (*PetClient)(nil)\n", string(f.render(t, PartOperations)))
+	assert.Equal(t, "package api\n", string(f.render(t, PartOperations)))
+}
+
+// TestViewRendersTheInterfaceHeader overrides the block with text that reads the user-context,
+// written with and without blank space around it.
+func TestViewRendersTheInterfaceHeader(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		text string
+	}{
+		{name: "Text alone", text: "// {{.Name}} is owned by {{.User.owner}}."},
+		{name: "Text with line breaks around it", text: "\n// {{.Name}} is owned by {{.User.owner}}.\n\n"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			m := petModel()
+			g, _ := New(m, allOptions())
+			f := fixture{m: m, g: g, cfg: splitConfig, templates: map[string]string{blockInterfaceHeader: tc.text}}
+
+			got := string(f.render(t, PartCore))
+
+			assert.Contains(t, got, "error\n\n// PetClientInterface is owned by platform.\n\n// PetClientInterface is what PetClient implements")
+		})
+	}
 }
 
 func TestViewOfABodyThatCannotBeSent(t *testing.T) {
@@ -282,7 +311,7 @@ func TestViewOfABodyThatCannotBeSent(t *testing.T) {
 
 	got := string(fixture{m: m, g: g, cfg: splitConfig}.render(t, PartOperations))
 
-	assert.Contains(t, got, "func (c *PetClient) ImportPetRequest(ctx context.Context, opts *types.ImportPetRequestOptions) (*http.Request, error) {\n"+
+	assert.Contains(t, got, "func (c *PetClient) ImportPetRequest(ctx context.Context, opts *types.ImportPetRequestOptions, editors ...RequestEditor) (*http.Request, error) {\n"+
 		"\tif opts == nil {\n"+
 		"\t\topts = &types.ImportPetRequestOptions{}\n"+
 		"\t}\n"+
@@ -322,18 +351,19 @@ func allOptions() Options {
 	}
 }
 
-// fixture is a model, its generator and the config that lays the parts out.
+// fixture is a model, its generator, the config that lays the parts out and the block overrides.
 type fixture struct {
-	m   *gomodel.Model
-	g   *Generator
-	cfg string
+	m         *gomodel.Model
+	g         *Generator
+	cfg       string
+	templates map[string]string
 }
 
 // render renders one part into the file the layout gives it.
 func (f fixture) render(t *testing.T, part layout.PartID) []byte {
 	t.Helper()
 
-	e, err := render.New([]render.Set{Templates()}, render.Options{Format: true})
+	e, err := render.New([]render.Set{Templates()}, render.Options{Templates: f.templates, Format: true})
 	require.NoError(t, err)
 	s := f.scope(t, part)
 	out, err := e.RenderPart(part, f.g.View(part, s))

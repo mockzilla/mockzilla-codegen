@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	chi "github.com/go-chi/chi/v5"
@@ -57,6 +58,8 @@ func (s SearchQuery) Validate() error {
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
+	// Search handles GET /search.
+	//
 	// Search the catalog
 	Search(ctx context.Context, opts *SearchServiceRequestOptions) (*SearchResponseData, error)
 }
@@ -296,14 +299,70 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	return router
 }
 
+// SearchRequestOptions is what Search sends: its parameters by location, and its body.
+type SearchRequestOptions struct {
+	Query *SearchQuery
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *SearchRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.Query != nil {
+		errs.Append("query", o.Query.Validate())
+	}
+	return errs.Err()
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
 // RequestEditor changes a request before it is sent, to add credentials for one.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
+// ClientInterface is what Client implements: one method per operation, so a test double can
+// stand in for the client.
+type ClientInterface interface {
+	// Search calls GET /search.
+	//
+	// Search the catalog
+	Search(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) (*Asked, error)
+}
+
+var _ ClientInterface = (*Client)(nil)
+
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
+
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
+// panics.
+func WithHTTPClient(d HTTPDoer) ClientOption {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
+	}
+	return func(c *Client) {
+		c.doer = d
+	}
+}
+
+// WithTimeout sets how long a call may take, 0 for no limit.
+func WithTimeout(d time.Duration) ClientOption {
+	return func(c *Client) {
+		c.timeout = d
+	}
+}
+
+// WithRequestEditor runs fns on every request before it is sent, after any editor added before
+// and before the editors of the call. A nil editor panics.
+func WithRequestEditor(fns ...RequestEditor) ClientOption {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
+	return func(c *Client) {
+		c.editors = append(c.editors, fns...)
+	}
+}
 
 // Client calls the API at a base URL, with one method per operation.
 type Client struct {
@@ -329,95 +388,15 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
-func WithHTTPClient(d HTTPDoer) ClientOption {
-	if d == nil {
-		panic("WithHTTPClient: nil HTTPDoer")
-	}
-	return func(c *Client) {
-		c.doer = d
-	}
-}
-
-// WithTimeout sets how long a call may take, 0 for no limit.
-func WithTimeout(d time.Duration) ClientOption {
-	return func(c *Client) {
-		c.timeout = d
-	}
-}
-
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
-func WithRequestEditor(fns ...RequestEditor) ClientOption {
-	for _, fn := range fns {
-		if fn == nil {
-			panic("WithRequestEditor: nil RequestEditor")
-		}
-	}
-	return func(c *Client) {
-		c.editors = append(c.editors, fns...)
-	}
-}
-
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
-	if err != nil {
-		return nil, err
-	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
-	}
-	return req, nil
-}
-
-// SearchRequestOptions is what Search sends: its parameters by location, and its body.
-type SearchRequestOptions struct {
-	Query *SearchQuery
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *SearchRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
-	if o.Query != nil {
-		errs.Append("query", o.Query.Validate())
-	}
-	return errs.Err()
-}
-
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
-type ClientInterface interface {
-	// Search the catalog
-	Search(ctx context.Context, opts *SearchRequestOptions) (*Asked, error)
-}
-
-var _ ClientInterface = (*Client)(nil)
-
-// SearchRequest builds the request of Search, with the editors of the client applied.
-func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &SearchRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/search")
-	if opts.Query != nil {
-		b.QueryParam(opts.Query.Q, runtime.Param{Name: "q", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
-		b.QueryParam(opts.Query.Sort, runtime.Param{Name: "sort", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
-		b.QueryParam(opts.Query.Limit, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
-	}
-	return c.newRequest(ctx, b)
-}
-
-// Search the catalog
+// Search calls GET /search.
 //
-// Search returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions) (*Asked, error) {
-	req, err := c.SearchRequest(ctx, opts)
+// # Search the catalog
+//
+// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
+// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
+// documents one.
+func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) (*Asked, error) {
+	req, err := c.SearchRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -433,6 +412,36 @@ func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions) (*Asked
 		return nil, err
 	}
 	return out, nil
+}
+
+// SearchRequest builds the request of GET /search and runs the editors of the client on it, then
+// editors.
+func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &SearchRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/search")
+	if opts.Query != nil {
+		b.QueryParam(opts.Query.Q, runtime.Param{Name: "q", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
+		b.QueryParam(opts.Query.Sort, runtime.Param{Name: "sort", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
+		b.QueryParam(opts.Query.Limit, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
+	}
+	return c.newRequest(ctx, b, editors)
+}
+
+// newRequest builds b against the base URL and runs the editors of the client on the request, then
+// editors.
+func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
+	if err != nil {
+		return nil, err
+	}
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
 }
 
 // SearchToolInput is the input of the search tool: the parameters of the operation.

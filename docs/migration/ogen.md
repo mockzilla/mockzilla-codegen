@@ -32,7 +32,7 @@ and so on. mockzilla-codegen writes one file, or the files `output.files` names
 | `generator.features.enable: [paths/client]` | `client:` |
 | `generator.features.enable: [paths/server]` | `server:` with a `framework` |
 | `generator.features.enable: [webhooks/client, webhooks/server]` | always: a webhook gets its types and a service method, no route and no client method |
-| `generator.features.enable: [client/editors]` | always: `WithRequestEditor` |
+| `generator.features.enable: [client/editors]` | always: `WithRequestEditor` on the client, and `editors` per call |
 | `generator.features.enable: [client/request/validation]` | `Validate` on every request options struct, called by you |
 | `generator.features.enable: [client/request/options]`, `client/security/reentrant` | none |
 | `generator.features.enable: [server/response/validation]` | `server.validation.response: true` |

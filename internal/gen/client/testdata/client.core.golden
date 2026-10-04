@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"example.com/work/types"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
@@ -15,8 +16,83 @@ type HTTPDoer = runtime.Doer
 // RequestEditor changes a request before it is sent, to add credentials for one.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
+// PetClientInterface is what PetClient implements: one method per operation, so a test double can
+// stand in for the client.
+type PetClientInterface interface {
+	// ListPets calls GET /pets.
+	//
+	// List pets
+	//
+	// Returns pets.
+	ListPets(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (types.Pets, error)
+	ListPetsWithResponse(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (*types.ListPetsResponse, error)
+	// CreatePet calls POST /pets.
+	//
+	// Same
+	//
+	// Deprecated: the spec marks it deprecated.
+	CreatePet(ctx context.Context, opts *types.CreatePetRequestOptions, editors ...RequestEditor) (*types.Pet, error)
+	CreatePetWithResponse(ctx context.Context, opts *types.CreatePetRequestOptions, editors ...RequestEditor) (*types.CreatePetResponse, error)
+	// DeletePet calls DELETE /pets/{id}.
+	//
+	// Deprecated: the spec marks it deprecated.
+	DeletePet(ctx context.Context, opts *types.DeletePetRequestOptions, editors ...RequestEditor) error
+	DeletePetWithResponse(ctx context.Context, opts *types.DeletePetRequestOptions, editors ...RequestEditor) (*types.DeletePetResponse, error)
+	// Ping calls GET /ping.
+	Ping(ctx context.Context, opts *types.PingRequestOptions, editors ...RequestEditor) (string, error)
+	PingWithResponse(ctx context.Context, opts *types.PingRequestOptions, editors ...RequestEditor) (*types.PingResponse, error)
+	// Query calls QUERY /pets/query.
+	Query(ctx context.Context, opts *types.QueryRequestOptions, editors ...RequestEditor) error
+	QueryWithResponse(ctx context.Context, opts *types.QueryRequestOptions, editors ...RequestEditor) (*types.QueryResponse, error)
+	// Chat calls POST /chat.
+	Chat(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.Pet, error)
+	ChatWithResponse(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.ChatResponse, error)
+	ChatStream(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[types.ChatResponseItem], error)
+	ChatStreamWithResponse(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.ChatResponse, error)
+	// Tail calls GET /tail.
+	Tail(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*string, error)
+	TailWithResponse(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*types.TailResponse, error)
+	TailStream(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*runtime.Stream[[]byte], error)
+	TailStreamWithResponse(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*types.TailResponse, error)
+}
+
+var _ PetClientInterface = (*PetClient)(nil)
+
 // PetClientOption sets one setting of PetClient.
 type PetClientOption func(*PetClient)
+
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
+// panics.
+func WithHTTPClient(d HTTPDoer) PetClientOption {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
+	}
+	return func(c *PetClient) {
+		c.doer = d
+	}
+}
+
+// WithTimeout sets how long a call may take, 0 for no limit. A Stream method waits that long for
+// the response headers only, then reads frames until the server ends the stream or the context
+// is canceled. An http.Client with a Timeout cuts the stream after it.
+func WithTimeout(d time.Duration) PetClientOption {
+	return func(c *PetClient) {
+		c.timeout = d
+	}
+}
+
+// WithRequestEditor runs fns on every request before it is sent, after any editor added before
+// and before the editors of the call. A nil editor panics.
+func WithRequestEditor(fns ...RequestEditor) PetClientOption {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
+	return func(c *PetClient) {
+		c.editors = append(c.editors, fns...)
+	}
+}
 
 // PetClient calls the API at a base URL, with one method per operation.
 type PetClient struct {
@@ -40,51 +116,4 @@ func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
 		opt(c)
 	}
 	return c, nil
-}
-
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
-func WithHTTPClient(d HTTPDoer) PetClientOption {
-	if d == nil {
-		panic("WithHTTPClient: nil HTTPDoer")
-	}
-	return func(c *PetClient) {
-		c.doer = d
-	}
-}
-
-// WithTimeout sets how long a call may take, 0 for no limit. A Stream method waits that long for
-// the response headers only, then reads frames until the server ends the stream or the context
-// is canceled. An http.Client with a Timeout cuts the stream after it.
-func WithTimeout(d time.Duration) PetClientOption {
-	return func(c *PetClient) {
-		c.timeout = d
-	}
-}
-
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
-func WithRequestEditor(fns ...RequestEditor) PetClientOption {
-	for _, fn := range fns {
-		if fn == nil {
-			panic("WithRequestEditor: nil RequestEditor")
-		}
-	}
-	return func(c *PetClient) {
-		c.editors = append(c.editors, fns...)
-	}
-}
-
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *PetClient) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
-	if err != nil {
-		return nil, err
-	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
-	}
-	return req, nil
 }

@@ -38,26 +38,44 @@ func WithRequestEditor(fns ...RequestEditor) PetClientOption
   `http.Client` covers reading the body too, so it cuts a stream: leave it unset and use
   `WithTimeout`.
 - Request editors run on every request before it is sent, in the order they were added, and stop
-  the request when they return an error. They are the place for credentials.
+  the request when they return an error. They are the place for credentials. A method takes
+  editors of its own too, see [Methods](#methods).
 
 `PetClientInterface` lists every method of the client but `<Op>Request`, so a test double can
-stand in for it. The client satisfies it, which is checked at compile time.
+stand in for it. The client satisfies it, which is checked at compile time. A
+`client.interface-header` block writes lines before it, such as a `go:generate` line for a mock
+([templates](templates.md#blocks)).
 
 ## Methods
 
 ```go
 type PetClientInterface interface {
+	// ListPets calls GET /pets.
+	//
 	// List pets
-	ListPets(ctx context.Context, opts *ListPetsRequestOptions) (ListPetsResponse200, error)
-	CreatePet(ctx context.Context, opts *CreatePetRequestOptions) (*Pet, error)
-	DeletePet(ctx context.Context, opts *DeletePetRequestOptions) error
+	ListPets(ctx context.Context, opts *ListPetsRequestOptions, editors ...RequestEditor) (ListPetsResponse200, error)
+	// CreatePet calls POST /pets.
+	CreatePet(ctx context.Context, opts *CreatePetRequestOptions, editors ...RequestEditor) (*Pet, error)
+	// DeletePet calls DELETE /pets/{id}.
+	DeletePet(ctx context.Context, opts *DeletePetRequestOptions, editors ...RequestEditor) error
 }
 
-func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOptions) (*http.Request, error)
+func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOptions, editors ...RequestEditor) (*http.Request, error)
 ```
 
 - Every operation has the same shape, even one without parameters or body, and `opts` may be nil
   when there is nothing to send. Webhooks get no method, since they come in.
+- The comment of a method starts with the HTTP method and the path it calls, then the summary and
+  the description of the spec.
+- `editors` run on the request of that one call, after the editors of the client. They are for
+  what changes from call to call, such as a request ID:
+
+  ```go
+  pets, err := c.ListPets(ctx, nil, func(_ context.Context, req *http.Request) error {
+  	req.Header.Set("X-Request-ID", id)
+  	return nil
+  })
+  ```
 - The method returns the body of the lowest 2xx response the spec documents with a body the client
   can decode: its JSON media type, else its first one. An operation without such a response
   returns the error alone and takes any 2xx. Another 2xx the spec documents, or one without a
@@ -90,8 +108,8 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
   under the response's media type. Under a wildcard media type (`*/*`, `application/*`) a string,
   bytes or a `runtime.File` takes the body as it came whatever the response's media type, also
   JSON, the same way the client sends them; anything else is read as JSON.
-- `<Op>Request` builds the request without sending it, with the editors applied. Use it to send
-  through something else, to log, or to test what an operation sends.
+- `<Op>Request` builds the request without sending it, with the editors of the client and of the
+  call applied. Use it to send through something else, to log, or to test what an operation sends.
 
 ## Request options
 
@@ -157,7 +175,7 @@ type SubmitJobResponse struct {
 }
 
 func (r *SubmitJobResponse) StatusCode() int
-func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobRequestOptions) (*SubmitJobResponse, error)
+func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*SubmitJobResponse, error)
 ```
 
 - `HTTPResponse` is the response with its body read and closed; `Body` holds the raw bytes, and
@@ -183,7 +201,7 @@ so it returns only when the server closes the connection. With `streaming: true`
 that documents a sequential response also gets a method that reads it frame by frame:
 
 ```go
-func (c *PetClient) ChatStream(ctx context.Context, opts *ChatRequestOptions) (*runtime.Stream[Chunk], error)
+func (c *PetClient) ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[Chunk], error)
 ```
 
 A response is sequential when its media type is one of:
@@ -279,10 +297,11 @@ Server-Sent Events from a handler is not generated yet.
 
 ## Layout
 
-The client has four parts for `output.files`: `client.core` (the client type and its options),
-`client.options` (the request options), `client.operations` (the interface and the methods) and
-`client.responses` (the envelopes). The operations add methods to the client type, so they must
-stay in the folder of the core; the options and the envelopes may go anywhere, with the models.
+The client has four parts for `output.files`: `client.options` (the request options),
+`client.responses` (the envelopes), `client.core` (the interface, the client type and its options)
+and `client.operations` (the methods). A file that holds several of them has them in this order.
+The operations add methods to the client type, so they must stay in the folder of the core; the
+options and the envelopes may go anywhere, with the models.
 
 ## Runtime
 

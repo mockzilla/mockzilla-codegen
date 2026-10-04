@@ -7,9 +7,15 @@ package basic
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,54 +24,114 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-var errBoom = errors.New("boom")
+type doerFunc func(*http.Request) (*http.Response, error)
 
-// service keeps pets in memory.
-type service struct {
+func (f doerFunc) Do(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+// petShop keeps pets in memory and fails to create a pet named boom.
+type petShop struct {
+	mu   sync.Mutex
 	pets map[int]Pet
 }
 
-func (s *service) ListPets(_ context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error) {
-	pets := ListPetsResponse200{}
-	for _, p := range s.pets {
-		pets = append(pets, p)
-	}
-	if opts.Query.Limit != nil && *opts.Query.Limit < len(pets) {
-		pets = pets[:*opts.Query.Limit]
-	}
-	return NewListPetsResponseData(pets), nil
+func (s *petShop) handler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /pets", s.list)
+	mux.HandleFunc("POST /pets", s.create)
+	mux.HandleFunc("GET /pets/{id}", s.get)
+	mux.HandleFunc("DELETE /pets/{id}", s.remove)
+	mux.HandleFunc("GET /ping", ping)
+	return mux
 }
 
-func (s *service) CreatePet(_ context.Context, opts *CreatePetServiceRequestOptions) (*CreatePetResponseData, error) {
-	if opts.Body.Name == "boom" {
-		return nil, errBoom
+func (s *petShop) list(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	found := make([]Pet, 0, len(s.pets))
+	for _, id := range slices.Sorted(maps.Keys(s.pets)) {
+		found = append(found, s.pets[id])
 	}
-	s.pets[opts.Body.ID] = *opts.Body
-	return NewCreatePetResponseData(opts.Body).WithTypedHeaders(CreatePetResponse201Headers{Location: new("/pets/1")}), nil
+	if limit, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && limit >= 0 && limit < len(found) {
+		found = found[:limit]
+	}
+	writeJSON(w, http.StatusOK, found)
 }
 
-func (s *service) GetPet(_ context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error) {
-	p, ok := s.pets[opts.PathParams.ID]
+func (s *petShop) create(w http.ResponseWriter, r *http.Request) {
+	var pet Pet
+	if err := json.NewDecoder(r.Body).Decode(&pet); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if pet.Name == "boom" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = io.WriteString(w, `{"error":"internal server error"}`)
+		return
+	}
+
+	s.mu.Lock()
+	s.pets[pet.ID] = pet
+	s.mu.Unlock()
+	w.Header().Set("Location", "/pets/1")
+	writeJSON(w, http.StatusCreated, pet)
+}
+
+func (s *petShop) get(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	s.mu.Lock()
+	pet, ok := s.pets[id]
+	s.mu.Unlock()
 	if !ok {
-		return NewGetPetResponseData404(), nil
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
-	return NewGetPetResponseData200(&p), nil
+	writeJSON(w, http.StatusOK, pet)
 }
 
-func (s *service) DeletePet(_ context.Context, opts *DeletePetServiceRequestOptions) (*DeletePetResponseData, error) {
-	delete(s.pets, opts.PathParams.ID)
-	return NewDeletePetResponseData(), nil
+func (s *petShop) remove(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	s.mu.Lock()
+	delete(s.pets, id)
+	s.mu.Unlock()
+	w.WriteHeader(http.StatusNoContent)
 }
 
-func (*service) Ping(context.Context, *PingServiceRequestOptions) (*PingResponseData, error) {
-	return NewPingResponseData(new("pong")), nil
+func ping(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	_, _ = io.WriteString(w, "pong")
 }
 
-// newClient serves the service and returns a client of it.
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func orderEditor(name string) RequestEditor {
+	return func(_ context.Context, req *http.Request) error {
+		req.Header.Add("X-Order", name)
+		return nil
+	}
+}
+
 func newClient(t *testing.T, opts ...PetClientOption) *PetClient {
 	t.Helper()
 
-	srv := httptest.NewServer(NewRouter(&service{pets: map[int]Pet{}}))
+	srv := httptest.NewServer((&petShop{pets: map[int]Pet{}}).handler())
 	t.Cleanup(srv.Close)
 	c, err := NewPetClient(srv.URL, opts...)
 	require.NoError(t, err)
@@ -164,14 +230,11 @@ func TestErrors(t *testing.T) {
 func TestOptions(t *testing.T) {
 	t.Parallel()
 
-	var seen []string
-	record := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			seen = append(seen, r.Header.Get("X-Trace")+" "+r.UserAgent())
-			next.ServeHTTP(w, r)
-		})
-	}
-	srv := httptest.NewServer(NewRouter(&service{pets: map[int]Pet{}}, WithMiddleware(record)))
+	seen := make(chan string, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen <- r.Header.Get("X-Trace") + " " + r.UserAgent()
+		ping(w, r)
+	}))
 	t.Cleanup(srv.Close)
 	var sent int
 	doer := doerFunc(func(req *http.Request) (*http.Response, error) {
@@ -193,31 +256,70 @@ func TestOptions(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, sent, "the doer sends")
-	assert.Equal(t, []string{"abc pets/1"}, seen, "the editors run in order")
+	assert.Equal(t, "abc pets/1", <-seen, "the editors run in order")
+}
+
+func TestCallEditors(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	seen := make(chan []string, 2)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen <- r.Header.Values("X-Order")
+		ping(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	c, err := NewPetClient(srv.URL, WithRequestEditor(orderEditor("client 1")), WithRequestEditor(orderEditor("client 2")))
+	require.NoError(t, err)
+
+	_, err = c.Ping(ctx, nil, orderEditor("call 1"), orderEditor("call 2"))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"client 1", "client 2", "call 1", "call 2"}, <-seen, "the editors of the call run after those of the client")
+
+	_, err = c.Ping(ctx, nil)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"client 1", "client 2"}, <-seen, "the editors of a call stay with that call")
 }
 
 func TestRequestEditorError(t *testing.T) {
 	t.Parallel()
 
 	failing := errors.New("no token")
-	c := newClient(t, WithRequestEditor(func(context.Context, *http.Request) error { return failing }))
+	fail := func(context.Context, *http.Request) error { return failing }
+	tests := []struct {
+		name    string
+		options []PetClientOption
+		editors []RequestEditor
+	}{
+		{name: "An editor of the client fails", options: []PetClientOption{WithRequestEditor(fail)}},
+		{name: "An editor of the call fails", editors: []RequestEditor{fail}},
+	}
 
-	_, err := c.Ping(context.Background(), nil)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	require.ErrorIs(t, err, failing)
+			c := newClient(t, tc.options...)
+
+			_, err := c.Ping(context.Background(), nil, tc.editors...)
+
+			require.ErrorIs(t, err, failing)
+		})
+	}
 }
 
 func TestRequestAlone(t *testing.T) {
 	t.Parallel()
 
-	c, err := NewPetClient("https://api.example.test/v1")
+	c, err := NewPetClient("https://api.example.test/v1", WithRequestEditor(orderEditor("client")))
 	require.NoError(t, err)
 
-	req, err := c.GetPetRequest(context.Background(), &GetPetRequestOptions{PathParams: &GetPetPathParams{ID: 7}})
+	req, err := c.GetPetRequest(context.Background(), &GetPetRequestOptions{PathParams: &GetPetPathParams{ID: 7}}, orderEditor("call"))
 
 	require.NoError(t, err)
 	assert.Equal(t, http.MethodGet, req.Method)
 	assert.Equal(t, "https://api.example.test/v1/pets/7", req.URL.String())
+	assert.Equal(t, []string{"client", "call"}, req.Header.Values("X-Order"), "the request carries the edits of the client, then the call")
 }
 
 func TestNewPetClientRejectsABareHost(t *testing.T) {
@@ -237,10 +339,4 @@ func TestInterface(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "pong", *pong)
-}
-
-type doerFunc func(*http.Request) (*http.Response, error)
-
-func (f doerFunc) Do(req *http.Request) (*http.Response, error) {
-	return f(req)
 }

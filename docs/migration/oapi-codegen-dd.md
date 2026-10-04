@@ -87,8 +87,8 @@ service implementation moves as it is. What differs:
 | oapi-codegen-dd | mockzilla-codegen |
 |---|---|
 | `NewDefaultClient(baseURL, opts...)`, `NewClient(runtime.APIClient)` | `NewClient(baseURL, opts...)`; `WithHTTPClient` takes anything with `Do` ([client](../client.md#client)) |
-| `<Op>(ctx, options, reqEditors...)` returning `*<Op>Response` | `<Op>(ctx, opts)` returning the success body, an error otherwise ([methods](../client.md#methods)) |
-| `reqEditors` per call | `WithRequestEditor` on the client |
+| `<Op>(ctx, options, reqEditors...)` returning `*<Op>Response` | `<Op>(ctx, opts, editors...)` returning the success body, an error otherwise ([methods](../client.md#methods)) |
+| `reqEditors` per call | `editors` per call, after those of `WithRequestEditor` on the client |
 | `<Op>WithResponse` | the same, with `HTTPResponse`, `Body`, `JSON<status>` and `Headers<status>` ([envelopes](../client.md#envelopes)) |
 | `<Op>Stream` over `runtime.Stream[T]` | the same ([streaming](../client.md#streaming)) |
 

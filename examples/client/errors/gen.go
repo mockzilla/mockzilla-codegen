@@ -4,12 +4,11 @@ package errors
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
-	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
@@ -22,20 +21,10 @@ type Pet struct {
 	Age  *int   `json:"age,omitempty"`
 }
 
-// Validate checks the value against the constraints of the spec, as a request carries it.
+// Validate checks the value against the constraints of the spec.
 func (p Pet) Validate() error {
 	var errs runtime.ValidationErrors
 	errs.Append("name", runtime.MinLength(p.Name, 1))
-	return errs.Err()
-}
-
-// ValidateResponse checks the value against the constraints of the spec, as a response carries it.
-func (p Pet) ValidateResponse() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(p.Name, 1))
-	if p.Age != nil {
-		errs.Append("age", runtime.Minimum(*p.Age, 0, false))
-	}
 	return errs.Err()
 }
 
@@ -107,564 +96,6 @@ func (p PutPetPathParams) Validate() error {
 	return errs.Err()
 }
 
-// ServiceInterface is what the generated handlers call. Implement it with the business logic.
-type ServiceInterface interface {
-	AddPet(ctx context.Context, opts *AddPetServiceRequestOptions) (*AddPetResponseData, error)
-	GetPet(ctx context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error)
-	PutPet(ctx context.Context, opts *PutPetServiceRequestOptions) (*PutPetResponseData, error)
-}
-
-// AddPetServiceRequestOptions is what AddPet receives. RawRequest is the request as it came in.
-type AddPetServiceRequestOptions struct {
-	// Body sent as application/json.
-	Body       *Pet
-	RawRequest *http.Request
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *AddPetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
-	if o.Body != nil {
-		errs.Append("body", o.Body.Validate())
-	}
-	return errs.Err()
-}
-
-// AddPetResponseData is what AddPet returns: the status, the headers and the body of the response.
-type AddPetResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewAddPetResponseData201 returns the response data of status 201 with body as application/json.
-func NewAddPetResponseData201(body *Pet) *AddPetResponseData {
-	return &AddPetResponseData{Status: 201, Body: body, contentType: "application/json"}
-}
-
-// NewAddPetResponseData204 returns the response data of status 204.
-func NewAddPetResponseData204() *AddPetResponseData {
-	return &AddPetResponseData{Status: 204, contentType: ""}
-}
-
-// NewAddPetResponseDataDefault returns the response data of status default with body as application/problem+json.
-func NewAddPetResponseDataDefault(status int, body *Problem) *AddPetResponseData {
-	return &AddPetResponseData{Status: status, Body: body, contentType: "application/problem+json"}
-}
-
-// WithStatus sets the status code.
-func (r *AddPetResponseData) WithStatus(code int) *AddPetResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *AddPetResponseData) WithHeaders(h http.Header) *AddPetResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *AddPetResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *AddPetResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *AddPetResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *AddPetResponseData) ContentType() string {
-	return r.contentType
-}
-
-// GetPetServiceRequestOptions is what GetPet receives. RawRequest is the request as it came in.
-type GetPetServiceRequestOptions struct {
-	PathParams *GetPetPathParams
-	Query      *GetPetQuery
-	RawRequest *http.Request
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *GetPetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
-	if o.PathParams != nil {
-		errs.Append("path", o.PathParams.Validate())
-	}
-	if o.Query != nil {
-		errs.Append("query", o.Query.Validate())
-	}
-	return errs.Err()
-}
-
-// GetPetResponseData is what GetPet returns: the status, the headers and the body of the response.
-type GetPetResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewGetPetResponseData200 returns the response data of status 200 with body as application/json.
-func NewGetPetResponseData200(body *Pet) *GetPetResponseData {
-	return &GetPetResponseData{Status: 200, Body: body, contentType: "application/json"}
-}
-
-// NewGetPetResponseData404 returns the response data of status 404 with body as application/problem+json.
-func NewGetPetResponseData404(body *Problem) *GetPetResponseData {
-	return &GetPetResponseData{Status: 404, Body: body, contentType: "application/problem+json"}
-}
-
-// NewGetPetResponseData409 returns the response data of status 409 with body as application/problem+json.
-func NewGetPetResponseData409(body *Locked) *GetPetResponseData {
-	return &GetPetResponseData{Status: 409, Body: body, contentType: "application/problem+json"}
-}
-
-// WithStatus sets the status code.
-func (r *GetPetResponseData) WithStatus(code int) *GetPetResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *GetPetResponseData) WithHeaders(h http.Header) *GetPetResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *GetPetResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *GetPetResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *GetPetResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *GetPetResponseData) ContentType() string {
-	return r.contentType
-}
-
-// PutPetServiceRequestOptions is what PutPet receives. RawRequest is the request as it came in.
-type PutPetServiceRequestOptions struct {
-	PathParams *PutPetPathParams
-	// Body sent as application/json.
-	Body       *Pet
-	RawRequest *http.Request
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *PutPetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
-	if o.PathParams != nil {
-		errs.Append("path", o.PathParams.Validate())
-	}
-	if o.Body != nil {
-		errs.Append("body", o.Body.Validate())
-	}
-	return errs.Err()
-}
-
-// PutPetResponseData is what PutPet returns: the status, the headers and the body of the response.
-type PutPetResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewPutPetResponseData returns the response data of status 200 with body as application/json.
-func NewPutPetResponseData(body *Pet) *PutPetResponseData {
-	return &PutPetResponseData{Status: 200, Body: body, contentType: "application/json"}
-}
-
-// WithStatus sets the status code.
-func (r *PutPetResponseData) WithStatus(code int) *PutPetResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *PutPetResponseData) WithHeaders(h http.Header) *PutPetResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *PutPetResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *PutPetResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *PutPetResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *PutPetResponseData) ContentType() string {
-	return r.contentType
-}
-
-// The error types the handlers use, as the runtime declares them.
-type (
-	ErrorKind           = runtime.ErrorKind
-	HandlerError        = runtime.HandlerError
-	ErrorHandler        = runtime.ErrorHandler
-	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
-	DefaultErrorHandler = runtime.DefaultErrorHandler
-)
-
-// The kinds of HandlerError.
-const (
-	ErrorParse      = runtime.ErrorParse
-	ErrorDecode     = runtime.ErrorDecode
-	ErrorValidation = runtime.ErrorValidation
-	ErrorService    = runtime.ErrorService
-	ErrorResponse   = runtime.ErrorResponse
-)
-
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
-type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       runtime.ErrorHandler
-	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
-	MultipartMaxMemory int64
-}
-
-// ServerOption sets one field of ServerOptions.
-type ServerOption func(*ServerOptions)
-
-// NewServerOptions applies opts to the defaults.
-func NewServerOptions(opts ...ServerOption) *ServerOptions {
-	o := &ServerOptions{
-		ErrorHandler:       runtime.DefaultErrorHandler{},
-		JSONDecoder:        runtime.DecodeJSON,
-		MultipartMaxMemory: 33554432,
-	}
-	for _, opt := range opts {
-		opt(o)
-	}
-	return o
-}
-
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
-func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
-	return func(o *ServerOptions) {
-		o.Middleware = append(o.Middleware, mw...)
-	}
-}
-
-// WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
-	return func(o *ServerOptions) {
-		o.ErrorHandler = h
-	}
-}
-
-// WithJSONDecoder sets what reads JSON bodies. isRequired says whether an empty body is an error.
-func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error) ServerOption {
-	return func(o *ServerOptions) {
-		o.JSONDecoder = decode
-	}
-}
-
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
-func WithMultipartMaxMemory(n int64) ServerOption {
-	return func(o *ServerOptions) {
-		o.MultipartMaxMemory = n
-	}
-}
-
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
-type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
-}
-
-// responseData is what every response data type gives the adapter.
-type responseData interface {
-	StatusCode() int
-	Header() http.Header
-	Payload() any
-	ContentType() string
-}
-
-// NewHTTPAdapter returns the adapter of svc.
-func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
-}
-
-// AddPet handles POST /pets.
-func (a *HTTPAdapter) AddPet(w http.ResponseWriter, r *http.Request) {
-	opts := &AddPetServiceRequestOptions{RawRequest: r}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "application/json":
-		if err := a.opts.JSONDecoder(r.Body, &opts.Body, true); err != nil {
-			a.failDecode(w, r, "AddPet", err)
-			return
-		}
-	case "":
-		a.failDecode(w, r, "AddPet", runtime.ErrBodyEmpty)
-		return
-	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "AddPet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return
-	}
-	if err := opts.Validate(); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "AddPet", Err: err})
-		return
-	}
-
-	res, err := a.svc.AddPet(r.Context(), opts)
-	if err != nil {
-		if problem, ok := runtime.AsError[Problem](err); ok {
-			a.opts.ErrorHandler.HandleError(w, r, 500, problem)
-			return
-		}
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "AddPet", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "AddPet", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "AddPet", res)
-}
-
-// GetPet handles GET /pets/{id}.
-func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
-	opts := &GetPetServiceRequestOptions{RawRequest: r}
-	query := r.URL.Query()
-	opts.PathParams = &GetPetPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetPet", ParamName: "id", ParamLocation: "path", Err: err})
-		return
-	}
-	opts.Query = &GetPetQuery{}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "fields", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Fields); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetPet", ParamName: "fields", ParamLocation: "query", Err: err})
-		return
-	}
-	if err := opts.Validate(); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "GetPet", Err: err})
-		return
-	}
-
-	res, err := a.svc.GetPet(r.Context(), opts)
-	if err != nil {
-		if problem, ok := runtime.AsError[Problem](err); ok {
-			a.opts.ErrorHandler.HandleError(w, r, 404, problem)
-			return
-		}
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPet", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPet", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "GetPet", res)
-}
-
-// PutPet handles PUT /pets/{id}.
-func (a *HTTPAdapter) PutPet(w http.ResponseWriter, r *http.Request) {
-	opts := &PutPetServiceRequestOptions{RawRequest: r}
-	opts.PathParams = &PutPetPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PutPet", ParamName: "id", ParamLocation: "path", Err: err})
-		return
-	}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "application/json":
-		if err := a.opts.JSONDecoder(r.Body, &opts.Body, true); err != nil {
-			a.failDecode(w, r, "PutPet", err)
-			return
-		}
-	case "":
-		a.failDecode(w, r, "PutPet", runtime.ErrBodyEmpty)
-		return
-	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PutPet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return
-	}
-	if err := opts.Validate(); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "PutPet", Err: err})
-		return
-	}
-
-	res, err := a.svc.PutPet(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutPet", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutPet", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "PutPet", res)
-}
-
-// fail answers a request the handler could not serve.
-func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
-	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
-}
-
-// failDecode answers a request whose body could not be read.
-func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
-	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
-}
-
-// write writes the response of the service, once it passes the checks of the spec.
-func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
-	if err := runtime.ValidateResponse(res.Payload()); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
-		return
-	}
-	if res.ContentType() != "" {
-		w.Header().Set("Content-Type", res.ContentType())
-	}
-	if err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
-	}
-}
-
-// WithRouter registers the routes on r instead of a new router.
-func WithRouter(r chi.Router) ServerOption {
-	return func(o *ServerOptions) {
-		o.Router = r
-	}
-}
-
-// NewRouter registers every operation on a chi router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
-// wraps the generated routes and nothing else.
-func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
-	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
-	register := func(r chi.Router) {
-		r.Post("/pets", adapter.AddPet)
-		r.Get("/pets/{id}", adapter.GetPet)
-		r.Put("/pets/{id}", adapter.PutPet)
-	}
-
-	router, _ := o.Router.(chi.Router)
-	if router == nil {
-		router = chi.NewRouter()
-		router.Use(o.Middleware...)
-		register(router)
-		return router
-	}
-	router.Group(func(r chi.Router) {
-		r.Use(o.Middleware...)
-		register(r)
-	})
-	return router
-}
-
-// HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
-
-// RequestEditor changes a request before it is sent, to add credentials for one.
-type RequestEditor func(ctx context.Context, req *http.Request) error
-
-// ClientOption sets one setting of Client.
-type ClientOption func(*Client)
-
-// Client calls the API at a base URL, with one method per operation.
-type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
-}
-
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
-func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c, nil
-}
-
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
-func WithHTTPClient(d HTTPDoer) ClientOption {
-	if d == nil {
-		panic("WithHTTPClient: nil HTTPDoer")
-	}
-	return func(c *Client) {
-		c.doer = d
-	}
-}
-
-// WithTimeout sets how long a call may take, 0 for no limit.
-func WithTimeout(d time.Duration) ClientOption {
-	return func(c *Client) {
-		c.timeout = d
-	}
-}
-
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
-func WithRequestEditor(fns ...RequestEditor) ClientOption {
-	for _, fn := range fns {
-		if fn == nil {
-			panic("WithRequestEditor: nil RequestEditor")
-		}
-	}
-	return func(c *Client) {
-		c.editors = append(c.editors, fns...)
-	}
-}
-
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
-	if err != nil {
-		return nil, err
-	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
-	}
-	return req, nil
-}
-
 // AddPetRequestOptions is what AddPet sends: its parameters by location, and its body.
 type AddPetRequestOptions struct {
 	// Body sent as application/json.
@@ -717,36 +148,90 @@ func (o *PutPetRequestOptions) Validate() error {
 	return errs.Err()
 }
 
+// HTTPDoer sends a request, as *http.Client does.
+type HTTPDoer = runtime.Doer
+
+// RequestEditor changes a request before it is sent, to add credentials for one.
+type RequestEditor func(ctx context.Context, req *http.Request) error
+
 // ClientInterface is what Client implements: one method per operation, so a test double can
 // stand in for the client.
 type ClientInterface interface {
-	AddPet(ctx context.Context, opts *AddPetRequestOptions) (*Pet, error)
-	GetPet(ctx context.Context, opts *GetPetRequestOptions) (*Pet, error)
-	PutPet(ctx context.Context, opts *PutPetRequestOptions) (*Pet, error)
+	// AddPet calls POST /pets.
+	AddPet(ctx context.Context, opts *AddPetRequestOptions, editors ...RequestEditor) (*Pet, error)
+	// GetPet calls GET /pets/{id}.
+	GetPet(ctx context.Context, opts *GetPetRequestOptions, editors ...RequestEditor) (*Pet, error)
+	// PutPet calls PUT /pets/{id}.
+	PutPet(ctx context.Context, opts *PutPetRequestOptions, editors ...RequestEditor) (*Pet, error)
 }
 
 var _ ClientInterface = (*Client)(nil)
 
-// AddPetRequest builds the request of AddPet, with the editors of the client applied.
-func (c *Client) AddPetRequest(ctx context.Context, opts *AddPetRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &AddPetRequestOptions{}
+// ClientOption sets one setting of Client.
+type ClientOption func(*Client)
+
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
+// panics.
+func WithHTTPClient(d HTTPDoer) ClientOption {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/pets")
-	switch {
-	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
-	default:
-		return nil, runtime.ErrBodyEmpty
+	return func(c *Client) {
+		c.doer = d
 	}
-	return c.newRequest(ctx, b)
 }
 
-// AddPet returns the body of a 201 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) AddPet(ctx context.Context, opts *AddPetRequestOptions) (*Pet, error) {
-	req, err := c.AddPetRequest(ctx, opts)
+// WithTimeout sets how long a call may take, 0 for no limit.
+func WithTimeout(d time.Duration) ClientOption {
+	return func(c *Client) {
+		c.timeout = d
+	}
+}
+
+// WithRequestEditor runs fns on every request before it is sent, after any editor added before
+// and before the editors of the call. A nil editor panics.
+func WithRequestEditor(fns ...RequestEditor) ClientOption {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
+	return func(c *Client) {
+		c.editors = append(c.editors, fns...)
+	}
+}
+
+// Client calls the API at a base URL, with one method per operation.
+type Client struct {
+	baseURL *url.URL
+	doer    HTTPDoer
+	timeout time.Duration
+	editors []RequestEditor
+}
+
+// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
+// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
+// sets another limit.
+func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
+	u, err := runtime.ParseBaseURL(baseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c, nil
+}
+
+// AddPet calls POST /pets.
+//
+// It returns the body of a 201 response. A response outside 2xx, or a 2xx the spec does
+// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
+// documents one.
+func (c *Client) AddPet(ctx context.Context, opts *AddPetRequestOptions, editors ...RequestEditor) (*Pet, error) {
+	req, err := c.AddPetRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -766,26 +251,29 @@ func (c *Client) AddPet(ctx context.Context, opts *AddPetRequestOptions) (*Pet, 
 	return out, nil
 }
 
-// GetPetRequest builds the request of GetPet, with the editors of the client applied.
-func (c *Client) GetPetRequest(ctx context.Context, opts *GetPetRequestOptions) (*http.Request, error) {
+// AddPetRequest builds the request of POST /pets and runs the editors of the client on it, then
+// editors.
+func (c *Client) AddPetRequest(ctx context.Context, opts *AddPetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &GetPetRequestOptions{}
+		opts = &AddPetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/pets/{id}")
-	if opts.PathParams != nil {
-		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
+	b := runtime.NewRequestBuilder(http.MethodPost, "/pets")
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json")
+	default:
+		return nil, runtime.ErrBodyEmpty
 	}
-	if opts.Query != nil {
-		b.QueryParam(opts.Query.Fields, runtime.Param{Name: "fields", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
-	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// GetPet returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) GetPet(ctx context.Context, opts *GetPetRequestOptions) (*Pet, error) {
-	req, err := c.GetPetRequest(ctx, opts)
+// GetPet calls GET /pets/{id}.
+//
+// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
+// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
+// documents one.
+func (c *Client) GetPet(ctx context.Context, opts *GetPetRequestOptions, editors ...RequestEditor) (*Pet, error) {
+	req, err := c.GetPetRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -804,29 +292,29 @@ func (c *Client) GetPet(ctx context.Context, opts *GetPetRequestOptions) (*Pet, 
 	return out, nil
 }
 
-// PutPetRequest builds the request of PutPet, with the editors of the client applied.
-func (c *Client) PutPetRequest(ctx context.Context, opts *PutPetRequestOptions) (*http.Request, error) {
+// GetPetRequest builds the request of GET /pets/{id} and runs the editors of the client on it, then
+// editors.
+func (c *Client) GetPetRequest(ctx context.Context, opts *GetPetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &PutPetRequestOptions{}
+		opts = &GetPetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPut, "/pets/{id}")
+	b := runtime.NewRequestBuilder(http.MethodGet, "/pets/{id}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	switch {
-	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
-	default:
-		return nil, runtime.ErrBodyEmpty
+	if opts.Query != nil {
+		b.QueryParam(opts.Query.Fields, runtime.Param{Name: "fields", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// PutPet returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) PutPet(ctx context.Context, opts *PutPetRequestOptions) (*Pet, error) {
-	req, err := c.PutPetRequest(ctx, opts)
+// PutPet calls PUT /pets/{id}.
+//
+// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
+// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
+// documents one.
+func (c *Client) PutPet(ctx context.Context, opts *PutPetRequestOptions, editors ...RequestEditor) (*Pet, error) {
+	req, err := c.PutPetRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -842,4 +330,38 @@ func (c *Client) PutPet(ctx context.Context, opts *PutPetRequestOptions) (*Pet, 
 		return nil, err
 	}
 	return out, nil
+}
+
+// PutPetRequest builds the request of PUT /pets/{id} and runs the editors of the client on it, then
+// editors.
+func (c *Client) PutPetRequest(ctx context.Context, opts *PutPetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &PutPetRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodPut, "/pets/{id}")
+	if opts.PathParams != nil {
+		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
+	}
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json")
+	default:
+		return nil, runtime.ErrBodyEmpty
+	}
+	return c.newRequest(ctx, b, editors)
+}
+
+// newRequest builds b against the base URL and runs the editors of the client on the request, then
+// editors.
+func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
+	if err != nil {
+		return nil, err
+	}
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
 }

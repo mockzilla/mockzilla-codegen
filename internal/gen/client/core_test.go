@@ -43,19 +43,79 @@ func TestCoreView(t *testing.T) {
 
 			got := coreView(f.g, s)
 
+			assert.Len(t, got.Signatures, len(tc.m.Operations))
+			got.Signatures = nil
 			assert.Equal(t, &CoreView{
-				Name:       "PetClient",
-				Option:     "PetClientOption",
-				Context:    "context",
-				HTTP:       "http",
-				Time:       "time",
-				URL:        "url",
-				Runtime:    "runtime",
-				Timeout:    tc.wantTimeout,
-				HasStreams: tc.wantHasStreams,
-				User:       map[string]any{"owner": "platform"},
+				Name:         "PetClient",
+				Option:       "PetClientOption",
+				Interface:    "PetClientInterface",
+				Header:       HeaderView{Name: "PetClientInterface", User: map[string]any{"owner": "platform"}},
+				Context:      "context",
+				HTTP:         "http",
+				Time:         "time",
+				URL:          "url",
+				Runtime:      "runtime",
+				Timeout:      tc.wantTimeout,
+				HasStreams:   tc.wantHasStreams,
+				HasEnvelopes: true,
+				User:         map[string]any{"owner": "platform"},
 			}, got)
 			assert.True(t, s.Imports.Has("time"))
+		})
+	}
+}
+
+func TestSignatureView(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		op           int
+		hasEnvelopes bool
+		hasStreams   bool
+		want         SignatureView
+	}{
+		{
+			name:         "A body, the spec's text and an envelope",
+			op:           0,
+			hasEnvelopes: true,
+			want:         SignatureView{Name: "ListPets", Route: "GET /pets", Doc: "List pets\n\nReturns pets.", Options: "types.ListPetsRequestOptions", Result: "types.Pets", Response: "types.ListPetsResponse"},
+		},
+		{
+			name: "No body and no envelope",
+			op:   2,
+			want: SignatureView{Name: "DeletePet", Route: "DELETE /pets/{id}", Doc: "Deprecated: the spec marks it deprecated.", Options: "types.DeletePetRequestOptions"},
+		},
+		{
+			name:       "A stream",
+			op:         5,
+			hasStreams: true,
+			want:       SignatureView{Name: "Chat", Route: "POST /chat", Options: "types.ChatRequestOptions", Result: "*types.Pet", StreamType: "*runtime.Stream[types.ChatResponseItem]"},
+		},
+		{
+			name: "A stream without Stream methods",
+			op:   5,
+			want: SignatureView{Name: "Chat", Route: "POST /chat", Options: "types.ChatRequestOptions", Result: "*types.Pet"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			m := petModel()
+			opts := allOptions()
+			opts.HasEnvelopes, opts.HasStreams = tc.hasEnvelopes, tc.hasStreams
+			cfg := plainConfig
+			if tc.hasEnvelopes {
+				cfg = splitConfig
+			}
+			g, _ := New(m, opts)
+			s := fixture{m: m, g: g, cfg: cfg}.scope(t, PartCore)
+
+			got := signatureView(g, m.Operations[tc.op], s)
+
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }

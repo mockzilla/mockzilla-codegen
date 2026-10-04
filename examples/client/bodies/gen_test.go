@@ -7,8 +7,13 @@ package bodies
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"mime"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,72 +22,150 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// echo answers with what it received.
-type echo struct{}
-
-func (echo) PostJSON(_ context.Context, opts *PostJSONServiceRequestOptions) (*PostJSONResponseData, error) {
-	return NewPostJSONResponseData(opts.Body), nil
+func mediaType(r *http.Request) string {
+	mt, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	return mt
 }
 
-func (echo) PostForm(_ context.Context, opts *PostFormServiceRequestOptions) (*PostFormResponseData, error) {
-	return NewPostFormResponseData(opts.Body), nil
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(v)
 }
 
-func (echo) Upload(_ context.Context, opts *UploadServiceRequestOptions) (*UploadResponseData, error) {
-	content, err := opts.Body.File.Bytes()
+func writeText(w http.ResponseWriter, s string) {
+	w.Header().Set("Content-Type", "text/plain")
+	_, _ = io.WriteString(w, s)
+}
+
+func postJSON(w http.ResponseWriter, r *http.Request) {
+	if r.ContentLength != 0 && mediaType(r) != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+	var note *Note
+	if err := json.NewDecoder(r.Body).Decode(&note); err != nil && !errors.Is(err, io.EOF) {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, note)
+}
+
+func postForm(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	note := Note{Text: r.PostForm.Get("text")}
+	if v := r.PostForm.Get("stars"); v != "" {
+		stars, err := strconv.Atoi(v)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		note.Stars = &stars
+	}
+	writeJSON(w, note)
+}
+
+func upload(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(1 << 20); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	file, header, err := r.FormFile("file")
 	if err != nil {
-		return nil, err
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
-	return NewUploadResponseData(UploadResponse200{
-		"title": opts.Body.Title,
+	defer func() { _ = file.Close() }()
+	content, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var meta map[string]any
+	if err = json.Unmarshal([]byte(r.PostFormValue("meta")), &meta); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]any{
+		"title": r.PostFormValue("title"),
 		"file":  string(content),
-		"name":  opts.Body.File.Name(),
-		"type":  opts.Body.File.ContentType(),
-		"tags":  opts.Body.Tags,
-		"meta":  opts.Body.Meta,
-	}), nil
+		"name":  header.Filename,
+		"type":  header.Header.Get("Content-Type"),
+		"tags":  r.PostForm["tags"],
+		"meta":  meta,
+	})
 }
 
-func (echo) PostText(_ context.Context, opts *PostTextServiceRequestOptions) (*PostTextResponseData, error) {
-	if opts.BodyOctetStream != nil {
-		return NewPostTextResponseData(new("bytes: " + string(opts.BodyOctetStream))), nil
+func postText(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
-	if opts.BodyText == nil {
-		return NewPostTextResponseData(new("nothing")), nil
+	switch mediaType(r) {
+	case "":
+		writeText(w, "nothing")
+	case "text/plain":
+		writeText(w, "text: "+string(body))
+	case "application/octet-stream":
+		writeText(w, "bytes: "+string(body))
+	default:
+		w.WriteHeader(http.StatusUnsupportedMediaType)
 	}
-	return NewPostTextResponseData(new("text: " + *opts.BodyText)), nil
 }
 
-func (echo) PutFile(_ context.Context, opts *PutFileServiceRequestOptions) (*PutFileResponseData, error) {
-	return NewPutFileResponseData(opts.Body), nil
-}
-
-func (echo) PutXML(context.Context, *PutXMLServiceRequestOptions) (*PutXMLResponseData, error) {
-	return NewPutXMLResponseData(), nil
-}
-
-func (echo) PostAny(_ context.Context, opts *PostAnyServiceRequestOptions) (*PostAnyResponseData, error) {
-	switch {
-	case opts.BodyXML != nil:
-		return NewPostAnyResponseData(new("xml: " + *opts.BodyXML)), nil
-	case opts.BodyTextXML != nil:
-		return NewPostAnyResponseData(new("text xml: " + *opts.BodyTextXML)), nil
+func putFile(w http.ResponseWriter, r *http.Request) {
+	if mediaType(r) != "image/png" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
 	}
-	return NewPostAnyResponseData(new("any: " + string(opts.BodyAny))), nil
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	_, _ = w.Write(body)
 }
 
-func (echo) GetAnyText(context.Context, *GetAnyTextServiceRequestOptions) (*GetAnyTextResponseData, error) {
-	return NewGetAnyTextResponseData(new(`{"type":"A+"}`)).WithHeaders(http.Header{"Content-Type": {"application/json"}}), nil
+func postAny(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	switch mediaType(r) {
+	case "application/xml":
+		writeText(w, "xml: "+string(body))
+	case "text/xml":
+		writeText(w, "text xml: "+string(body))
+	case "application/octet-stream":
+		writeText(w, "any: "+string(body))
+	default:
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+	}
 }
 
-func (echo) GetAnyBytes(context.Context, *GetAnyBytesServiceRequestOptions) (*GetAnyBytesResponseData, error) {
-	return NewGetAnyBytesResponseData([]byte(`{"type":"A+"}`)).WithHeaders(http.Header{"Content-Type": {"application/json"}}), nil
+func getAny(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, `{"type":"A+"}`)
 }
 
 func newClient(t *testing.T) *Client {
 	t.Helper()
 
-	srv := httptest.NewServer(NewRouter(echo{}))
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /json", postJSON)
+	mux.HandleFunc("POST /form", postForm)
+	mux.HandleFunc("POST /upload", upload)
+	mux.HandleFunc("POST /text", postText)
+	mux.HandleFunc("PUT /file", putFile)
+	mux.HandleFunc("POST /any", postAny)
+	mux.HandleFunc("GET /any/text", getAny)
+	mux.HandleFunc("GET /any/bytes", getAny)
+	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	c, err := NewClient(srv.URL)
 	require.NoError(t, err)

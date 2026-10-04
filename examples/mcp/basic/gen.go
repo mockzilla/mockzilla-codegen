@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	chi "github.com/go-chi/chi/v5"
@@ -104,16 +105,26 @@ type PingResponse200 = string
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
+	// ListPets handles GET /pets.
+	//
 	// List the pets
 	//
 	// Returns every pet, the newest first.
 	ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error)
+	// CreatePet handles POST /pets.
+	//
 	// Add a pet
 	CreatePet(ctx context.Context, opts *CreatePetServiceRequestOptions) (*CreatePetResponseData, error)
+	// GetPet handles GET /pets/{id}.
+	//
 	// Get one pet
 	GetPet(ctx context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error)
+	// DeletePet handles DELETE /pets/{id}.
+	//
 	// Remove a pet
 	DeletePet(ctx context.Context, opts *DeletePetServiceRequestOptions) (*DeletePetResponseData, error)
+	// Ping handles GET /ping.
+	//
 	// Check that the API is up
 	Ping(ctx context.Context, opts *PingServiceRequestOptions) (*PingResponseData, error)
 }
@@ -686,84 +697,6 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	return router
 }
 
-// HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
-
-// RequestEditor changes a request before it is sent, to add credentials for one.
-type RequestEditor func(ctx context.Context, req *http.Request) error
-
-// PetClientOption sets one setting of PetClient.
-type PetClientOption func(*PetClient)
-
-// PetClient calls the API at a base URL, with one method per operation.
-type PetClient struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
-}
-
-// NewPetClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
-func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &PetClient{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c, nil
-}
-
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
-func WithHTTPClient(d HTTPDoer) PetClientOption {
-	if d == nil {
-		panic("WithHTTPClient: nil HTTPDoer")
-	}
-	return func(c *PetClient) {
-		c.doer = d
-	}
-}
-
-// WithTimeout sets how long a call may take, 0 for no limit.
-func WithTimeout(d time.Duration) PetClientOption {
-	return func(c *PetClient) {
-		c.timeout = d
-	}
-}
-
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
-func WithRequestEditor(fns ...RequestEditor) PetClientOption {
-	for _, fn := range fns {
-		if fn == nil {
-			panic("WithRequestEditor: nil RequestEditor")
-		}
-	}
-	return func(c *PetClient) {
-		c.editors = append(c.editors, fns...)
-	}
-}
-
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *PetClient) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
-	if err != nil {
-		return nil, err
-	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
-	}
-	return req, nil
-}
-
 // ListPetsRequestOptions is what ListPets sends: its parameters by location, and its body.
 type ListPetsRequestOptions struct {
 	Query *ListPetsQuery
@@ -822,46 +755,110 @@ func (o *PingRequestOptions) Validate() error {
 	return nil
 }
 
+// HTTPDoer sends a request, as *http.Client does.
+type HTTPDoer = runtime.Doer
+
+// RequestEditor changes a request before it is sent, to add credentials for one.
+type RequestEditor func(ctx context.Context, req *http.Request) error
+
 // PetClientInterface is what PetClient implements: one method per operation, so a test double can
 // stand in for the client.
 type PetClientInterface interface {
+	// ListPets calls GET /pets.
+	//
 	// List the pets
 	//
 	// Returns every pet, the newest first.
-	ListPets(ctx context.Context, opts *ListPetsRequestOptions) (ListPetsResponse200, error)
+	ListPets(ctx context.Context, opts *ListPetsRequestOptions, editors ...RequestEditor) (ListPetsResponse200, error)
+	// CreatePet calls POST /pets.
+	//
 	// Add a pet
-	CreatePet(ctx context.Context, opts *CreatePetRequestOptions) (*Pet, error)
+	CreatePet(ctx context.Context, opts *CreatePetRequestOptions, editors ...RequestEditor) (*Pet, error)
+	// GetPet calls GET /pets/{id}.
+	//
 	// Get one pet
-	GetPet(ctx context.Context, opts *GetPetRequestOptions) (*Pet, error)
+	GetPet(ctx context.Context, opts *GetPetRequestOptions, editors ...RequestEditor) (*Pet, error)
+	// DeletePet calls DELETE /pets/{id}.
+	//
 	// Remove a pet
-	DeletePet(ctx context.Context, opts *DeletePetRequestOptions) error
+	DeletePet(ctx context.Context, opts *DeletePetRequestOptions, editors ...RequestEditor) error
+	// Ping calls GET /ping.
+	//
 	// Check that the API is up
-	Ping(ctx context.Context, opts *PingRequestOptions) (*PingResponse200, error)
+	Ping(ctx context.Context, opts *PingRequestOptions, editors ...RequestEditor) (*PingResponse200, error)
 }
 
 var _ PetClientInterface = (*PetClient)(nil)
 
-// ListPetsRequest builds the request of ListPets, with the editors of the client applied.
-func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &ListPetsRequestOptions{}
+// PetClientOption sets one setting of PetClient.
+type PetClientOption func(*PetClient)
+
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
+// panics.
+func WithHTTPClient(d HTTPDoer) PetClientOption {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/pets")
-	if opts.Query != nil {
-		b.QueryParam(opts.Query.Limit, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
+	return func(c *PetClient) {
+		c.doer = d
 	}
-	return c.newRequest(ctx, b)
 }
 
-// List the pets
+// WithTimeout sets how long a call may take, 0 for no limit.
+func WithTimeout(d time.Duration) PetClientOption {
+	return func(c *PetClient) {
+		c.timeout = d
+	}
+}
+
+// WithRequestEditor runs fns on every request before it is sent, after any editor added before
+// and before the editors of the call. A nil editor panics.
+func WithRequestEditor(fns ...RequestEditor) PetClientOption {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
+	return func(c *PetClient) {
+		c.editors = append(c.editors, fns...)
+	}
+}
+
+// PetClient calls the API at a base URL, with one method per operation.
+type PetClient struct {
+	baseURL *url.URL
+	doer    HTTPDoer
+	timeout time.Duration
+	editors []RequestEditor
+}
+
+// NewPetClient returns a client of the API at baseURL. It sends with an http.Client unless
+// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
+// sets another limit.
+func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
+	u, err := runtime.ParseBaseURL(baseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &PetClient{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c, nil
+}
+
+// ListPets calls GET /pets.
+//
+// # List the pets
 //
 // Returns every pet, the newest first.
 //
-// ListPets returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions) (ListPetsResponse200, error) {
-	req, err := c.ListPetsRequest(ctx, opts)
+// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
+// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
+// documents one.
+func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions, editors ...RequestEditor) (ListPetsResponse200, error) {
+	req, err := c.ListPetsRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -879,28 +876,28 @@ func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions) 
 	return out, nil
 }
 
-// CreatePetRequest builds the request of CreatePet, with the editors of the client applied.
-func (c *PetClient) CreatePetRequest(ctx context.Context, opts *CreatePetRequestOptions) (*http.Request, error) {
+// ListPetsRequest builds the request of GET /pets and runs the editors of the client on it, then
+// editors.
+func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &CreatePetRequestOptions{}
+		opts = &ListPetsRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/pets")
-	switch {
-	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
-	default:
-		return nil, runtime.ErrBodyEmpty
+	b := runtime.NewRequestBuilder(http.MethodGet, "/pets")
+	if opts.Query != nil {
+		b.QueryParam(opts.Query.Limit, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Add a pet
+// CreatePet calls POST /pets.
 //
-// CreatePet returns the body of a 201 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions) (*Pet, error) {
-	req, err := c.CreatePetRequest(ctx, opts)
+// # Add a pet
+//
+// It returns the body of a 201 response. A response outside 2xx, or a 2xx the spec does
+// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
+// documents one.
+func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions, editors ...RequestEditor) (*Pet, error) {
+	req, err := c.CreatePetRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -919,25 +916,31 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions
 	return out, nil
 }
 
-// GetPetRequest builds the request of GetPet, with the editors of the client applied.
-func (c *PetClient) GetPetRequest(ctx context.Context, opts *GetPetRequestOptions) (*http.Request, error) {
+// CreatePetRequest builds the request of POST /pets and runs the editors of the client on it, then
+// editors.
+func (c *PetClient) CreatePetRequest(ctx context.Context, opts *CreatePetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &GetPetRequestOptions{}
+		opts = &CreatePetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/pets/{id}")
-	if opts.PathParams != nil {
-		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
+	b := runtime.NewRequestBuilder(http.MethodPost, "/pets")
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json")
+	default:
+		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Get one pet
+// GetPet calls GET /pets/{id}.
 //
-// GetPet returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions) (*Pet, error) {
-	req, err := c.GetPetRequest(ctx, opts)
+// # Get one pet
+//
+// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
+// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
+// documents one.
+func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions, editors ...RequestEditor) (*Pet, error) {
+	req, err := c.GetPetRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -956,24 +959,27 @@ func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions) (*Pe
 	return out, nil
 }
 
-// DeletePetRequest builds the request of DeletePet, with the editors of the client applied.
-func (c *PetClient) DeletePetRequest(ctx context.Context, opts *DeletePetRequestOptions) (*http.Request, error) {
+// GetPetRequest builds the request of GET /pets/{id} and runs the editors of the client on it, then
+// editors.
+func (c *PetClient) GetPetRequest(ctx context.Context, opts *GetPetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &DeletePetRequestOptions{}
+		opts = &GetPetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodDelete, "/pets/{id}")
+	b := runtime.NewRequestBuilder(http.MethodGet, "/pets/{id}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Remove a pet
+// DeletePet calls DELETE /pets/{id}.
 //
-// DeletePet sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *PetClient) DeletePet(ctx context.Context, opts *DeletePetRequestOptions) error {
-	req, err := c.DeletePetRequest(ctx, opts)
+// # Remove a pet
+//
+// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
+// when the spec documents one.
+func (c *PetClient) DeletePet(ctx context.Context, opts *DeletePetRequestOptions, editors ...RequestEditor) error {
+	req, err := c.DeletePetRequest(ctx, opts, editors...)
 	if err != nil {
 		return err
 	}
@@ -984,22 +990,28 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *DeletePetRequestOptions
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// PingRequest builds the request of Ping, with the editors of the client applied.
-func (c *PetClient) PingRequest(ctx context.Context, opts *PingRequestOptions) (*http.Request, error) {
+// DeletePetRequest builds the request of DELETE /pets/{id} and runs the editors of the client on it, then
+// editors.
+func (c *PetClient) DeletePetRequest(ctx context.Context, opts *DeletePetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &PingRequestOptions{}
+		opts = &DeletePetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/ping")
-	return c.newRequest(ctx, b)
+	b := runtime.NewRequestBuilder(http.MethodDelete, "/pets/{id}")
+	if opts.PathParams != nil {
+		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
+	}
+	return c.newRequest(ctx, b, editors)
 }
 
-// Check that the API is up
+// Ping calls GET /ping.
 //
-// Ping returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *PetClient) Ping(ctx context.Context, opts *PingRequestOptions) (*PingResponse200, error) {
-	req, err := c.PingRequest(ctx, opts)
+// # Check that the API is up
+//
+// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
+// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
+// documents one.
+func (c *PetClient) Ping(ctx context.Context, opts *PingRequestOptions, editors ...RequestEditor) (*PingResponse200, error) {
+	req, err := c.PingRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1015,6 +1027,31 @@ func (c *PetClient) Ping(ctx context.Context, opts *PingRequestOptions) (*PingRe
 		return nil, err
 	}
 	return out, nil
+}
+
+// PingRequest builds the request of GET /ping and runs the editors of the client on it, then
+// editors.
+func (c *PetClient) PingRequest(ctx context.Context, opts *PingRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &PingRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/ping")
+	return c.newRequest(ctx, b, editors)
+}
+
+// newRequest builds b against the base URL and runs the editors of the client on the request, then
+// editors.
+func (c *PetClient) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
+	if err != nil {
+		return nil, err
+	}
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
 }
 
 // ListPetsToolInput is the input of the list_pets tool: the parameters of the operation.

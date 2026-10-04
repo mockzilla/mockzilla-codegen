@@ -85,14 +85,21 @@ type ListPetsResponseDefaultHeaders struct {
 
 // PetsInterface is what the generated handlers call. Implement it with the business logic.
 type PetsInterface interface {
+	// ListPets handles GET /pets.
+	//
 	// List pets
 	//
 	// Returns the pets, a page at a time.
 	ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error)
+	// CreatePet handles POST /pets.
 	CreatePet(ctx context.Context, opts *CreatePetServiceRequestOptions) (*CreatePetResponseData, error)
+	// DeletePet handles DELETE /pets/{id}.
+	//
 	// Deprecated: the spec marks it deprecated.
 	DeletePet(ctx context.Context, opts *DeletePetServiceRequestOptions) (*DeletePetResponseData, error)
+	// Upload handles POST /upload.
 	Upload(ctx context.Context, opts *UploadServiceRequestOptions) (*UploadResponseData, error)
+	// GetPing handles GET /ping.
 	GetPing(ctx context.Context, opts *GetPingServiceRequestOptions) (*GetPingResponseData, error)
 }
 

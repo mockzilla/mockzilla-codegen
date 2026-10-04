@@ -4,32 +4,34 @@ type HTTPDoer = {{.Runtime}}.Doer
 // RequestEditor changes a request before it is sent, to add credentials for one.
 type RequestEditor func(ctx {{.Context}}.Context, req *{{.HTTP}}.Request) error
 
+{{with override "client.interface-header" .Header}}{{.}}
+
+{{end}}// {{.Interface}} is what {{.Name}} implements: one method per operation, so a test double can
+// stand in for the client.
+type {{.Interface}} interface {
+{{- range .Signatures}}
+	// {{.Name}} calls {{.Route}}.
+{{- with .Doc}}
+	//
+{{comment .}}
+{{- end}}
+	{{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) ({{with .Result}}{{.}}, {{end}}error)
+{{- if $.HasEnvelopes}}
+	{{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) (*{{.Response}}, error)
+{{- end}}
+{{- if .StreamType}}
+	{{.Name}}Stream(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) ({{.StreamType}}, error)
+{{- if $.HasEnvelopes}}
+	{{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) (*{{.Response}}, error)
+{{- end}}
+{{- end}}
+{{- end}}
+}
+
+var _ {{.Interface}} = (*{{.Name}})(nil)
+
 // {{.Option}} sets one setting of {{.Name}}.
 type {{.Option}} func(*{{.Name}})
-
-// {{.Name}} calls the API at a base URL, with one method per operation.
-type {{.Name}} struct {
-	baseURL *{{.URL}}.URL
-	doer    HTTPDoer
-	timeout {{.Time}}.Duration
-	editors []RequestEditor
-}
-
-// New{{.Name}} returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. {{if .Timeout}}A call gives up after {{.Timeout}} unless WithTimeout
-// sets another limit.{{else}}A call has no time limit unless WithTimeout sets one.{{end}}
-func New{{.Name}}(baseURL string, opts ...{{.Option}}) (*{{.Name}}, error) {
-	u, err := {{.Runtime}}.ParseBaseURL(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &{{.Name}}{baseURL: u, doer: &{{.HTTP}}.Client{}{{with .Timeout}}, timeout: {{.}}{{end}}}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c, nil
-}
 
 // WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
 // panics.
@@ -53,8 +55,8 @@ func WithTimeout(d {{.Time}}.Duration) {{.Option}} {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent, after any editor added before
+// and before the editors of the call. A nil editor panics.
 func WithRequestEditor(fns ...RequestEditor) {{.Option}} {
 	for _, fn := range fns {
 		if fn == nil {
@@ -66,16 +68,26 @@ func WithRequestEditor(fns ...RequestEditor) {{.Option}} {
 	}
 }
 
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *{{.Name}}) newRequest(ctx {{.Context}}.Context, b *{{.Runtime}}.RequestBuilder) (*{{.HTTP}}.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
+// {{.Name}} calls the API at a base URL, with one method per operation.
+type {{.Name}} struct {
+	baseURL *{{.URL}}.URL
+	doer    HTTPDoer
+	timeout {{.Time}}.Duration
+	editors []RequestEditor
+}
+
+// New{{.Name}} returns a client of the API at baseURL. It sends with an http.Client unless
+// WithHTTPClient sets another. {{if .Timeout}}A call gives up after {{.Timeout}} unless WithTimeout
+// sets another limit.{{else}}A call has no time limit unless WithTimeout sets one.{{end}}
+func New{{.Name}}(baseURL string, opts ...{{.Option}}) (*{{.Name}}, error) {
+	u, err := {{.Runtime}}.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
+
+	c := &{{.Name}}{baseURL: u, doer: &{{.HTTP}}.Client{}{{with .Timeout}}, timeout: {{.}}{{end}}}
+	for _, opt := range opts {
+		opt(c)
 	}
-	return req, nil
+	return c, nil
 }

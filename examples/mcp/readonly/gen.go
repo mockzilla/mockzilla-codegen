@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	chi "github.com/go-chi/chi/v5"
@@ -33,6 +34,8 @@ type Pet struct {
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
+	// AddPet handles POST /pets.
+	//
 	// Add a pet
 	AddPet(ctx context.Context, opts *AddPetServiceRequestOptions) (*AddPetResponseData, error)
 }
@@ -268,14 +271,67 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	return router
 }
 
+// AddPetRequestOptions is what AddPet sends: its parameters by location, and its body.
+type AddPetRequestOptions struct {
+	// Body sent as application/json.
+	Body *Pet
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *AddPetRequestOptions) Validate() error {
+	return nil
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
 // RequestEditor changes a request before it is sent, to add credentials for one.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
+// ClientInterface is what Client implements: one method per operation, so a test double can
+// stand in for the client.
+type ClientInterface interface {
+	// AddPet calls POST /pets.
+	//
+	// Add a pet
+	AddPet(ctx context.Context, opts *AddPetRequestOptions, editors ...RequestEditor) (*Pet, error)
+}
+
+var _ ClientInterface = (*Client)(nil)
+
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
+
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
+// panics.
+func WithHTTPClient(d HTTPDoer) ClientOption {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
+	}
+	return func(c *Client) {
+		c.doer = d
+	}
+}
+
+// WithTimeout sets how long a call may take, 0 for no limit.
+func WithTimeout(d time.Duration) ClientOption {
+	return func(c *Client) {
+		c.timeout = d
+	}
+}
+
+// WithRequestEditor runs fns on every request before it is sent, after any editor added before
+// and before the editors of the call. A nil editor panics.
+func WithRequestEditor(fns ...RequestEditor) ClientOption {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
+	return func(c *Client) {
+		c.editors = append(c.editors, fns...)
+	}
+}
 
 // Client calls the API at a base URL, with one method per operation.
 type Client struct {
@@ -301,93 +357,15 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
-func WithHTTPClient(d HTTPDoer) ClientOption {
-	if d == nil {
-		panic("WithHTTPClient: nil HTTPDoer")
-	}
-	return func(c *Client) {
-		c.doer = d
-	}
-}
-
-// WithTimeout sets how long a call may take, 0 for no limit.
-func WithTimeout(d time.Duration) ClientOption {
-	return func(c *Client) {
-		c.timeout = d
-	}
-}
-
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
-func WithRequestEditor(fns ...RequestEditor) ClientOption {
-	for _, fn := range fns {
-		if fn == nil {
-			panic("WithRequestEditor: nil RequestEditor")
-		}
-	}
-	return func(c *Client) {
-		c.editors = append(c.editors, fns...)
-	}
-}
-
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
-	if err != nil {
-		return nil, err
-	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
-	}
-	return req, nil
-}
-
-// AddPetRequestOptions is what AddPet sends: its parameters by location, and its body.
-type AddPetRequestOptions struct {
-	// Body sent as application/json.
-	Body *Pet
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *AddPetRequestOptions) Validate() error {
-	return nil
-}
-
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
-type ClientInterface interface {
-	// Add a pet
-	AddPet(ctx context.Context, opts *AddPetRequestOptions) (*Pet, error)
-}
-
-var _ ClientInterface = (*Client)(nil)
-
-// AddPetRequest builds the request of AddPet, with the editors of the client applied.
-func (c *Client) AddPetRequest(ctx context.Context, opts *AddPetRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &AddPetRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/pets")
-	switch {
-	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
-	default:
-		return nil, runtime.ErrBodyEmpty
-	}
-	return c.newRequest(ctx, b)
-}
-
-// Add a pet
+// AddPet calls POST /pets.
 //
-// AddPet returns the body of a 201 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) AddPet(ctx context.Context, opts *AddPetRequestOptions) (*Pet, error) {
-	req, err := c.AddPetRequest(ctx, opts)
+// # Add a pet
+//
+// It returns the body of a 201 response. A response outside 2xx, or a 2xx the spec does
+// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
+// documents one.
+func (c *Client) AddPet(ctx context.Context, opts *AddPetRequestOptions, editors ...RequestEditor) (*Pet, error) {
+	req, err := c.AddPetRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -403,6 +381,37 @@ func (c *Client) AddPet(ctx context.Context, opts *AddPetRequestOptions) (*Pet, 
 		return nil, err
 	}
 	return out, nil
+}
+
+// AddPetRequest builds the request of POST /pets and runs the editors of the client on it, then
+// editors.
+func (c *Client) AddPetRequest(ctx context.Context, opts *AddPetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &AddPetRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodPost, "/pets")
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json")
+	default:
+		return nil, runtime.ErrBodyEmpty
+	}
+	return c.newRequest(ctx, b, editors)
+}
+
+// newRequest builds b against the base URL and runs the editors of the client on the request, then
+// editors.
+func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
+	if err != nil {
+		return nil, err
+	}
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
 }
 
 // AddPetToolInput is the input of the add_pet tool: the parameters of the operation.

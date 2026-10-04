@@ -185,7 +185,7 @@ func (g *Generator) Parts() []layout.Part {
 	}
 	return []layout.Part{
 		{ID: PartInputs, Uses: operation.PartsOf(inputs)},
-		{ID: PartTools, Uses: slices.Concat([]layout.PartID{client.PartOperations, client.PartOptions, PartInputs}, operation.PartsOf(params))},
+		{ID: PartTools, Uses: slices.Concat([]layout.PartID{client.PartCore, client.PartOptions, PartInputs}, operation.PartsOf(params))},
 	}
 }
 

@@ -24,7 +24,9 @@ type ListPetsResponse200 []Pet
 
 // PetsInterface is what the generated handlers call. Implement it with the business logic.
 type PetsInterface interface {
+	// ListPets handles GET /pets.
 	ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error)
+	// CreatePet handles POST /pets.
 	CreatePet(ctx context.Context, opts *CreatePetServiceRequestOptions) (*CreatePetResponseData, error)
 }
 
