@@ -49,7 +49,7 @@ func TestEnvelopeFields(t *testing.T) {
 		{FieldView: FieldView{Name: "TextStream200", Type: "*string", Doc: "TextStream200 is the body of a 200 response as text/stream."}, status: "200", mediaType: "text/stream"},
 		{FieldView: FieldView{Name: "EventStream200", Type: "*string", Doc: "EventStream200 is the body of a 200 response as text/event-stream."}, status: "200", mediaType: "text/event-stream"},
 		{FieldView: FieldView{Name: "JSONDefault", Type: "any", Doc: "JSONDefault is the body of a default response as application/json."}, status: "default", mediaType: "application/json"},
-		{FieldView: FieldView{Name: "Stream200", Type: "*runtime.Stream[Pet]", Doc: "Stream200 is the stream of a 200 response as text/event-stream, set by the Stream method alone; Body is nil then."}, status: "200", mediaType: "text/event-stream", isStream: true},
+		{FieldView: FieldView{Name: "Stream200", Type: "*runtime.Stream[Pet]", Doc: "Stream200 is the stream of a 200 response as text/event-stream."}, status: "200", mediaType: "text/event-stream", isStream: true},
 		{FieldView: FieldView{Name: "Headers200", Type: "*Headers", Doc: "Headers200 holds the headers the spec declares for a 200 response."}, status: "200", isHeaders: true},
 	}, got)
 }

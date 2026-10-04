@@ -214,16 +214,16 @@ func (g *generation) checkNames() error {
 	if g.srv == nil || g.cl == nil || g.srv.Interface() != g.cl.Interface() {
 		return nil
 	}
-	service, ops := g.lay.FileOf(server.PartService), g.lay.FileOf(client.PartOperations)
-	if filepath.Dir(service.Path) != filepath.Dir(ops.Path) {
+	service, core := g.lay.FileOf(server.PartService), g.lay.FileOf(client.PartCore)
+	if filepath.Dir(service.Path) != filepath.Dir(core.Path) {
 		return nil
 	}
 	return fmt.Errorf("%w: server.name and client.name are both %q, so package %s declares %s twice; name one of them differently", ErrNameClash, g.cfg.Server.Name, service.Package, g.srv.Interface())
 }
 
 // load loads the templates, the block overrides and the extra files of the config. The blocks of
-// the server are named also when the config asks for none, so that an override of one says what
-// it needs.
+// the server, and those of the client, are named also when the config asks for no server or no
+// client, so that an override of one says what it needs.
 func (g *generation) load() error {
 	sets := []render.Set{models.Templates()}
 	needs := make(map[string]string)
@@ -237,6 +237,10 @@ func (g *generation) load() error {
 	}
 	if g.cl != nil {
 		sets = append(sets, client.Templates())
+	} else {
+		for _, block := range client.Blocks() {
+			needs[block] = "a client block"
+		}
 	}
 	if g.mc != nil {
 		sets = append(sets, mcp.Templates())

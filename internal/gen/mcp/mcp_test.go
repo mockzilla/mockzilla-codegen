@@ -157,7 +157,7 @@ func TestParts(t *testing.T) {
 
 	assert.Equal(t, []layout.Part{
 		{ID: PartInputs, Uses: []layout.PartID{gomodel.PartBodies, gomodel.PartTypes}},
-		{ID: PartTools, Uses: []layout.PartID{client.PartOperations, client.PartOptions, PartInputs, gomodel.PartParams}},
+		{ID: PartTools, Uses: []layout.PartID{client.PartCore, client.PartOptions, PartInputs, gomodel.PartParams}},
 	}, g.Parts())
 }
 

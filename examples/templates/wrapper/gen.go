@@ -30,9 +30,13 @@ type PingResponse200 = string
 
 // PetsInterface is what the generated handlers call. Implement it with the business logic.
 type PetsInterface interface {
+	// ListPets handles GET /pets.
 	ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error)
+	// CreatePet handles POST /pets.
 	CreatePet(ctx context.Context, opts *CreatePetServiceRequestOptions) (*CreatePetResponseData, error)
+	// DeletePet handles DELETE /pets/{id}.
 	DeletePet(ctx context.Context, opts *DeletePetServiceRequestOptions) (*DeletePetResponseData, error)
+	// Ping handles GET /ping.
 	Ping(ctx context.Context, opts *PingServiceRequestOptions) (*PingResponseData, error)
 }
 

@@ -241,9 +241,15 @@ func TestGenerateErrors(t *testing.T) {
 			name:    "Template override of an unknown block",
 			cfg:     "templates: {models.struct: x}\n",
 			wantErr: config.ErrInvalid,
-			wantMsg: "invalid config: templates.models.struct: unknown block; the blocks are " +
+			wantMsg: "invalid config: templates.models.struct: unknown block; the blocks are client.interface-header, " +
 				"server.request-options-extra, server.response-data-extra, server.router-extra, server.scaffold.service-fields, " +
 				"server.scaffold.service-method, server.service-header",
+		},
+		{
+			name:    "Template override of a client block without a client",
+			cfg:     "templates: {client.interface-header: x}\n",
+			wantErr: config.ErrInvalid,
+			wantMsg: "invalid config: templates.client.interface-header: needs a client block",
 		},
 		{
 			name:    "Template override of a server block without a server",
@@ -359,11 +365,13 @@ func TestGenerateTemplateOverrides(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "header.txt"), []byte("// Owned by {{.User.owner}}.\n"), 0o600))
 	cfg, err := config.Parse([]byte(`server: {framework: chi}
+client: {}
 user-context: {owner: platform}
 templates:
   server.service-header: {file: ./header.txt}
   server.request-options-extra: "Owner string // {{.User.owner}}"
   server.response-data-extra: // The owner is named in header.tmpl
+  client.interface-header: "// {{.Name}} is owned by {{.User.owner}}."
 `), dir)
 	require.NoError(t, err)
 
@@ -374,6 +382,7 @@ templates:
 	assert.Contains(t, content, "\n\n// Owned by platform.\n\n// ServiceInterface is what")
 	assert.Contains(t, content, "\tOwner      string // platform\n\tRawRequest *http.Request\n")
 	assert.Contains(t, content, "\tBody    any\n\t// The owner is named in header.tmpl\n\n\tcontentType string\n")
+	assert.Contains(t, content, "\n\n// ClientInterface is owned by platform.\n\n// ClientInterface is what Client implements")
 }
 
 // TestGenerateImports lists packages in the config. A file imports one when its code names it,
@@ -659,7 +668,7 @@ paths:
 	})
 	assert.Equal(t, []string{
 		"models.types", "models.enums", "models.unions", "models.params", "models.bodies", "models.responses",
-		"client.core", "client.options", "client.operations", "mcp.inputs", "mcp.tools",
+		"client.options", "client.core", "client.operations", "mcp.inputs", "mcp.tools",
 	}, res.Files[0].Parts)
 }
 

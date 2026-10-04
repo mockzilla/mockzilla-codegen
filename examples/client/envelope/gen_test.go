@@ -19,36 +19,54 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// service runs small jobs at once, queues large ones, and rejects a size of 0.
-type service struct{}
-
-func (service) SubmitJob(_ context.Context, opts *SubmitJobServiceRequestOptions) (*SubmitJobResponseData, error) {
-	switch size := opts.Body.Size; {
-	case size == 0:
-		return nil, NewProblem("a job needs a size")
-	case size < 10:
-		return NewSubmitJobResponseData201(&Result{ID: "j1", Output: "done"}).
-			WithTypedHeaders201(SubmitJobResponse201Headers{Location: new("/jobs/j1")}), nil
+// submitJob runs small jobs at once, queues large ones, and rejects a size of 0.
+func submitJob(w http.ResponseWriter, r *http.Request) {
+	var job Job
+	if err := json.NewDecoder(r.Body).Decode(&job); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
-	return NewSubmitJobResponseData202(&Queued{ID: "j2"}).
-		WithTypedHeaders202(SubmitJobResponse202Headers{RetryAfter: new(30), XQueuePosition: new(4)}), nil
+
+	switch {
+	case job.Size == 0:
+		w.Header().Set("Content-Type", "application/problem+json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"detail":"a job needs a size"}`)
+	case job.Size < 10:
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Location", "/jobs/j1")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = io.WriteString(w, `{"id":"j1","output":"done"}`)
+	default:
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Retry-After", "30")
+		w.Header().Set("X-Queue-Position", "4")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = io.WriteString(w, `{"id":"j2"}`)
+	}
 }
 
-func (service) GetJobLog(_ context.Context, opts *GetJobLogServiceRequestOptions) (*GetJobLogResponseData, error) {
-	switch opts.PathParams.ID {
-	case "j1":
-		if opts.Headers.Accept != nil && *opts.Headers.Accept == "text/plain" {
-			return &GetJobLogResponseData{Status: http.StatusOK, Headers: http.Header{"Content-Type": {"text/plain"}}, Body: "started\ndone"}, nil
-		}
-		return NewGetJobLogResponseData200(GetJobLogJSONResponse200{"started", "done"}), nil
+// getJobLog knows only job j1, and sends its log as text when asked for text/plain.
+func getJobLog(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.PathValue("id") != "j1":
+		w.WriteHeader(http.StatusNotFound)
+	case r.Header.Get("Accept") == "text/plain":
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = io.WriteString(w, "started\ndone")
+	default:
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `["started","done"]`)
 	}
-	return NewGetJobLogResponseData404(), nil
 }
 
 func newClient(t *testing.T) *Client {
 	t.Helper()
 
-	srv := httptest.NewServer(NewRouter(service{}))
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /jobs", submitJob)
+	mux.HandleFunc("GET /jobs/{id}/log", getJobLog)
+	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	c, err := NewClient(srv.URL)
 	require.NoError(t, err)

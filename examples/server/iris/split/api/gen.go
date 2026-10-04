@@ -17,6 +17,7 @@ const _ = runtime.SupportsGeneratorV2
 
 // BooksInterface is what the generated handlers call. Implement it with the business logic.
 type BooksInterface interface {
+	// GetBook handles GET /books/{isbn}.
 	GetBook(ctx context.Context, opts *GetBookServiceRequestOptions) (*GetBookResponseData, error)
 }
 

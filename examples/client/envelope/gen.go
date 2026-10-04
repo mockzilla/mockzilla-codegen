@@ -4,12 +4,11 @@ package envelope
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
-	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
@@ -67,397 +66,90 @@ type GetJobLogTextResponse200 = string
 
 type GetJobLogJSONResponse200 []string
 
-// ServiceInterface is what the generated handlers call. Implement it with the business logic.
-type ServiceInterface interface {
-	// Submit a job
-	//
-	// Small jobs run at once and come back as 201; large ones are queued as 202.
-	SubmitJob(ctx context.Context, opts *SubmitJobServiceRequestOptions) (*SubmitJobResponseData, error)
-	GetJobLog(ctx context.Context, opts *GetJobLogServiceRequestOptions) (*GetJobLogResponseData, error)
-}
-
-// SubmitJobServiceRequestOptions is what SubmitJob receives. RawRequest is the request as it came in.
-type SubmitJobServiceRequestOptions struct {
+// SubmitJobRequestOptions is what SubmitJob sends.
+type SubmitJobRequestOptions struct {
 	// Body sent as application/json.
-	Body       *Job
-	RawRequest *http.Request
+	Body *Job
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *SubmitJobServiceRequestOptions) Validate() error {
+func (o *SubmitJobRequestOptions) Validate() error {
 	return nil
 }
 
-// SubmitJobResponseData is what SubmitJob returns: the status, the headers and the body of the response.
-type SubmitJobResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewSubmitJobResponseData201 returns the response data of status 201 with body as application/json.
-func NewSubmitJobResponseData201(body *Result) *SubmitJobResponseData {
-	return &SubmitJobResponseData{Status: 201, Body: body, contentType: "application/json"}
-}
-
-// NewSubmitJobResponseData202 returns the response data of status 202 with body as application/json.
-func NewSubmitJobResponseData202(body *Queued) *SubmitJobResponseData {
-	return &SubmitJobResponseData{Status: 202, Body: body, contentType: "application/json"}
-}
-
-// NewSubmitJobResponseData400 returns the response data of status 400 with body as application/problem+json.
-func NewSubmitJobResponseData400(body *Problem) *SubmitJobResponseData {
-	return &SubmitJobResponseData{Status: 400, Body: body, contentType: "application/problem+json"}
-}
-
-// WithStatus sets the status code.
-func (r *SubmitJobResponseData) WithStatus(code int) *SubmitJobResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *SubmitJobResponseData) WithHeaders(h http.Header) *SubmitJobResponseData {
-	r.Headers = h
-	return r
-}
-
-// WithTypedHeaders201 adds the headers the spec declares for status 201.
-func (r *SubmitJobResponseData) WithTypedHeaders201(h SubmitJobResponse201Headers) *SubmitJobResponseData {
-	r.Headers = runtime.Headers(r.Headers, h)
-	return r
-}
-
-// WithTypedHeaders202 adds the headers the spec declares for status 202.
-func (r *SubmitJobResponseData) WithTypedHeaders202(h SubmitJobResponse202Headers) *SubmitJobResponseData {
-	r.Headers = runtime.Headers(r.Headers, h)
-	return r
-}
-
-// StatusCode returns the status.
-func (r *SubmitJobResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *SubmitJobResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *SubmitJobResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *SubmitJobResponseData) ContentType() string {
-	return r.contentType
-}
-
-// GetJobLogServiceRequestOptions is what GetJobLog receives. RawRequest is the request as it came in.
-type GetJobLogServiceRequestOptions struct {
+// GetJobLogRequestOptions is what GetJobLog sends.
+type GetJobLogRequestOptions struct {
 	PathParams *GetJobLogPathParams
 	Headers    *GetJobLogHeaders
-	RawRequest *http.Request
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *GetJobLogServiceRequestOptions) Validate() error {
+func (o *GetJobLogRequestOptions) Validate() error {
 	return nil
 }
 
-// GetJobLogResponseData is what GetJobLog returns: the status, the headers and the body of the response.
-type GetJobLogResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
+// SubmitJobResponse is what SubmitJobWithResponse returns.
+type SubmitJobResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// JSON201 is the body of a 201 response as application/json.
+	JSON201 *Result
+	// JSON202 is the body of a 202 response as application/json.
+	JSON202 *Queued
+	// ProblemJSON400 is the body of a 400 response as application/problem+json.
+	ProblemJSON400 *Problem
+	// Headers201 holds the headers the spec declares for a 201 response.
+	Headers201 *SubmitJobResponse201Headers
+	// Headers202 holds the headers the spec declares for a 202 response.
+	Headers202 *SubmitJobResponse202Headers
 }
 
-// NewGetJobLogResponseData200 returns the response data of status 200 with body as application/json.
-func NewGetJobLogResponseData200(body GetJobLogJSONResponse200) *GetJobLogResponseData {
-	return &GetJobLogResponseData{Status: 200, Body: body, contentType: "application/json"}
+// StatusCode is the status of the response.
+func (r *SubmitJobResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
 }
 
-// NewGetJobLogResponseData404 returns the response data of status 404.
-func NewGetJobLogResponseData404() *GetJobLogResponseData {
-	return &GetJobLogResponseData{Status: 404, contentType: ""}
+// GetJobLogResponse is what GetJobLogWithResponse returns.
+type GetJobLogResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// Text200 is the body of a 200 response as text/plain.
+	Text200 *GetJobLogTextResponse200
+	// JSON200 is the body of a 200 response as application/json.
+	JSON200 GetJobLogJSONResponse200
 }
 
-// WithStatus sets the status code.
-func (r *GetJobLogResponseData) WithStatus(code int) *GetJobLogResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *GetJobLogResponseData) WithHeaders(h http.Header) *GetJobLogResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *GetJobLogResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *GetJobLogResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *GetJobLogResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *GetJobLogResponseData) ContentType() string {
-	return r.contentType
-}
-
-// The error types the handlers use, as the runtime declares them.
-type (
-	ErrorKind           = runtime.ErrorKind
-	HandlerError        = runtime.HandlerError
-	ErrorHandler        = runtime.ErrorHandler
-	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
-	DefaultErrorHandler = runtime.DefaultErrorHandler
-)
-
-// The kinds of HandlerError.
-const (
-	ErrorParse      = runtime.ErrorParse
-	ErrorDecode     = runtime.ErrorDecode
-	ErrorValidation = runtime.ErrorValidation
-	ErrorService    = runtime.ErrorService
-	ErrorResponse   = runtime.ErrorResponse
-)
-
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
-type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       runtime.ErrorHandler
-	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
-	MultipartMaxMemory int64
-}
-
-// ServerOption sets one field of ServerOptions.
-type ServerOption func(*ServerOptions)
-
-// NewServerOptions applies opts to the defaults.
-func NewServerOptions(opts ...ServerOption) *ServerOptions {
-	o := &ServerOptions{
-		ErrorHandler:       runtime.DefaultErrorHandler{},
-		JSONDecoder:        runtime.DecodeJSON,
-		MultipartMaxMemory: 33554432,
-	}
-	for _, opt := range opts {
-		opt(o)
-	}
-	return o
-}
-
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
-func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
-	return func(o *ServerOptions) {
-		o.Middleware = append(o.Middleware, mw...)
-	}
-}
-
-// WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
-	return func(o *ServerOptions) {
-		o.ErrorHandler = h
-	}
-}
-
-// WithJSONDecoder sets what reads JSON bodies. isRequired says whether an empty body is an error.
-func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error) ServerOption {
-	return func(o *ServerOptions) {
-		o.JSONDecoder = decode
-	}
-}
-
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
-func WithMultipartMaxMemory(n int64) ServerOption {
-	return func(o *ServerOptions) {
-		o.MultipartMaxMemory = n
-	}
-}
-
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
-type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
-}
-
-// responseData is what every response data type gives the adapter.
-type responseData interface {
-	StatusCode() int
-	Header() http.Header
-	Payload() any
-	ContentType() string
-}
-
-// NewHTTPAdapter returns the adapter of svc.
-func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
-}
-
-// SubmitJob handles POST /jobs.
-func (a *HTTPAdapter) SubmitJob(w http.ResponseWriter, r *http.Request) {
-	opts := &SubmitJobServiceRequestOptions{RawRequest: r}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "application/json":
-		if err := a.opts.JSONDecoder(r.Body, &opts.Body, true); err != nil {
-			a.failDecode(w, r, "SubmitJob", err)
-			return
-		}
-	case "":
-		a.failDecode(w, r, "SubmitJob", runtime.ErrBodyEmpty)
-		return
-	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "SubmitJob", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return
-	}
-
-	res, err := a.svc.SubmitJob(r.Context(), opts)
-	if err != nil {
-		if problem, ok := runtime.AsError[Problem](err); ok {
-			a.opts.ErrorHandler.HandleError(w, r, 400, problem)
-			return
-		}
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "SubmitJob", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "SubmitJob", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "SubmitJob", res)
-}
-
-// GetJobLog handles GET /jobs/{id}/log.
-func (a *HTTPAdapter) GetJobLog(w http.ResponseWriter, r *http.Request) {
-	opts := &GetJobLogServiceRequestOptions{RawRequest: r}
-	opts.PathParams = &GetJobLogPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetJobLog", ParamName: "id", ParamLocation: "path", Err: err})
-		return
-	}
-	opts.Headers = &GetJobLogHeaders{}
-	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "accept", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.Accept); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetJobLog", ParamName: "accept", ParamLocation: "header", Err: err})
-		return
-	}
-
-	res, err := a.svc.GetJobLog(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetJobLog", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetJobLog", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "GetJobLog", res)
-}
-
-// fail answers a request the handler could not serve.
-func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
-	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
-}
-
-// failDecode answers a request whose body could not be read.
-func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
-	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
-}
-
-// write writes the response of the service.
-func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
-	if res.ContentType() != "" {
-		w.Header().Set("Content-Type", res.ContentType())
-	}
-	if err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
-	}
-}
-
-// WithRouter registers the routes on r instead of a new router.
-func WithRouter(r chi.Router) ServerOption {
-	return func(o *ServerOptions) {
-		o.Router = r
-	}
-}
-
-// NewRouter registers every operation on a chi router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
-// wraps the generated routes and nothing else.
-func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
-	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
-	register := func(r chi.Router) {
-		r.Post("/jobs", adapter.SubmitJob)
-		r.Get("/jobs/{id}/log", adapter.GetJobLog)
-	}
-
-	router, _ := o.Router.(chi.Router)
-	if router == nil {
-		router = chi.NewRouter()
-		router.Use(o.Middleware...)
-		register(router)
-		return router
-	}
-	router.Group(func(r chi.Router) {
-		r.Use(o.Middleware...)
-		register(r)
-	})
-	return router
+// StatusCode is the status of the response.
+func (r *GetJobLogResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
 }
 
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
+
+// ClientInterface is what Client implements.
+type ClientInterface interface {
+	// SubmitJob calls POST /jobs.
+	//
+	// Submit a job
+	//
+	// Small jobs run at once and come back as 201; large ones are queued as 202.
+	SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*Result, error)
+	SubmitJobWithResponse(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*SubmitJobResponse, error)
+	// GetJobLog calls GET /jobs/{id}/log.
+	GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions, editors ...RequestEditor) (GetJobLogJSONResponse200, error)
+	GetJobLogWithResponse(ctx context.Context, opts *GetJobLogRequestOptions, editors ...RequestEditor) (*GetJobLogResponse, error)
+}
+
+var _ ClientInterface = (*Client)(nil)
 
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// Client calls the API at a base URL, with one method per operation.
-type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
-}
-
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
-func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c, nil
-}
-
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -474,8 +166,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -487,80 +178,36 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+type Client struct {
+	baseURL *url.URL
+	doer    HTTPDoer
+	timeout time.Duration
+	editors []RequestEditor
+}
+
+// NewClient returns a client of the API at baseURL.
+func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
+	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
+
+	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	for _, opt := range opts {
+		opt(c)
 	}
-	return req, nil
+	return c, nil
 }
 
-// SubmitJobRequestOptions is what SubmitJob sends: its parameters by location, and its body.
-type SubmitJobRequestOptions struct {
-	// Body sent as application/json.
-	Body *Job
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *SubmitJobRequestOptions) Validate() error {
-	return nil
-}
-
-// GetJobLogRequestOptions is what GetJobLog sends: its parameters by location, and its body.
-type GetJobLogRequestOptions struct {
-	PathParams *GetJobLogPathParams
-	Headers    *GetJobLogHeaders
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *GetJobLogRequestOptions) Validate() error {
-	return nil
-}
-
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
-type ClientInterface interface {
-	// Submit a job
-	//
-	// Small jobs run at once and come back as 201; large ones are queued as 202.
-	SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions) (*Result, error)
-	SubmitJobWithResponse(ctx context.Context, opts *SubmitJobRequestOptions) (*SubmitJobResponse, error)
-	GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions) (GetJobLogJSONResponse200, error)
-	GetJobLogWithResponse(ctx context.Context, opts *GetJobLogRequestOptions) (*GetJobLogResponse, error)
-}
-
-var _ ClientInterface = (*Client)(nil)
-
-// SubmitJobRequest builds the request of SubmitJob, with the editors of the client applied.
-func (c *Client) SubmitJobRequest(ctx context.Context, opts *SubmitJobRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &SubmitJobRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/jobs")
-	switch {
-	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
-	default:
-		return nil, runtime.ErrBodyEmpty
-	}
-	return c.newRequest(ctx, b)
-}
-
-// Submit a job
+// SubmitJob calls POST /jobs.
+//
+// # Submit a job
 //
 // Small jobs run at once and come back as 201; large ones are queued as 202.
-//
-// SubmitJob returns the body of a 201 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions) (*Result, error) {
-	req, err := c.SubmitJobRequest(ctx, opts)
+func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*Result, error) {
+	req, err := c.SubmitJobRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -580,11 +227,9 @@ func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions) (
 	return out, nil
 }
 
-// SubmitJobWithResponse is SubmitJob with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobRequestOptions) (*SubmitJobResponse, error) {
-	req, err := c.SubmitJobRequest(ctx, opts)
+// SubmitJobWithResponse calls POST /jobs and returns the whole response.
+func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*SubmitJobResponse, error) {
+	req, err := c.SubmitJobRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -606,26 +251,24 @@ func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobReque
 	return out, nil
 }
 
-// GetJobLogRequest builds the request of GetJobLog, with the editors of the client applied.
-func (c *Client) GetJobLogRequest(ctx context.Context, opts *GetJobLogRequestOptions) (*http.Request, error) {
+// SubmitJobRequest builds the request of POST /jobs.
+func (c *Client) SubmitJobRequest(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &GetJobLogRequestOptions{}
+		opts = &SubmitJobRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/jobs/{id}/log")
-	if opts.PathParams != nil {
-		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
+	b := runtime.NewRequestBuilder(http.MethodPost, "/jobs")
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json")
+	default:
+		return nil, runtime.ErrBodyEmpty
 	}
-	if opts.Headers != nil {
-		b.HeaderParam(opts.Headers.Accept, runtime.Param{Name: "accept", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
-	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// GetJobLog returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions) (GetJobLogJSONResponse200, error) {
-	req, err := c.GetJobLogRequest(ctx, opts)
+// GetJobLog calls GET /jobs/{id}/log.
+func (c *Client) GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions, editors ...RequestEditor) (GetJobLogJSONResponse200, error) {
+	req, err := c.GetJobLogRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -643,11 +286,9 @@ func (c *Client) GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions) (
 	return out, nil
 }
 
-// GetJobLogWithResponse is GetJobLog with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *Client) GetJobLogWithResponse(ctx context.Context, opts *GetJobLogRequestOptions) (*GetJobLogResponse, error) {
-	req, err := c.GetJobLogRequest(ctx, opts)
+// GetJobLogWithResponse calls GET /jobs/{id}/log and returns the whole response.
+func (c *Client) GetJobLogWithResponse(ctx context.Context, opts *GetJobLogRequestOptions, editors ...RequestEditor) (*GetJobLogResponse, error) {
+	req, err := c.GetJobLogRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -666,40 +307,30 @@ func (c *Client) GetJobLogWithResponse(ctx context.Context, opts *GetJobLogReque
 	return out, nil
 }
 
-// SubmitJobResponse is what SubmitJobWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type.
-type SubmitJobResponse struct {
-	HTTPResponse *http.Response
-	Body         []byte
-	// JSON201 is the body of a 201 response as application/json.
-	JSON201 *Result
-	// JSON202 is the body of a 202 response as application/json.
-	JSON202 *Queued
-	// ProblemJSON400 is the body of a 400 response as application/problem+json.
-	ProblemJSON400 *Problem
-	// Headers201 holds the headers the spec declares for a 201 response.
-	Headers201 *SubmitJobResponse201Headers
-	// Headers202 holds the headers the spec declares for a 202 response.
-	Headers202 *SubmitJobResponse202Headers
+// GetJobLogRequest builds the request of GET /jobs/{id}/log.
+func (c *Client) GetJobLogRequest(ctx context.Context, opts *GetJobLogRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &GetJobLogRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/jobs/{id}/log")
+	if opts.PathParams != nil {
+		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
+	}
+	if opts.Headers != nil {
+		b.HeaderParam(opts.Headers.Accept, runtime.Param{Name: "accept", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
+	}
+	return c.newRequest(ctx, b, editors)
 }
 
-// StatusCode is the status of the response.
-func (r *SubmitJobResponse) StatusCode() int {
-	return r.HTTPResponse.StatusCode
-}
-
-// GetJobLogResponse is what GetJobLogWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type.
-type GetJobLogResponse struct {
-	HTTPResponse *http.Response
-	Body         []byte
-	// Text200 is the body of a 200 response as text/plain.
-	Text200 *GetJobLogTextResponse200
-	// JSON200 is the body of a 200 response as application/json.
-	JSON200 GetJobLogJSONResponse200
-}
-
-// StatusCode is the status of the response.
-func (r *GetJobLogResponse) StatusCode() int {
-	return r.HTTPResponse.StatusCode
+func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
+	if err != nil {
+		return nil, err
+	}
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
 }

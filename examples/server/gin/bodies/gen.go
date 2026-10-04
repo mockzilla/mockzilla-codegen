@@ -45,11 +45,17 @@ type PostAnyResponse200 = string
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
+	// PostJSON handles POST /json.
 	PostJSON(ctx context.Context, opts *PostJSONServiceRequestOptions) (*PostJSONResponseData, error)
+	// PostForm handles POST /form.
 	PostForm(ctx context.Context, opts *PostFormServiceRequestOptions) (*PostFormResponseData, error)
+	// Upload handles POST /upload.
 	Upload(ctx context.Context, opts *UploadServiceRequestOptions) (*UploadResponseData, error)
+	// PostText handles POST /text.
 	PostText(ctx context.Context, opts *PostTextServiceRequestOptions) (*PostTextResponseData, error)
+	// PutFile handles PUT /file.
 	PutFile(ctx context.Context, opts *PutFileServiceRequestOptions) (*PutFileResponseData, error)
+	// PostAny handles POST /any.
 	PostAny(ctx context.Context, opts *PostAnyServiceRequestOptions) (*PostAnyResponseData, error)
 }
 

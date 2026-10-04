@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
@@ -54,41 +55,86 @@ type SearchQuery struct {
 	Query string `json:"query"`
 }
 
+// SearchPhotosRequestOptions is what SearchPhotos sends.
+type SearchPhotosRequestOptions struct {
+	Query *SearchPhotosQuery
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *SearchPhotosRequestOptions) Validate() error {
+	return nil
+}
+
+// ListOrdersRequestOptions is what ListOrders sends.
+type ListOrdersRequestOptions struct {
+	PathParams *ListOrdersPathParams
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *ListOrdersRequestOptions) Validate() error {
+	return nil
+}
+
+// ShareFileRequestOptions is what ShareFile sends.
+type ShareFileRequestOptions struct {
+	PathParams *ShareFilePathParams
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *ShareFileRequestOptions) Validate() error {
+	return nil
+}
+
+// ListUsersRequestOptions is what ListUsers sends.
+type ListUsersRequestOptions struct {
+	Query *ListUsersQuery
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *ListUsersRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.Query != nil {
+		errs.Append("query", o.Query.Validate())
+	}
+	return errs.Err()
+}
+
+// SearchRequestOptions is what Search sends.
+type SearchRequestOptions struct {
+	Query *SearchQuery
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *SearchRequestOptions) Validate() error {
+	return nil
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
+
+// ClientInterface is what Client implements.
+type ClientInterface interface {
+	// SearchPhotos calls GET /rest?method=photos.search.
+	SearchPhotos(ctx context.Context, opts *SearchPhotosRequestOptions, editors ...RequestEditor) error
+	// ListOrders calls GET /orders?end={end}&page={page}.
+	ListOrders(ctx context.Context, opts *ListOrdersRequestOptions, editors ...RequestEditor) error
+	// ShareFile calls PUT /files/{id}#share.
+	ShareFile(ctx context.Context, opts *ShareFileRequestOptions, editors ...RequestEditor) error
+	// ListUsers calls GET /#Action=ListUsers.
+	ListUsers(ctx context.Context, opts *ListUsersRequestOptions, editors ...RequestEditor) error
+	// Search calls GET /search?query={query}.
+	Search(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) error
+}
+
+var _ ClientInterface = (*Client)(nil)
 
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// Client calls the API at a base URL, with one method per operation.
-type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
-}
-
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
-func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c, nil
-}
-
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -105,8 +151,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -118,102 +163,32 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+type Client struct {
+	baseURL *url.URL
+	doer    HTTPDoer
+	timeout time.Duration
+	editors []RequestEditor
+}
+
+// NewClient returns a client of the API at baseURL.
+func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
+	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
+
+	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	for _, opt := range opts {
+		opt(c)
 	}
-	return req, nil
+	return c, nil
 }
 
-// SearchPhotosRequestOptions is what SearchPhotos sends: its parameters by location, and its body.
-type SearchPhotosRequestOptions struct {
-	Query *SearchPhotosQuery
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *SearchPhotosRequestOptions) Validate() error {
-	return nil
-}
-
-// ListOrdersRequestOptions is what ListOrders sends: its parameters by location, and its body.
-type ListOrdersRequestOptions struct {
-	PathParams *ListOrdersPathParams
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *ListOrdersRequestOptions) Validate() error {
-	return nil
-}
-
-// ShareFileRequestOptions is what ShareFile sends: its parameters by location, and its body.
-type ShareFileRequestOptions struct {
-	PathParams *ShareFilePathParams
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *ShareFileRequestOptions) Validate() error {
-	return nil
-}
-
-// ListUsersRequestOptions is what ListUsers sends: its parameters by location, and its body.
-type ListUsersRequestOptions struct {
-	Query *ListUsersQuery
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *ListUsersRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
-	if o.Query != nil {
-		errs.Append("query", o.Query.Validate())
-	}
-	return errs.Err()
-}
-
-// SearchRequestOptions is what Search sends: its parameters by location, and its body.
-type SearchRequestOptions struct {
-	Query *SearchQuery
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *SearchRequestOptions) Validate() error {
-	return nil
-}
-
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
-type ClientInterface interface {
-	SearchPhotos(ctx context.Context, opts *SearchPhotosRequestOptions) error
-	ListOrders(ctx context.Context, opts *ListOrdersRequestOptions) error
-	ShareFile(ctx context.Context, opts *ShareFileRequestOptions) error
-	ListUsers(ctx context.Context, opts *ListUsersRequestOptions) error
-	Search(ctx context.Context, opts *SearchRequestOptions) error
-}
-
-var _ ClientInterface = (*Client)(nil)
-
-// SearchPhotosRequest builds the request of SearchPhotos, with the editors of the client applied.
-func (c *Client) SearchPhotosRequest(ctx context.Context, opts *SearchPhotosRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &SearchPhotosRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/rest?method=photos.search")
-	if opts.Query != nil {
-		b.QueryParam(opts.Query.Text, runtime.Param{Name: "text", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
-	}
-	return c.newRequest(ctx, b)
-}
-
-// SearchPhotos sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *Client) SearchPhotos(ctx context.Context, opts *SearchPhotosRequestOptions) error {
-	req, err := c.SearchPhotosRequest(ctx, opts)
+// SearchPhotos calls GET /rest?method=photos.search.
+func (c *Client) SearchPhotos(ctx context.Context, opts *SearchPhotosRequestOptions, editors ...RequestEditor) error {
+	req, err := c.SearchPhotosRequest(ctx, opts, editors...)
 	if err != nil {
 		return err
 	}
@@ -224,8 +199,33 @@ func (c *Client) SearchPhotos(ctx context.Context, opts *SearchPhotosRequestOpti
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// ListOrdersRequest builds the request of ListOrders, with the editors of the client applied.
-func (c *Client) ListOrdersRequest(ctx context.Context, opts *ListOrdersRequestOptions) (*http.Request, error) {
+// SearchPhotosRequest builds the request of GET /rest?method=photos.search.
+func (c *Client) SearchPhotosRequest(ctx context.Context, opts *SearchPhotosRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &SearchPhotosRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/rest?method=photos.search")
+	if opts.Query != nil {
+		b.QueryParam(opts.Query.Text, runtime.Param{Name: "text", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
+	}
+	return c.newRequest(ctx, b, editors)
+}
+
+// ListOrders calls GET /orders?end={end}&page={page}.
+func (c *Client) ListOrders(ctx context.Context, opts *ListOrdersRequestOptions, editors ...RequestEditor) error {
+	req, err := c.ListOrdersRequest(ctx, opts, editors...)
+	if err != nil {
+		return err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return err
+	}
+	return runtime.DecodeSuccess(res, body, nil)
+}
+
+// ListOrdersRequest builds the request of GET /orders?end={end}&page={page}.
+func (c *Client) ListOrdersRequest(ctx context.Context, opts *ListOrdersRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &ListOrdersRequestOptions{}
 	}
@@ -234,13 +234,12 @@ func (c *Client) ListOrdersRequest(ctx context.Context, opts *ListOrdersRequestO
 		b.PathParam(opts.PathParams.End, runtime.Param{Name: "end", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 		b.PathParam(opts.PathParams.Page, runtime.Param{Name: "page", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// ListOrders sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *Client) ListOrders(ctx context.Context, opts *ListOrdersRequestOptions) error {
-	req, err := c.ListOrdersRequest(ctx, opts)
+// ShareFile calls PUT /files/{id}#share.
+func (c *Client) ShareFile(ctx context.Context, opts *ShareFileRequestOptions, editors ...RequestEditor) error {
+	req, err := c.ShareFileRequest(ctx, opts, editors...)
 	if err != nil {
 		return err
 	}
@@ -251,8 +250,8 @@ func (c *Client) ListOrders(ctx context.Context, opts *ListOrdersRequestOptions)
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// ShareFileRequest builds the request of ShareFile, with the editors of the client applied.
-func (c *Client) ShareFileRequest(ctx context.Context, opts *ShareFileRequestOptions) (*http.Request, error) {
+// ShareFileRequest builds the request of PUT /files/{id}#share.
+func (c *Client) ShareFileRequest(ctx context.Context, opts *ShareFileRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &ShareFileRequestOptions{}
 	}
@@ -260,13 +259,12 @@ func (c *Client) ShareFileRequest(ctx context.Context, opts *ShareFileRequestOpt
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// ShareFile sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *Client) ShareFile(ctx context.Context, opts *ShareFileRequestOptions) error {
-	req, err := c.ShareFileRequest(ctx, opts)
+// ListUsers calls GET /#Action=ListUsers.
+func (c *Client) ListUsers(ctx context.Context, opts *ListUsersRequestOptions, editors ...RequestEditor) error {
+	req, err := c.ListUsersRequest(ctx, opts, editors...)
 	if err != nil {
 		return err
 	}
@@ -277,8 +275,8 @@ func (c *Client) ShareFile(ctx context.Context, opts *ShareFileRequestOptions) e
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// ListUsersRequest builds the request of ListUsers, with the editors of the client applied.
-func (c *Client) ListUsersRequest(ctx context.Context, opts *ListUsersRequestOptions) (*http.Request, error) {
+// ListUsersRequest builds the request of GET /#Action=ListUsers.
+func (c *Client) ListUsersRequest(ctx context.Context, opts *ListUsersRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &ListUsersRequestOptions{}
 	}
@@ -286,13 +284,12 @@ func (c *Client) ListUsersRequest(ctx context.Context, opts *ListUsersRequestOpt
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Action, runtime.Param{Name: "Action", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// ListUsers sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *Client) ListUsers(ctx context.Context, opts *ListUsersRequestOptions) error {
-	req, err := c.ListUsersRequest(ctx, opts)
+// Search calls GET /search?query={query}.
+func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) error {
+	req, err := c.SearchRequest(ctx, opts, editors...)
 	if err != nil {
 		return err
 	}
@@ -303,8 +300,8 @@ func (c *Client) ListUsers(ctx context.Context, opts *ListUsersRequestOptions) e
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// SearchRequest builds the request of Search, with the editors of the client applied.
-func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions) (*http.Request, error) {
+// SearchRequest builds the request of GET /search?query={query}.
+func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &SearchRequestOptions{}
 	}
@@ -312,19 +309,18 @@ func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions) 
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Query, runtime.Param{Name: "query", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Search sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions) error {
-	req, err := c.SearchRequest(ctx, opts)
+func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
-	if err != nil {
-		return err
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return req, nil
 }

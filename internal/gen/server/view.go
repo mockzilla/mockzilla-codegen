@@ -28,10 +28,12 @@ type ServiceView struct {
 	Operations []OperationView
 }
 
-// OperationView is one operation: its method, options type and response data type. Fields are
-// the parameter groups, then the bodies.
+// OperationView is one operation: its method, options type and response data type. Method and
+// Path are as the spec writes them. Fields are the parameter groups, then the bodies.
 type OperationView struct {
 	Name         string
+	Method       string
+	Path         string
 	Doc          string
 	Options      string
 	Data         string
@@ -100,6 +102,8 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Operati
 	n := g.opts.Namer
 	v := OperationView{
 		Name:    op.Name,
+		Method:  op.Spec.Method,
+		Path:    op.Spec.Path,
 		Doc:     operation.Doc(op.Spec),
 		Options: n.ServiceRequestOptions(op.Name),
 		Data:    n.ResponseData(op.Name),

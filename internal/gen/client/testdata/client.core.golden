@@ -6,44 +6,61 @@ import (
 	"net/url"
 	"time"
 
+	"example.com/work/types"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
+
+// PetClientInterface is what PetClient implements.
+type PetClientInterface interface {
+	// ListPets calls GET /pets.
+	//
+	// List pets
+	//
+	// Returns pets.
+	ListPets(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (types.Pets, error)
+	ListPetsWithResponse(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (*types.ListPetsResponse, error)
+	// CreatePet calls POST /pets.
+	//
+	// Same
+	//
+	// Deprecated: the spec marks it deprecated.
+	CreatePet(ctx context.Context, opts *types.CreatePetRequestOptions, editors ...RequestEditor) (*types.Pet, error)
+	CreatePetWithResponse(ctx context.Context, opts *types.CreatePetRequestOptions, editors ...RequestEditor) (*types.CreatePetResponse, error)
+	// DeletePet calls DELETE /pets/{id}.
+	//
+	// Deprecated: the spec marks it deprecated.
+	DeletePet(ctx context.Context, opts *types.DeletePetRequestOptions, editors ...RequestEditor) error
+	DeletePetWithResponse(ctx context.Context, opts *types.DeletePetRequestOptions, editors ...RequestEditor) (*types.DeletePetResponse, error)
+	// Ping calls GET /ping.
+	Ping(ctx context.Context, opts *types.PingRequestOptions, editors ...RequestEditor) (string, error)
+	PingWithResponse(ctx context.Context, opts *types.PingRequestOptions, editors ...RequestEditor) (*types.PingResponse, error)
+	// Query calls QUERY /pets/query.
+	Query(ctx context.Context, opts *types.QueryRequestOptions, editors ...RequestEditor) error
+	QueryWithResponse(ctx context.Context, opts *types.QueryRequestOptions, editors ...RequestEditor) (*types.QueryResponse, error)
+	// Chat calls POST /chat.
+	Chat(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.Pet, error)
+	ChatWithResponse(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.ChatResponse, error)
+	ChatStream(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[types.ChatResponseItem], error)
+	ChatStreamWithResponse(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.ChatResponse, error)
+	// Tail calls GET /tail.
+	Tail(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*string, error)
+	TailWithResponse(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*types.TailResponse, error)
+	TailStream(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*runtime.Stream[[]byte], error)
+	TailStreamWithResponse(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*types.TailResponse, error)
+}
+
+var _ PetClientInterface = (*PetClient)(nil)
 
 // PetClientOption sets one setting of PetClient.
 type PetClientOption func(*PetClient)
 
-// PetClient calls the API at a base URL, with one method per operation.
-type PetClient struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
-}
-
-// NewPetClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 5 * time.Second unless WithTimeout
-// sets another limit.
-func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &PetClient{baseURL: u, doer: &http.Client{}, timeout: 5 * time.Second}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c, nil
-}
-
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) PetClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -53,17 +70,15 @@ func WithHTTPClient(d HTTPDoer) PetClientOption {
 	}
 }
 
-// WithTimeout sets how long a call may take, 0 for no limit. A Stream method waits that long for
-// the response headers only, then reads frames until the server ends the stream or the context
-// is canceled. An http.Client with a Timeout cuts the stream after it.
+// WithTimeout sets how long a call may take, 0 for no limit.
+// A Stream method waits that long for the response headers only.
 func WithTimeout(d time.Duration) PetClientOption {
 	return func(c *PetClient) {
 		c.timeout = d
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) PetClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -75,16 +90,25 @@ func WithRequestEditor(fns ...RequestEditor) PetClientOption {
 	}
 }
 
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *PetClient) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
+// PetClient calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+type PetClient struct {
+	baseURL *url.URL
+	doer    HTTPDoer
+	timeout time.Duration
+	editors []RequestEditor
+}
+
+// NewPetClient returns a client of the API at baseURL.
+func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
+	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
+
+	c := &PetClient{baseURL: u, doer: &http.Client{}, timeout: 5 * time.Second}
+	for _, opt := range opts {
+		opt(c)
 	}
-	return req, nil
+	return c, nil
 }

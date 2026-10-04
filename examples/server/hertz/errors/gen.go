@@ -110,7 +110,9 @@ func (p PutPetPathParams) Validate() error {
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
+	// GetPet handles GET /pets/{id}.
 	GetPet(ctx context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error)
+	// PutPet handles PUT /pets/{id}.
 	PutPet(ctx context.Context, opts *PutPetServiceRequestOptions) (*PutPetResponseData, error)
 }
 

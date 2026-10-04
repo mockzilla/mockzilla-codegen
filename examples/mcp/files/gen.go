@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	chi "github.com/go-chi/chi/v5"
@@ -39,8 +40,12 @@ type SetPhotoRequestBody = runtime.File
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
+	// SetPhoto handles PUT /pets/{id}/photo.
+	//
 	// Set the photo of a pet
 	SetPhoto(ctx context.Context, opts *SetPhotoServiceRequestOptions) (*SetPhotoResponseData, error)
+	// AddNote handles POST /notes.
+	//
 	// Add a note with an attachment
 	AddNote(ctx context.Context, opts *AddNoteServiceRequestOptions) (*AddNoteResponseData, error)
 }
@@ -373,41 +378,53 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	return router
 }
 
+// SetPhotoRequestOptions is what SetPhoto sends.
+type SetPhotoRequestOptions struct {
+	PathParams *SetPhotoPathParams
+	// Body sent as image/png.
+	Body *SetPhotoRequestBody
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *SetPhotoRequestOptions) Validate() error {
+	return nil
+}
+
+// AddNoteRequestOptions is what AddNote sends.
+type AddNoteRequestOptions struct {
+	// Body sent as multipart/form-data.
+	Body *Note
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *AddNoteRequestOptions) Validate() error {
+	return nil
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
+
+// ClientInterface is what Client implements.
+type ClientInterface interface {
+	// SetPhoto calls PUT /pets/{id}/photo.
+	//
+	// Set the photo of a pet
+	SetPhoto(ctx context.Context, opts *SetPhotoRequestOptions, editors ...RequestEditor) (*Received, error)
+	// AddNote calls POST /notes.
+	//
+	// Add a note with an attachment
+	AddNote(ctx context.Context, opts *AddNoteRequestOptions, editors ...RequestEditor) (*Received, error)
+}
+
+var _ ClientInterface = (*Client)(nil)
 
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// Client calls the API at a base URL, with one method per operation.
-type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
-}
-
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
-func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c, nil
-}
-
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -424,8 +441,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -437,56 +453,53 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+type Client struct {
+	baseURL *url.URL
+	doer    HTTPDoer
+	timeout time.Duration
+	editors []RequestEditor
+}
+
+// NewClient returns a client of the API at baseURL.
+func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
+	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
+
+	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	for _, opt := range opts {
+		opt(c)
 	}
-	return req, nil
+	return c, nil
 }
 
-// SetPhotoRequestOptions is what SetPhoto sends: its parameters by location, and its body.
-type SetPhotoRequestOptions struct {
-	PathParams *SetPhotoPathParams
-	// Body sent as image/png.
-	Body *SetPhotoRequestBody
+// SetPhoto calls PUT /pets/{id}/photo.
+//
+// Set the photo of a pet
+func (c *Client) SetPhoto(ctx context.Context, opts *SetPhotoRequestOptions, editors ...RequestEditor) (*Received, error) {
+	req, err := c.SetPhotoRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out *Received
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "200", MediaType: "application/json", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *SetPhotoRequestOptions) Validate() error {
-	return nil
-}
-
-// AddNoteRequestOptions is what AddNote sends: its parameters by location, and its body.
-type AddNoteRequestOptions struct {
-	// Body sent as multipart/form-data.
-	Body *Note
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *AddNoteRequestOptions) Validate() error {
-	return nil
-}
-
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
-type ClientInterface interface {
-	// Set the photo of a pet
-	SetPhoto(ctx context.Context, opts *SetPhotoRequestOptions) (*Received, error)
-	// Add a note with an attachment
-	AddNote(ctx context.Context, opts *AddNoteRequestOptions) (*Received, error)
-}
-
-var _ ClientInterface = (*Client)(nil)
-
-// SetPhotoRequest builds the request of SetPhoto, with the editors of the client applied.
-func (c *Client) SetPhotoRequest(ctx context.Context, opts *SetPhotoRequestOptions) (*http.Request, error) {
+// SetPhotoRequest builds the request of PUT /pets/{id}/photo.
+func (c *Client) SetPhotoRequest(ctx context.Context, opts *SetPhotoRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &SetPhotoRequestOptions{}
 	}
@@ -500,16 +513,14 @@ func (c *Client) SetPhotoRequest(ctx context.Context, opts *SetPhotoRequestOptio
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Set the photo of a pet
+// AddNote calls POST /notes.
 //
-// SetPhoto returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) SetPhoto(ctx context.Context, opts *SetPhotoRequestOptions) (*Received, error) {
-	req, err := c.SetPhotoRequest(ctx, opts)
+// Add a note with an attachment
+func (c *Client) AddNote(ctx context.Context, opts *AddNoteRequestOptions, editors ...RequestEditor) (*Received, error) {
+	req, err := c.AddNoteRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -527,8 +538,8 @@ func (c *Client) SetPhoto(ctx context.Context, opts *SetPhotoRequestOptions) (*R
 	return out, nil
 }
 
-// AddNoteRequest builds the request of AddNote, with the editors of the client applied.
-func (c *Client) AddNoteRequest(ctx context.Context, opts *AddNoteRequestOptions) (*http.Request, error) {
+// AddNoteRequest builds the request of POST /notes.
+func (c *Client) AddNoteRequest(ctx context.Context, opts *AddNoteRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &AddNoteRequestOptions{}
 	}
@@ -539,31 +550,20 @@ func (c *Client) AddNoteRequest(ctx context.Context, opts *AddNoteRequestOptions
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Add a note with an attachment
-//
-// AddNote returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) AddNote(ctx context.Context, opts *AddNoteRequestOptions) (*Received, error) {
-	req, err := c.AddNoteRequest(ctx, opts)
+func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
-	if err != nil {
-		return nil, err
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
 	}
-
-	var out *Received
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
-		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return req, nil
 }
 
 // SetPhotoToolInput is the input of the set_photo tool: the parameters of the operation.

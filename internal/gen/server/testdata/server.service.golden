@@ -9,16 +9,23 @@ import (
 
 // PetsInterface is what the generated handlers call. Implement it with the business logic.
 type PetsInterface interface {
+	// ListPets handles GET /pets.
+	//
 	// List pets
 	//
 	// Returns pets.
 	ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error)
+	// CreatePet handles POST /pets.
+	//
 	// Same
 	//
 	// Deprecated: the spec marks it deprecated.
 	CreatePet(ctx context.Context, opts *CreatePetServiceRequestOptions) (*CreatePetResponseData, error)
+	// DeletePet handles DELETE /pets/{id}.
+	//
 	// Deprecated: the spec marks it deprecated.
 	DeletePet(ctx context.Context, opts *DeletePetServiceRequestOptions) (*DeletePetResponseData, error)
+	// Ping handles GET /ping.
 	Ping(ctx context.Context, opts *PingServiceRequestOptions) (*PingResponseData, error)
 }
 

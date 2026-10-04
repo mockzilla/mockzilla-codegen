@@ -1,7 +1,5 @@
 {{- range .Operations}}
-// {{.Type}} is what {{.Name}}WithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type.{{if .HasStream}} {{.Name}}StreamWithResponse leaves the
-// body of a streamed response unread, in the stream field.{{end}}
+// {{.Type}} is what {{.Name}}WithResponse returns.
 type {{.Type}} struct {
 	HTTPResponse *{{$.HTTP}}.Response
 	Body         []byte
