@@ -67,6 +67,7 @@ func TestEventStream(t *testing.T) {
 		body       string
 		wantFrames []chunk
 		wantEvents []Event
+		wantErr    error
 	}{
 		{
 			name:       "Data lines are joined with newlines",
@@ -141,10 +142,24 @@ func TestEventStream(t *testing.T) {
 			wantEvents: []Event{{ID: "1", Data: []byte(`{"text":"a"}`)}},
 		},
 		{
-			name:       "The last event needs no blank line before the end",
+			name:       "An event cut in its data line is dropped",
 			body:       "data: {\"text\":\"a\"}\n\ndata: {\"text\":\"b\"}",
-			wantFrames: []chunk{{Text: "a"}, {Text: "b"}},
-			wantEvents: []Event{{Data: []byte(`{"text":"a"}`)}, {Data: []byte(`{"text":"b"}`)}},
+			wantFrames: []chunk{{Text: "a"}},
+			wantEvents: []Event{{Data: []byte(`{"text":"a"}`)}},
+			wantErr:    io.ErrUnexpectedEOF,
+		},
+		{
+			name:       "An event cut before its blank line is dropped",
+			body:       "data: {\"text\":\"a\"}\n\nevent: status\r\ndata: {\"text\":\"b\"}\r\n",
+			wantFrames: []chunk{{Text: "a"}},
+			wantEvents: []Event{{Data: []byte(`{"text":"a"}`)}},
+			wantErr:    io.ErrUnexpectedEOF,
+		},
+		{
+			name:       "Fields without data at the end lose nothing",
+			body:       "data: {\"text\":\"a\"}\n\nid: 2\nevent: status",
+			wantFrames: []chunk{{Text: "a"}},
+			wantEvents: []Event{{Data: []byte(`{"text":"a"}`)}},
 		},
 		{name: "An empty body"},
 		{name: "Comments alone", body: ": hi\n\n: there\n"},
@@ -160,7 +175,7 @@ func TestEventStream(t *testing.T) {
 			for _, s := range []*Stream[chunk]{whole, bytewise} {
 				frames, events, err := collect(t, s)
 
-				require.NoError(t, err)
+				require.ErrorIs(t, err, tc.wantErr)
 				assert.Equal(t, tc.wantFrames, frames)
 				assert.Equal(t, tc.wantEvents, events)
 				assert.False(t, s.Next(), "a finished stream stays finished")
