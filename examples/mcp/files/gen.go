@@ -258,6 +258,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // SetPhoto handles PUT /pets/{id}/photo.
 func (a *HTTPAdapter) SetPhoto(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "SetPhoto"))
 	opts := &SetPhotoServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &SetPhotoPathParams{}
 	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -294,6 +295,7 @@ func (a *HTTPAdapter) SetPhoto(w http.ResponseWriter, r *http.Request) {
 
 // AddNote handles POST /notes.
 func (a *HTTPAdapter) AddNote(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "AddNote"))
 	opts := &AddNoteServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "multipart/form-data":
@@ -510,7 +512,7 @@ func (c *Client) SetPhotoRequest(ctx context.Context, opts *SetPhotoRequestOptio
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "SetPhoto", b, editors)
 }
 
 // AddNote calls POST /notes.
@@ -547,10 +549,11 @@ func (c *Client) AddNoteRequest(ctx context.Context, opts *AddNoteRequestOptions
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "AddNote", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

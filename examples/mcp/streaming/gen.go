@@ -262,6 +262,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // Chat handles POST /chat.
 func (a *HTTPAdapter) Chat(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "Chat"))
 	opts := &ChatServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
@@ -291,6 +292,7 @@ func (a *HTTPAdapter) Chat(w http.ResponseWriter, r *http.Request) {
 
 // ListEvents handles GET /events.
 func (a *HTTPAdapter) ListEvents(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListEvents"))
 	opts := &ListEventsServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.ListEvents(r.Context(), opts)
@@ -507,7 +509,7 @@ func (c *Client) ChatRequest(ctx context.Context, opts *ChatRequestOptions, edit
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Chat", b, editors)
 }
 
 // ListEvents calls GET /events.
@@ -551,10 +553,11 @@ func (c *Client) ListEventsRequest(ctx context.Context, opts *ListEventsRequestO
 		opts = &ListEventsRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/events")
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "ListEvents", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

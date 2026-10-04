@@ -207,7 +207,7 @@ func (c *Client) SearchPhotosRequest(ctx context.Context, opts *SearchPhotosRequ
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Text, runtime.Param{Name: "text", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "SearchPhotos", b, editors)
 }
 
 // ListOrders calls GET /orders?end={end}&page={page}.
@@ -233,7 +233,7 @@ func (c *Client) ListOrdersRequest(ctx context.Context, opts *ListOrdersRequestO
 		b.PathParam(opts.PathParams.End, runtime.Param{Name: "end", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 		b.PathParam(opts.PathParams.Page, runtime.Param{Name: "page", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "ListOrders", b, editors)
 }
 
 // ShareFile calls PUT /files/{id}#share.
@@ -258,7 +258,7 @@ func (c *Client) ShareFileRequest(ctx context.Context, opts *ShareFileRequestOpt
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "ShareFile", b, editors)
 }
 
 // ListUsers calls GET /#Action=ListUsers.
@@ -283,7 +283,7 @@ func (c *Client) ListUsersRequest(ctx context.Context, opts *ListUsersRequestOpt
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Action, runtime.Param{Name: "Action", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "ListUsers", b, editors)
 }
 
 // Search calls GET /search?query={query}.
@@ -308,10 +308,11 @@ func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions, 
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Query, runtime.Param{Name: "query", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Search", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

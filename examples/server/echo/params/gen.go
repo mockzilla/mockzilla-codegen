@@ -598,6 +598,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 // PathStyles handles GET /path/{simple}/{label}/{matrix}/{list}.
 func (a *HTTPAdapter) PathStyles(c echo.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "PathStyles"))
 	opts := &PathStylesServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PathStylesPathParams{}
 	if err := runtime.DecodePath(c.Param("simple"), runtime.Param{Name: "simple", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Simple); err != nil {
@@ -633,6 +634,7 @@ func (a *HTTPAdapter) PathStyles(c echo.Context) error {
 // QueryStyles handles GET /query.
 func (a *HTTPAdapter) QueryStyles(c echo.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "QueryStyles"))
 	opts := &QueryStylesServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.Query = &QueryStylesQuery{}
@@ -693,6 +695,7 @@ func (a *HTTPAdapter) QueryStyles(c echo.Context) error {
 // HeaderStyles handles GET /header.
 func (a *HTTPAdapter) HeaderStyles(c echo.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "HeaderStyles"))
 	opts := &HeaderStylesServiceRequestOptions{RawRequest: r}
 	opts.Headers = &HeaderStylesHeaders{}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Tags", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XTags); err != nil {
@@ -728,6 +731,7 @@ func (a *HTTPAdapter) HeaderStyles(c echo.Context) error {
 // CookieStyles handles GET /cookie.
 func (a *HTTPAdapter) CookieStyles(c echo.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "CookieStyles"))
 	opts := &CookieStylesServiceRequestOptions{RawRequest: r}
 	opts.Cookies = &CookieStylesCookies{}
 	if err := runtime.DecodeCookie(r.Cookies(), runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Cookies.Session); err != nil {
@@ -755,6 +759,7 @@ func (a *HTTPAdapter) CookieStyles(c echo.Context) error {
 // Search handles GET /search.
 func (a *HTTPAdapter) Search(c echo.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "Search"))
 	opts := &SearchServiceRequestOptions{RawRequest: r}
 	if err := runtime.DecodeQueryString(r.URL.RawQuery, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false}, &opts.Filter); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "Search", ParamName: "filter", ParamLocation: "querystring", Err: err})

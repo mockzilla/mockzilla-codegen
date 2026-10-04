@@ -523,6 +523,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // ListPets handles GET /pets.
 func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListPets"))
 	opts := &ListPetsServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.Query = &ListPetsQuery{}
@@ -545,6 +546,7 @@ func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
 
 // CreatePet handles POST /pets.
 func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreatePet"))
 	opts := &CreatePetServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
@@ -579,6 +581,7 @@ func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
 
 // GetPet handles GET /pets/{id}.
 func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetPet"))
 	opts := &GetPetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetPetPathParams{}
 	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -605,6 +608,7 @@ func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
 
 // DeletePet handles DELETE /pets/{id}.
 func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "DeletePet"))
 	opts := &DeletePetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeletePetPathParams{}
 	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -626,6 +630,7 @@ func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
 
 // Ping handles GET /ping.
 func (a *HTTPAdapter) Ping(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "Ping"))
 	opts := &PingServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.Ping(r.Context(), opts)
@@ -876,7 +881,7 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Limit, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "ListPets", b, editors)
 }
 
 // CreatePet calls POST /pets.
@@ -914,7 +919,7 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *CreatePetRequest
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "CreatePet", b, editors)
 }
 
 // GetPet calls GET /pets/{id}.
@@ -949,7 +954,7 @@ func (c *PetClient) GetPetRequest(ctx context.Context, opts *GetPetRequestOption
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "GetPet", b, editors)
 }
 
 // DeletePet calls DELETE /pets/{id}.
@@ -976,7 +981,7 @@ func (c *PetClient) DeletePetRequest(ctx context.Context, opts *DeletePetRequest
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "DeletePet", b, editors)
 }
 
 // Ping calls GET /ping.
@@ -1007,10 +1012,11 @@ func (c *PetClient) PingRequest(ctx context.Context, opts *PingRequestOptions, e
 		opts = &PingRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/ping")
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Ping", b, editors)
 }
 
-func (c *PetClient) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *PetClient) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

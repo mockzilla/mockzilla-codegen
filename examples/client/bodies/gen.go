@@ -285,7 +285,7 @@ func (c *Client) PostJSONRequest(ctx context.Context, opts *PostJSONRequestOptio
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "PostJSON", b, editors)
 }
 
 // GetForm calls GET /form.
@@ -314,7 +314,7 @@ func (c *Client) GetFormRequest(ctx context.Context, opts *GetFormRequestOptions
 		opts = &GetFormRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/form")
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "GetForm", b, editors)
 }
 
 // PostForm calls POST /form.
@@ -349,7 +349,7 @@ func (c *Client) PostFormRequest(ctx context.Context, opts *PostFormRequestOptio
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "PostForm", b, editors)
 }
 
 // PostCharset calls POST /charset.
@@ -382,7 +382,7 @@ func (c *Client) PostCharsetRequest(ctx context.Context, opts *PostCharsetReques
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json; charset=utf-8")
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "PostCharset", b, editors)
 }
 
 // Upload calls POST /upload.
@@ -417,7 +417,7 @@ func (c *Client) UploadRequest(ctx context.Context, opts *UploadRequestOptions, 
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Upload", b, editors)
 }
 
 // PostText calls POST /text.
@@ -452,7 +452,7 @@ func (c *Client) PostTextRequest(ctx context.Context, opts *PostTextRequestOptio
 	case opts.BodyOctetStream != nil:
 		b.BytesBody(opts.BodyOctetStream, "application/octet-stream")
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "PostText", b, editors)
 }
 
 // PutFile calls PUT /file.
@@ -487,7 +487,7 @@ func (c *Client) PutFileRequest(ctx context.Context, opts *PutFileRequestOptions
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "PutFile", b, editors)
 }
 
 // PutXML calls PUT /xml.
@@ -550,7 +550,7 @@ func (c *Client) PostAnyRequest(ctx context.Context, opts *PostAnyRequestOptions
 	case opts.BodyAny != nil:
 		b.BytesBody(opts.BodyAny, "application/octet-stream")
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "PostAny", b, editors)
 }
 
 // GetAnyText calls GET /any/text.
@@ -579,7 +579,7 @@ func (c *Client) GetAnyTextRequest(ctx context.Context, opts *GetAnyTextRequestO
 		opts = &GetAnyTextRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/any/text")
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "GetAnyText", b, editors)
 }
 
 // GetAnyBytes calls GET /any/bytes.
@@ -608,10 +608,11 @@ func (c *Client) GetAnyBytesRequest(ctx context.Context, opts *GetAnyBytesReques
 		opts = &GetAnyBytesRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/any/bytes")
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "GetAnyBytes", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

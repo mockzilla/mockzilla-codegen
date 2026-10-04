@@ -238,6 +238,7 @@ func NewHTTPAdapter(svc TodoInterface, opts ...ServerOption) *HTTPAdapter {
 
 // ListTodos handles GET /todos.
 func (a *HTTPAdapter) ListTodos(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListTodos"))
 	opts := &ListTodosServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.ListTodos(r.Context(), opts)
@@ -254,6 +255,7 @@ func (a *HTTPAdapter) ListTodos(w http.ResponseWriter, r *http.Request) {
 
 // CreateTodo handles POST /todos.
 func (a *HTTPAdapter) CreateTodo(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreateTodo"))
 	opts := &CreateTodoServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":

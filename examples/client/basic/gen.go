@@ -192,7 +192,7 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Limit, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "ListPets", b, editors)
 }
 
 // CreatePet calls POST /pets.
@@ -227,7 +227,7 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *CreatePetRequest
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "CreatePet", b, editors)
 }
 
 // GetPet calls GET /pets/{id}.
@@ -259,7 +259,7 @@ func (c *PetClient) GetPetRequest(ctx context.Context, opts *GetPetRequestOption
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "GetPet", b, editors)
 }
 
 // DeletePet calls DELETE /pets/{id}.
@@ -284,7 +284,7 @@ func (c *PetClient) DeletePetRequest(ctx context.Context, opts *DeletePetRequest
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "DeletePet", b, editors)
 }
 
 // Ping calls GET /ping.
@@ -313,10 +313,11 @@ func (c *PetClient) PingRequest(ctx context.Context, opts *PingRequestOptions, e
 		opts = &PingRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/ping")
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Ping", b, editors)
 }
 
-func (c *PetClient) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *PetClient) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

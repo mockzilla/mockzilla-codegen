@@ -742,6 +742,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 // PostJSON handles POST /json.
 func (a *HTTPAdapter) PostJSON(c khttp.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostJSON"))
 	opts := &PostJSONServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
@@ -771,6 +772,7 @@ func (a *HTTPAdapter) PostJSON(c khttp.Context) error {
 // GetForm handles GET /form.
 func (a *HTTPAdapter) GetForm(c khttp.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetForm"))
 	opts := &GetFormServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetForm(r.Context(), opts)
@@ -789,6 +791,7 @@ func (a *HTTPAdapter) GetForm(c khttp.Context) error {
 // PostForm handles POST /form.
 func (a *HTTPAdapter) PostForm(c khttp.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostForm"))
 	opts := &PostFormServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/x-www-form-urlencoded":
@@ -820,6 +823,7 @@ func (a *HTTPAdapter) PostForm(c khttp.Context) error {
 // GetQuote handles GET /quote.
 func (a *HTTPAdapter) GetQuote(c khttp.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetQuote"))
 	opts := &GetQuoteServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetQuote(r.Context(), opts)
@@ -838,6 +842,7 @@ func (a *HTTPAdapter) GetQuote(c khttp.Context) error {
 // GetCount handles GET /count.
 func (a *HTTPAdapter) GetCount(c khttp.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetCount"))
 	opts := &GetCountServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetCount(r.Context(), opts)
@@ -856,6 +861,7 @@ func (a *HTTPAdapter) GetCount(c khttp.Context) error {
 // ListNotes handles GET /notes.
 func (a *HTTPAdapter) ListNotes(c khttp.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListNotes"))
 	opts := &ListNotesServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.ListNotes(r.Context(), opts)
@@ -874,6 +880,7 @@ func (a *HTTPAdapter) ListNotes(c khttp.Context) error {
 // Upload handles POST /upload.
 func (a *HTTPAdapter) Upload(c khttp.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "Upload"))
 	opts := &UploadServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "multipart/form-data":
@@ -906,6 +913,7 @@ func (a *HTTPAdapter) Upload(c khttp.Context) error {
 // PostText handles POST /text.
 func (a *HTTPAdapter) PostText(c khttp.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostText"))
 	opts := &PostTextServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "text/plain":
@@ -944,6 +952,7 @@ func (a *HTTPAdapter) PostText(c khttp.Context) error {
 // PutFile handles PUT /file.
 func (a *HTTPAdapter) PutFile(c khttp.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "PutFile"))
 	opts := &PutFileServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "image/png":
@@ -977,6 +986,7 @@ func (a *HTTPAdapter) PutFile(c khttp.Context) error {
 // PostAny handles POST /any.
 func (a *HTTPAdapter) PostAny(c khttp.Context) error {
 	w, r := c.Response(), c.Request()
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostAny"))
 	opts := &PostAnyServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/xml":

@@ -357,7 +357,7 @@ func (c *Client) ChatRequest(ctx context.Context, opts *ChatRequestOptions, edit
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "Chat", b, editors)
 }
 
 // ListEvents calls GET /events.
@@ -427,7 +427,7 @@ func (c *Client) ListEventsRequest(ctx context.Context, opts *ListEventsRequestO
 		opts = &ListEventsRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodGet, "/events")
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "ListEvents", b, editors)
 }
 
 // TailLog calls GET /logs/{job}.
@@ -520,10 +520,11 @@ func (c *Client) TailLogRequest(ctx context.Context, opts *TailLogRequestOptions
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.Job, runtime.Param{Name: "job", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b, editors)
+	return c.newRequest(ctx, "TailLog", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err

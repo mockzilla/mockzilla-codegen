@@ -235,6 +235,7 @@ func NewHTTPAdapter(svc PetsInterface, opts ...ServerOption) *HTTPAdapter {
 
 // ListPets handles GET /pets.
 func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListPets"))
 	opts := &ListPetsServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.ListPets(r.Context(), opts)
@@ -251,6 +252,7 @@ func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
 
 // CreatePet handles POST /pets.
 func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreatePet"))
 	opts := &CreatePetServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":

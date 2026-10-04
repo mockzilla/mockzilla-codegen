@@ -344,6 +344,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 
 // GetPet handles GET /pets/{id}.
 func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetPet"))
 	opts := &GetPetServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.PathParams = &GetPetPathParams{}
@@ -380,6 +381,7 @@ func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
 
 // PutPet handles PUT /pets/{id}.
 func (a *HTTPAdapter) PutPet(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "PutPet"))
 	opts := &PutPetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PutPetPathParams{}
 	if err := runtime.DecodePath(r.PathValue("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {

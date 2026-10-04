@@ -75,6 +75,7 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 {{- if $.Handler.Prologue}}
 	{{$.Handler.Prologue}}
 {{- end}}
+	r = r.WithContext({{$.Runtime}}.WithOperationID(r.Context(), {{.ID}}))
 	opts := &{{.Options}}{RawRequest: r}
 {{- if .HasQuery}}
 	query := r.URL.Query()
