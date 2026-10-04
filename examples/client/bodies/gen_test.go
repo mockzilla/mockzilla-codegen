@@ -56,6 +56,10 @@ func (echo) PutFile(_ context.Context, opts *PutFileServiceRequestOptions) (*Put
 	return NewPutFileResponseData(opts.Body), nil
 }
 
+func (echo) PutXML(context.Context, *PutXMLServiceRequestOptions) (*PutXMLResponseData, error) {
+	return NewPutXMLResponseData(), nil
+}
+
 func (echo) PostAny(_ context.Context, opts *PostAnyServiceRequestOptions) (*PostAnyResponseData, error) {
 	switch {
 	case opts.BodyXML != nil:
@@ -192,4 +196,28 @@ func TestRequiredBody(t *testing.T) {
 	_, err := c.PostForm(context.Background(), &PostFormRequestOptions{})
 
 	require.ErrorIs(t, err, runtime.ErrBodyEmpty)
+}
+
+func TestBodyTheClientCannotSend(t *testing.T) {
+	t.Parallel()
+
+	c := newClient(t)
+	tests := []struct {
+		name string
+		opts *PutXMLRequestOptions
+		want error
+	}{
+		{name: "XML into a struct", opts: &PutXMLRequestOptions{Body: &Note{Text: "hi"}}, want: runtime.ErrContentType},
+		{name: "No body", opts: &PutXMLRequestOptions{}, want: runtime.ErrBodyEmpty},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := c.PutXML(context.Background(), tc.opts)
+
+			require.ErrorIs(t, err, tc.want)
+		})
+	}
 }

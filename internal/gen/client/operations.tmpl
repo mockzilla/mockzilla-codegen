@@ -26,6 +26,7 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 	if opts == nil {
 		opts = &{{.Options}}{}
 	}
+{{- if .IsSendable}}
 	b := {{$.Runtime}}.NewRequestBuilder({{.Method}}, {{.Path}})
 {{- range .Groups}}
 	if opts.{{.Field}} != nil {
@@ -33,6 +34,7 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 		b.{{.Encoder}}({{.Value}}, {{$.Runtime}}.Param{Name: {{.Name}}, Style: {{$.Runtime}}.{{.Style}}, IsExplode: {{.IsExplode}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}})
 {{- end}}
 	}
+{{- end}}
 {{- end}}
 {{- if .Bodies}}
 	switch {
@@ -50,7 +52,9 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 {{- end}}
 	}
 {{- end}}
+{{- if .IsSendable}}
 	return c.newRequest(ctx, b)
+{{- end}}
 }
 {{with .Doc}}
 {{comment .}}

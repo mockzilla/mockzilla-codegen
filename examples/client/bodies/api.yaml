@@ -67,6 +67,15 @@ paths:
           description: the file back
           content:
             image/png: {schema: {type: string, format: binary}}
+  /xml:
+    put:
+      operationId: putXML
+      requestBody:
+        required: true
+        content:
+          application/xml: {schema: {$ref: '#/components/schemas/Note'}}
+      responses:
+        "204": {description: stored}
   /any:
     post:
       operationId: postAny

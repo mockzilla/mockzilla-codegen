@@ -52,6 +52,7 @@ type ServiceInterface interface {
 	Upload(ctx context.Context, opts *UploadServiceRequestOptions) (*UploadResponseData, error)
 	PostText(ctx context.Context, opts *PostTextServiceRequestOptions) (*PostTextResponseData, error)
 	PutFile(ctx context.Context, opts *PutFileServiceRequestOptions) (*PutFileResponseData, error)
+	PutXML(ctx context.Context, opts *PutXMLServiceRequestOptions) (*PutXMLResponseData, error)
 	PostAny(ctx context.Context, opts *PostAnyServiceRequestOptions) (*PostAnyResponseData, error)
 }
 
@@ -344,6 +345,64 @@ func (r *PutFileResponseData) Payload() any {
 
 // ContentType is the media type the body is written as, empty for the default of its Go type.
 func (r *PutFileResponseData) ContentType() string {
+	return r.contentType
+}
+
+// PutXMLServiceRequestOptions is what PutXML receives. RawRequest is the request as it came in.
+type PutXMLServiceRequestOptions struct {
+	// Body sent as application/xml.
+	Body       *Note
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *PutXMLServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// PutXMLResponseData is what PutXML returns: the status, the headers and the body of the response.
+type PutXMLResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewPutXMLResponseData returns the response data of status 204.
+func NewPutXMLResponseData() *PutXMLResponseData {
+	return &PutXMLResponseData{Status: 204, contentType: ""}
+}
+
+// WithStatus sets the status code.
+func (r *PutXMLResponseData) WithStatus(code int) *PutXMLResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *PutXMLResponseData) WithHeaders(h http.Header) *PutXMLResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *PutXMLResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *PutXMLResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *PutXMLResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType is the media type the body is written as, empty for the default of its Go type.
+func (r *PutXMLResponseData) ContentType() string {
 	return r.contentType
 }
 
@@ -655,6 +714,31 @@ func (a *HTTPAdapter) PutFile(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "PutFile", res)
 }
 
+// PutXML handles PUT /xml.
+func (a *HTTPAdapter) PutXML(w http.ResponseWriter, r *http.Request) {
+	opts := &PutXMLServiceRequestOptions{RawRequest: r}
+	switch contentType := runtime.ContentType(r.Header); contentType {
+	case "application/xml":
+	case "":
+		a.failDecode(w, r, "PutXML", runtime.ErrBodyEmpty)
+		return
+	default:
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PutXML", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return
+	}
+
+	res, err := a.svc.PutXML(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutXML", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutXML", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "PutXML", res)
+}
+
 // PostAny handles POST /any.
 func (a *HTTPAdapter) PostAny(w http.ResponseWriter, r *http.Request) {
 	opts := &PostAnyServiceRequestOptions{RawRequest: r}
@@ -734,6 +818,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 		r.Post("/upload", adapter.Upload)
 		r.Post("/text", adapter.PostText)
 		r.Put("/file", adapter.PutFile)
+		r.Put("/xml", adapter.PutXML)
 		r.Post("/any", adapter.PostAny)
 	}
 
@@ -876,6 +961,17 @@ func (o *PutFileRequestOptions) Validate() error {
 	return nil
 }
 
+// PutXMLRequestOptions is what PutXML sends: its parameters by location, and its body.
+type PutXMLRequestOptions struct {
+	// Body sent as application/xml.
+	Body *Note
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *PutXMLRequestOptions) Validate() error {
+	return nil
+}
+
 // PostAnyRequestOptions is what PostAny sends: its parameters by location, and its body.
 type PostAnyRequestOptions struct {
 	// Body sent as application/xml.
@@ -899,6 +995,7 @@ type ClientInterface interface {
 	Upload(ctx context.Context, opts *UploadRequestOptions) (UploadResponse200, error)
 	PostText(ctx context.Context, opts *PostTextRequestOptions) (*PostTextResponse200, error)
 	PutFile(ctx context.Context, opts *PutFileRequestOptions) (*PutFileResponse200, error)
+	PutXML(ctx context.Context, opts *PutXMLRequestOptions) error
 	PostAny(ctx context.Context, opts *PostAnyRequestOptions) (*PostAnyResponse200, error)
 }
 
@@ -1080,6 +1177,33 @@ func (c *Client) PutFile(ctx context.Context, opts *PutFileRequestOptions) (*Put
 		return nil, err
 	}
 	return out, nil
+}
+
+// PutXMLRequest builds the request of PutXML, with the editors of the client applied.
+func (c *Client) PutXMLRequest(ctx context.Context, opts *PutXMLRequestOptions) (*http.Request, error) {
+	if opts == nil {
+		opts = &PutXMLRequestOptions{}
+	}
+	switch {
+	case opts.Body != nil:
+		return nil, runtime.ContentTypeError("application/xml")
+	default:
+		return nil, runtime.ErrBodyEmpty
+	}
+}
+
+// PutXML sends the request. A response outside 2xx comes
+// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+func (c *Client) PutXML(ctx context.Context, opts *PutXMLRequestOptions) error {
+	req, err := c.PutXMLRequest(ctx, opts)
+	if err != nil {
+		return err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return err
+	}
+	return runtime.DecodeSuccess(res, body, nil)
 }
 
 // PostAnyRequest builds the request of PostAny, with the editors of the client applied.
