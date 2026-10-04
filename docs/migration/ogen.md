@@ -55,7 +55,7 @@ and so on. mockzilla-codegen writes one file, or the files `output.files` names
 | `x-ogen-name` on a property | `x-go-name` |
 | `x-ogen-properties: {prop: {name: X}}` | `x-go-name: X` on the property |
 | `x-ogen-type` | `x-go-type` and `x-go-type-import` |
-| `x-oapi-codegen-extra-tags` | the same |
+| `x-oapi-codegen-extra-tags` | `x-go-extra-tags`; the old name is ignored |
 | `x-ogen-time-format` | none; `x-go-type` with a type of your own that parses the format |
 | `x-ogen-validate`, `x-ogen-json-streaming`, `x-ogen-raw-response`, `x-ogen-custom-security`, `x-ogen-server-name`, `x-ogen-extension` | none |
 | `x-ogen-operation-group` | none; one service interface |

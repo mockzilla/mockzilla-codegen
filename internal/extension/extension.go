@@ -23,11 +23,11 @@ const (
 	GoTypeImport     = "x-go-type-import"
 	GoTypeName       = "x-go-type-name"
 	GoName           = "x-go-name"
-	OnlyHonourGoName = "x-oapi-codegen-only-honour-go-name"
+	GoNameExact      = "x-go-name-exact"
 	SkipPointer      = "x-go-type-skip-optional-pointer"
 	JSONIgnore       = "x-go-json-ignore"
 	OmitEmpty        = "x-omitempty"
-	ExtraTags        = "x-oapi-codegen-extra-tags"
+	ExtraTags        = "x-go-extra-tags"
 	EnumNames        = "x-enum-names"
 	DeprecatedReason = "x-deprecated-reason"
 	SensitiveData    = "x-sensitive-data"
@@ -44,9 +44,8 @@ const (
 	MaskPartial
 )
 
-// typoPrefixes are the prefixes of extensions this generator owns: an unknown name with one of them
-// is likely a typo.
-var typoPrefixes = []string{"x-go-", "x-oapi-codegen-"}
+// typoPrefix starts the names this generator owns: an unknown name with it is likely a typo.
+const typoPrefix = "x-go-"
 
 // maskNames are the mask names x-sensitive-data takes, in MaskKind order.
 var maskNames = []string{"full", "regex", "hash", "partial"}
@@ -76,7 +75,7 @@ type Type struct {
 	Alias string
 }
 
-// Tag is one struct tag of x-oapi-codegen-extra-tags.
+// Tag is one struct tag of x-go-extra-tags.
 type Tag struct {
 	Key   string
 	Value string
@@ -130,7 +129,7 @@ func Parse(exts []spec.Extension, at spec.Origin) (Set, []diag.Diagnostic) {
 			s.TypeName = r.identifier(e.Name, v)
 		case GoName:
 			s.Name = r.identifier(e.Name, v)
-		case OnlyHonourGoName:
+		case GoNameExact:
 			s.IsExactName = r.boolean(e.Name, v)
 		case SkipPointer:
 			s.IsPointerSkipped = r.boolean(e.Name, v)
@@ -151,7 +150,7 @@ func Parse(exts []spec.Extension, at spec.Origin) (Set, []diag.Diagnostic) {
 		case MCPName:
 			s.MCP = r.mcp(v)
 		default:
-			if slices.ContainsFunc(typoPrefixes, func(p string) bool { return strings.HasPrefix(e.Name, p) }) {
+			if strings.HasPrefix(e.Name, typoPrefix) {
 				r.warn(diag.CodeExtensionUnknown, e.Name, "unknown extension "+e.Name+"; it is left out")
 			}
 		}

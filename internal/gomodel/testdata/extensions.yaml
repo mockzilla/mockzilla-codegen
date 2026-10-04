@@ -26,7 +26,7 @@ components:
         secret:
           type: string
           x-go-name: accountSecret
-          x-oapi-codegen-only-honour-go-name: true
+          x-go-name-exact: true
           x-go-json-ignore: true
         nickname:
           type: string
@@ -39,7 +39,7 @@ components:
           x-omitempty: true
         tagged:
           type: string
-          x-oapi-codegen-extra-tags: {db: tagged_col, json: ignored, yaml: tagged}
+          x-go-extra-tags: {db: tagged_col, json: ignored, yaml: tagged}
         old:
           type: string
           deprecated: true
