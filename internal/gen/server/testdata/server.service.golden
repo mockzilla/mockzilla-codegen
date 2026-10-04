@@ -29,7 +29,7 @@ type PetsInterface interface {
 	Ping(ctx context.Context, opts *PingServiceRequestOptions) (*PingResponseData, error)
 }
 
-// ListPetsServiceRequestOptions is what ListPets receives. RawRequest is the request as it came in.
+// ListPetsServiceRequestOptions is what ListPets receives.
 type ListPetsServiceRequestOptions struct {
 	Query      *ListPetsQuery
 	Headers    *ListPetsHeaders
@@ -46,7 +46,7 @@ func (o *ListPetsServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// ListPetsResponseData is what ListPets returns: the status, the headers and the body of the response.
+// ListPetsResponseData is what ListPets returns.
 type ListPetsResponseData struct {
 	Status  int
 	Headers http.Header
@@ -55,12 +55,12 @@ type ListPetsResponseData struct {
 	contentType string
 }
 
-// NewListPetsResponseData200 returns the response data of status 200 with body as application/json.
+// NewListPetsResponseData200 returns the 200 response with its application/json body.
 func NewListPetsResponseData200(body Pets) *ListPetsResponseData {
 	return &ListPetsResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
 
-// NewListPetsResponseDataDefault returns the response data of status default with body as application/json.
+// NewListPetsResponseDataDefault returns the default response with its application/json body.
 func NewListPetsResponseDataDefault(status int, body *Problem) *ListPetsResponseData {
 	return &ListPetsResponseData{Status: status, Body: body, contentType: "application/json"}
 }
@@ -104,12 +104,12 @@ func (r *ListPetsResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *ListPetsResponseData) ContentType() string {
 	return r.contentType
 }
 
-// CreatePetServiceRequestOptions is what CreatePet receives. RawRequest is the request as it came in.
+// CreatePetServiceRequestOptions is what CreatePet receives.
 type CreatePetServiceRequestOptions struct {
 	// Body sent as application/json.
 	BodyJSON *Pet
@@ -143,7 +143,7 @@ func (o *CreatePetServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// CreatePetResponseData is what CreatePet returns: the status, the headers and the body of the response.
+// CreatePetResponseData is what CreatePet returns.
 type CreatePetResponseData struct {
 	Status  int
 	Headers http.Header
@@ -152,17 +152,17 @@ type CreatePetResponseData struct {
 	contentType string
 }
 
-// NewCreatePetResponseData201 returns the response data of status 201 with body as application/json.
+// NewCreatePetResponseData201 returns the 201 response with its application/json body.
 func NewCreatePetResponseData201(body *Pet) *CreatePetResponseData {
 	return &CreatePetResponseData{Status: 201, Body: body, contentType: "application/json"}
 }
 
-// NewCreatePetResponseData4XX returns the response data of status 4XX with body as application/problem+json.
+// NewCreatePetResponseData4XX returns the 4XX response with its application/problem+json body.
 func NewCreatePetResponseData4XX(status int, body *Problem) *CreatePetResponseData {
 	return &CreatePetResponseData{Status: status, Body: body, contentType: "application/problem+json"}
 }
 
-// NewCreatePetResponseData5XX returns the response data of status 5XX with body as application/problem+json.
+// NewCreatePetResponseData5XX returns the 5XX response with its application/problem+json body.
 func NewCreatePetResponseData5XX(status int, body *Problem) *CreatePetResponseData {
 	return &CreatePetResponseData{Status: status, Body: body, contentType: "application/problem+json"}
 }
@@ -200,12 +200,12 @@ func (r *CreatePetResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *CreatePetResponseData) ContentType() string {
 	return r.contentType
 }
 
-// DeletePetServiceRequestOptions is what DeletePet receives. RawRequest is the request as it came in.
+// DeletePetServiceRequestOptions is what DeletePet receives.
 type DeletePetServiceRequestOptions struct {
 	PathParams *DeletePetPathParams
 	// Body sent as application/json.
@@ -218,7 +218,7 @@ func (o *DeletePetServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// DeletePetResponseData is what DeletePet returns: the status, the headers and the body of the response.
+// DeletePetResponseData is what DeletePet returns.
 type DeletePetResponseData struct {
 	Status  int
 	Headers http.Header
@@ -227,12 +227,12 @@ type DeletePetResponseData struct {
 	contentType string
 }
 
-// NewDeletePetResponseData204 returns the response data of status 204.
+// NewDeletePetResponseData204 returns the 204 response.
 func NewDeletePetResponseData204() *DeletePetResponseData {
 	return &DeletePetResponseData{Status: 204, contentType: ""}
 }
 
-// NewDeletePetResponseData404 returns the response data of status 404 with body as application/json.
+// NewDeletePetResponseData404 returns the 404 response with its application/json body.
 func NewDeletePetResponseData404(body *Problem) *DeletePetResponseData {
 	return &DeletePetResponseData{Status: 404, Body: body, contentType: "application/json"}
 }
@@ -264,12 +264,12 @@ func (r *DeletePetResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *DeletePetResponseData) ContentType() string {
 	return r.contentType
 }
 
-// PingServiceRequestOptions is what Ping receives. RawRequest is the request as it came in.
+// PingServiceRequestOptions is what Ping receives.
 type PingServiceRequestOptions struct {
 	// Body sent as application/json.
 	Body       []Pet
@@ -281,7 +281,7 @@ func (o *PingServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// PingResponseData is what Ping returns: the status, the headers and the body of the response.
+// PingResponseData is what Ping returns.
 type PingResponseData struct {
 	Status  int
 	Headers http.Header
@@ -290,12 +290,12 @@ type PingResponseData struct {
 	contentType string
 }
 
-// NewPingResponseData200 returns the response data of status 200 with body as text/plain.
+// NewPingResponseData200 returns the 200 response with its text/plain body.
 func NewPingResponseData200(body *string) *PingResponseData {
 	return &PingResponseData{Status: 200, Body: body, contentType: "text/plain"}
 }
 
-// NewPingResponseDataDefault returns the response data of status default with body as application/json.
+// NewPingResponseDataDefault returns the default response with its application/json body.
 func NewPingResponseDataDefault(status int, body any) *PingResponseData {
 	return &PingResponseData{Status: status, Body: body, contentType: "application/json"}
 }
@@ -327,7 +327,7 @@ func (r *PingResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *PingResponseData) ContentType() string {
 	return r.contentType
 }

@@ -5,10 +5,7 @@ func WithRouter(s *{{.Framework}}.Server) {{.Option}} {
 	}
 }
 
-// NewRouter registers every operation on a GoFrame server. On a new server, named after a fresh
-// id since GoFrame keeps its servers by name, the middleware WithMiddleware adds wraps
-// everything, unknown paths too; on the server WithRouter gives it, the middleware wraps each
-// generated route and nothing else. The routes are bound when the server starts.
+// NewRouter registers every operation on a GoFrame server.
 func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Server {
 	o := {{.NewOptions}}(opts...)
 {{- if .Routes}}
@@ -31,27 +28,26 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Server {
 		register(s, wrap)
 		return s
 	}
+	// GoFrame keeps its servers by name, so a new one takes a fresh id.
 	s := {{.Framework}}.GetServer({{.Packages.guid}}.S())
 	register(s, wrap)
 	s.BindStatusHandler({{.Packages.http}}.StatusNotFound, notFound(wrap({{.Packages.http}}.NotFoundHandler())))
 	return s
 }
 
-// handle serves h as a GoFrame handler, with the path parameters GoFrame found on the request.
-// The response goes to the client as h writes it, past GoFrame's buffer, so a status without a
-// body stays without one.
 func handle(h {{.Packages.http}}.Handler) {{.Framework}}.HandlerFunc {
 	return func(r *{{.Framework}}.Request) {
 		for name, value := range r.GetRouterMap() {
 			r.Request.SetPathValue(name, value)
 		}
+		// Past GoFrame's buffer, so a status without a body stays without one.
 		h.ServeHTTP(r.Response.Writer, r.Request)
 	}
 }
 
-// notFound serves h for a request no route took; a 404 a route wrote stays as it is.
 func notFound(h {{.Packages.http}}.Handler) {{.Framework}}.HandlerFunc {
 	return func(r *{{.Framework}}.Request) {
+		// GoFrame calls this for a 404 a route wrote too.
 		if r.GetServeHandler() == nil {
 			handle(h)(r)
 		}

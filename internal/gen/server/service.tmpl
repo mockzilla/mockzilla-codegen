@@ -13,7 +13,7 @@ type {{.Name}} interface {
 }
 {{- range $op := .Operations}}
 
-// {{.Options}} is what {{.Name}} receives. RawRequest is the request as it came in.
+// {{.Options}} is what {{.Name}} receives.
 type {{.Options}} struct {
 {{- range .Fields}}
 {{- with .Doc}}
@@ -40,7 +40,7 @@ func (o *{{.Options}}) Validate() error {
 {{- end}}
 }
 
-// {{.Data}} is what {{.Name}} returns: the status, the headers and the body of the response.
+// {{.Data}} is what {{.Name}} returns.
 type {{.Data}} struct {
 	Status  int
 	Headers {{$.HTTP}}.Header
@@ -92,7 +92,7 @@ func (r *{{.Data}}) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *{{.Data}}) ContentType() string {
 	return r.contentType
 }

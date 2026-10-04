@@ -15,9 +15,7 @@ func WithRouter(e *gin.Engine) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a gin Engine. On a new Engine the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the Engine WithRouter gives it, the
-// middleware wraps each generated route and nothing else.
+// NewRouter registers every operation on a gin Engine.
 func NewRouter(svc BooksInterface, opts ...ServerOption) *gin.Engine {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -41,7 +39,6 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) *gin.Engine {
 	return e
 }
 
-// handle serves h as a gin handler, with the path parameters gin found on the request.
 func handle(h http.Handler) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		for _, p := range c.Params {

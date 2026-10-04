@@ -11,8 +11,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 type Pet struct {
@@ -103,7 +102,7 @@ type PetsInterface interface {
 	GetPing(ctx context.Context, opts *GetPingServiceRequestOptions) (*GetPingResponseData, error)
 }
 
-// ListPetsServiceRequestOptions is what ListPets receives. RawRequest is the request as it came in.
+// ListPetsServiceRequestOptions is what ListPets receives.
 type ListPetsServiceRequestOptions struct {
 	Query      *ListPetsQuery
 	Headers    *ListPetsHeaders
@@ -120,7 +119,7 @@ func (o *ListPetsServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// ListPetsResponseData is what ListPets returns: the status, the headers and the body of the response.
+// ListPetsResponseData is what ListPets returns.
 type ListPetsResponseData struct {
 	Status  int
 	Headers http.Header
@@ -129,12 +128,12 @@ type ListPetsResponseData struct {
 	contentType string
 }
 
-// NewListPetsResponseData200 returns the response data of status 200 with body as application/json.
+// NewListPetsResponseData200 returns the 200 response with its application/json body.
 func NewListPetsResponseData200(body ListPetsResponse200) *ListPetsResponseData {
 	return &ListPetsResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
 
-// NewListPetsResponseDataDefault returns the response data of status default with body as application/json.
+// NewListPetsResponseDataDefault returns the default response with its application/json body.
 func NewListPetsResponseDataDefault(status int, body *Problem) *ListPetsResponseData {
 	return &ListPetsResponseData{Status: status, Body: body, contentType: "application/json"}
 }
@@ -178,12 +177,12 @@ func (r *ListPetsResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *ListPetsResponseData) ContentType() string {
 	return r.contentType
 }
 
-// CreatePetServiceRequestOptions is what CreatePet receives. RawRequest is the request as it came in.
+// CreatePetServiceRequestOptions is what CreatePet receives.
 type CreatePetServiceRequestOptions struct {
 	// Body sent as application/json.
 	BodyJSON *Pet
@@ -204,7 +203,7 @@ func (o *CreatePetServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// CreatePetResponseData is what CreatePet returns: the status, the headers and the body of the response.
+// CreatePetResponseData is what CreatePet returns.
 type CreatePetResponseData struct {
 	Status  int
 	Headers http.Header
@@ -213,12 +212,12 @@ type CreatePetResponseData struct {
 	contentType string
 }
 
-// NewCreatePetResponseData201 returns the response data of status 201 with body as application/json.
+// NewCreatePetResponseData201 returns the 201 response with its application/json body.
 func NewCreatePetResponseData201(body *Pet) *CreatePetResponseData {
 	return &CreatePetResponseData{Status: 201, Body: body, contentType: "application/json"}
 }
 
-// NewCreatePetResponseData4XX returns the response data of status 4XX with body as application/json.
+// NewCreatePetResponseData4XX returns the 4XX response with its application/json body.
 func NewCreatePetResponseData4XX(status int, body *Problem) *CreatePetResponseData {
 	return &CreatePetResponseData{Status: status, Body: body, contentType: "application/json"}
 }
@@ -250,12 +249,12 @@ func (r *CreatePetResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *CreatePetResponseData) ContentType() string {
 	return r.contentType
 }
 
-// DeletePetServiceRequestOptions is what DeletePet receives. RawRequest is the request as it came in.
+// DeletePetServiceRequestOptions is what DeletePet receives.
 type DeletePetServiceRequestOptions struct {
 	PathParams *DeletePetPathParams
 	RawRequest *http.Request
@@ -270,7 +269,7 @@ func (o *DeletePetServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// DeletePetResponseData is what DeletePet returns: the status, the headers and the body of the response.
+// DeletePetResponseData is what DeletePet returns.
 type DeletePetResponseData struct {
 	Status  int
 	Headers http.Header
@@ -279,7 +278,7 @@ type DeletePetResponseData struct {
 	contentType string
 }
 
-// NewDeletePetResponseData returns the response data of status 204.
+// NewDeletePetResponseData returns the 204 response.
 func NewDeletePetResponseData() *DeletePetResponseData {
 	return &DeletePetResponseData{Status: 204, contentType: ""}
 }
@@ -311,12 +310,12 @@ func (r *DeletePetResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *DeletePetResponseData) ContentType() string {
 	return r.contentType
 }
 
-// UploadServiceRequestOptions is what Upload receives. RawRequest is the request as it came in.
+// UploadServiceRequestOptions is what Upload receives.
 type UploadServiceRequestOptions struct {
 	// Body sent as text/plain.
 	Body       string
@@ -328,7 +327,7 @@ func (o *UploadServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// UploadResponseData is what Upload returns: the status, the headers and the body of the response.
+// UploadResponseData is what Upload returns.
 type UploadResponseData struct {
 	Status  int
 	Headers http.Header
@@ -337,7 +336,7 @@ type UploadResponseData struct {
 	contentType string
 }
 
-// NewUploadResponseData returns the response data of status 200 with body as application/octet-stream.
+// NewUploadResponseData returns the 200 response with its application/octet-stream body.
 func NewUploadResponseData(body []byte) *UploadResponseData {
 	return &UploadResponseData{Status: 200, Body: body, contentType: "application/octet-stream"}
 }
@@ -369,12 +368,12 @@ func (r *UploadResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *UploadResponseData) ContentType() string {
 	return r.contentType
 }
 
-// GetPingServiceRequestOptions is what GetPing receives. RawRequest is the request as it came in.
+// GetPingServiceRequestOptions is what GetPing receives.
 type GetPingServiceRequestOptions struct {
 	RawRequest *http.Request
 }
@@ -384,7 +383,7 @@ func (o *GetPingServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// GetPingResponseData is what GetPing returns: the status, the headers and the body of the response.
+// GetPingResponseData is what GetPing returns.
 type GetPingResponseData struct {
 	Status  int
 	Headers http.Header
@@ -393,7 +392,7 @@ type GetPingResponseData struct {
 	contentType string
 }
 
-// NewGetPingResponseData returns the response data of status 200.
+// NewGetPingResponseData returns the 200 response.
 func NewGetPingResponseData() *GetPingResponseData {
 	return &GetPingResponseData{Status: 200, contentType: ""}
 }
@@ -425,7 +424,7 @@ func (r *GetPingResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *GetPingResponseData) ContentType() string {
 	return r.contentType
 }
@@ -448,9 +447,7 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
+// ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
@@ -475,7 +472,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	return o
 }
 
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+// WithMiddleware wraps the routes with mw, outermost first; on a new router, unknown paths too.
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
@@ -496,21 +493,19 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 	}
 }
 
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory.
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
 	}
 }
 
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+// HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  PetsInterface
 	opts *ServerOptions
 }
 
-// responseData is what every response data type gives the adapter.
 type responseData interface {
 	StatusCode() int
 	Header() http.Header
@@ -655,17 +650,14 @@ func (a *HTTPAdapter) GetPing(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "GetPing", res)
 }
 
-// fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
-// failDecode answers a request whose body could not be read.
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
 }
 
-// write writes the response of the service.
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
@@ -682,9 +674,7 @@ func WithRouter(r chi.Router) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a chi router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
-// wraps the generated routes and nothing else.
+// NewRouter registers every operation on a chi router.
 func NewRouter(svc PetsInterface, opts ...ServerOption) chi.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)

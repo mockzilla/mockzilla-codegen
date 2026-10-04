@@ -16,8 +16,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 type NewPet struct {
@@ -135,7 +134,7 @@ type PetsInterface interface {
 	DeletePet(ctx context.Context, opts *DeletePetServiceRequestOptions) (*DeletePetResponseData, error)
 }
 
-// ListPetsServiceRequestOptions is what ListPets receives. RawRequest is the request as it came in.
+// ListPetsServiceRequestOptions is what ListPets receives.
 type ListPetsServiceRequestOptions struct {
 	Query      *ListPetsQuery
 	RawRequest *http.Request
@@ -150,7 +149,7 @@ func (o *ListPetsServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// ListPetsResponseData is what ListPets returns: the status, the headers and the body of the response.
+// ListPetsResponseData is what ListPets returns.
 type ListPetsResponseData struct {
 	Status  int
 	Headers http.Header
@@ -159,12 +158,12 @@ type ListPetsResponseData struct {
 	contentType string
 }
 
-// NewListPetsResponseData200 returns the response data of status 200 with body as application/json.
+// NewListPetsResponseData200 returns the 200 response with its application/json body.
 func NewListPetsResponseData200(body ListPetsResponse200) *ListPetsResponseData {
 	return &ListPetsResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
 
-// NewListPetsResponseDataDefault returns the response data of status default with body as application/json.
+// NewListPetsResponseDataDefault returns the default response with its application/json body.
 func NewListPetsResponseDataDefault(status int, body *Error) *ListPetsResponseData {
 	return &ListPetsResponseData{Status: status, Body: body, contentType: "application/json"}
 }
@@ -196,12 +195,12 @@ func (r *ListPetsResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *ListPetsResponseData) ContentType() string {
 	return r.contentType
 }
 
-// CreatePetServiceRequestOptions is what CreatePet receives. RawRequest is the request as it came in.
+// CreatePetServiceRequestOptions is what CreatePet receives.
 type CreatePetServiceRequestOptions struct {
 	// Body sent as application/json.
 	Body       *NewPet
@@ -217,7 +216,7 @@ func (o *CreatePetServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// CreatePetResponseData is what CreatePet returns: the status, the headers and the body of the response.
+// CreatePetResponseData is what CreatePet returns.
 type CreatePetResponseData struct {
 	Status  int
 	Headers http.Header
@@ -226,12 +225,12 @@ type CreatePetResponseData struct {
 	contentType string
 }
 
-// NewCreatePetResponseData201 returns the response data of status 201 with body as application/json.
+// NewCreatePetResponseData201 returns the 201 response with its application/json body.
 func NewCreatePetResponseData201(body *Pet) *CreatePetResponseData {
 	return &CreatePetResponseData{Status: 201, Body: body, contentType: "application/json"}
 }
 
-// NewCreatePetResponseDataDefault returns the response data of status default with body as application/json.
+// NewCreatePetResponseDataDefault returns the default response with its application/json body.
 func NewCreatePetResponseDataDefault(status int, body *Error) *CreatePetResponseData {
 	return &CreatePetResponseData{Status: status, Body: body, contentType: "application/json"}
 }
@@ -269,12 +268,12 @@ func (r *CreatePetResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *CreatePetResponseData) ContentType() string {
 	return r.contentType
 }
 
-// GetPetServiceRequestOptions is what GetPet receives. RawRequest is the request as it came in.
+// GetPetServiceRequestOptions is what GetPet receives.
 type GetPetServiceRequestOptions struct {
 	PathParams *GetPetPathParams
 	RawRequest *http.Request
@@ -285,7 +284,7 @@ func (o *GetPetServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// GetPetResponseData is what GetPet returns: the status, the headers and the body of the response.
+// GetPetResponseData is what GetPet returns.
 type GetPetResponseData struct {
 	Status  int
 	Headers http.Header
@@ -294,12 +293,12 @@ type GetPetResponseData struct {
 	contentType string
 }
 
-// NewGetPetResponseData200 returns the response data of status 200 with body as application/json.
+// NewGetPetResponseData200 returns the 200 response with its application/json body.
 func NewGetPetResponseData200(body *Pet) *GetPetResponseData {
 	return &GetPetResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
 
-// NewGetPetResponseData404 returns the response data of status 404 with body as application/json.
+// NewGetPetResponseData404 returns the 404 response with its application/json body.
 func NewGetPetResponseData404(body *Error) *GetPetResponseData {
 	return &GetPetResponseData{Status: 404, Body: body, contentType: "application/json"}
 }
@@ -331,12 +330,12 @@ func (r *GetPetResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *GetPetResponseData) ContentType() string {
 	return r.contentType
 }
 
-// DeletePetServiceRequestOptions is what DeletePet receives. RawRequest is the request as it came in.
+// DeletePetServiceRequestOptions is what DeletePet receives.
 type DeletePetServiceRequestOptions struct {
 	PathParams *DeletePetPathParams
 	RawRequest *http.Request
@@ -347,7 +346,7 @@ func (o *DeletePetServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// DeletePetResponseData is what DeletePet returns: the status, the headers and the body of the response.
+// DeletePetResponseData is what DeletePet returns.
 type DeletePetResponseData struct {
 	Status  int
 	Headers http.Header
@@ -356,7 +355,7 @@ type DeletePetResponseData struct {
 	contentType string
 }
 
-// NewDeletePetResponseData returns the response data of status 204.
+// NewDeletePetResponseData returns the 204 response.
 func NewDeletePetResponseData() *DeletePetResponseData {
 	return &DeletePetResponseData{Status: 204, contentType: ""}
 }
@@ -388,7 +387,7 @@ func (r *DeletePetResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *DeletePetResponseData) ContentType() string {
 	return r.contentType
 }
@@ -411,9 +410,7 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
+// ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
@@ -438,7 +435,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	return o
 }
 
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+// WithMiddleware wraps the routes with mw, outermost first; on a new router, unknown paths too.
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
@@ -459,21 +456,19 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 	}
 }
 
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory.
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
 	}
 }
 
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+// HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  PetsInterface
 	opts *ServerOptions
 }
 
-// responseData is what every response data type gives the adapter.
 type responseData interface {
 	StatusCode() int
 	Header() http.Header
@@ -611,17 +606,14 @@ func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "DeletePet", res)
 }
 
-// fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
-// failDecode answers a request whose body could not be read.
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
 }
 
-// write writes the response of the service.
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
@@ -638,9 +630,7 @@ func WithRouter(r chi.Router) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a chi router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
-// wraps the generated routes and nothing else.
+// NewRouter registers every operation on a chi router.
 func NewRouter(svc PetsInterface, opts ...ServerOption) chi.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -1071,35 +1061,34 @@ func (c *PetClient) newRequest(ctx context.Context, b *runtime.RequestBuilder, e
 	return req, nil
 }
 
-// ListPetsToolInput is the input of the list_pets tool: the parameters of the operation.
+// ListPetsToolInput is the input of the list_pets tool.
 type ListPetsToolInput struct {
 	Limit  *int32  `json:"limit,omitempty"`
 	Status *Status `json:"status,omitempty"`
 }
 
-// CreatePetToolInput is the input of the create_pet tool: the parameters of the operation.
+// CreatePetToolInput is the input of the create_pet tool.
 type CreatePetToolInput struct {
 	// The request body, sent as application/json.
 	Body *NewPet `json:"body"`
 }
 
-// GetPetToolInput is the input of the get_pet tool: the parameters of the operation.
+// GetPetToolInput is the input of the get_pet tool.
 type GetPetToolInput struct {
 	ID int64 `json:"id"`
 }
 
-// DeletePetToolInput is the input of the delete_pet tool: the parameters of the operation.
+// DeletePetToolInput is the input of the delete_pet tool.
 type DeletePetToolInput struct {
 	ID int64 `json:"id"`
 }
 
-// MCPTools exposes the operations of the API as MCP tools, each calling the client.
+// MCPTools exposes the operations of the API as MCP tools.
 type MCPTools struct {
 	client PetClientInterface
 }
 
-// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
-// a panic in a tool and the first call would end the server.
+// NewMCPTools returns the tools that call c. A nil c panics.
 func NewMCPTools(c PetClientInterface) *MCPTools {
 	if c == nil {
 		panic("NewMCPTools: nil client")
@@ -1107,8 +1096,7 @@ func NewMCPTools(c PetClientInterface) *MCPTools {
 	return &MCPTools{client: c}
 }
 
-// Register adds every tool to s. To add a few, pass the definition and the handler of each to
-// mcp.AddTool instead.
+// Register adds every tool to s.
 func (t *MCPTools) Register(s *mcp.Server) {
 	mcp.AddTool(s, t.ListPetsTool(), t.ListPets)
 	mcp.AddTool(s, t.CreatePetTool(), t.CreatePet)
@@ -1116,8 +1104,7 @@ func (t *MCPTools) Register(s *mcp.Server) {
 	mcp.AddTool(s, t.DeletePetTool(), t.DeletePet)
 }
 
-// ListPetsTool is the definition of the list_pets tool: its name, its description and the schema
-// of its input.
+// ListPetsTool is the definition of the list_pets tool.
 func (t *MCPTools) ListPetsTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "list_pets",
@@ -1127,8 +1114,7 @@ func (t *MCPTools) ListPetsTool() *mcp.Tool {
 	}
 }
 
-// ListPets handles the list_pets tool: it calls ListPets of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// ListPets handles the list_pets tool.
 func (t *MCPTools) ListPets(ctx context.Context, _ *mcp.CallToolRequest, in ListPetsToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &ListPetsRequestOptions{
 		Query: &ListPetsQuery{
@@ -1143,8 +1129,7 @@ func (t *MCPTools) ListPets(ctx context.Context, _ *mcp.CallToolRequest, in List
 	return nil, runtime.ToolResult{Value: out}, nil
 }
 
-// CreatePetTool is the definition of the create_pet tool: its name, its description and the schema
-// of its input.
+// CreatePetTool is the definition of the create_pet tool.
 func (t *MCPTools) CreatePetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "create_pet",
@@ -1154,8 +1139,7 @@ func (t *MCPTools) CreatePetTool() *mcp.Tool {
 	}
 }
 
-// CreatePet handles the create_pet tool: it calls CreatePet of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// CreatePet handles the create_pet tool.
 func (t *MCPTools) CreatePet(ctx context.Context, _ *mcp.CallToolRequest, in CreatePetToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &CreatePetRequestOptions{
 		Body: in.Body,
@@ -1167,8 +1151,7 @@ func (t *MCPTools) CreatePet(ctx context.Context, _ *mcp.CallToolRequest, in Cre
 	return nil, runtime.ToolResult{Value: out}, nil
 }
 
-// GetPetTool is the definition of the get_pet tool: its name, its description and the schema
-// of its input.
+// GetPetTool is the definition of the get_pet tool.
 func (t *MCPTools) GetPetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "get_pet",
@@ -1178,8 +1161,7 @@ func (t *MCPTools) GetPetTool() *mcp.Tool {
 	}
 }
 
-// GetPet handles the get_pet tool: it calls GetPet of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// GetPet handles the get_pet tool.
 func (t *MCPTools) GetPet(ctx context.Context, req *mcp.CallToolRequest, in GetPetToolInput) (*mcp.CallToolResult, any, error) {
 	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
@@ -1197,8 +1179,7 @@ func (t *MCPTools) GetPet(ctx context.Context, req *mcp.CallToolRequest, in GetP
 	return nil, runtime.ToolResult{Value: out}, nil
 }
 
-// DeletePetTool is the definition of the delete_pet tool: its name, its description and the schema
-// of its input.
+// DeletePetTool is the definition of the delete_pet tool.
 func (t *MCPTools) DeletePetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "delete_pet",
@@ -1208,8 +1189,7 @@ func (t *MCPTools) DeletePetTool() *mcp.Tool {
 	}
 }
 
-// DeletePet handles the delete_pet tool: it calls DeletePet of the client and answers ok.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// DeletePet handles the delete_pet tool.
 func (t *MCPTools) DeletePet(ctx context.Context, req *mcp.CallToolRequest, in DeletePetToolInput) (*mcp.CallToolResult, any, error) {
 	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err

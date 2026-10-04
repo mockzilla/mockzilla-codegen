@@ -1,15 +1,11 @@
-// WithRouter registers the routes on app instead of a new Application.
+// WithRouter registers the routes on app instead of a new Application. The caller builds app.
 func WithRouter(app *{{.Framework}}.Application) {{.Option}} {
 	return func(o *{{.Options}}) {
 		o.Router = app
 	}
 }
 
-// NewRouter registers every operation on an iris Application. A new Application is built, ready
-// to serve, keeps the status a handler writes as it is and answers unknown paths with an empty
-// 404; the middleware WithMiddleware adds wraps everything on it, unknown paths too. The
-// Application WithRouter gives it is left for its owner to build, and the middleware wraps each
-// generated route and nothing else.
+// NewRouter registers every operation on an iris Application.
 func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Application {
 	o := {{.NewOptions}}(opts...)
 {{- if .Routes}}
@@ -44,7 +40,6 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Applicatio
 	return app
 }
 
-// handle serves h as an iris handler, with the path parameters iris found on the request.
 func handle(h {{.Packages.http}}.Handler) {{.Framework}}.Handler {
 	return func(c {{.Framework}}.Context) {
 		r := c.Request()

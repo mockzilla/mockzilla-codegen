@@ -12,8 +12,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/router"
 )
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 type Note struct {
@@ -60,7 +59,7 @@ type ServiceInterface interface {
 	PostAny(ctx context.Context, opts *PostAnyServiceRequestOptions) (*PostAnyResponseData, error)
 }
 
-// PostJSONServiceRequestOptions is what PostJSON receives. RawRequest is the request as it came in.
+// PostJSONServiceRequestOptions is what PostJSON receives.
 type PostJSONServiceRequestOptions struct {
 	// Body sent as application/json.
 	Body       *Note
@@ -72,7 +71,7 @@ func (o *PostJSONServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// PostJSONResponseData is what PostJSON returns: the status, the headers and the body of the response.
+// PostJSONResponseData is what PostJSON returns.
 type PostJSONResponseData struct {
 	Status  int
 	Headers http.Header
@@ -81,7 +80,7 @@ type PostJSONResponseData struct {
 	contentType string
 }
 
-// NewPostJSONResponseData returns the response data of status 200 with body as application/json.
+// NewPostJSONResponseData returns the 200 response with its application/json body.
 func NewPostJSONResponseData(body *Note) *PostJSONResponseData {
 	return &PostJSONResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -113,12 +112,12 @@ func (r *PostJSONResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *PostJSONResponseData) ContentType() string {
 	return r.contentType
 }
 
-// PostFormServiceRequestOptions is what PostForm receives. RawRequest is the request as it came in.
+// PostFormServiceRequestOptions is what PostForm receives.
 type PostFormServiceRequestOptions struct {
 	// Body sent as application/x-www-form-urlencoded.
 	Body       *Note
@@ -130,7 +129,7 @@ func (o *PostFormServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// PostFormResponseData is what PostForm returns: the status, the headers and the body of the response.
+// PostFormResponseData is what PostForm returns.
 type PostFormResponseData struct {
 	Status  int
 	Headers http.Header
@@ -139,7 +138,7 @@ type PostFormResponseData struct {
 	contentType string
 }
 
-// NewPostFormResponseData returns the response data of status 200 with body as application/json.
+// NewPostFormResponseData returns the 200 response with its application/json body.
 func NewPostFormResponseData(body *Note) *PostFormResponseData {
 	return &PostFormResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -171,12 +170,12 @@ func (r *PostFormResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *PostFormResponseData) ContentType() string {
 	return r.contentType
 }
 
-// UploadServiceRequestOptions is what Upload receives. RawRequest is the request as it came in.
+// UploadServiceRequestOptions is what Upload receives.
 type UploadServiceRequestOptions struct {
 	// Body sent as multipart/form-data.
 	Body       *UploadRequestBody
@@ -188,7 +187,7 @@ func (o *UploadServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// UploadResponseData is what Upload returns: the status, the headers and the body of the response.
+// UploadResponseData is what Upload returns.
 type UploadResponseData struct {
 	Status  int
 	Headers http.Header
@@ -197,7 +196,7 @@ type UploadResponseData struct {
 	contentType string
 }
 
-// NewUploadResponseData returns the response data of status 200 with body as application/json.
+// NewUploadResponseData returns the 200 response with its application/json body.
 func NewUploadResponseData(body UploadResponse200) *UploadResponseData {
 	return &UploadResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -229,12 +228,12 @@ func (r *UploadResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *UploadResponseData) ContentType() string {
 	return r.contentType
 }
 
-// PostTextServiceRequestOptions is what PostText receives. RawRequest is the request as it came in.
+// PostTextServiceRequestOptions is what PostText receives.
 type PostTextServiceRequestOptions struct {
 	// Body sent as text/plain.
 	BodyText *PostTextRequestBody
@@ -248,7 +247,7 @@ func (o *PostTextServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// PostTextResponseData is what PostText returns: the status, the headers and the body of the response.
+// PostTextResponseData is what PostText returns.
 type PostTextResponseData struct {
 	Status  int
 	Headers http.Header
@@ -257,7 +256,7 @@ type PostTextResponseData struct {
 	contentType string
 }
 
-// NewPostTextResponseData returns the response data of status 200 with body as text/plain.
+// NewPostTextResponseData returns the 200 response with its text/plain body.
 func NewPostTextResponseData(body *PostTextResponse200) *PostTextResponseData {
 	return &PostTextResponseData{Status: 200, Body: body, contentType: "text/plain"}
 }
@@ -289,12 +288,12 @@ func (r *PostTextResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *PostTextResponseData) ContentType() string {
 	return r.contentType
 }
 
-// PutFileServiceRequestOptions is what PutFile receives. RawRequest is the request as it came in.
+// PutFileServiceRequestOptions is what PutFile receives.
 type PutFileServiceRequestOptions struct {
 	// Body sent as image/png.
 	Body       *PutFileRequestBody
@@ -306,7 +305,7 @@ func (o *PutFileServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// PutFileResponseData is what PutFile returns: the status, the headers and the body of the response.
+// PutFileResponseData is what PutFile returns.
 type PutFileResponseData struct {
 	Status  int
 	Headers http.Header
@@ -315,7 +314,7 @@ type PutFileResponseData struct {
 	contentType string
 }
 
-// NewPutFileResponseData returns the response data of status 200 with body as image/png.
+// NewPutFileResponseData returns the 200 response with its image/png body.
 func NewPutFileResponseData(body *PutFileResponse200) *PutFileResponseData {
 	return &PutFileResponseData{Status: 200, Body: body, contentType: "image/png"}
 }
@@ -347,12 +346,12 @@ func (r *PutFileResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *PutFileResponseData) ContentType() string {
 	return r.contentType
 }
 
-// PostAnyServiceRequestOptions is what PostAny receives. RawRequest is the request as it came in.
+// PostAnyServiceRequestOptions is what PostAny receives.
 type PostAnyServiceRequestOptions struct {
 	// Body sent as application/xml.
 	BodyXML *PostAnyXMLRequestBody
@@ -368,7 +367,7 @@ func (o *PostAnyServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// PostAnyResponseData is what PostAny returns: the status, the headers and the body of the response.
+// PostAnyResponseData is what PostAny returns.
 type PostAnyResponseData struct {
 	Status  int
 	Headers http.Header
@@ -377,7 +376,7 @@ type PostAnyResponseData struct {
 	contentType string
 }
 
-// NewPostAnyResponseData returns the response data of status 200 with body as text/plain.
+// NewPostAnyResponseData returns the 200 response with its text/plain body.
 func NewPostAnyResponseData(body *PostAnyResponse200) *PostAnyResponseData {
 	return &PostAnyResponseData{Status: 200, Body: body, contentType: "text/plain"}
 }
@@ -409,7 +408,7 @@ func (r *PostAnyResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *PostAnyResponseData) ContentType() string {
 	return r.contentType
 }
@@ -432,9 +431,7 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
+// ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
@@ -459,7 +456,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	return o
 }
 
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+// WithMiddleware wraps the routes with mw, outermost first; on a new router, unknown paths too.
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
@@ -480,21 +477,19 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 	}
 }
 
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory.
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
 	}
 }
 
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+// HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  ServiceInterface
 	opts *ServerOptions
 }
 
-// responseData is what every response data type gives the adapter.
 type responseData interface {
 	StatusCode() int
 	Header() http.Header
@@ -700,17 +695,14 @@ func (a *HTTPAdapter) PostAny(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "PostAny", res)
 }
 
-// fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
-// failDecode answers a request whose body could not be read.
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
 }
 
-// write writes the response of the service.
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
@@ -727,9 +719,7 @@ func WithRouter(r httpx.Router) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a go-zero router, which rest.WithRouter gives a rest
-// server. On a new router the middleware WithMiddleware adds wraps everything, unknown paths too;
-// on the router WithRouter gives it, the middleware wraps each generated route and nothing else.
+// NewRouter registers every operation on a go-zero router, for rest.WithRouter.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) httpx.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -757,7 +747,6 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) httpx.Router {
 	return wrappedRouter{Router: r, handler: wrap(r)}
 }
 
-// wrappedRouter is a router served through the middleware.
 type wrappedRouter struct {
 	httpx.Router
 	handler http.Handler
@@ -767,10 +756,9 @@ func (r wrappedRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.handler.ServeHTTP(w, req)
 }
 
-// handle registers h on r. The route passed the checks of the generator, so an error is a bug of
-// it.
 func handle(r httpx.Router, method, path string, h http.Handler) {
 	if err := r.Handle(method, path, h); err != nil {
+		// The generator checked the route, so this is a bug of the generator.
 		panic(err)
 	}
 }

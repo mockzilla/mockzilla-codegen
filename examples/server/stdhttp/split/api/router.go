@@ -11,9 +11,7 @@ func WithRouter(mux *http.ServeMux) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on an http.ServeMux and returns it. The middleware
-// WithMiddleware adds wraps a new mux as a whole, unknown paths too; on the mux WithRouter gives
-// it, the middleware wraps the generated routes and nothing else.
+// NewRouter registers every operation on an http.ServeMux.
 func NewRouter(svc BooksInterface, opts ...ServerOption) http.Handler {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)

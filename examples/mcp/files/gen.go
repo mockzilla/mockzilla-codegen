@@ -16,8 +16,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 type Note struct {
@@ -50,7 +49,7 @@ type ServiceInterface interface {
 	AddNote(ctx context.Context, opts *AddNoteServiceRequestOptions) (*AddNoteResponseData, error)
 }
 
-// SetPhotoServiceRequestOptions is what SetPhoto receives. RawRequest is the request as it came in.
+// SetPhotoServiceRequestOptions is what SetPhoto receives.
 type SetPhotoServiceRequestOptions struct {
 	PathParams *SetPhotoPathParams
 	// Body sent as image/png.
@@ -63,7 +62,7 @@ func (o *SetPhotoServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// SetPhotoResponseData is what SetPhoto returns: the status, the headers and the body of the response.
+// SetPhotoResponseData is what SetPhoto returns.
 type SetPhotoResponseData struct {
 	Status  int
 	Headers http.Header
@@ -72,7 +71,7 @@ type SetPhotoResponseData struct {
 	contentType string
 }
 
-// NewSetPhotoResponseData returns the response data of status 200 with body as application/json.
+// NewSetPhotoResponseData returns the 200 response with its application/json body.
 func NewSetPhotoResponseData(body *Received) *SetPhotoResponseData {
 	return &SetPhotoResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -104,12 +103,12 @@ func (r *SetPhotoResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *SetPhotoResponseData) ContentType() string {
 	return r.contentType
 }
 
-// AddNoteServiceRequestOptions is what AddNote receives. RawRequest is the request as it came in.
+// AddNoteServiceRequestOptions is what AddNote receives.
 type AddNoteServiceRequestOptions struct {
 	// Body sent as multipart/form-data.
 	Body       *Note
@@ -121,7 +120,7 @@ func (o *AddNoteServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// AddNoteResponseData is what AddNote returns: the status, the headers and the body of the response.
+// AddNoteResponseData is what AddNote returns.
 type AddNoteResponseData struct {
 	Status  int
 	Headers http.Header
@@ -130,7 +129,7 @@ type AddNoteResponseData struct {
 	contentType string
 }
 
-// NewAddNoteResponseData returns the response data of status 200 with body as application/json.
+// NewAddNoteResponseData returns the 200 response with its application/json body.
 func NewAddNoteResponseData(body *Received) *AddNoteResponseData {
 	return &AddNoteResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
@@ -162,7 +161,7 @@ func (r *AddNoteResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *AddNoteResponseData) ContentType() string {
 	return r.contentType
 }
@@ -185,9 +184,7 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
+// ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
@@ -212,7 +209,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	return o
 }
 
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+// WithMiddleware wraps the routes with mw, outermost first; on a new router, unknown paths too.
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
@@ -233,21 +230,19 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 	}
 }
 
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory.
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
 	}
 }
 
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+// HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  ServiceInterface
 	opts *ServerOptions
 }
 
-// responseData is what every response data type gives the adapter.
 type responseData interface {
 	StatusCode() int
 	Header() http.Header
@@ -326,17 +321,14 @@ func (a *HTTPAdapter) AddNote(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "AddNote", res)
 }
 
-// fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
-// failDecode answers a request whose body could not be read.
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
 }
 
-// write writes the response of the service.
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
@@ -353,9 +345,7 @@ func WithRouter(r chi.Router) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a chi router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
-// wraps the generated routes and nothing else.
+// NewRouter registers every operation on a chi router.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -566,26 +556,25 @@ func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, edit
 	return req, nil
 }
 
-// SetPhotoToolInput is the input of the set_photo tool: the parameters of the operation.
+// SetPhotoToolInput is the input of the set_photo tool.
 type SetPhotoToolInput struct {
 	ID string `json:"id"`
 	// The request body, sent as image/png.
 	Body *SetPhotoRequestBody `json:"body"`
 }
 
-// AddNoteToolInput is the input of the add_note tool: the parameters of the operation.
+// AddNoteToolInput is the input of the add_note tool.
 type AddNoteToolInput struct {
 	// The request body, sent as multipart/form-data.
 	Body *Note `json:"body"`
 }
 
-// MCPTools exposes the operations of the API as MCP tools, each calling the client.
+// MCPTools exposes the operations of the API as MCP tools.
 type MCPTools struct {
 	client ClientInterface
 }
 
-// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
-// a panic in a tool and the first call would end the server.
+// NewMCPTools returns the tools that call c. A nil c panics.
 func NewMCPTools(c ClientInterface) *MCPTools {
 	if c == nil {
 		panic("NewMCPTools: nil client")
@@ -593,15 +582,13 @@ func NewMCPTools(c ClientInterface) *MCPTools {
 	return &MCPTools{client: c}
 }
 
-// Register adds every tool to s. To add a few, pass the definition and the handler of each to
-// mcp.AddTool instead.
+// Register adds every tool to s.
 func (t *MCPTools) Register(s *mcp.Server) {
 	mcp.AddTool(s, t.SetPhotoTool(), t.SetPhoto)
 	mcp.AddTool(s, t.AddNoteTool(), t.AddNote)
 }
 
-// SetPhotoTool is the definition of the set_photo tool: its name, its description and the schema
-// of its input.
+// SetPhotoTool is the definition of the set_photo tool.
 func (t *MCPTools) SetPhotoTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "set_photo",
@@ -611,8 +598,7 @@ func (t *MCPTools) SetPhotoTool() *mcp.Tool {
 	}
 }
 
-// SetPhoto handles the set_photo tool: it calls SetPhoto of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// SetPhoto handles the set_photo tool.
 func (t *MCPTools) SetPhoto(ctx context.Context, _ *mcp.CallToolRequest, in SetPhotoToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &SetPhotoRequestOptions{
 		PathParams: &SetPhotoPathParams{
@@ -627,8 +613,7 @@ func (t *MCPTools) SetPhoto(ctx context.Context, _ *mcp.CallToolRequest, in SetP
 	return nil, runtime.ToolResult{Value: out}, nil
 }
 
-// AddNoteTool is the definition of the add_note tool: its name, its description and the schema
-// of its input.
+// AddNoteTool is the definition of the add_note tool.
 func (t *MCPTools) AddNoteTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "add_note",
@@ -638,8 +623,7 @@ func (t *MCPTools) AddNoteTool() *mcp.Tool {
 	}
 }
 
-// AddNote handles the add_note tool: it calls AddNote of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// AddNote handles the add_note tool.
 func (t *MCPTools) AddNote(ctx context.Context, _ *mcp.CallToolRequest, in AddNoteToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &AddNoteRequestOptions{
 		Body: in.Body,

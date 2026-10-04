@@ -22,8 +22,6 @@ func main() {
 	}
 }
 
-// run serves on port 8080 until the process is told to stop, then lets the requests in
-// flight finish.
 func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

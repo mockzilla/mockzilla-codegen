@@ -15,9 +15,7 @@ func WithRouter(r *mux.Router) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a gorilla/mux Router. On a new Router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the Router WithRouter gives it, the
-// middleware wraps each generated route and nothing else.
+// NewRouter registers every operation on a gorilla/mux Router.
 func NewRouter(svc BooksInterface, opts ...ServerOption) *mux.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -42,7 +40,6 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) *mux.Router {
 	return r
 }
 
-// methodNotAllowed answers a known path asked with a method it does not take, as mux does.
 func methodNotAllowed(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusMethodNotAllowed)
 }

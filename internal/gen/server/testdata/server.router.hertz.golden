@@ -17,9 +17,7 @@ func WithRouter(h *server.Hertz) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a Hertz server. On a new server the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the server WithRouter gives it, the
-// middleware wraps each generated route and nothing else.
+// NewRouter registers every operation on a Hertz server.
 func NewRouter(svc PetsInterface, opts ...ServerOption) *server.Hertz {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -46,8 +44,6 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *server.Hertz {
 	return h
 }
 
-// handle serves h as a hertz handler: the request is read into an http.Request, with the path
-// parameters hertz found, and the response is written into hertz's.
 func handle(h http.Handler) app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 		r, err := http.NewRequestWithContext(ctx, string(c.Method()), string(c.URI().FullURI()), bytes.NewReader(c.Request.Body()))
@@ -66,8 +62,6 @@ func handle(h http.Handler) app.HandlerFunc {
 	}
 }
 
-// responseWriter is an http.ResponseWriter over a hertz response: the headers go over with the
-// status, on the first write at the latest.
 type responseWriter struct {
 	response  *protocol.Response
 	header    http.Header

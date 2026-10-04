@@ -17,10 +17,7 @@ func WithRouter(app *fiber.App) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a fiber App. On a new App the middleware
-// WithMiddleware adds wraps everything, and a request no route takes, by path or by method, is
-// a 404 through it; on the App WithRouter gives it, the middleware wraps each generated route
-// and nothing else.
+// NewRouter registers every operation on a fiber App.
 func NewRouter(svc BooksInterface, opts ...ServerOption) *fiber.App {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -44,11 +41,10 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) *fiber.App {
 	return app
 }
 
-// handle serves h as a fiber handler, with the path parameters fiber found on the request. The
-// request is copied out of fiber's, whose strings live for the request alone.
 func handle(h http.Handler) fiber.Handler {
 	return func(c fiber.Ctx) error {
 		fasthttpadaptor.NewFastHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// fiber's strings live for the request alone.
 			for _, name := range c.Route().Params {
 				r.SetPathValue(name, strings.Clone(c.Params(name)))
 			}
