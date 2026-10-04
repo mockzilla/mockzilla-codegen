@@ -34,13 +34,24 @@ type EnvelopeView struct {
 
 // envelopeField is one field of an envelope with the response it decodes: the status as the spec
 // writes it and, for a body, its media type; a headers field has none. The stream field holds the
-// stream of the response the Stream method reads.
+// stream of the response the Stream method reads, and typ is the type of one frame.
 type envelopeField struct {
-	FieldView
+	name      string
+	typ       gomodel.Type
+	doc       string
 	status    string
 	mediaType string
 	isHeaders bool
 	isStream  bool
+}
+
+// view is the field as the envelope's file s declares it, the only file that spells its type.
+func (f envelopeField) view(s *gocode.Scope) FieldView {
+	t := s.Expr(f.typ)
+	if f.isStream {
+		t = streamType(t, s)
+	}
+	return FieldView{Name: f.name, Type: t, Doc: f.doc}
 }
 
 func responsesView(g *Generator, s *gocode.Scope) *ResponsesView {
@@ -52,8 +63,8 @@ func responsesView(g *Generator, s *gocode.Scope) *ResponsesView {
 	v.HTTP = s.Import(gomodel.Import{Path: "net/http"})
 	for _, op := range g.ops {
 		e := EnvelopeView{Name: op.Name, Type: g.opts.Namer.ClientResponse(op.Name)}
-		for _, f := range envelopeFields(g, op, s) {
-			e.Fields = append(e.Fields, f.FieldView)
+		for _, f := range envelopeFields(g, op) {
+			e.Fields = append(e.Fields, f.view(s))
 		}
 		v.Operations = append(v.Operations, e)
 	}
@@ -64,7 +75,7 @@ func responsesView(g *Generator, s *gocode.Scope) *ResponsesView {
 // can decode, named after its media type and status, with HasStreams the stream of the response
 // the Stream method reads, then one per struct of typed headers. Two media types with one tag at
 // a status are told apart by the type, then by a number.
-func envelopeFields(g *Generator, op *gomodel.Operation, s *gocode.Scope) []envelopeField {
+func envelopeFields(g *Generator, op *gomodel.Operation) []envelopeField {
 	n := g.opts.Namer
 	var out []envelopeField
 	names := []string{"HTTPResponse", "Body", "StatusCode"}
@@ -73,7 +84,9 @@ func envelopeFields(g *Generator, op *gomodel.Operation, s *gocode.Scope) []enve
 		name := "Stream" + n.Status(r.Status)
 		names = append(names, name)
 		stream = &envelopeField{
-			FieldView: FieldView{Name: name, Type: streamType(s.Expr(frameType(c)), s), Doc: name + " is the stream of a " + r.Status + " response as " + c.MediaType + "."},
+			name:      name,
+			typ:       frameType(c),
+			doc:       name + " is the stream of a " + r.Status + " response as " + c.MediaType + ".",
 			status:    r.Status,
 			mediaType: c.MediaType,
 			isStream:  true,
@@ -97,7 +110,9 @@ func envelopeFields(g *Generator, op *gomodel.Operation, s *gocode.Scope) []enve
 			names = append(names, name)
 
 			out = append(out, envelopeField{
-				FieldView: FieldView{Name: name, Type: s.Expr(gomodel.Held(operation.BodyType(c))), Doc: name + " is the body of a " + r.Status + " response as " + c.MediaType + "."},
+				name:      name,
+				typ:       gomodel.Held(operation.BodyType(c)),
+				doc:       name + " is the body of a " + r.Status + " response as " + c.MediaType + ".",
 				status:    r.Status,
 				mediaType: c.MediaType,
 			})
@@ -112,7 +127,9 @@ func envelopeFields(g *Generator, op *gomodel.Operation, s *gocode.Scope) []enve
 		}
 		name := "Headers" + n.Status(r.Status)
 		out = append(out, envelopeField{
-			FieldView: FieldView{Name: name, Type: s.Expr(gomodel.Pointer{Elem: gomodel.DeclRef{Decl: r.Headers}}), Doc: name + " holds the headers the spec declares for a " + r.Status + " response."},
+			name:      name,
+			typ:       gomodel.Pointer{Elem: gomodel.DeclRef{Decl: r.Headers}},
+			doc:       name + " holds the headers the spec declares for a " + r.Status + " response.",
 			status:    r.Status,
 			isHeaders: true,
 		})

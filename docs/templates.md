@@ -343,7 +343,7 @@ import each other, `Generate` fails with the cycle and the file that closes it, 
 built-in parts:
 
 ```
-import cycle: api -> models -> api (models.responses uses example.com/work/models, ./wrap.go uses example.com/work/api)
+import cycle: api -> models -> api (server.service uses example.com/work/models, ./wrap.go uses example.com/work/api)
 ```
 
 Move the extra file to a folder that the folders it uses do not import.

@@ -574,7 +574,7 @@ func WithRouter(r *mux.Router) ServerOption {
 // NewRouter registers every operation on a gorilla/mux Router.
 func NewRouter(svc PetsInterface, opts ...ServerOption) *mux.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -582,11 +582,11 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *mux.Router {
 		return h
 	}
 	register := func(r *mux.Router, route func(http.Handler) http.Handler) {
-		r.Handle("/pets", route(http.HandlerFunc(adapter.ListPets))).Methods("GET")
-		r.Handle("/pets", route(http.HandlerFunc(adapter.CreatePet))).Methods("POST")
-		r.Handle("/ping", route(http.HandlerFunc(adapter.Ping))).Methods("GET")
-		r.Handle("/pets/{id}", route(http.HandlerFunc(adapter.GetPet))).Methods("GET")
-		r.Handle("/pets/{id}", route(http.HandlerFunc(adapter.DeletePet))).Methods("DELETE")
+		r.Handle("/pets", route(http.HandlerFunc(a.ListPets))).Methods("GET")
+		r.Handle("/pets", route(http.HandlerFunc(a.CreatePet))).Methods("POST")
+		r.Handle("/ping", route(http.HandlerFunc(a.Ping))).Methods("GET")
+		r.Handle("/pets/{id}", route(http.HandlerFunc(a.GetPet))).Methods("GET")
+		r.Handle("/pets/{id}", route(http.HandlerFunc(a.DeletePet))).Methods("DELETE")
 	}
 
 	if r, _ := o.Router.(*mux.Router); r != nil {

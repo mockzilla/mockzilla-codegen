@@ -112,10 +112,33 @@ var (
 	mcpDeps = []string{"github.com/modelcontextprotocol/go-sdk/mcp"}
 )
 
+// splitVariant puts every part of a chi server with scaffolds, the client and the MCP tools in a
+// package of its own where Go allows, so the build checks every reference between packages.
+var splitVariant = itest.Variant{
+	Name: "split",
+	Config: "server:\n  framework: chi\n  scaffold:\n" +
+		"    service: ./scaffold/service/service.go\n" +
+		"    middleware: ./scaffold/middleware/middleware.go\n" +
+		"    main: ./cmd/server/main.go\n" +
+		"client:\n  with-response: true\n  streaming: true\nmcp: {}\n",
+	Files: map[string][]string{
+		"./models/gen.go":           {"models"},
+		"./server/service/gen.go":   {"server.service"},
+		"./server/adapter/gen.go":   {"server.adapter"},
+		"./server/router/gen.go":    {"server.router"},
+		"./server/errors/gen.go":    {"server.errors"},
+		"./client/core/gen.go":      {"client.core", "client.operations"},
+		"./client/options/gen.go":   {"client.options"},
+		"./client/responses/gen.go": {"client.responses"},
+		"./mcp/tools/gen.go":        {"mcp.tools"},
+		"./mcp/inputs/gen.go":       {"mcp.inputs"},
+	},
+}
+
 // TestIntegration generates every spec in testdata/specs with the models variant, one per
-// framework FRAMEWORKS names, chi by default, the client variant when CLIENT is set and the MCP
-// variant when MCP is set, then builds and tests the result. It fails on an unlisted failure and
-// on a listed spec that passes now.
+// framework FRAMEWORKS names, chi by default, the client variant when CLIENT is set, the MCP
+// variant when MCP is set and the split variant when SPLIT is set, then builds and tests the
+// result. It fails on an unlisted failure and on a listed spec that passes now.
 func TestIntegration(t *testing.T) {
 	t.Parallel()
 
@@ -128,6 +151,13 @@ func TestIntegration(t *testing.T) {
 		variants = append(variants, mcpVariant)
 		deps = append(deps, mcpDeps...)
 	}
+	if os.Getenv("SPLIT") != "" {
+		variants = append(variants, splitVariant)
+		deps = append(deps, servers["chi"].deps...)
+		deps = append(deps, mcpDeps...)
+	}
+	slices.Sort(deps)
+	deps = slices.Compact(deps)
 	repo, err := filepath.Abs("../..")
 	require.NoError(t, err)
 	named := strings.Fields(os.Getenv("SPEC") + " " + os.Getenv("SPECS"))

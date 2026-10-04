@@ -88,9 +88,23 @@ func TestKey(t *testing.T) {
 	p := filepath.Join(dir, "spec.yml")
 	require.NoError(t, os.WriteFile(p, []byte("ab"), 0o644))
 
-	got, err := Key(Job{Spec: Spec{Path: p}, Variant: Variant{Name: "models"}})
+	job := Job{Spec: Spec{Path: p}, Variant: Variant{Name: "chi", Config: "server: {}\n"}, Package: "specs/chi/spec"}
+	got, err := Key(job)
 	require.NoError(t, err)
-	assert.Equal(t, hashAB+" models", got)
+	assert.Regexp(t, "^"+hashAB+" chi [0-9a-f]{16}$", got)
+
+	for _, edit := range []func(v *Variant){
+		func(v *Variant) { v.Config = "server: {framework: echo}\n" },
+		func(v *Variant) { v.Files = map[string][]string{"./models/gen.go": {"models"}} },
+		func(v *Variant) { v.Init = "%s.NewRouter(nil)" },
+		func(v *Variant) { v.Imports = []string{"net/http"} },
+	} {
+		changed := job
+		edit(&changed.Variant)
+		other, keyErr := Key(changed)
+		require.NoError(t, keyErr)
+		assert.NotEqual(t, got, other)
+	}
 
 	_, err = Key(Job{Spec: Spec{Path: filepath.Join(dir, "nope.yml")}})
 	require.ErrorIs(t, err, os.ErrNotExist)

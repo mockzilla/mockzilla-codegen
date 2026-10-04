@@ -12,16 +12,16 @@ func WithRouter(e *echo.Echo) ServerOption {
 // NewRouter registers every operation on an Echo.
 func NewRouter(svc PetsInterface, opts ...ServerOption) *echo.Echo {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	middleware := make([]echo.MiddlewareFunc, len(o.Middleware))
 	for i, mw := range o.Middleware {
 		middleware[i] = echo.WrapMiddleware(mw)
 	}
 	register := func(e *echo.Echo, m ...echo.MiddlewareFunc) {
-		e.GET("/pets", adapter.ListPets, m...)
-		e.POST("/pets", adapter.CreatePet, m...)
-		e.DELETE("/pets/:id", adapter.DeletePet, m...)
-		e.GET("/ping", adapter.Ping, m...)
+		e.GET("/pets", a.ListPets, m...)
+		e.POST("/pets", a.CreatePet, m...)
+		e.DELETE("/pets/:id", a.DeletePet, m...)
+		e.GET("/ping", a.Ping, m...)
 	}
 
 	e, _ := o.Router.(*echo.Echo)

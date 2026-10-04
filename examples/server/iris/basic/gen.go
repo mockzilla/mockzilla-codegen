@@ -574,7 +574,7 @@ func WithRouter(app *iris.Application) ServerOption {
 // NewRouter registers every operation on an iris Application.
 func NewRouter(svc PetsInterface, opts ...ServerOption) *iris.Application {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -582,11 +582,11 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *iris.Application {
 		return h
 	}
 	register := func(app *iris.Application, route func(http.Handler) http.Handler) {
-		app.Get("/pets", handle(route(http.HandlerFunc(adapter.ListPets))))
-		app.Post("/pets", handle(route(http.HandlerFunc(adapter.CreatePet))))
-		app.Get("/pets/{id}", handle(route(http.HandlerFunc(adapter.GetPet))))
-		app.Delete("/pets/{id}", handle(route(http.HandlerFunc(adapter.DeletePet))))
-		app.Get("/ping", handle(route(http.HandlerFunc(adapter.Ping))))
+		app.Get("/pets", handle(route(http.HandlerFunc(a.ListPets))))
+		app.Post("/pets", handle(route(http.HandlerFunc(a.CreatePet))))
+		app.Get("/pets/{id}", handle(route(http.HandlerFunc(a.GetPet))))
+		app.Delete("/pets/{id}", handle(route(http.HandlerFunc(a.DeletePet))))
+		app.Get("/ping", handle(route(http.HandlerFunc(a.Ping))))
 	}
 
 	if app, _ := o.Router.(*iris.Application); app != nil {

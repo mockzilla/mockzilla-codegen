@@ -20,7 +20,7 @@ func WithRouter(app *fiber.App) ServerOption {
 // NewRouter registers every operation on a fiber App.
 func NewRouter(svc BooksInterface, opts ...ServerOption) *fiber.App {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -28,7 +28,7 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) *fiber.App {
 		return h
 	}
 	register := func(app *fiber.App, route func(http.Handler) http.Handler) {
-		app.Get("/books/:isbn", handle(route(http.HandlerFunc(adapter.GetBook))))
+		app.Get("/books/:isbn", handle(route(http.HandlerFunc(a.GetBook))))
 	}
 
 	if app, _ := o.Router.(*fiber.App); app != nil {

@@ -1,0 +1,61 @@
+openapi: 3.1.0
+info: {title: Orders, version: "1.0"}
+paths:
+  /orders:
+    post:
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items: {type: array, items: {$ref: '#/components/schemas/Item'}}
+      responses:
+        "201":
+          description: The new order
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Order'}
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+        - {name: expand, in: query, schema: {type: string, enum: [items, customer]}}
+      responses:
+        "200":
+          description: The order
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Order'}
+        "404":
+          description: No such order
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Problem'}
+components:
+  schemas:
+    Order:
+      type: object
+      required: [id, status]
+      properties:
+        id: {type: string}
+        status: {$ref: '#/components/schemas/Status'}
+        items: {type: array, items: {$ref: '#/components/schemas/Item'}}
+    Item:
+      type: object
+      required: [sku, quantity]
+      properties:
+        sku: {type: string}
+        quantity: {type: integer, minimum: 1}
+    Status:
+      type: string
+      enum: [open, paid, shipped]
+    Problem:
+      type: object
+      required: [detail]
+      properties:
+        detail: {type: string}

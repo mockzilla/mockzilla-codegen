@@ -23,3 +23,19 @@ func (g GetOrderQuery) Validate() error {
 	}
 	return errs.Err()
 }
+
+type CreateOrderRequestBody struct {
+	Items []Item `json:"items"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c CreateOrderRequestBody) Validate() error {
+	var errs runtime.ValidationErrors
+	if c.Items == nil {
+		errs.Add("items", "is required")
+	}
+	for idx, item := range c.Items {
+		errs.Append(runtime.Index("items", idx), item.Validate())
+	}
+	return errs.Err()
+}

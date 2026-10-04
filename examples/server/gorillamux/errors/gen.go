@@ -446,7 +446,7 @@ func WithRouter(r *mux.Router) ServerOption {
 // NewRouter registers every operation on a gorilla/mux Router.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *mux.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -454,8 +454,8 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *mux.Router {
 		return h
 	}
 	register := func(r *mux.Router, route func(http.Handler) http.Handler) {
-		r.Handle("/pets/{id}", route(http.HandlerFunc(adapter.GetPet))).Methods("GET")
-		r.Handle("/pets/{id}", route(http.HandlerFunc(adapter.PutPet))).Methods("PUT")
+		r.Handle("/pets/{id}", route(http.HandlerFunc(a.GetPet))).Methods("GET")
+		r.Handle("/pets/{id}", route(http.HandlerFunc(a.PutPet))).Methods("PUT")
 	}
 
 	if r, _ := o.Router.(*mux.Router); r != nil {

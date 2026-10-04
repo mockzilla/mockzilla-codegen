@@ -721,7 +721,7 @@ func WithRouter(r *mux.Router) ServerOption {
 // NewRouter registers every operation on a gorilla/mux Router.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *mux.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -729,12 +729,12 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *mux.Router {
 		return h
 	}
 	register := func(r *mux.Router, route func(http.Handler) http.Handler) {
-		r.Handle("/json", route(http.HandlerFunc(adapter.PostJSON))).Methods("POST")
-		r.Handle("/form", route(http.HandlerFunc(adapter.PostForm))).Methods("POST")
-		r.Handle("/upload", route(http.HandlerFunc(adapter.Upload))).Methods("POST")
-		r.Handle("/text", route(http.HandlerFunc(adapter.PostText))).Methods("POST")
-		r.Handle("/file", route(http.HandlerFunc(adapter.PutFile))).Methods("PUT")
-		r.Handle("/any", route(http.HandlerFunc(adapter.PostAny))).Methods("POST")
+		r.Handle("/json", route(http.HandlerFunc(a.PostJSON))).Methods("POST")
+		r.Handle("/form", route(http.HandlerFunc(a.PostForm))).Methods("POST")
+		r.Handle("/upload", route(http.HandlerFunc(a.Upload))).Methods("POST")
+		r.Handle("/text", route(http.HandlerFunc(a.PostText))).Methods("POST")
+		r.Handle("/file", route(http.HandlerFunc(a.PutFile))).Methods("PUT")
+		r.Handle("/any", route(http.HandlerFunc(a.PostAny))).Methods("POST")
 	}
 
 	if r, _ := o.Router.(*mux.Router); r != nil {

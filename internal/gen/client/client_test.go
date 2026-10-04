@@ -181,7 +181,7 @@ func TestParts(t *testing.T) {
 			want: []layout.Part{
 				{ID: PartOptions, Uses: requests},
 				{ID: PartCore, Uses: []layout.PartID{PartOptions, gomodel.PartResponses, gomodel.PartTypes}},
-				{ID: PartOperations, Uses: []layout.PartID{PartCore, PartOptions, gomodel.PartResponses, gomodel.PartTypes}, Owner: PartCore},
+				{ID: PartOperations, Uses: []layout.PartID{PartCore, PartOptions, gomodel.PartResponses, gomodel.PartTypes}, Owner: PartCore, Reason: "adds methods to the types of client.core"},
 			},
 		},
 		{
@@ -191,7 +191,7 @@ func TestParts(t *testing.T) {
 				{ID: PartOptions, Uses: requests},
 				{ID: PartResponses, Uses: responses},
 				{ID: PartCore, Uses: []layout.PartID{PartOptions, PartResponses, gomodel.PartResponses, gomodel.PartTypes}},
-				{ID: PartOperations, Uses: []layout.PartID{PartCore, PartOptions, PartResponses, gomodel.PartResponses, gomodel.PartTypes}, Owner: PartCore},
+				{ID: PartOperations, Uses: []layout.PartID{PartCore, PartOptions, PartResponses, gomodel.PartResponses, gomodel.PartTypes}, Owner: PartCore, Reason: "adds methods to the types of client.core"},
 			},
 		},
 	}
@@ -323,6 +323,33 @@ func TestViewOfABodyThatCannotBeSent(t *testing.T) {
 		"\t\treturn nil, runtime.ErrBodyEmpty\n"+
 		"\t}\n"+
 		"}\n")
+}
+
+func TestViewLeavesEnvelopeTypesToTheEnvelopeFile(t *testing.T) {
+	t.Parallel()
+
+	problem := &gomodel.Decl{Name: "Problem", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}
+	m := &gomodel.Model{
+		Decls: []*gomodel.Decl{problem},
+		Operations: []*gomodel.Operation{{
+			Name: "DeletePet",
+			Spec: &spec.Operation{Method: "DELETE", Path: "/pets"},
+			Responses: []gomodel.Response{
+				{Status: "204"},
+				{Status: "404", Contents: []gomodel.Content{{MediaType: "application/json", Type: gomodel.DeclRef{Decl: problem}}}},
+			},
+		}},
+	}
+	g, _ := New(m, allOptions())
+	cfg := "output:\n  file: ./api/gen.go\n  module: example.com/work\n  files:\n    ./models/models.go: [models]\n    ./envelopes/envelopes.go: [client.responses]\n"
+	f := fixture{m: m, g: g, cfg: cfg}
+
+	got := string(f.render(t, PartOperations))
+
+	assert.Contains(t, got, "\tout := &envelopes.DeletePetResponse{HTTPResponse: res, Body: body}\n")
+	assert.Contains(t, got, "Dst: &out.JSON404}")
+	assert.NotContains(t, got, "example.com/work/models")
+	assert.Contains(t, string(f.render(t, PartResponses)), "\tJSON404 *models.Problem\n")
 }
 
 // assertGolden compares got with the file at path, or writes it when UPDATE is set.

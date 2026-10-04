@@ -14,9 +14,10 @@ Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33f/libop
 - One integration spec: `make test-integration SPEC=3.0/misc/<spec>.yml`. Never run the full
   integration or parse sweep unless asked; they cover 2,000+ specs. Each spec runs as models
   only and once per server framework in `FRAMEWORKS` (default `chi`), whose router is also built
-  in a test; `CLIENT=1` adds the client variant, whose client is built the same way, and `MCP=1`
-  the MCP variant, whose tools are built over the client.
-- The integration run skips jobs that passed with the same spec and tool build
+  in a test; `CLIENT=1` adds the client variant, whose client is built the same way, `MCP=1`
+  the MCP variant, whose tools are built over the client, and `SPLIT=1` the variant that puts
+  every part in a package of its own where Go allows, which is built.
+- The integration run skips jobs that passed with the same spec, variant and tool build
   (`.integration-cache.json`); `make test-integration-clear` runs all. Expected failures are listed
   in `test/integration/known-failures.txt`.
 - Coverage gate exclusions live in `.covignore`.

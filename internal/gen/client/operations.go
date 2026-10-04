@@ -191,15 +191,15 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 		v.Stream = streamView(op, s)
 	}
 	if g.opts.HasEnvelopes {
-		for _, f := range envelopeFields(g, op, s) {
+		for _, f := range envelopeFields(g, op) {
 			if f.isStream {
-				v.Stream.Field = f.Name
+				v.Stream.Field = f.name
 				continue
 			}
 			v.EnvelopeTargets = append(v.EnvelopeTargets, TargetView{
 				Status:    gocode.Quote(f.status),
 				MediaType: gocode.Quote(f.mediaType),
-				Dst:       gocode.AddressOf(gocode.Selector("out", f.Name)),
+				Dst:       gocode.AddressOf(gocode.Selector("out", f.name)),
 				IsHeaders: f.isHeaders,
 			})
 		}

@@ -146,6 +146,13 @@ name. `output.packages` wins over `package` when both name the same folder. Outp
 folder needs a module path for the imports between them: from the nearest `go.mod`, or
 `output.module`. Folders that import each other are an error.
 
+The model parts refer to each other's types, so they share one folder: split them into files, not
+packages. `client.operations` sits with `client.core`, whose methods it declares. Every other part
+can have a package of its own. [examples/layout](examples/layout) generates one spec in five
+layouts: parts in several files of one package, models apart from the rest, each family in its
+own package, the service interface apart from the router, and a client in a folder that
+`output.packages` names.
+
 ### Defaults
 
 | Key | Default |

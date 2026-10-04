@@ -723,7 +723,7 @@ func WithRouter(r *router.Router) ServerOption {
 // NewRouter registers every operation on a fasthttp router.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *router.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -731,12 +731,12 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *router.Router {
 		return h
 	}
 	register := func(r *router.Router, route func(http.Handler) http.Handler) {
-		r.POST("/json", handle(route(http.HandlerFunc(adapter.PostJSON))))
-		r.POST("/form", handle(route(http.HandlerFunc(adapter.PostForm))))
-		r.POST("/upload", handle(route(http.HandlerFunc(adapter.Upload))))
-		r.POST("/text", handle(route(http.HandlerFunc(adapter.PostText))))
-		r.PUT("/file", handle(route(http.HandlerFunc(adapter.PutFile))))
-		r.POST("/any", handle(route(http.HandlerFunc(adapter.PostAny))))
+		r.POST("/json", handle(route(http.HandlerFunc(a.PostJSON))))
+		r.POST("/form", handle(route(http.HandlerFunc(a.PostForm))))
+		r.POST("/upload", handle(route(http.HandlerFunc(a.Upload))))
+		r.POST("/text", handle(route(http.HandlerFunc(a.PostText))))
+		r.PUT("/file", handle(route(http.HandlerFunc(a.PutFile))))
+		r.POST("/any", handle(route(http.HandlerFunc(a.PostAny))))
 	}
 
 	if r, _ := o.Router.(*router.Router); r != nil {

@@ -722,7 +722,7 @@ func WithRouter(r httpx.Router) ServerOption {
 // NewRouter registers every operation on a go-zero router, for rest.WithRouter.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) httpx.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -730,12 +730,12 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) httpx.Router {
 		return h
 	}
 	register := func(r httpx.Router, route func(http.Handler) http.Handler) {
-		handle(r, "POST", "/json", route(http.HandlerFunc(adapter.PostJSON)))
-		handle(r, "POST", "/form", route(http.HandlerFunc(adapter.PostForm)))
-		handle(r, "POST", "/upload", route(http.HandlerFunc(adapter.Upload)))
-		handle(r, "POST", "/text", route(http.HandlerFunc(adapter.PostText)))
-		handle(r, "PUT", "/file", route(http.HandlerFunc(adapter.PutFile)))
-		handle(r, "POST", "/any", route(http.HandlerFunc(adapter.PostAny)))
+		handle(r, "POST", "/json", route(http.HandlerFunc(a.PostJSON)))
+		handle(r, "POST", "/form", route(http.HandlerFunc(a.PostForm)))
+		handle(r, "POST", "/upload", route(http.HandlerFunc(a.Upload)))
+		handle(r, "POST", "/text", route(http.HandlerFunc(a.PostText)))
+		handle(r, "PUT", "/file", route(http.HandlerFunc(a.PutFile)))
+		handle(r, "POST", "/any", route(http.HandlerFunc(a.PostAny)))
 	}
 
 	if r, _ := o.Router.(httpx.Router); r != nil {

@@ -26,7 +26,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	router := api.NewRouter(books.NewBooks(), api.WithMiddleware(
+	handler := api.NewRouter(books.NewBooks(), api.WithMiddleware(
 		books.RequestIDMiddleware,
 		books.RecoverMiddleware,
 		books.LoggingMiddleware,
@@ -34,7 +34,7 @@ func run() error {
 		books.TimeoutMiddleware(30*time.Second),
 	))
 	srv := &fasthttp.Server{
-		Handler:     router.Handler,
+		Handler:     handler.Handler,
 		ReadTimeout: 30 * time.Second,
 	}
 

@@ -306,7 +306,7 @@ func WithRouter(r *router.Router) ServerOption {
 // NewRouter registers every operation on a fasthttp router.
 func NewRouter(svc TodoInterface, opts ...ServerOption) *router.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -314,8 +314,8 @@ func NewRouter(svc TodoInterface, opts ...ServerOption) *router.Router {
 		return h
 	}
 	register := func(r *router.Router, route func(http.Handler) http.Handler) {
-		r.GET("/todos", handle(route(http.HandlerFunc(adapter.ListTodos))))
-		r.POST("/todos", handle(route(http.HandlerFunc(adapter.CreateTodo))))
+		r.GET("/todos", handle(route(http.HandlerFunc(a.ListTodos))))
+		r.POST("/todos", handle(route(http.HandlerFunc(a.CreateTodo))))
 	}
 
 	if r, _ := o.Router.(*router.Router); r != nil {

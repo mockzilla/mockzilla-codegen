@@ -25,7 +25,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	router := scaffolds.NewRouter(scaffolds.NewTodo(), scaffolds.WithMiddleware(
+	handler := scaffolds.NewRouter(scaffolds.NewTodo(), scaffolds.WithMiddleware(
 		scaffolds.RequestIDMiddleware,
 		scaffolds.RecoverMiddleware,
 		scaffolds.LoggingMiddleware,
@@ -33,7 +33,7 @@ func run() error {
 		scaffolds.TimeoutMiddleware(5*time.Second),
 	))
 	srv := &fasthttp.Server{
-		Handler:     router.Handler,
+		Handler:     handler.Handler,
 		ReadTimeout: 5 * time.Second,
 	}
 

@@ -304,7 +304,7 @@ func WithRouter(e *gin.Engine) ServerOption {
 // NewRouter registers every operation on a gin Engine.
 func NewRouter(svc TodoInterface, opts ...ServerOption) *gin.Engine {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -312,8 +312,8 @@ func NewRouter(svc TodoInterface, opts ...ServerOption) *gin.Engine {
 		return h
 	}
 	register := func(e *gin.Engine, route func(http.Handler) http.Handler) {
-		e.GET("/todos", handle(route(http.HandlerFunc(adapter.ListTodos))))
-		e.POST("/todos", handle(route(http.HandlerFunc(adapter.CreateTodo))))
+		e.GET("/todos", handle(route(http.HandlerFunc(a.ListTodos))))
+		e.POST("/todos", handle(route(http.HandlerFunc(a.CreateTodo))))
 	}
 
 	if e, _ := o.Router.(*gin.Engine); e != nil {

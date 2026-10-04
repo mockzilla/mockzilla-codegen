@@ -95,7 +95,7 @@ func TestDescribe(t *testing.T) {
 	t.Parallel()
 
 	g := run(t, workDir(t), `package: api
-output: {file: ./api/gen.go, files: {./models/models.go: [models.types]}}
+output: {file: ./api/gen.go, files: {./models/models.go: [models]}}
 server: {framework: chi, name: Pets}
 user-context: {owner: platform}
 `, storeSpec)
@@ -107,7 +107,7 @@ user-context: {owner: platform}
 		return base
 	}
 	listPets := []Response{{
-		Status: "200", Code: 200, ContentType: "application/json", Body: named(inAPI, "ListPetsResponse200"),
+		Status: "200", Code: 200, ContentType: "application/json", Body: named(inModels, "ListPetsResponse200"),
 		Constructor: named(inAPI, "NewListPetsResponseData"),
 	}}
 	createPet := []Response{
@@ -160,8 +160,8 @@ user-context: {owner: platform}
 			},
 		},
 		Types: []TypeRef{
-			named(inModels, "Pet"), named(inAPI, "ListPetsQuery"), named(inAPI, "ListPetsResponse200"),
-			named(inAPI, "DeletePetPathParams"), named(inAPI, "RemovePetPathParams"),
+			named(inModels, "Pet"), named(inModels, "ListPetsQuery"), named(inModels, "ListPetsResponse200"),
+			named(inModels, "DeletePetPathParams"), named(inModels, "RemovePetPathParams"),
 		},
 		UserContext: map[string]any{"owner": "platform"},
 	}, api)

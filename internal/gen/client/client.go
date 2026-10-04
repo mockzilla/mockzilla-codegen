@@ -127,7 +127,12 @@ func (g *Generator) Parts() []layout.Part {
 	}
 	return append(parts,
 		layout.Part{ID: PartCore, Uses: slices.Concat(types, operation.PartsOf(responses))},
-		layout.Part{ID: PartOperations, Uses: slices.Concat([]layout.PartID{PartCore}, types, operation.PartsOf(responses)), Owner: PartCore},
+		layout.Part{
+			ID:     PartOperations,
+			Uses:   slices.Concat([]layout.PartID{PartCore}, types, operation.PartsOf(responses)),
+			Owner:  PartCore,
+			Reason: "adds methods to the types of " + string(PartCore),
+		},
 	)
 }
 

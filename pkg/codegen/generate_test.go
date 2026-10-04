@@ -232,6 +232,13 @@ func TestGenerateErrors(t *testing.T) {
 			wantErr: layout.ErrUnknownSelector,
 		},
 		{
+			name:    "Model parts in two folders",
+			cfg:     "output: {module: example.com/work, files: {./models/models.go: [models.types]}}\n",
+			wantErr: layout.ErrSplitParts,
+			wantMsg: "parts that belong together are in different folders: models.enums and models.types can refer to each other's types, " +
+				"so ./gen.go must be in the folder of ./models/models.go",
+		},
+		{
 			name:    "Service and client of one name in one package",
 			cfg:     "server: {framework: chi, name: Pets}\nclient: {name: Pets}\n",
 			wantErr: ErrNameClash,
@@ -391,7 +398,7 @@ func TestGenerateImports(t *testing.T) {
 	t.Parallel()
 
 	const (
-		base      = "package: api\noutput:\n  file: ./api/gen.go\n  files: {./models/models.go: [models.types]}\n"
+		base      = "package: api\noutput:\n  file: ./api/gen.go\n  files: {./models/models.go: [models]}\n"
 		ofChi     = `chi "github.com/go-chi/chi/v5"`
 		ofRuntime = `"github.com/mockzilla/mockzilla-codegen/pkg/runtime"`
 		ofModels  = `"example.com/work/models"`
