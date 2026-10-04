@@ -8,6 +8,7 @@ package basic
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"maps"
 	"net/http/httptest"
 	"slices"
@@ -17,6 +18,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var errNoPet = errors.New("no such pet")
 
 // service keeps pets in memory.
 type service struct {
@@ -51,6 +54,9 @@ func (s *service) GetPet(_ context.Context, opts *GetPetServiceRequestOptions) (
 }
 
 func (s *service) DeletePet(_ context.Context, opts *DeletePetServiceRequestOptions) (*DeletePetResponseData, error) {
+	if _, ok := s.pets[opts.PathParams.ID]; !ok {
+		return nil, errNoPet
+	}
 	delete(s.pets, opts.PathParams.ID)
 	return NewDeletePetResponseData(), nil
 }
@@ -179,10 +185,16 @@ func TestToolErrors(t *testing.T) {
 		wantText string
 	}{
 		{
-			name:     "A documented error status carries the error type's message",
+			name:     "A documented error status carries the error type's message and the body",
 			tool:     "get_pet",
 			args:     map[string]any{"id": 7},
-			wantText: "unexpected status 404 Not Found: no such pet",
+			wantText: "unexpected status 404 Not Found: no such pet\n{\"detail\":\"no such pet\"}",
+		},
+		{
+			name:     "An error status the spec does not document carries the body",
+			tool:     "delete_pet",
+			args:     map[string]any{"id": 7},
+			wantText: "unexpected status 500 Internal Server Error\n{\"error\":\"internal server error\"}",
 		},
 		{
 			name:     "Input that fails the schema never reaches the API",

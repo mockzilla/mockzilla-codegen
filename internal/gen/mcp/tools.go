@@ -91,7 +91,7 @@ func toolsView(g *Generator, s *gocode.Scope) *ToolsView {
 		case t.isStream:
 			v.HasStream = true
 			v.Errors = s.Import(gomodel.Import{Path: "errors"})
-		case tv.HasResult && tv.Text == "":
+		default:
 			v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
 		}
 		v.Tools = append(v.Tools, tv)

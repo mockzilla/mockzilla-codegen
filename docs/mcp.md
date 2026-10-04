@@ -118,8 +118,10 @@ validates every call against:
 - An operation without a response body answers with the text `ok`.
 - An error of the client is the error of the tool: `IsError` is set and the text is the error's
   message. A response outside 2xx reads `unexpected status 404 Not Found`, followed by the message
-  of the error type when the spec documents one (see `models.error-mapping`), so the assistant
-  can act on it.
+  of the error type when the spec documents one (see `models.error-mapping`). The response body
+  follows on the next line, so the assistant can act on it. The body is cut after 4 KiB, and one
+  that is no UTF-8 text shows only its size. The generated handler returns
+  `runtime.ToolError(err)`, which writes it that way.
 - An operation whose 2xx responses come only as `text/event-stream` or line-delimited JSON answers
   with the error `ErrMCPStreaming`, since a tool result cannot carry a stream. Read such an
   operation through the client's `<Op>Stream` method instead. An operation that documents JSON
