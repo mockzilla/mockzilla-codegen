@@ -1103,8 +1103,12 @@ type MCPTools struct {
 	client PetClientInterface
 }
 
-// NewMCPTools returns the tools that call c.
+// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
+// a panic in a tool and the first call would end the server.
 func NewMCPTools(c PetClientInterface) *MCPTools {
+	if c == nil {
+		panic("NewMCPTools: nil client")
+	}
 	return &MCPTools{client: c}
 }
 
@@ -1122,6 +1126,7 @@ func (t *MCPTools) Register(s *mcp.Server) {
 func (t *MCPTools) ListPetsTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "list_pets",
+		Description: "GET /pets",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{"limit":{"type":"integer","format":"int32","minimum":1},"status":{"$ref":"#/$defs/Status"}},"additionalProperties":false,"$defs":{"Status":{"type":"string","enum":["available","pending","sold"]}}}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
 	}
@@ -1148,6 +1153,7 @@ func (t *MCPTools) ListPets(ctx context.Context, _ *mcp.CallToolRequest, in List
 func (t *MCPTools) CreatePetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "create_pet",
+		Description: "POST /pets",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{"body":{"$ref":"#/$defs/NewPet"}},"required":["body"],"additionalProperties":false,"$defs":{"NewPet":{"type":"object","properties":{"name":{"type":"string","minLength":1},"tag":{"type":["string","null"]},"status":{"$ref":"#/$defs/Status"}},"required":["name"]},"Status":{"type":"string","enum":["available","pending","sold"]}}}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: false},
 	}
@@ -1171,6 +1177,7 @@ func (t *MCPTools) CreatePet(ctx context.Context, _ *mcp.CallToolRequest, in Cre
 func (t *MCPTools) GetPetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "get_pet",
+		Description: "GET /pets/{id}",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"integer","format":"int64"}},"required":["id"],"additionalProperties":false}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
 	}
@@ -1200,6 +1207,7 @@ func (t *MCPTools) GetPet(ctx context.Context, req *mcp.CallToolRequest, in GetP
 func (t *MCPTools) DeletePetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "delete_pet",
+		Description: "DELETE /pets/{id}",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"integer","format":"int64"}},"required":["id"],"additionalProperties":false}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: true},
 	}

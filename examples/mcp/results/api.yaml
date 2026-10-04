@@ -23,6 +23,26 @@ paths:
             application/json: {schema: {$ref: '#/components/schemas/Pet'}}
         "204":
           description: no pet has that name
+  /pets/photo:
+    get:
+      operationId: getPhoto
+      summary: The photo or the voice of a pet, in whatever format it was stored
+      parameters:
+        - {name: name, in: query, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: the stored file
+          content:
+            "*/*": {schema: {type: string, format: binary}}
+  /pets/icon:
+    get:
+      operationId: getIcon
+      summary: The icon of the pet store
+      responses:
+        "200":
+          description: a PNG
+          content:
+            image/png: {}
 components:
   schemas:
     Pet:

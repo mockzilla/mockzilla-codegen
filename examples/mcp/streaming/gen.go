@@ -571,13 +571,21 @@ type ChatToolInput struct {
 // ListEventsToolInput is the input of the list_events tool, which takes nothing.
 type ListEventsToolInput struct{}
 
+// ErrMCPStreaming is what a tool answers when its operation streams its response, which a tool
+// result cannot carry; read such an operation through the client.
+var ErrMCPStreaming = errors.New("the operation answers with a stream, which an MCP tool cannot return")
+
 // MCPTools exposes the operations of the API as MCP tools, each calling the client.
 type MCPTools struct {
 	client ClientInterface
 }
 
-// NewMCPTools returns the tools that call c.
+// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
+// a panic in a tool and the first call would end the server.
 func NewMCPTools(c ClientInterface) *MCPTools {
+	if c == nil {
+		panic("NewMCPTools: nil client")
+	}
 	return &MCPTools{client: c}
 }
 
@@ -587,10 +595,6 @@ func (t *MCPTools) Register(s *mcp.Server) {
 	mcp.AddTool(s, t.ChatTool(), t.Chat)
 	mcp.AddTool(s, t.ListEventsTool(), t.ListEvents)
 }
-
-// ErrMCPStreaming is what a tool answers when its operation streams its response, which a tool
-// result cannot carry; read such an operation through the client.
-var ErrMCPStreaming = errors.New("the operation answers with a stream, which an MCP tool cannot return")
 
 // ChatTool is the definition of the chat tool: its name, its description and the schema
 // of its input.

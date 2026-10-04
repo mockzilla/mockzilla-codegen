@@ -109,6 +109,10 @@ api.NewMCPTools(client).Register(s)
 s.Run(ctx, &mcp.StdioTransport{})
 ```
 
+A tool is named after the operation ID in snake case, so `listPets` becomes `list_pets`. Prompts
+and host settings that name the old tool break; `x-mcp.name: listPets` keeps it. A tool without
+a summary is described by its method and path, `GET /pets`, where it had its name.
+
 ### Types
 
 - A `oneOf` or `anyOf` is a struct with one field per variant, whatever their number

@@ -134,26 +134,6 @@ func (b *Builder) define(r *spec.Ref) string {
 	return name
 }
 
-func core(o *Object, s *spec.Schema) {
-	if names := typeList(s); len(names) == 1 {
-		o.Set("type", names[0])
-	} else if len(names) > 1 {
-		o.Set("type", names)
-	}
-	setString(o, "format", s.Format)
-	setString(o, "title", s.Title)
-	setString(o, "description", s.Description)
-	setBool(o, "deprecated", s.Deprecated)
-	setBool(o, "readOnly", s.ReadOnly)
-	setBool(o, "writeOnly", s.WriteOnly)
-	encoding := s.ContentEncoding
-	if encoding == "" && slices.Contains(base64Formats, strings.ToLower(s.Format)) {
-		encoding = "base64"
-	}
-	setString(o, "contentEncoding", encoding)
-	setString(o, "contentMediaType", s.ContentMediaType)
-}
-
 // composition sets the subschemas; the allOf members of s hide its readOnly properties too.
 func (b *Builder) composition(o *Object, s *spec.Schema, hidden []string) {
 	if len(s.AllOf) > 0 {
@@ -281,23 +261,6 @@ func (b *Builder) pattern(o *Object, s *spec.Schema) {
 	o.Set("pattern", re.String())
 }
 
-// limits sets the bounds; an exclusive one is written as 2020-12 does, with the bound as the value.
-func limits(o *Object, s *spec.Schema) {
-	l := s.Limits
-	setBound(o, "minimum", "exclusiveMinimum", l.Minimum)
-	setBound(o, "maximum", "exclusiveMaximum", l.Maximum)
-	if l.MultipleOf != nil {
-		o.Set("multipleOf", *l.MultipleOf)
-	}
-	setCount(o, "minLength", l.MinLength)
-	setCount(o, "maxLength", l.MaxLength)
-	setCount(o, "minItems", l.MinItems)
-	setCount(o, "maxItems", l.MaxItems)
-	setBool(o, "uniqueItems", l.UniqueItems)
-	setCount(o, "minProperties", l.MinProperties)
-	setCount(o, "maxProperties", l.MaxProperties)
-}
-
 // Value converts a spec value into what Object holds.
 func Value(v spec.Value) any {
 	switch v.Kind {
@@ -318,6 +281,43 @@ func Value(v spec.Value) any {
 	case spec.KindNull:
 	}
 	return nil
+}
+
+func core(o *Object, s *spec.Schema) {
+	if names := typeList(s); len(names) == 1 {
+		o.Set("type", names[0])
+	} else if len(names) > 1 {
+		o.Set("type", names)
+	}
+	setString(o, "format", s.Format)
+	setString(o, "title", s.Title)
+	setString(o, "description", s.Description)
+	setBool(o, "deprecated", s.Deprecated)
+	setBool(o, "readOnly", s.ReadOnly)
+	setBool(o, "writeOnly", s.WriteOnly)
+	encoding := s.ContentEncoding
+	if encoding == "" && slices.Contains(base64Formats, strings.ToLower(s.Format)) {
+		encoding = "base64"
+	}
+	setString(o, "contentEncoding", encoding)
+	setString(o, "contentMediaType", s.ContentMediaType)
+}
+
+// limits sets the bounds; an exclusive one is written as 2020-12 does, with the bound as the value.
+func limits(o *Object, s *spec.Schema) {
+	l := s.Limits
+	setBound(o, "minimum", "exclusiveMinimum", l.Minimum)
+	setBound(o, "maximum", "exclusiveMaximum", l.Maximum)
+	if l.MultipleOf != nil {
+		o.Set("multipleOf", *l.MultipleOf)
+	}
+	setCount(o, "minLength", l.MinLength)
+	setCount(o, "maxLength", l.MaxLength)
+	setCount(o, "minItems", l.MinItems)
+	setCount(o, "maxItems", l.MaxItems)
+	setBool(o, "uniqueItems", l.UniqueItems)
+	setCount(o, "minProperties", l.MinProperties)
+	setCount(o, "maxProperties", l.MaxProperties)
 }
 
 func valueList(vs []spec.Value) []any {
