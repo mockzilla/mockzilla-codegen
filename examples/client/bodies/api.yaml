@@ -89,6 +89,22 @@ paths:
           description: which field took the body
           content:
             text/plain: {schema: {type: string}}
+  /any/text:
+    get:
+      operationId: getAnyText
+      responses:
+        "200":
+          description: text in whatever media type the server picks
+          content:
+            '*/*': {schema: {type: string}}
+  /any/bytes:
+    get:
+      operationId: getAnyBytes
+      responses:
+        "200":
+          description: bytes in whatever media type the server picks
+          content:
+            '*/*': {}
 components:
   schemas:
     Note:

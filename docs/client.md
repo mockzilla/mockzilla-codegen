@@ -79,7 +79,9 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
 - A 2xx body in a media type the method does not take, such as HTML where JSON is documented, is
   `runtime.ErrContentType`. A response without a `Content-Type` is decoded as the documented type.
   A binary body (`format: binary`) comes back as a `runtime.File` that holds the body as it came,
-  under the response's media type.
+  under the response's media type. Under a wildcard media type (`*/*`, `application/*`) a string,
+  bytes or a `runtime.File` takes the body as it came whatever the response's media type, also
+  JSON, the same way the client sends them; anything else is read as JSON.
 - `<Op>Request` builds the request without sending it, with the editors applied. Use it to send
   through something else, to log, or to test what an operation sends.
 
