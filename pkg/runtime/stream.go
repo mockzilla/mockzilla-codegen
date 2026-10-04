@@ -74,7 +74,8 @@ func NewStream[T any](res *http.Response) *Stream[T] {
 // NewEventStream reads the body of res as Server-Sent Events. An event's data lines are joined
 // with newlines; comments are skipped; an event without data is skipped too, after its id and
 // retry are taken. A line ends in LF, CRLF or a lone CR, and a byte order mark at the start of the
-// body is dropped.
+// body is dropped. An event with data that the body ends before its blank line is not delivered,
+// and Err reports io.ErrUnexpectedEOF.
 func NewEventStream[T any](res *http.Response) *Stream[T] {
 	body := bodyOf(res)
 	events := &eventReader{lines: bufio.NewReader(&lfReader{reader: body})}
@@ -130,7 +131,8 @@ func (s *Stream[T]) Event() Event {
 }
 
 // Err is what stopped Next: nil at the end of the stream, at a sentinel or after Close, else the
-// read or decode error, or the error of the request's context when it was canceled.
+// read or decode error, io.ErrUnexpectedEOF when an event stream ends inside an event, or the
+// error of the request's context when it was canceled.
 func (s *Stream[T]) Err() error {
 	return s.err
 }
@@ -180,7 +182,8 @@ type eventReader struct {
 }
 
 // next reads one event with data, or reports the end of the body. A line that is not a field,
-// such as a comment, is skipped; an event without data is not dispatched.
+// such as a comment, is skipped; an event without data is not dispatched. The end of the body
+// inside an event with data is io.ErrUnexpectedEOF.
 func (r *eventReader) next() (Event, bool, error) {
 	var e Event
 	var data [][]byte
@@ -194,7 +197,10 @@ func (r *eventReader) next() (Event, bool, error) {
 			line = bytes.TrimPrefix(line, []byte(byteOrderMark))
 		}
 		if line == nil {
-			break
+			if data != nil {
+				return Event{}, false, io.ErrUnexpectedEOF
+			}
+			return Event{}, false, nil
 		}
 		if len(line) == 0 {
 			if data != nil {
@@ -219,9 +225,6 @@ func (r *eventReader) next() (Event, bool, error) {
 				e.Retry = retry
 			}
 		}
-	}
-	if data == nil {
-		return Event{}, false, nil
 	}
 	e.ID, e.Data = r.lastID, bytes.Join(data, []byte("\n"))
 	return e, true, nil
