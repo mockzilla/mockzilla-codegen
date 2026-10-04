@@ -219,7 +219,9 @@ return stream.Err()
   delivered as the last pair: `for event, err := range stream.All()`.
 - `Err()` is nil at the end of the stream, after a sentinel and after `Close()`, else the read
   error, the decode error (`runtime.ErrFrame`) or `context.Canceled` when the request's context was
-  canceled, which unblocks a pending `Next`.
+  canceled, which unblocks a pending `Next`. When an event stream ends inside an event with data,
+  before its blank line, that event is not delivered and `Err()` is `io.ErrUnexpectedEOF`, as a
+  browser drops it.
 - `Close()` may be called from another goroutine to end a pending `Next`, which then returns false.
 - `Sentinels` lists frames that end the stream instead of being decoded. APIs in the style of
   OpenAI end a stream with `data: [DONE]`, which is no JSON: set `stream.Sentinels =
