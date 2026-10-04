@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=../../../config.schema.json
+spec: {path: api.yaml}
+package: discriminator
+server:
+  framework: chi
+client:
+mcp: {}

@@ -1,0 +1,41 @@
+openapi: 3.0.3
+info: {title: discriminator over MCP, version: "1"}
+paths:
+  /animals:
+    post:
+      operationId: addAnimal
+      summary: Add an animal
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Animal'}}
+      responses:
+        "201":
+          description: the animal as stored
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Animal'}}
+components:
+  schemas:
+    Animal:
+      oneOf:
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+      discriminator:
+        propertyName: kind
+        mapping:
+          cat: '#/components/schemas/Cat'
+          dog: '#/components/schemas/Dog'
+    Cat:
+      type: object
+      required: [kind, name]
+      properties:
+        kind: {type: string}
+        name: {type: string}
+        indoor: {type: boolean}
+    Dog:
+      type: object
+      required: [kind, name]
+      properties:
+        kind: {type: string}
+        name: {type: string}
+        breed: {type: string}
