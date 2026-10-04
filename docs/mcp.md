@@ -103,7 +103,13 @@ validates every call against:
   location: `query_id`, `request_body`. The Go fields follow: `QueryID`, `RequestBody`.
 - Schemas of components go to `$defs` once and are referred to, so a schema that refers to itself
   ends. Keywords come over as they are: types, formats, bounds, lengths, enums, defaults and
-  `deprecated`. Discriminators and `x-*` extensions are left out.
+  `deprecated`. The `discriminator` keyword and `x-*` extensions are left out.
+- A `oneOf` with a discriminator tells its variants apart by the discriminator value, as the Go
+  union does. Each variant requires the property and takes the values that pick it: those the
+  mapping lists for it, else its component name. A variant that holds the property to one value
+  itself keeps that value. Without this, two variants of the same shape both match, and `oneOf`
+  turns the body down. A variant no value picks alone, such as an inline one without a value or
+  the `defaultMapping` one, matches next to the others, so the list becomes `anyOf`.
 - A `readOnly` property is not in the input and not required, since a request does not carry it.
   `Validate` leaves it out the same way. A property `readOnly` in one `allOf` member is left out of
   every member, as the Go type merges them.

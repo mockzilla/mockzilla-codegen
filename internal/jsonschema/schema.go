@@ -52,7 +52,8 @@ func NewBuilder() *Builder {
 // Schema converts s. A nil schema is the empty one, which takes anything. A nullable schema takes
 // null: when its $ref, composition, enum or const could turn null away, it is anyOf of itself and
 // null, with its docs and values outside. A readOnly property is left out with its required entry,
-// since a request does not carry it; readOnly in an allOf member counts for the whole object.
+// since a request does not carry it; readOnly in an allOf member counts for the whole object. Each
+// variant of a oneOf with a discriminator requires the property and takes the values that pick it.
 func (b *Builder) Schema(s *spec.Schema) *Object {
 	return b.schema(s, nil)
 }
@@ -162,12 +163,33 @@ func (b *Builder) composition(o *Object, s *spec.Schema, hidden []string) {
 		}
 		o.Set("allOf", members)
 	}
-	b.setList(o, "oneOf", s.OneOf)
+	b.oneOf(o, s)
 	b.setList(o, "anyOf", s.AnyOf)
 	b.setSchema(o, "not", s.Not)
 	b.setSchema(o, "if", s.If)
 	b.setSchema(o, "then", s.Then)
 	b.setSchema(o, "else", s.Else)
+}
+
+// oneOf sets the oneOf of s. With a discriminator each variant is pinned. A variant no value picks
+// alone matches next to the others, so the list is anyOf then, unless s has an anyOf of its own.
+func (b *Builder) oneOf(o *Object, s *spec.Schema) {
+	d := s.Discriminator
+	if d == nil || len(s.OneOf) == 0 {
+		b.setList(o, "oneOf", s.OneOf)
+		return
+	}
+
+	key := "oneOf"
+	variants := make([]any, len(s.OneOf))
+	for i, m := range s.OneOf {
+		v, ok := pin(m, d)
+		if !ok && len(s.AnyOf) == 0 {
+			key = "anyOf"
+		}
+		variants[i] = b.Schema(v)
+	}
+	o.Set(key, variants)
 }
 
 func (b *Builder) objects(o *Object, s *spec.Schema, hidden []string) {
