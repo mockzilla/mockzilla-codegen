@@ -300,7 +300,7 @@ func (c *collector) walk(s *spec.Schema, at place, rule declRule) {
 		return
 	}
 	c.visited[s] = true
-	if c.ext.of(s.Extensions, s.Origin).GoType != nil {
+	if c.flat.goTypeOf(s) != nil {
 		if rule == ruleAlways {
 			c.add(s, at, shapeAny)
 		}

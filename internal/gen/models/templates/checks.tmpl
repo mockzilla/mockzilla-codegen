@@ -1,6 +1,9 @@
-{{- if or .Count .Checks}}
+{{- if or .Count .Discriminator .Checks}}
 	var errs {{.Runtime}}.ValidationErrors
 {{- with .Count}}
+	errs.Append("", {{.}})
+{{- end}}
+{{- with .Discriminator}}
 	errs.Append("", {{.}})
 {{- end}}
 {{- range .Checks}}

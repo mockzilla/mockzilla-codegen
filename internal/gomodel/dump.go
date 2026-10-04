@@ -87,6 +87,9 @@ func dumpDecl(b *strings.Builder, d *Decl) {
 		if v.Count != "" {
 			b.WriteString(" count=" + v.Count)
 		}
+		if v.IsDiscriminated {
+			b.WriteString(" discriminated")
+		}
 		if v.HasResponse {
 			b.WriteString(" response")
 		}
@@ -159,6 +162,9 @@ func ruleText(r Rule) string {
 		}
 	case RuleMinLength, RuleMaxLength, RuleMultipleOf, RuleMinItems, RuleMaxItems, RuleUnique, RuleUniqueJSON,
 		RuleMinProperties, RuleMaxProperties:
+	}
+	if r.IsBase64 {
+		arg = "base64 " + arg
 	}
 	return ruleWords[r.Kind] + "(" + arg + ")"
 }

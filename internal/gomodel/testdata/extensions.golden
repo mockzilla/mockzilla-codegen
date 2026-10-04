@@ -17,6 +17,9 @@ Level enum int models.enums
   LevelLow 1
   LevelMid 2
   Level3 3
+Shade enum string models.enums
+  light "light"
+  Dark "dark"
 Legacy struct models.types deprecated reason="Use Account."
   A *string json=a omitempty yaml=a,omitempty
 Decimal alias dec.Decimal models.types
@@ -32,4 +35,5 @@ op GetAccount GET /accounts/{id}
   response 200 application/json Customer
 ---
 warning extension-unknown 64:11 /components/schemas/Account/properties/typo/x-go-nam: unknown extension x-go-nam; it is left out
-warning name-clash 84:16 /components/schemas/Renamed/properties/clash: "Validate" is reserved, renamed to "Validate2"
+warning enum-name-unexported 71:7 /components/schemas/Shade/x-enum-names/0: x-enum-names "light" is unexported; it is used as written
+warning name-clash 88:16 /components/schemas/Renamed/properties/clash: "Validate" is reserved, renamed to "Validate2"

@@ -6,6 +6,7 @@
 package gomodel
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,4 +25,32 @@ func TestTypeSetText(t *testing.T) {
 	assert.Empty(t, typeSetText(0))
 	assert.Equal(t, "string", typeSetText(spec.TypeString))
 	assert.Equal(t, "number or integer or null", typeSetText(spec.TypeNumber|spec.TypeInteger|spec.TypeNull))
+}
+
+func TestTighter(t *testing.T) {
+	t.Parallel()
+
+	bound := func(v string, isExclusive bool) *spec.Bound {
+		return &spec.Bound{Value: json.Number(v), Exclusive: isExclusive}
+	}
+	tests := []struct {
+		name string
+		a, b *spec.Bound
+		sign int
+		want *spec.Bound
+	}{
+		{name: "One unset", b: bound("1", false), sign: 1, want: bound("1", false)},
+		{name: "The larger minimum", a: bound("1.5", false), b: bound("2e0", false), sign: 1, want: bound("2e0", false)},
+		{name: "The smaller maximum", a: bound("1.5", false), b: bound("2", false), sign: -1, want: bound("1.5", false)},
+		{name: "The exclusive one on a tie", a: bound("2", false), b: bound("2.0", true), sign: 1, want: bound("2.0", true)},
+		{name: "The first that is no number", a: bound("x", false), b: bound("2", false), sign: 1, want: bound("x", false)},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, tighter(tc.a, tc.b, tc.sign))
+		})
+	}
 }

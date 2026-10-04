@@ -13,6 +13,33 @@ import (
 	"strconv"
 )
 
+// MarshalTagged is MarshalUnion that fills or checks the discriminator; variants follow u.Variants.
+func MarshalTagged(shared any, u Union, variants ...any) ([]byte, error) {
+	var set []any
+	var picked []int
+	for i, v := range variants {
+		if !isNil(v) {
+			set = append(set, v)
+			picked = append(picked, i)
+		}
+	}
+	data, err := MarshalUnion(shared, set...)
+	if err != nil || len(picked) == 0 || JSONKind(data) != KindObject {
+		return data, err
+	}
+	return u.tag(data, picked)
+}
+
+// DiscriminatorError is the discriminator error of a MarshalTagged result, nil for any other.
+func DiscriminatorError(_ []byte, err error) error {
+	var wrapped *json.MarshalerError
+	var e ValidationError
+	if errors.As(err, &wrapped) || !errors.As(err, &e) {
+		return nil
+	}
+	return e
+}
+
 // MarshalUnion writes the set variants of a union merged with shared, its own properties or nil.
 // When a part is no object, the first set variant is written alone; nothing set writes null.
 func MarshalUnion(shared any, set ...any) ([]byte, error) {

@@ -38,6 +38,7 @@ func TestViewRendersValidation(t *testing.T) {
 		{Name: "Labels", JSONName: "labels", Type: gomodel.Map{Key: str, Elem: str}},
 		{Name: "Owner", JSONName: "owner", Type: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: owner}}},
 		{Name: "Secret", JSONName: "secret", Type: str},
+		{Name: "Photo", JSONName: "photo", Type: gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}},
 	}}, Validation: &gomodel.Validation{HasResponse: true, Checks: []*gomodel.Check{
 		{Field: "Name", Path: "name", Rules: []gomodel.Rule{
 			{Kind: gomodel.RuleMinLength, Number: "1"},
@@ -65,6 +66,10 @@ func TestViewRendersValidation(t *testing.T) {
 		}, Values: &gomodel.Check{Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "1"}}}},
 		{Field: "Owner", Path: "owner", IsPointer: true, IsGuarded: true, IsNested: true, Nested: owner},
 		{Field: "Secret", Path: "secret", Side: gomodel.SideRequest, Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "8"}}},
+		{Field: "Photo", Path: "photo", IsGuarded: true, Rules: []gomodel.Rule{
+			{Kind: gomodel.RuleMaxLength, Number: "8", IsBase64: true},
+			{Kind: gomodel.RulePattern, Pattern: code, IsBase64: true},
+		}},
 	}}}
 	pets := &gomodel.Decl{Name: "Pets", Part: gomodel.PartTypes, Kind: gomodel.KindDefined, Target: gomodel.Slice{Elem: gomodel.DeclRef{Decl: pet}}, Validation: &gomodel.Validation{
 		HasResponse: true,
@@ -81,12 +86,19 @@ func TestViewRendersValidation(t *testing.T) {
 	}, Validation: &gomodel.Validation{Count: "ExactlyOne", Checks: []*gomodel.Check{
 		{Field: "Status", IsPointer: true, IsGuarded: true, IsNested: true, Nested: status},
 	}}, Error: &gomodel.ErrorMessage{Path: "detail"}}
+	tagged := &gomodel.Decl{Name: "Tagged", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
+		Discriminator: "kind",
+		Variants: []*gomodel.Variant{
+			{Name: "Owner", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: owner}}, Kinds: gomodel.JSONObject, Values: []string{"owner"}},
+			{Name: "Empty", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: empty}}, Kinds: gomodel.JSONObject, Values: []string{"empty"}},
+		},
+	}, Validation: &gomodel.Validation{Count: "ExactlyOne", IsDiscriminated: true}}
 	problem := &gomodel.Decl{Name: "Problem", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "Message", JSONName: "message", Type: str}},
 	}, Error: &gomodel.ErrorMessage{Path: "message", HasConstructor: true}}
 
 	g := New(&gomodel.Model{
-		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, problem},
+		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, problem},
 		Patterns: []*gomodel.Pattern{code},
 	})
 	checkRender(t, g, "validation")

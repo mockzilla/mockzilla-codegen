@@ -22,6 +22,7 @@ type ruleGroup int
 const (
 	groupOther ruleGroup = iota
 	groupString
+	groupBytes
 	groupNumber
 	groupBool
 	groupSlice
@@ -31,17 +32,25 @@ const (
 // checkedFormats are the string formats runtime.Format checks.
 var checkedFormats = []string{"uuid", "uri", "uri-reference", "ipv4", "ipv6", "hostname", "date", "date-time", "email"}
 
+// keywordSet holds the keywords that constrain a value where it is used.
+type keywordSet struct {
+	jointChecks
+	limits   spec.Limits
+	format   string
+	constant *spec.Value
+}
+
 // validator plans the Validate methods once every type is settled. A declaration gets them when
 // it checks something, itself or through the types it holds.
 type validator struct {
-	opts     Options
-	flat     *flattener
-	decls    map[*spec.Schema]*Decl
-	patterns *patternSet
+	opts       Options
+	flat       *flattener
+	decls      map[*spec.Schema]*Decl
+	patternSet *patternSet
 }
 
 func newValidator(opts Options, flat *flattener, decls map[*spec.Schema]*Decl, patterns *patternSet) *validator {
-	return &validator{opts: opts, flat: flat, decls: decls, patterns: patterns}
+	return &validator{opts: opts, flat: flat, decls: decls, patternSet: patterns}
 }
 
 // plan sets the Validation of every declaration.
@@ -70,7 +79,7 @@ func (v *validator) validation(d *Decl) *Validation {
 			c.Field = vr.Name
 			checks = appendCheck(checks, c)
 		}
-		return &Validation{Count: unionCount(d.Union), Checks: checks}
+		return &Validation{Count: unionCount(d.Union), IsDiscriminated: d.Union.Discriminator != "", Checks: checks}
 	default:
 		return &Validation{Checks: appendCheck(nil, v.check(d, d.schema, d.Target, d.Name))}
 	}
@@ -123,16 +132,19 @@ func (v *validator) check(d *Decl, s *spec.Schema, t Type, name string) *Check {
 // keywords gathers the keywords that constrain a value where s is used: its own, those of
 // docs-only allOf members, and those of the aliases its refs lead to. A declared type checks its
 // own keywords in its Validate.
-func (v *validator) keywords(s *spec.Schema) *spec.Schema {
-	out := &spec.Schema{}
+func (v *validator) keywords(s *spec.Schema) *keywordSet {
+	out := &keywordSet{}
 	for _, x := range v.chain(s) {
-		for _, part := range append([]*spec.Schema{v.flat.flatten(x)}, siblings(x)[1:]...) {
-			mergeLimits(&out.Limits, part.Limits)
-			if out.Pattern == "" && part.Pattern != "" {
-				out.Pattern, out.Origin = part.Pattern, part.Origin
-			}
-			out.Format = cmp.Or(out.Format, part.Format)
-			out.Const = cmp.Or(out.Const, part.Const)
+		f := x
+		if m := v.flat.merged(x); m != nil {
+			f = m.schema
+			out.join(m.joint)
+		}
+		for _, part := range append([]*spec.Schema{f}, siblings(x)[1:]...) {
+			mergeLimits(&out.limits, part.Limits)
+			out.add(part)
+			out.format = cmp.Or(out.format, part.Format)
+			out.constant = cmp.Or(out.constant, part.Const)
 		}
 	}
 	return out
@@ -175,30 +187,34 @@ func (v *validator) valuesOf(s *spec.Schema) *spec.Schema {
 }
 
 // rules are the keyword checks that fit a value of type t.
-func (v *validator) rules(d *Decl, kw *spec.Schema, t Type, name string) []Rule {
+func (v *validator) rules(d *Decl, kw *keywordSet, t Type, name string) []Rule {
 	var out []Rule
-	lim := kw.Limits
-	switch groupOf(t) {
-	case groupString:
+	lim := kw.limits
+	switch g := groupOf(t); g {
+	case groupString, groupBytes:
 		out = appendCount(out, RuleMinLength, lim.MinLength)
 		out = appendCount(out, RuleMaxLength, lim.MaxLength)
-		if p := v.pattern(d, kw, name); p != nil {
-			out = append(out, Rule{Kind: RulePattern, Pattern: p})
+		out = append(out, v.patterns(d, kw, name)...)
+		if g == groupBytes {
+			for i := range out {
+				out[i].IsBase64 = true
+			}
+			break
 		}
-		if f := strings.ToLower(kw.Format); slices.Contains(checkedFormats, f) && unalias(t) != emailType {
+		if f := strings.ToLower(kw.format); slices.Contains(checkedFormats, f) && unalias(t) != emailType {
 			out = append(out, Rule{Kind: RuleFormat, Format: f})
 		}
-		out = appendConst(out, kw.Const, kw.Const != nil && kw.Const.Kind == spec.KindString)
+		out = appendConst(out, kw.constant, kw.constant != nil && kw.constant.Kind == spec.KindString)
 	case groupNumber:
 		out = appendBound(out, RuleMinimum, lim.Minimum)
 		out = appendBound(out, RuleMaximum, lim.Maximum)
-		if m := lim.MultipleOf; m != nil {
+		for _, m := range kw.multiples {
 			out = append(out, Rule{Kind: RuleMultipleOf, Number: m.String()})
 		}
-		isNumber := kw.Const != nil && kw.Const.Kind == spec.KindNumber
-		out = appendConst(out, kw.Const, isNumber && (!isInteger(t) || isIntegral(kw.Const.Num)))
+		isNumber := kw.constant != nil && kw.constant.Kind == spec.KindNumber
+		out = appendConst(out, kw.constant, isNumber && (!isInteger(t) || isIntegral(kw.constant.Num)))
 	case groupBool:
-		out = appendConst(out, kw.Const, kw.Const != nil && kw.Const.Kind == spec.KindBool)
+		out = appendConst(out, kw.constant, kw.constant != nil && kw.constant.Kind == spec.KindBool)
 	case groupSlice:
 		out = appendCount(out, RuleMinItems, lim.MinItems)
 		out = appendCount(out, RuleMaxItems, lim.MaxItems)
@@ -217,13 +233,15 @@ func (v *validator) rules(d *Decl, kw *spec.Schema, t Type, name string) []Rule 
 	return out
 }
 
-// pattern returns the variable that holds the pattern of kw in the part of d, or nil when there is
-// no pattern or RE2 cannot compile it.
-func (v *validator) pattern(d *Decl, kw *spec.Schema, name string) *Pattern {
-	if kw.Pattern == "" {
-		return nil
+// patterns are the rules of the patterns of kw; a pattern RE2 cannot compile has none.
+func (v *validator) patterns(d *Decl, kw *keywordSet, name string) []Rule {
+	var out []Rule
+	for _, s := range kw.patterns {
+		if p := v.patternSet.add(d.Part, s.Pattern, s.Origin, name); p != nil {
+			out = append(out, Rule{Kind: RulePattern, Pattern: p})
+		}
 	}
-	return v.patterns.add(d.Part, kw.Pattern, kw.Origin, name)
+	return out
 }
 
 // keepChecked drops the Validation of declarations that check nothing, and the nested calls to
@@ -255,7 +273,8 @@ func keepChecked(decls []*Decl) {
 
 func isChecked(d *Decl, checked map[*Decl]bool) bool {
 	isLive := func(c *Check) bool { return !isEmpty(dropUnchecked(c, checked)) }
-	return d.Enum != nil && len(d.Enum.Values) > 0 || d.Validation.Count != "" || slices.ContainsFunc(d.Validation.Checks, isLive)
+	return d.Enum != nil && len(d.Enum.Values) > 0 || d.Validation.Count != "" || d.Validation.IsDiscriminated ||
+		slices.ContainsFunc(d.Validation.Checks, isLive)
 }
 
 // dropUnchecked returns c without the nested calls to declarations that check nothing.
@@ -341,9 +360,10 @@ func groupOf(t Type) ruleGroup {
 			return groupString
 		}
 	case Slice:
-		if t.Elem != byteType {
-			return groupSlice
+		if t.Elem == byteType {
+			return groupBytes
 		}
+		return groupSlice
 	case Map:
 		return groupMap
 	case DeclRef:

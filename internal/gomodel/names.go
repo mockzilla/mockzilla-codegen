@@ -8,6 +8,8 @@
 package gomodel
 
 import (
+	"fmt"
+	"go/token"
 	"slices"
 	"strconv"
 	"strings"
@@ -186,6 +188,15 @@ func resolveConstants(decls []*Decl, reserved []string, opts Options, c *diag.Co
 			switch {
 			case i < len(d.enumNames):
 				r.Want, r.Rank = d.enumNames[i], naming.RankGoName
+				if !token.IsExported(r.Want) {
+					c.Append(diag.Diagnostic{
+						Severity: diag.Warning,
+						Code:     diag.CodeEnumNameUnexported,
+						Pointer:  d.ID + "/" + extension.EnumNames + "/" + strconv.Itoa(i),
+						Origin:   d.Origin,
+						Message:  fmt.Sprintf("x-enum-names %q is unexported; it is used as written", r.Want),
+					})
+				}
 			case !opts.EnumPrefix:
 				r.Want, r.Fallback = opts.Namer.Exported(valueText(v.Value)), r.Want
 			}

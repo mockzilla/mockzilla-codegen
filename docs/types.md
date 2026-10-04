@@ -127,6 +127,11 @@ type Dog struct {
   referenced type keep the names they have there.
 - Members that disagree on the type keep the first type, with a warning.
 - A number and an integer give an integer.
+- Limits keep the strictest value: the largest minimum, the smallest maximum, and the same for
+  lengths, items and properties. On a tie the exclusive bound wins. Every `pattern` and every
+  `multipleOf` is checked.
+- A member with `x-go-type` makes the type an alias of that type. When another member adds
+  properties, items, variants or another type, that is not generated, with a warning.
 - An `allOf` that includes itself is an error; the loop is left out.
 - The description comes from the schema and its inline members, never from a referenced type.
 - An `allOf` of one `$ref` plus members that only add a description or flags is that `$ref`: no new
@@ -191,13 +196,18 @@ Decoding, in `UnmarshalJSON`:
 `MarshalJSON` writes the variant that is set. When several are set, objects are merged, a later key
 replacing an earlier one; otherwise the first set variant is written. Nothing set writes `null`.
 
+With a discriminator, `MarshalJSON` also writes the discriminator value. An empty one gets the
+variant's value when it has exactly one: `Pet{Cat: &Cat{}}` writes `{"kind":"cat"}`. The variant
+itself is not changed. A value that decoding would not read as the variant set is an error, and
+`Validate` reports the same: `kind: "dog" picks Dog, not Cat`.
+
 A union of strings, numbers and booleans with no shared properties also gets `MarshalText` and
 `UnmarshalText`, so it works as a parameter, a header or a form field. The text is the set variant
 without JSON quotes. Text that reads as a JSON number or boolean is tried as one first, then as a
 string. A union with nothing set has no text: sending it is an error.
 
 `Validate` checks the count: exactly one for `oneOf`, at most one when nullable, at least one for
-`anyOf`, anything for a nullable `anyOf`.
+`anyOf`, anything for a nullable `anyOf`. With a discriminator it also checks the value, as above.
 
 ### Shared properties
 
@@ -252,6 +262,7 @@ const (
 - A `date-time` string with an enum stays a `string`, since constants cannot be `time.Time`.
 - An enum on an object or an array, or with values of different kinds, is left out, with a warning.
 - `naming.enum-prefix: false` drops the type name from constants, unless the short name is taken.
+- `x-enum-names` names the constants as written. A name that is not exported gets a warning.
 
 ## additionalProperties
 

@@ -1,0 +1,35 @@
+{{.Runtime}}.Union{
+{{- if .IsAnyOf}}
+		IsAnyOf: true,
+{{- end}}
+{{- with .Discriminator}}
+		Discriminator: {{.}},
+{{- end}}
+{{- with .Shared}}
+		Shared: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },
+{{- end}}
+		Variants: []{{.Runtime}}.Variant{
+{{- range .Variants}}
+			{
+				Name: {{quote .Name}},
+				Kind: {{range $i, $k := .Kinds}}{{if $i}} | {{end}}{{$.Runtime}}.{{$k}}{{end}},
+{{- with .Values}}
+				Values: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },
+{{- end}}
+{{- if .IsDefault}}
+				IsDefault: true,
+{{- end}}
+{{- with .Required}}
+				Required: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },
+{{- end}}
+{{- if .HasKnown}}
+				Known: []string{ {{- range $i, $v := .Known}}{{if $i}}, {{end}}{{$v}}{{end -}} },
+{{- end}}
+{{- if .IsClosed}}
+				IsClosed: true,
+{{- end}}
+				Into: {{$.Runtime}}.Into(&{{$.Receiver}}.{{.Name}}),
+			},
+{{- end}}
+		},
+	}
