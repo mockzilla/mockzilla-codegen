@@ -602,14 +602,14 @@ func (t *MCPTools) ChatTool() *mcp.Tool {
 }
 
 // Chat handles the chat tool: it calls Chat of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool.
+// An error of the client is the error of the tool, with the body of a response outside 2xx.
 func (t *MCPTools) Chat(ctx context.Context, _ *mcp.CallToolRequest, in ChatToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &ChatRequestOptions{
 		Body: in.Body,
 	}
 	out, err := t.client.Chat(ctx, opts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, runtime.ToolError(err)
 	}
 	return nil, runtime.ToolResult{Value: out}, nil
 }

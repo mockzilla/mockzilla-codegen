@@ -456,14 +456,14 @@ func (t *MCPTools) AdoptTool() *mcp.Tool {
 }
 
 // Adopt handles the adopt tool: it calls Adopt of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool.
+// An error of the client is the error of the tool, with the body of a response outside 2xx.
 func (t *MCPTools) Adopt(ctx context.Context, _ *mcp.CallToolRequest, in AdoptToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &AdoptRequestOptions{
 		Body: in.Body,
 	}
 	out, err := t.client.Adopt(ctx, opts)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, runtime.ToolError(err)
 	}
 	return nil, runtime.ToolResult{Value: out}, nil
 }
