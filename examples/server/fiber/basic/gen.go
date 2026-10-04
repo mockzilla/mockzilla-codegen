@@ -576,7 +576,7 @@ func WithRouter(app *fiber.App) ServerOption {
 // NewRouter registers every operation on a fiber App.
 func NewRouter(svc PetsInterface, opts ...ServerOption) *fiber.App {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -584,11 +584,11 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *fiber.App {
 		return h
 	}
 	register := func(app *fiber.App, route func(http.Handler) http.Handler) {
-		app.Get("/pets", handle(route(http.HandlerFunc(adapter.ListPets))))
-		app.Post("/pets", handle(route(http.HandlerFunc(adapter.CreatePet))))
-		app.Get("/ping", handle(route(http.HandlerFunc(adapter.Ping))))
-		app.Get("/pets/:id", handle(route(http.HandlerFunc(adapter.GetPet))))
-		app.Delete("/pets/:id", handle(route(http.HandlerFunc(adapter.DeletePet))))
+		app.Get("/pets", handle(route(http.HandlerFunc(a.ListPets))))
+		app.Post("/pets", handle(route(http.HandlerFunc(a.CreatePet))))
+		app.Get("/ping", handle(route(http.HandlerFunc(a.Ping))))
+		app.Get("/pets/:id", handle(route(http.HandlerFunc(a.GetPet))))
+		app.Delete("/pets/:id", handle(route(http.HandlerFunc(a.DeletePet))))
 	}
 
 	if app, _ := o.Router.(*fiber.App); app != nil {

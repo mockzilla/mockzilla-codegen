@@ -720,7 +720,7 @@ func WithRouter(mux *http.ServeMux) ServerOption {
 // NewRouter registers every operation on an http.ServeMux.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) http.Handler {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -728,12 +728,12 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) http.Handler {
 		return h
 	}
 	register := func(mux *http.ServeMux, route func(http.Handler) http.Handler) {
-		mux.Handle("POST /json", route(http.HandlerFunc(adapter.PostJSON)))
-		mux.Handle("POST /form", route(http.HandlerFunc(adapter.PostForm)))
-		mux.Handle("POST /upload", route(http.HandlerFunc(adapter.Upload)))
-		mux.Handle("POST /text", route(http.HandlerFunc(adapter.PostText)))
-		mux.Handle("PUT /file", route(http.HandlerFunc(adapter.PutFile)))
-		mux.Handle("POST /any", route(http.HandlerFunc(adapter.PostAny)))
+		mux.Handle("POST /json", route(http.HandlerFunc(a.PostJSON)))
+		mux.Handle("POST /form", route(http.HandlerFunc(a.PostForm)))
+		mux.Handle("POST /upload", route(http.HandlerFunc(a.Upload)))
+		mux.Handle("POST /text", route(http.HandlerFunc(a.PostText)))
+		mux.Handle("PUT /file", route(http.HandlerFunc(a.PutFile)))
+		mux.Handle("POST /any", route(http.HandlerFunc(a.PostAny)))
 	}
 
 	if mux, _ := o.Router.(*http.ServeMux); mux != nil {

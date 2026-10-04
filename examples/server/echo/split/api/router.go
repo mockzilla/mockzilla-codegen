@@ -14,13 +14,13 @@ func WithRouter(e *echo.Echo) ServerOption {
 // NewRouter registers every operation on an Echo.
 func NewRouter(svc BooksInterface, opts ...ServerOption) *echo.Echo {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	middleware := make([]echo.MiddlewareFunc, len(o.Middleware))
 	for i, mw := range o.Middleware {
 		middleware[i] = echo.WrapMiddleware(mw)
 	}
 	register := func(e *echo.Echo, m ...echo.MiddlewareFunc) {
-		e.GET("/books/:isbn", adapter.GetBook, m...)
+		e.GET("/books/:isbn", a.GetBook, m...)
 	}
 
 	e, _ := o.Router.(*echo.Echo)

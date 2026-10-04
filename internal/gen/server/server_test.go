@@ -268,7 +268,7 @@ func TestBlocks(t *testing.T) {
 			assert.Contains(t, service, ")\n\n// Owned by platform.\n\n// PetsInterface is what")
 			assert.Contains(t, service, "\tCookies    *ListPetsCookies\n\tOwner      string // platform\n\tRawRequest *http.Request\n")
 			assert.Contains(t, service, "\tBody    any\n\tOwner   string // platform\n\n\tcontentType string\n")
-			assert.Contains(t, router, "r.Get(\"/ping\", adapter.Ping)\n\t\tr.Get(\"/owner\", ownerHandler)\n\t}\n")
+			assert.Contains(t, router, "r.Get(\"/ping\", a.Ping)\n\t\tr.Get(\"/owner\", ownerHandler)\n\t}\n")
 			assert.Contains(t, scaffold, "type Pets struct {\n\towner string // platform\n}\n")
 			assert.Contains(t, scaffold, "(*api.PingResponseData, error) {\n\treturn nil, errors.New(\"Ping\" + \"platform\")\n}\n")
 		})

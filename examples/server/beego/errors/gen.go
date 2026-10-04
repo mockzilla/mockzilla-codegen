@@ -448,7 +448,7 @@ func WithRouter(r *web.ControllerRegister) ServerOption {
 // NewRouter registers every operation on a beego ControllerRegister.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *web.ControllerRegister {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -456,8 +456,8 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *web.ControllerRegist
 		return h
 	}
 	register := func(r *web.ControllerRegister, route func(http.Handler) http.Handler) {
-		r.AddMethod("GET", "/pets/:id", handle(route(http.HandlerFunc(adapter.GetPet))))
-		r.AddMethod("PUT", "/pets/:id", handle(route(http.HandlerFunc(adapter.PutPet))))
+		r.AddMethod("GET", "/pets/:id", handle(route(http.HandlerFunc(a.GetPet))))
+		r.AddMethod("PUT", "/pets/:id", handle(route(http.HandlerFunc(a.PutPet))))
 	}
 
 	if r, _ := o.Router.(*web.ControllerRegister); r != nil {

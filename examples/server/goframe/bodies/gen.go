@@ -722,7 +722,7 @@ func WithRouter(s *ghttp.Server) ServerOption {
 // NewRouter registers every operation on a GoFrame server.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *ghttp.Server {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -730,12 +730,12 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *ghttp.Server {
 		return h
 	}
 	register := func(s *ghttp.Server, route func(http.Handler) http.Handler) {
-		s.BindHandler("POST:/json", handle(route(http.HandlerFunc(adapter.PostJSON))))
-		s.BindHandler("POST:/form", handle(route(http.HandlerFunc(adapter.PostForm))))
-		s.BindHandler("POST:/upload", handle(route(http.HandlerFunc(adapter.Upload))))
-		s.BindHandler("POST:/text", handle(route(http.HandlerFunc(adapter.PostText))))
-		s.BindHandler("PUT:/file", handle(route(http.HandlerFunc(adapter.PutFile))))
-		s.BindHandler("POST:/any", handle(route(http.HandlerFunc(adapter.PostAny))))
+		s.BindHandler("POST:/json", handle(route(http.HandlerFunc(a.PostJSON))))
+		s.BindHandler("POST:/form", handle(route(http.HandlerFunc(a.PostForm))))
+		s.BindHandler("POST:/upload", handle(route(http.HandlerFunc(a.Upload))))
+		s.BindHandler("POST:/text", handle(route(http.HandlerFunc(a.PostText))))
+		s.BindHandler("PUT:/file", handle(route(http.HandlerFunc(a.PutFile))))
+		s.BindHandler("POST:/any", handle(route(http.HandlerFunc(a.PostAny))))
 	}
 
 	if s, _ := o.Router.(*ghttp.Server); s != nil {

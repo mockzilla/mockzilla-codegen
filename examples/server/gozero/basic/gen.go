@@ -576,7 +576,7 @@ func WithRouter(r httpx.Router) ServerOption {
 // NewRouter registers every operation on a go-zero router, for rest.WithRouter.
 func NewRouter(svc PetsInterface, opts ...ServerOption) httpx.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -584,11 +584,11 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) httpx.Router {
 		return h
 	}
 	register := func(r httpx.Router, route func(http.Handler) http.Handler) {
-		handle(r, "GET", "/pets", route(http.HandlerFunc(adapter.ListPets)))
-		handle(r, "POST", "/pets", route(http.HandlerFunc(adapter.CreatePet)))
-		handle(r, "GET", "/pets/:id", route(http.HandlerFunc(adapter.GetPet)))
-		handle(r, "DELETE", "/pets/:id", route(http.HandlerFunc(adapter.DeletePet)))
-		handle(r, "GET", "/ping", route(http.HandlerFunc(adapter.Ping)))
+		handle(r, "GET", "/pets", route(http.HandlerFunc(a.ListPets)))
+		handle(r, "POST", "/pets", route(http.HandlerFunc(a.CreatePet)))
+		handle(r, "GET", "/pets/:id", route(http.HandlerFunc(a.GetPet)))
+		handle(r, "DELETE", "/pets/:id", route(http.HandlerFunc(a.DeletePet)))
+		handle(r, "GET", "/ping", route(http.HandlerFunc(a.Ping)))
 	}
 
 	if r, _ := o.Router.(httpx.Router); r != nil {

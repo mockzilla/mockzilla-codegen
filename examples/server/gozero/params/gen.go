@@ -559,7 +559,7 @@ func WithRouter(r httpx.Router) ServerOption {
 // NewRouter registers every operation on a go-zero router, for rest.WithRouter.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) httpx.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -567,10 +567,10 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) httpx.Router {
 		return h
 	}
 	register := func(r httpx.Router, route func(http.Handler) http.Handler) {
-		handle(r, "GET", "/path/:simple/:label/:matrix/:list", route(http.HandlerFunc(adapter.PathStyles)))
-		handle(r, "GET", "/query", route(http.HandlerFunc(adapter.QueryStyles)))
-		handle(r, "GET", "/header", route(http.HandlerFunc(adapter.HeaderStyles)))
-		handle(r, "GET", "/cookie", route(http.HandlerFunc(adapter.CookieStyles)))
+		handle(r, "GET", "/path/:simple/:label/:matrix/:list", route(http.HandlerFunc(a.PathStyles)))
+		handle(r, "GET", "/query", route(http.HandlerFunc(a.QueryStyles)))
+		handle(r, "GET", "/header", route(http.HandlerFunc(a.HeaderStyles)))
+		handle(r, "GET", "/cookie", route(http.HandlerFunc(a.CookieStyles)))
 	}
 
 	if r, _ := o.Router.(httpx.Router); r != nil {

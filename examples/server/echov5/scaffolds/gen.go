@@ -308,14 +308,14 @@ func WithRouter(e *echo.Echo) ServerOption {
 // NewRouter registers every operation on an Echo.
 func NewRouter(svc TodoInterface, opts ...ServerOption) *echo.Echo {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	middleware := make([]echo.MiddlewareFunc, len(o.Middleware))
 	for i, mw := range o.Middleware {
 		middleware[i] = echo.WrapMiddleware(mw)
 	}
 	register := func(e *echo.Echo, m ...echo.MiddlewareFunc) {
-		e.GET("/todos", adapter.ListTodos, m...)
-		e.POST("/todos", adapter.CreateTodo, m...)
+		e.GET("/todos", a.ListTodos, m...)
+		e.POST("/todos", a.CreateTodo, m...)
 	}
 
 	e, _ := o.Router.(*echo.Echo)

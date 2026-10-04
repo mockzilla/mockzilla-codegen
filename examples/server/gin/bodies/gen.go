@@ -721,7 +721,7 @@ func WithRouter(e *gin.Engine) ServerOption {
 // NewRouter registers every operation on a gin Engine.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *gin.Engine {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -729,12 +729,12 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *gin.Engine {
 		return h
 	}
 	register := func(e *gin.Engine, route func(http.Handler) http.Handler) {
-		e.POST("/json", handle(route(http.HandlerFunc(adapter.PostJSON))))
-		e.POST("/form", handle(route(http.HandlerFunc(adapter.PostForm))))
-		e.POST("/upload", handle(route(http.HandlerFunc(adapter.Upload))))
-		e.POST("/text", handle(route(http.HandlerFunc(adapter.PostText))))
-		e.PUT("/file", handle(route(http.HandlerFunc(adapter.PutFile))))
-		e.POST("/any", handle(route(http.HandlerFunc(adapter.PostAny))))
+		e.POST("/json", handle(route(http.HandlerFunc(a.PostJSON))))
+		e.POST("/form", handle(route(http.HandlerFunc(a.PostForm))))
+		e.POST("/upload", handle(route(http.HandlerFunc(a.Upload))))
+		e.POST("/text", handle(route(http.HandlerFunc(a.PostText))))
+		e.PUT("/file", handle(route(http.HandlerFunc(a.PutFile))))
+		e.POST("/any", handle(route(http.HandlerFunc(a.PostAny))))
 	}
 
 	if e, _ := o.Router.(*gin.Engine); e != nil {

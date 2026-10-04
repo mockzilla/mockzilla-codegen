@@ -18,7 +18,7 @@ func WithRouter(r *router.Router) ServerOption {
 // NewRouter registers every operation on a fasthttp router.
 func NewRouter(svc PetsInterface, opts ...ServerOption) *router.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -26,10 +26,10 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *router.Router {
 		return h
 	}
 	register := func(r *router.Router, route func(http.Handler) http.Handler) {
-		r.GET("/pets", handle(route(http.HandlerFunc(adapter.ListPets))))
-		r.POST("/pets", handle(route(http.HandlerFunc(adapter.CreatePet))))
-		r.DELETE("/pets/{id}", handle(route(http.HandlerFunc(adapter.DeletePet))))
-		r.GET("/ping", handle(route(http.HandlerFunc(adapter.Ping))))
+		r.GET("/pets", handle(route(http.HandlerFunc(a.ListPets))))
+		r.POST("/pets", handle(route(http.HandlerFunc(a.CreatePet))))
+		r.DELETE("/pets/{id}", handle(route(http.HandlerFunc(a.DeletePet))))
+		r.GET("/ping", handle(route(http.HandlerFunc(a.Ping))))
 	}
 
 	if r, _ := o.Router.(*router.Router); r != nil {

@@ -241,7 +241,7 @@ func TestPlanErrors(t *testing.T) {
 			cfg: &config.Config{Output: config.Output{File: "./gen.go", Files: map[string][]string{
 				"./client/ops.go": {"client.operations"},
 			}}},
-			parts:   []Part{{ID: "client.core"}, {ID: "client.operations", Owner: "client.core"}},
+			parts:   []Part{{ID: "client.core"}, {ID: "client.operations", Owner: "client.core", Reason: "adds methods to the types of client.core"}},
 			mod:     workModule,
 			wantErr: ErrSplitParts,
 			wantMsg: "parts that belong together are in different folders: client.operations adds methods to the types of client.core, so ./client/ops.go must be in the folder of ./gen.go",

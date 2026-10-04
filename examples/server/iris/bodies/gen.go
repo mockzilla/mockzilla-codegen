@@ -721,7 +721,7 @@ func WithRouter(app *iris.Application) ServerOption {
 // NewRouter registers every operation on an iris Application.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *iris.Application {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -729,12 +729,12 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *iris.Application {
 		return h
 	}
 	register := func(app *iris.Application, route func(http.Handler) http.Handler) {
-		app.Post("/json", handle(route(http.HandlerFunc(adapter.PostJSON))))
-		app.Post("/form", handle(route(http.HandlerFunc(adapter.PostForm))))
-		app.Post("/upload", handle(route(http.HandlerFunc(adapter.Upload))))
-		app.Post("/text", handle(route(http.HandlerFunc(adapter.PostText))))
-		app.Put("/file", handle(route(http.HandlerFunc(adapter.PutFile))))
-		app.Post("/any", handle(route(http.HandlerFunc(adapter.PostAny))))
+		app.Post("/json", handle(route(http.HandlerFunc(a.PostJSON))))
+		app.Post("/form", handle(route(http.HandlerFunc(a.PostForm))))
+		app.Post("/upload", handle(route(http.HandlerFunc(a.Upload))))
+		app.Post("/text", handle(route(http.HandlerFunc(a.PostText))))
+		app.Put("/file", handle(route(http.HandlerFunc(a.PutFile))))
+		app.Post("/any", handle(route(http.HandlerFunc(a.PostAny))))
 	}
 
 	if app, _ := o.Router.(*iris.Application); app != nil {

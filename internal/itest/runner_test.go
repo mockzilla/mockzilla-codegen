@@ -224,7 +224,7 @@ func TestRunnerRun(t *testing.T) {
 		{
 			name: "Generated file cannot be read",
 			gen: onB(func(_ context.Context, dir, _ string) ([]byte, error) {
-				return nil, os.Mkdir(filepath.Join(dir, "x.go"), 0o755)
+				return nil, os.Symlink(".", filepath.Join(dir, "x.go"))
 			}),
 			want: func(sandbox string) []Result {
 				out := "read " + filepath.Join(sandbox, "specs", "models", "b", "x.go") + ": is a directory"
@@ -329,9 +329,33 @@ func TestInit(t *testing.T) {
 	assert.Equal(t, []call{
 		{Dir: dir, Name: "/bin/codegen", Args: []string{"generate", "-c", "codegen.yaml", "/specs/3.0/pets.yml"}},
 		{Dir: filepath.Join(sandbox, "specs", "chi", "s3_1_pets"), Name: "/bin/codegen", Args: []string{"generate", "-c", "codegen.yaml", "/specs/3.1/pets.yml"}},
-		{Dir: sandbox, Name: "go", Args: []string{"build", "./specs/chi/s3_0_pets", "./specs/chi/s3_1_pets"}},
+		{Dir: sandbox, Name: "go", Args: []string{"build", "./specs/chi/s3_0_pets/...", "./specs/chi/s3_1_pets/..."}},
 		{Dir: sandbox, Name: "go", Args: []string{"test", "-count=1", "-json", "./check/batch0"}},
 	}, f.calls)
+}
+
+func TestRunnerRunWritesFiles(t *testing.T) {
+	t.Parallel()
+
+	sandbox := t.TempDir()
+	gen := func(_ context.Context, dir, _ string) ([]byte, error) {
+		if err := os.MkdirAll(filepath.Join(dir, "models"), 0o755); err != nil {
+			return nil, err
+		}
+		return nil, os.WriteFile(filepath.Join(dir, "models", "gen.go"), []byte("package models\n\ntype T int\n"), 0o644)
+	}
+	f := &fakeExec{respond: respond(gen, buildOK, checkOK)}
+	r := &Runner{Exec: f.run, Sandbox: Sandbox{Dir: sandbox}, Tool: "/bin/codegen", Timeout: time.Minute, BatchSize: 1}
+	files := map[string][]string{"./server/gen.go": {"server.router", "server.adapter"}, "./models/gen.go": {"models"}}
+	jobs := Jobs([]Spec{{Name: "pets.yml", Path: "/specs/pets.yml"}}, []Variant{{Name: "split", Config: "server: {}\n", Files: files}})
+
+	got := r.Run(t.Context(), jobs)
+
+	assert.Equal(t, 3, got[0].Lines)
+	data, err := os.ReadFile(filepath.Join(sandbox, "specs", "split", "pets", "codegen.yaml"))
+	require.NoError(t, err)
+	assert.Equal(t, "package: pets\noutput:\n  file: ./gen.go\n  files:\n"+
+		"    ./models/gen.go: [models]\n    ./server/gen.go: [server.router, server.adapter]\nserver: {}\n", string(data))
 }
 
 func TestRunnerRunWritesImports(t *testing.T) {
@@ -421,6 +445,12 @@ func TestByPackage(t *testing.T) {
 			pkgs: []string{"specs/a"},
 			want: map[string]string{"specs/a": "err a"},
 		},
+		{
+			name: "A package in a folder keeps its header",
+			out:  "# sandbox/specs/a/models\nerr m\n# sandbox/specs/ab\nerr ab\n# sandbox/specs/a\nerr a\n",
+			pkgs: []string{"specs/a"},
+			want: map[string]string{"specs/a": "# sandbox/specs/a/models\nerr m\nerr a"},
+		},
 		{name: "No header", out: "go: cannot find main module\n", pkgs: []string{"specs/a"}, want: map[string]string{}},
 	}
 
@@ -449,7 +479,7 @@ func respond(gen generator, build builder, check checker) func(context.Context, 
 		}
 		pkgs := make([]string, 0, len(c.Args)-1)
 		for _, a := range c.Args[1:] {
-			pkgs = append(pkgs, path.Base(a))
+			pkgs = append(pkgs, path.Base(strings.TrimSuffix(a, "/...")))
 		}
 		return build(pkgs)
 	}

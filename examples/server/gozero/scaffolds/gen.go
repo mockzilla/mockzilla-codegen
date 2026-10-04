@@ -305,7 +305,7 @@ func WithRouter(r httpx.Router) ServerOption {
 // NewRouter registers every operation on a go-zero router, for rest.WithRouter.
 func NewRouter(svc TodoInterface, opts ...ServerOption) httpx.Router {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -313,8 +313,8 @@ func NewRouter(svc TodoInterface, opts ...ServerOption) httpx.Router {
 		return h
 	}
 	register := func(r httpx.Router, route func(http.Handler) http.Handler) {
-		handle(r, "GET", "/todos", route(http.HandlerFunc(adapter.ListTodos)))
-		handle(r, "POST", "/todos", route(http.HandlerFunc(adapter.CreateTodo)))
+		handle(r, "GET", "/todos", route(http.HandlerFunc(a.ListTodos)))
+		handle(r, "POST", "/todos", route(http.HandlerFunc(a.CreateTodo)))
 	}
 
 	if r, _ := o.Router.(httpx.Router); r != nil {

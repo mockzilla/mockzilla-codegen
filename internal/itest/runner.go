@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path"
@@ -143,12 +144,10 @@ func (r *Runner) generate(ctx context.Context, job Job) Result {
 }
 
 func (r *Runner) runTool(ctx context.Context, dir string, job Job) ([]byte, error) {
-	name := path.Base(job.Package)
-	cfg := "package: " + name + "\noutput:\n  file: ./gen.go\n" + job.Variant.Config
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(filepath.Join(dir, configFile), []byte(cfg), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, configFile), []byte(config(job)), 0o644); err != nil {
 		return nil, err
 	}
 
@@ -159,6 +158,19 @@ func (r *Runner) runTool(ctx context.Context, dir string, job Job) ([]byte, erro
 		err = fmt.Errorf("%w after %s", ErrTimeout, r.Timeout)
 	}
 	return out, err
+}
+
+func config(job Job) string {
+	var b strings.Builder
+	b.WriteString("package: " + path.Base(job.Package) + "\noutput:\n  file: ./gen.go\n")
+	if len(job.Variant.Files) > 0 {
+		b.WriteString("  files:\n")
+	}
+	for _, file := range slices.Sorted(maps.Keys(job.Variant.Files)) {
+		b.WriteString("    " + file + ": [" + strings.Join(job.Variant.Files[file], ", ") + "]\n")
+	}
+	b.WriteString(job.Variant.Config)
+	return b.String()
 }
 
 // build builds the packages of batch, the id-th one, and checks those that build.
@@ -197,12 +209,12 @@ func (r *Runner) build(ctx context.Context, batch []int, results []Result, id in
 	}
 }
 
-// buildPackages returns the output of each of pkgs that fails to build. Packages a failed build
-// does not name are built again, one at a time when it names none.
+// buildPackages returns the output of each of pkgs that fails to build, with the packages in its
+// folders. Packages a failed build does not name are built again, one at a time when it names none.
 func (r *Runner) buildPackages(ctx context.Context, pkgs []string) map[string]string {
 	args := []string{"build"}
 	for _, p := range pkgs {
-		args = append(args, "./"+p)
+		args = append(args, "./"+p+"/...")
 	}
 	out, err := r.Exec(ctx, r.Sandbox.Dir, "go", args...)
 	if err == nil {
@@ -314,21 +326,20 @@ func failAll(failures map[string]string, jobs []Job, out string) map[string]stri
 }
 
 // byPackage splits go build output at its "# <import path>" lines and returns the part under
-// each of pkgs.
+// each of pkgs, a package in its folders with its header line.
 func byPackage(out []byte, pkgs []string) map[string]string {
-	want := make(map[string]bool, len(pkgs))
-	for _, p := range pkgs {
-		want[p] = true
-	}
-
 	sections := map[string]*strings.Builder{}
 	var cur *strings.Builder
 	for line := range strings.Lines(string(out)) {
 		if p, isHeader := strings.CutPrefix(line, "# "+sandboxModule+"/"); isHeader {
-			cur = nil
-			if p = strings.TrimSpace(p); want[p] {
+			p = strings.TrimSpace(p)
+			job := enclosing(p, pkgs)
+			if cur = sections[job]; cur == nil && job != "" {
 				cur = &strings.Builder{}
-				sections[p] = cur
+				sections[job] = cur
+			}
+			if cur != nil && p != job {
+				cur.WriteString(line)
 			}
 			continue
 		}
@@ -344,24 +355,34 @@ func byPackage(out []byte, pkgs []string) map[string]string {
 	return failures
 }
 
+// enclosing returns the package of pkgs that is p or holds p in its folders, or "" for none.
+func enclosing(p string, pkgs []string) string {
+	for _, pkg := range pkgs {
+		if p == pkg || strings.HasPrefix(p, pkg+"/") {
+			return pkg
+		}
+	}
+	return ""
+}
+
 func countLines(dir string) (int, error) {
-	entries, err := os.ReadDir(dir)
+	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return 0, err
 	}
+	defer func() { _ = root.Close() }()
 
+	files := root.FS()
 	lines := 0
-	for _, e := range entries {
-		if filepath.Ext(e.Name()) != ".go" {
-			continue
+	err = fs.WalkDir(files, ".", func(name string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil || d.IsDir() || path.Ext(name) != ".go" {
+			return walkErr
 		}
-		data, readErr := os.ReadFile(filepath.Join(dir, e.Name()))
-		if readErr != nil {
-			return 0, readErr
-		}
+		data, readErr := fs.ReadFile(files, name)
 		lines += bytes.Count(data, []byte("\n"))
-	}
-	return lines, nil
+		return readErr
+	})
+	return lines, err
 }
 
 func joinOutput(out []byte, err error) string {

@@ -166,7 +166,7 @@ func TestGenerateWithExtraFileSymbol(t *testing.T) {
 
 			path := cmp.Or(tc.path, "./app/register.go")
 			res, err := generateExtra(t, "package: api\n"+
-				"output: {file: ./api/gen.go, packages: "+cmp.Or(tc.packages, "{}")+", files: {./models/models.go: [models.types]}}\n"+
+				"output: {file: ./api/gen.go, packages: "+cmp.Or(tc.packages, "{}")+", files: {./models/models.go: [models]}}\n"+
 				"server: {framework: chi}\n"+
 				"extra-files: {"+path+": {file: ./register.tmpl}, ./api/names.go: 'var Names, names []string'}\n",
 				map[string]string{"register.tmpl": tc.text})
@@ -198,7 +198,7 @@ func TestRenderExtraOfATypeExprCannotWrite(t *testing.T) {
 func TestGenerateWithExtraFilesErrors(t *testing.T) {
 	t.Parallel()
 
-	const apart = "package: api\noutput: {file: ./api/gen.go, files: {./models/models.go: [models.types]}}\nserver: {framework: chi}\n"
+	const apart = "package: api\noutput: {file: ./api/gen.go, files: {./models/models.go: [models]}}\nserver: {framework: chi}\n"
 	tests := []struct {
 		name    string
 		cfg     string
@@ -260,13 +260,13 @@ func TestGenerateWithExtraFilesErrors(t *testing.T) {
 			name:    "Extra file that uses a type of a folder which imports its own",
 			cfg:     apart + "extra-files: {./models/x.go: 'var Options {{expr (index .Operations 0).RequestOptions}}'}\n",
 			wantErr: layout.ErrImportCycle,
-			wantMsg: "import cycle: api -> models -> api (models.responses uses example.com/work/models, ./models/x.go uses example.com/work/api)",
+			wantMsg: "import cycle: api -> models -> api (server.service uses example.com/work/models, ./models/x.go uses example.com/work/api)",
 		},
 		{
 			name:    "Extra file that names a function of a folder which imports its own",
 			cfg:     apart + "extra-files: {./models/x.go: 'var New = {{symbol \"server.router\" \"NewRouter\"}}'}\n",
 			wantErr: layout.ErrImportCycle,
-			wantMsg: "import cycle: api -> models -> api (models.responses uses example.com/work/models, ./models/x.go uses example.com/work/api)",
+			wantMsg: "import cycle: api -> models -> api (server.service uses example.com/work/models, ./models/x.go uses example.com/work/api)",
 		},
 		{
 			name:    "Extra file that imports its own package",

@@ -1,8 +1,11 @@
 # yaml-language-server: $schema=../../../config.schema.json
-spec: {path: api.yaml}
+spec: {path: ../api.yaml}
 package: orders
 output:
   file: ./gen.go
   files:
     ./types.gen.go: [models.types]
     ./enums.gen.go: [models.enums]
+    ./server.gen.go: [server]
+server:
+  framework: std-http

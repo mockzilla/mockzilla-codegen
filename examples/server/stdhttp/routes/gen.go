@@ -550,7 +550,7 @@ func WithRouter(mux *http.ServeMux) ServerOption {
 // NewRouter registers every operation on an http.ServeMux.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) http.Handler {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -558,11 +558,11 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) http.Handler {
 		return h
 	}
 	register := func(mux *http.ServeMux, route func(http.Handler) http.Handler) {
-		mux.Handle("QUERY /search", route(http.HandlerFunc(adapter.Search)))
-		mux.Handle("PURGE /search", route(http.HandlerFunc(adapter.PurgeSearch)))
-		mux.Handle("GET /pets/{$}", route(http.HandlerFunc(adapter.ListPets)))
-		mux.Handle("GET /pets/{pet_id}", route(http.HandlerFunc(adapter.GetPet)))
-		mux.Handle("GET /files/{rest...}", route(http.HandlerFunc(adapter.GetFile)))
+		mux.Handle("QUERY /search", route(http.HandlerFunc(a.Search)))
+		mux.Handle("PURGE /search", route(http.HandlerFunc(a.PurgeSearch)))
+		mux.Handle("GET /pets/{$}", route(http.HandlerFunc(a.ListPets)))
+		mux.Handle("GET /pets/{pet_id}", route(http.HandlerFunc(a.GetPet)))
+		mux.Handle("GET /files/{rest...}", route(http.HandlerFunc(a.GetFile)))
 	}
 
 	if mux, _ := o.Router.(*http.ServeMux); mux != nil {

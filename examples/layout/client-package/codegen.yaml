@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../../config.schema.json
+spec: {path: ../api.yaml}
+output:
+  file: ./models/gen.go
+  files:
+    ./client/v2/gen.go: [client]
+  packages: {./client/v2: orders}
+client:
+  with-response: true

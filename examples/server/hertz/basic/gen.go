@@ -577,7 +577,7 @@ func WithRouter(h *server.Hertz) ServerOption {
 // NewRouter registers every operation on a Hertz server.
 func NewRouter(svc PetsInterface, opts ...ServerOption) *server.Hertz {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -585,11 +585,11 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *server.Hertz {
 		return h
 	}
 	register := func(h *server.Hertz, route func(http.Handler) http.Handler) {
-		h.GET("/pets", handle(route(http.HandlerFunc(adapter.ListPets))))
-		h.POST("/pets", handle(route(http.HandlerFunc(adapter.CreatePet))))
-		h.GET("/pets/:id", handle(route(http.HandlerFunc(adapter.GetPet))))
-		h.DELETE("/pets/:id", handle(route(http.HandlerFunc(adapter.DeletePet))))
-		h.GET("/ping", handle(route(http.HandlerFunc(adapter.Ping))))
+		h.GET("/pets", handle(route(http.HandlerFunc(a.ListPets))))
+		h.POST("/pets", handle(route(http.HandlerFunc(a.CreatePet))))
+		h.GET("/pets/:id", handle(route(http.HandlerFunc(a.GetPet))))
+		h.DELETE("/pets/:id", handle(route(http.HandlerFunc(a.DeletePet))))
+		h.GET("/ping", handle(route(http.HandlerFunc(a.Ping))))
 	}
 
 	if h, _ := o.Router.(*server.Hertz); h != nil {

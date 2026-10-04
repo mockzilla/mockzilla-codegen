@@ -17,7 +17,7 @@ func WithRouter(s *ghttp.Server) ServerOption {
 // NewRouter registers every operation on a GoFrame server.
 func NewRouter(svc PetsInterface, opts ...ServerOption) *ghttp.Server {
 	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
+	a := NewHTTPAdapter(svc, opts...)
 	wrap := func(h http.Handler) http.Handler {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
@@ -25,10 +25,10 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *ghttp.Server {
 		return h
 	}
 	register := func(s *ghttp.Server, route func(http.Handler) http.Handler) {
-		s.BindHandler("GET:/pets", handle(route(http.HandlerFunc(adapter.ListPets))))
-		s.BindHandler("POST:/pets", handle(route(http.HandlerFunc(adapter.CreatePet))))
-		s.BindHandler("DELETE:/pets/{id}", handle(route(http.HandlerFunc(adapter.DeletePet))))
-		s.BindHandler("GET:/ping", handle(route(http.HandlerFunc(adapter.Ping))))
+		s.BindHandler("GET:/pets", handle(route(http.HandlerFunc(a.ListPets))))
+		s.BindHandler("POST:/pets", handle(route(http.HandlerFunc(a.CreatePet))))
+		s.BindHandler("DELETE:/pets/{id}", handle(route(http.HandlerFunc(a.DeletePet))))
+		s.BindHandler("GET:/ping", handle(route(http.HandlerFunc(a.Ping))))
 	}
 
 	if s, _ := o.Router.(*ghttp.Server); s != nil {
