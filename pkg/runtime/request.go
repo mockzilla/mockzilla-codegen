@@ -31,6 +31,7 @@ type Doer interface {
 type RequestBuilder struct {
 	method      string
 	path        string
+	pathQuery   string
 	query       url.Values
 	header      http.Header
 	cookies     []*http.Cookie
@@ -41,9 +42,12 @@ type RequestBuilder struct {
 }
 
 // NewRequestBuilder starts a request of method to path, a template such as /pets/{id} whose
-// placeholders PathParam fills in.
+// placeholders PathParam fills in. A query the template writes after a ? is sent as written,
+// ahead of the query parameters; a fragment after a # is not sent.
 func NewRequestBuilder(method, path string) *RequestBuilder {
-	return &RequestBuilder{method: method, path: path, query: url.Values{}, header: http.Header{}}
+	path, _, _ = strings.Cut(path, "#")
+	path, query, _ := strings.Cut(path, "?")
+	return &RequestBuilder{method: method, path: path, pathQuery: query, query: url.Values{}, header: http.Header{}}
 }
 
 // PathParam fills v into the placeholder of p. A nil value is an error, since paths need every
@@ -62,7 +66,8 @@ func (b *RequestBuilder) PathParam(v any, p Param) {
 		b.err = err
 		return
 	}
-	b.path = strings.ReplaceAll(b.path, "{"+p.Name+"}", escapeSegment(value))
+	b.path = strings.ReplaceAll(b.path, "{"+p.Name+"}", escape(value, isSegmentChar))
+	b.pathQuery = strings.ReplaceAll(b.pathQuery, "{"+p.Name+"}", url.QueryEscape(value))
 }
 
 // QueryParam adds v to the query as p. A nil value is left out, unless p is required.
@@ -159,15 +164,18 @@ func (b *RequestBuilder) FileBody(f File, mediaType string) {
 	b.body, b.length, b.contentType = rc, f.Size(), mediaType
 }
 
-// Build makes the request against base: the path goes after the base's, the query is encoded and
-// sorted, and a File body streams. A placeholder that no PathParam filled is a missing parameter.
+// Build makes the request against base: the path goes after the base's, the query parameters are
+// encoded and sorted, and a File body streams. A placeholder that no PathParam filled is a missing
+// parameter.
 func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Request, error) {
 	if b.err != nil {
 		return nil, b.err
 	}
-	if start := strings.IndexByte(b.path, '{'); start >= 0 {
-		name, _, _ := strings.Cut(b.path[start+1:], "}")
-		return nil, fmt.Errorf("%w: %s", ErrParamMissing, name)
+	for _, template := range []string{b.path, b.pathQuery} {
+		if start := strings.IndexByte(template, '{'); start >= 0 {
+			name, _, _ := strings.Cut(template[start+1:], "}")
+			return nil, fmt.Errorf("%w: %s", ErrParamMissing, name)
+		}
 	}
 
 	u := *base
@@ -176,7 +184,12 @@ func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Reques
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrParamValue, err)
 	}
-	u.Path, u.RawQuery = path, b.query.Encode()
+
+	query := b.query.Encode()
+	if b.pathQuery != "" && query != "" {
+		query = "&" + query
+	}
+	u.Path, u.RawQuery = path, escape(b.pathQuery, isQueryChar)+query
 
 	req, err := http.NewRequestWithContext(ctx, b.method, u.String(), b.body)
 	if err != nil {
@@ -273,14 +286,13 @@ func isNil(v any) bool {
 	}
 }
 
-// escapeSegment percent-encodes what a path segment cannot carry, keeping the characters the
-// styles write between items: , ; = . and the other sub-delimiters.
-func escapeSegment(s string) string {
+// escape percent-encodes every byte of s that keep turns away.
+func escape(s string, keep func(byte) bool) string {
 	var b strings.Builder
 	b.Grow(len(s))
 	for i := range len(s) {
 		c := s[i]
-		if isSegmentChar(c) {
+		if keep(c) {
 			b.WriteByte(c)
 			continue
 		}
@@ -291,11 +303,18 @@ func escapeSegment(s string) string {
 	return b.String()
 }
 
-// isSegmentChar reports a pchar of RFC 3986: unreserved, a sub-delimiter, : or @.
+// isSegmentChar reports a pchar of RFC 3986: unreserved, a sub-delimiter, : or @. The
+// sub-delimiters stay, since the styles write , ; = . between items.
 func isSegmentChar(c byte) bool {
 	switch {
 	case 'a' <= c && c <= 'z', 'A' <= c && c <= 'Z', '0' <= c && c <= '9':
 		return true
 	}
 	return strings.IndexByte("-._~!$&'()*+,;=:@", c) >= 0
+}
+
+// isQueryChar reports what a query of RFC 3986 holds as it is: a pchar, / or ?, and the % of an
+// escape the spec wrote.
+func isQueryChar(c byte) bool {
+	return isSegmentChar(c) || strings.IndexByte("/?%", c) >= 0
 }

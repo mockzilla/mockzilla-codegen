@@ -38,6 +38,7 @@ const (
 	CodeAliasCycle          = "alias-cycle"
 	CodeRouteDropped        = "route-dropped"
 	CodeStreamOnly          = "stream-only"
+	CodePathParamMissing    = "path-param-missing"
 	CodeMCPToolName         = "mcp-tool-name"
 	CodeImportUnused        = "import-unused"
 )
