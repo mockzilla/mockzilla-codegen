@@ -82,11 +82,17 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 {{- range .Groups}}
 	opts.{{.Field}} = &{{.Type}}{}
 {{- range .Params}}
-	if err := {{$.Runtime}}.{{.Decoder}}({{.Source}}, {{$.Runtime}}.Param{Name: {{.Name}}, Style: {{$.Runtime}}.{{.Style}}, IsExplode: {{.IsExplode}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}}, {{.Target}}); err != nil {
+	if err := {{$.Runtime}}.{{.Decoder}}({{.Source}}, {{$.Runtime}}.Param{Name: {{.Name}}, Style: {{$.Runtime}}.{{.Style}}, IsExplode: {{.IsExplode}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}{{with .Default}}, Default: {{.}}{{end}}}, {{.Target}}); err != nil {
 		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorParse, OperationID: {{$op.ID}}, ParamName: {{.Name}}, ParamLocation: {{.Location}}, Err: err})
 		{{$.Handler.Return}}
 	}
 {{- end}}
+{{- end}}
+{{- with .QueryString}}
+	if err := {{$.Runtime}}.DecodeQueryString({{.Source}}, {{$.Runtime}}.Param{Name: {{.Name}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}{{with .Default}}, Default: {{.}}{{end}}}, {{.Target}}); err != nil {
+		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorParse, OperationID: {{$op.ID}}, ParamName: {{.Name}}, ParamLocation: {{.Location}}, Err: err})
+		{{$.Handler.Return}}
+	}
 {{- end}}
 {{- if .HasBody}}
 	switch contentType := {{$.Runtime}}.ContentType(r.Header); contentType {

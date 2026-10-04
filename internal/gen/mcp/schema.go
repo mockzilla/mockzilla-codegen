@@ -45,6 +45,23 @@ func inputSchema(t *tool) (string, []diag.Diagnostic) {
 			required = append(required, p.name)
 		}
 	}
+	if q := t.queryString; q != nil {
+		p := t.op.QueryString.Param
+		s := &jsonschema.Object{}
+		if schema := p.Contents[0].Schema; schema != nil {
+			s = b.Schema(schema)
+		}
+		if p.Description != "" {
+			s.Set("description", p.Description)
+		}
+		if p.Deprecated {
+			s.Set("deprecated", true)
+		}
+		props.Set(q.name, s)
+		if q.isRequired {
+			required = append(required, q.name)
+		}
+	}
 	if t.body != nil {
 		s := bodySchema(b, t.op, t.body.content)
 		if desc := bodyDescription(t.op); desc != "" {

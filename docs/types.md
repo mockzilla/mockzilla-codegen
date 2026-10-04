@@ -204,7 +204,8 @@ itself is not changed. A value that decoding would not read as the variant set i
 A union of strings, numbers and booleans with no shared properties also gets `MarshalText` and
 `UnmarshalText`, so it works as a parameter, a header or a form field. The text is the set variant
 without JSON quotes. Text that reads as a JSON number or boolean is tried as one first, then as a
-string. A union with nothing set has no text: sending it is an error.
+string. A union with nothing set has no text: sending it is an error. A query, header or cookie
+parameter whose union has an object or array variant gets no field, with a warning.
 
 `Validate` checks the count: exactly one for `oneOf`, at most one when nullable, at least one for
 `anyOf`, anything for a nullable `anyOf`. With a discriminator it also checks the value, as above.

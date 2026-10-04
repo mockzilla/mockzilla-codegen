@@ -31,6 +31,10 @@ func (echo) CookieStyles(_ context.Context, opts *CookieStylesServiceRequestOpti
 	return NewCookieStylesResponseData(Echo{"cookie": opts.Cookies}), nil
 }
 
+func (echo) Search(_ context.Context, opts *SearchServiceRequestOptions) (*SearchResponseData, error) {
+	return NewSearchResponseData(Echo{"search": opts.Filter}), nil
+}
+
 func TestStyles(t *testing.T) {
 	t.Parallel()
 

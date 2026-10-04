@@ -146,6 +146,10 @@ func (o *CreatePetRequestOptions) Validate() error
   out twice. A path parameter fills its placeholder in the query too, escaped for a query. A `#`
   starts a fragment, which is not sent: `/#Action=ListUsers` goes to `/`, with the `Action` query
   parameter the spec declares next to it.
+- A `querystring` parameter has a field of its own, see the
+  [server's request options](server.md#request-options). It goes after the query parameters: a
+  form as form values, `name=rex&tag=a&tag=b`, JSON as its text with every byte but letters,
+  digits and `-._~` percent-encoded. A nil field sends nothing, unless the parameter is required.
 - A placeholder that no path parameter fills, such as `{query}` in `/search?query={query}` when
   `query` is a query parameter, is `runtime.ErrParamMissing` on every call. Generation warns about
   it (`path-param-missing`).
@@ -293,8 +297,6 @@ Server-Sent Events from a handler is not generated yet.
 
 ## Not supported yet
 
-- `in: querystring` (OpenAPI 3.2) gets no field, on the client or the server: the parameter is
-  neither sent nor read. Generation warns (`querystring-unsupported`).
 - The `encoding` object of a body is not read: the parts of a form are written and read by their
   schema types. Generation warns (`encoding-ignored`).
 

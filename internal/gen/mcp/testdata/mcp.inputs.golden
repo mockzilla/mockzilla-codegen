@@ -36,10 +36,16 @@ type PutPetToolInput struct {
 }
 
 // DeletePetToolInput is the input of the remove-pet tool.
-type DeletePetToolInput struct{}
+type DeletePetToolInput struct {
+	// The query, sent as application/json.
+	N *int64 `json:"n,omitempty"`
+}
 
 // PingToolInput is the input of the ping tool.
-type PingToolInput struct{}
+type PingToolInput struct {
+	// What to look for.
+	Q *Pet `json:"q"`
+}
 
 // NoteToolInput is the input of the note tool.
 type NoteToolInput struct {

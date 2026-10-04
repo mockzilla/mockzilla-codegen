@@ -54,6 +54,19 @@ func GroupField(in string, n *naming.Namer) string {
 	return cmp.Or(groupFields[in], n.Exported(in))
 }
 
+// QueryStringField names the options field of the querystring of op, QueryString added on a clash.
+func QueryStringField(op *gomodel.Operation, n *naming.Namer) string {
+	name := n.Exported(op.QueryString.Param.Name)
+	taken := append(BodyFields(op.Bodies, n), "RawRequest")
+	for _, p := range op.Params {
+		taken = append(taken, GroupField(p.In, n))
+	}
+	if slices.Contains(taken, name) {
+		return name + "QueryString"
+	}
+	return name
+}
+
 // BodyFields names the options field of each body: Body for one, else Body and the tag of its
 // media type. Two media types with one tag, such as application/xml and text/xml, are told apart
 // by the type, then by a number.
@@ -90,6 +103,14 @@ func BodyType(c gomodel.Content) gomodel.Type {
 		return gomodel.Builtin{Name: "string"}
 	}
 	return bytesType
+}
+
+// QueryStringType is the Go type of the querystring field, held as a body is, any without a schema.
+func QueryStringType(qs *gomodel.QueryString) gomodel.Type {
+	if qs.Content.Type == nil {
+		return gomodel.Builtin{Name: "any"}
+	}
+	return gomodel.Held(qs.Content.Type)
 }
 
 // FrameType is the type of one frame: the item type, or bytes for none and for text.

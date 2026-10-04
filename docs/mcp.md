@@ -96,7 +96,8 @@ validates every call against:
 - One property per path, query, header and cookie parameter, named as the spec names the parameter
   and typed by its schema, with the parameter's description. Required parameters and path
   parameters are required properties. A parameter with `content` instead of a schema takes the
-  schema of its media type.
+  schema of its media type. A `querystring` parameter is one property too, with the schema of its
+  media type.
 - A header parameter named `Accept`, `Content-Type` or `Authorization` is not in the input, since
   OpenAPI ignores it. The client sets the first two. A token goes on the client with
   `WithRequestEditor`, as in the server above, so the assistant never sees it.

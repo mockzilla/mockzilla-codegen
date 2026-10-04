@@ -58,6 +58,9 @@ func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, {{if .IsRounded}}req{{el
 {{- end}}
 		},
 {{- end}}
+{{- with .QueryString}}
+		{{.Field}}: in.{{.From}},
+{{- end}}
 {{- with .Body}}
 		{{.Field}}: in.{{.From}},
 {{- end}}

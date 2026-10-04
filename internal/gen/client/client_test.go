@@ -485,6 +485,10 @@ func petModel() *gomodel.Model {
 		Name:   "DeletePet",
 		Spec:   &spec.Operation{Method: "DELETE", Path: "/pets/{id}", Deprecated: true, Body: &spec.RequestBody{}},
 		Params: []gomodel.ParamGroup{{In: spec.InPath, Decl: path, Params: []*spec.Parameter{{Name: "id", In: spec.InPath, Style: "simple", Required: true}}}},
+		QueryString: &gomodel.QueryString{
+			Param:   &spec.Parameter{Name: "filter", In: spec.InQueryString},
+			Content: gomodel.Content{MediaType: "application/x-www-form-urlencoded", Type: gomodel.DeclRef{Decl: pet}},
+		},
 		Bodies: []gomodel.Content{{MediaType: "application/json", Type: gomodel.Map{Key: str, Elem: str}}},
 		Responses: []gomodel.Response{
 			{Status: "204"},
@@ -492,9 +496,10 @@ func petModel() *gomodel.Model {
 		},
 	}
 	ping := &gomodel.Operation{
-		Name:   "Ping",
-		Spec:   &spec.Operation{Method: "GET", Path: "/ping"},
-		Bodies: []gomodel.Content{{MediaType: "*/*", Type: gomodel.Slice{Elem: gomodel.DeclRef{Decl: pet}}}},
+		Name:        "Ping",
+		Spec:        &spec.Operation{Method: "GET", Path: "/ping"},
+		QueryString: &gomodel.QueryString{Param: &spec.Parameter{Name: "body", In: spec.InQueryString, Required: true}, Content: gomodel.Content{MediaType: "application/json"}},
+		Bodies:      []gomodel.Content{{MediaType: "*/*", Type: gomodel.Slice{Elem: gomodel.DeclRef{Decl: pet}}}},
 		Responses: []gomodel.Response{
 			{Status: "200", Contents: []gomodel.Content{{MediaType: "text/plain"}, {MediaType: "text/xml", Type: str}, {MediaType: "image/*"}}},
 			{Status: "default", Contents: []gomodel.Content{{MediaType: "application/json"}}},

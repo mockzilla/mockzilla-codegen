@@ -166,3 +166,22 @@ func TestMissingParameters(t *testing.T) {
 	_, err = c.QueryStylesRequest(ctx, &QueryStylesRequestOptions{Query: &QueryStylesQuery{ID: &QueryStylesQueryID{}}})
 	require.EqualError(t, err, "invalid parameter value: cannot write null as text", "a union with no variant set")
 }
+
+func TestQueryString(t *testing.T) {
+	t.Parallel()
+
+	c, seen := serve(t)
+	ctx := context.Background()
+	filter := &Filter{Name: new("rex & co"), Tags: []string{"a", "b"}}
+
+	_, err := c.Search(ctx, &SearchRequestOptions{Filter: filter})
+	require.NoError(t, err)
+	assert.Equal(t, "name=rex+%26+co&tags=a&tags=b", (<-seen).URL.RawQuery, "a form")
+
+	_, err = c.Find(ctx, &FindRequestOptions{Q: &Filter{Name: new("rex")}})
+	require.NoError(t, err)
+	assert.Equal(t, "%7B%22name%22%3A%22rex%22%7D", (<-seen).URL.RawQuery, "JSON, percent-encoded")
+
+	_, err = c.Find(ctx, nil)
+	require.ErrorIs(t, err, runtime.ErrParamMissing)
+}

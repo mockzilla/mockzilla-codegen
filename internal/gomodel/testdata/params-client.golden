@@ -1,0 +1,67 @@
+Sort enum string models.enums
+  SortAsc "asc"
+  SortDesc "desc"
+Filter struct models.types
+  Name *string json=name omitempty
+Loop union models.unions
+  | oneOf text
+  | Int *int kinds=integer
+Shape union models.unions
+  | oneOf
+  | Int *int kinds=integer
+  | Option2 *ShapeOption2 kinds=object known=x
+ShapeOption2 struct models.types
+  X *int json=x omitempty
+Tree defined []Tree models.types
+ListItemsPathParams struct models.params
+  ID int json=id required
+ListItemsQuery struct models.params
+  Limit *int json=limit omitempty
+  Sort *Sort json=sort omitempty
+  Tags []string json=tags omitempty
+  Page int json=page required
+  Ratio *int json=ratio omitempty
+  ID2 *ListItemsQueryID2 json=id2 omitempty
+  Wait *time.Duration json=wait omitempty
+  Bare []any json=bare omitempty
+  Tree Tree json=tree omitempty
+ListItemsQueryID2 union models.unions
+  | oneOf text
+  | Int *int kinds=integer
+  | Option2 *ListItemsQueryID2Option2 kinds=string
+ListItemsQueryID2Option2 enum string models.enums
+  ListItemsQueryID2Option2A "a"
+  ListItemsQueryID2Option2B "b"
+ListItemsHeaders struct models.params
+  XMode *string json=X-Mode omitempty
+ListItemsCookies struct models.params
+  Session *bool json=session omitempty
+  Loop *Loop json=loop omitempty
+SearchItemsFilter struct models.params
+  Name *string json=name omitempty
+  Tag []string json=tag omitempty
+MixItemsQuery struct models.params
+  Page *int json=page omitempty
+op ListItems GET /items/{id}
+  params path ListItemsPathParams
+  params query ListItemsQuery
+  params header ListItemsHeaders
+  params cookie ListItemsCookies
+op SearchItems GET /search
+  querystring filter application/x-www-form-urlencoded SearchItemsFilter
+op MixItems PUT /search
+  params query MixItemsQuery
+op FindItems POST /search
+  querystring q application/json; charset=utf-8 Filter
+op XMLItems PATCH /search
+---
+warning param-unsupported 20:11 /paths/~1items~1{id}/get/parameters/9: query parameter "shape" is a union of more than scalars; it gets no field and is neither sent nor read
+warning param-unsupported 24:11 /paths/~1items~1{id}/get/parameters/10: query parameter "shapes" is a union of more than scalars; it gets no field and is neither sent nor read
+warning param-unsupported 27:11 /paths/~1items~1{id}/get/parameters/11: header parameter "X-Owned" is a union of more than scalars; it gets no field and is neither sent nor read
+warning param-unsupported 32:11 /paths/~1items~1{id}/get/parameters/12: header parameter "X-Typed" is a union of more than scalars; it gets no field and is neither sent nor read
+warning param-unsupported 36:11 /paths/~1items~1{id}/get/parameters/13: query parameter "shapeRef" is a union of more than scalars; it gets no field and is neither sent nor read
+warning querystring-unsupported 59:11 /paths/~1search/get/parameters/1: querystring parameter "again" gets no field and is neither sent nor read: the operation has querystring parameter "filter" already
+warning querystring-unsupported 77:11 /paths/~1search/put/parameters/0: querystring parameter "q" gets no field and is neither sent nor read: the operation has query parameters too
+warning querystring-unsupported 84:11 /paths/~1search/patch/parameters/0: querystring parameter "q" gets no field and is neither sent nor read: application/xml is not supported yet
+warning querystring-unsupported 85:11 /paths/~1search/patch/parameters/1: querystring parameter "bare" gets no field and is neither sent nor read: it has no content
+warning union-self 93:32 /components/schemas/Loop/oneOf/1: member 2 is the union itself; it is left out

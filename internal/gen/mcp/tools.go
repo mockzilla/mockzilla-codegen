@@ -57,6 +57,7 @@ type ToolView struct {
 	HasInput     bool
 	IsRounded    bool
 	Groups       []GroupView
+	QueryString  *AssignView
 	Body         *AssignView
 	IsStream     bool
 	HasResult    bool
@@ -121,7 +122,7 @@ func toolView(g *Generator, t *tool, s *gocode.Scope) ToolView {
 		IsReadOnly:   slices.Contains(safeMethods, t.op.Spec.Method),
 		IsIdempotent: slices.Contains(safeMethods, t.op.Spec.Method) || slices.Contains(idempotentMethods, t.op.Spec.Method),
 		IsStream:     t.isStream,
-		HasInput:     len(t.params) > 0 || t.body != nil,
+		HasInput:     len(t.params) > 0 || t.queryString != nil || t.body != nil,
 		IsRounded:    isRounded(t),
 	}
 	for _, p := range t.params {
@@ -132,6 +133,9 @@ func toolView(g *Generator, t *tool, s *gocode.Scope) ToolView {
 			v.Groups = append(v.Groups, GroupView{Field: field, Type: s.Expr(gomodel.DeclRef{Decl: p.group.Decl})})
 		}
 		v.Groups[i].Assigns = append(v.Groups[i].Assigns, AssignView{Field: p.field.Name, From: p.goName})
+	}
+	if q := t.queryString; q != nil {
+		v.QueryString = &AssignView{Field: q.field, From: q.goName}
 	}
 	if t.body != nil {
 		v.Body = &AssignView{Field: t.body.field, From: t.body.goName}
@@ -155,6 +159,9 @@ func toolView(g *Generator, t *tool, s *gocode.Scope) ToolView {
 // through float64.
 func isRounded(t *tool) bool {
 	if t.body != nil && !gomodel.FitsFloat64(operation.BodyType(t.body.content)) {
+		return true
+	}
+	if t.queryString != nil && !gomodel.FitsFloat64(operation.QueryStringType(t.op.QueryString)) {
 		return true
 	}
 	return slices.ContainsFunc(t.params, func(p param) bool { return !gomodel.FitsFloat64(p.field.Type) })
