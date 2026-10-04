@@ -61,6 +61,10 @@ type TailLogPathParams struct {
 	Job string `json:"job"`
 }
 
+type ChatResponse200Headers struct {
+	XModel *string `json:"X-Model,omitempty"`
+}
+
 type ListEventsResponseItem struct {
 	Seq   int                          `json:"seq"`
 	Kind  ListEventsResponseItemKind   `json:"kind"`
@@ -265,6 +269,7 @@ func (c *Client) ChatWithResponse(ctx context.Context, opts *ChatRequestOptions)
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
+		{Status: "200", IsHeaders: true, Dst: &out.Headers200},
 	}); err != nil {
 		return nil, err
 	}
@@ -304,15 +309,13 @@ func (c *Client) ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOp
 	}
 
 	out := &ChatResponse{HTTPResponse: res, Body: body}
-	if runtime.IsStreaming(res) {
-		out.Stream200 = runtime.NewStream[Chunk](res)
-		return out, nil
-	}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	out.Stream200, err = runtime.DecodeStream[Chunk](res, body, []runtime.Target{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
-	}); err != nil {
+		{Status: "200", IsHeaders: true, Dst: &out.Headers200},
+	})
+	if err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -400,7 +403,6 @@ func (c *Client) ListEventsStreamWithResponse(ctx context.Context, opts *ListEve
 	out := &ListEventsResponse{HTTPResponse: res, Body: body}
 	if runtime.IsStreaming(res) {
 		out.Stream200 = runtime.NewStream[ListEventsResponseItem](res)
-		return out, nil
 	}
 	return out, nil
 }
@@ -497,14 +499,11 @@ func (c *Client) TailLogStreamWithResponse(ctx context.Context, opts *TailLogReq
 	}
 
 	out := &TailLogResponse{HTTPResponse: res, Body: body}
-	if runtime.IsStreaming(res) {
-		out.Stream200 = runtime.NewStream[[]byte](res)
-		return out, nil
-	}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	out.Stream200, err = runtime.DecodeStream[[]byte](res, body, []runtime.Target{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 		{Status: "404", MediaType: "application/problem+json", Dst: &out.ProblemJSON404},
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -525,6 +524,8 @@ type ChatResponse struct {
 	// Stream200 is the stream of a 200 response as text/event-stream, set by the Stream method alone;
 	// Body is nil then.
 	Stream200 *runtime.Stream[Chunk]
+	// Headers200 holds the headers the spec declares for a 200 response.
+	Headers200 *ChatResponse200Headers
 }
 
 // StatusCode is the status of the response.
