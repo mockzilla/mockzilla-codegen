@@ -147,11 +147,11 @@ func constructorView(n *naming.Namer, op *gomodel.Operation, r gomodel.Response,
 		v.Status = "status"
 	}
 
-	doc := "returns the response data of status " + r.Status
+	doc := "returns the " + r.Status + " response"
 	if c, ok := operation.FirstBody(r.Contents); ok {
 		v.ContentType = gocode.Quote(c.MediaType)
 		v.Body = s.Expr(operation.BodyType(c))
-		doc += " with body as " + c.MediaType
+		doc += " with its " + c.MediaType + " body"
 	}
 	v.Doc = doc + "."
 	return v

@@ -11,10 +11,7 @@ func WithRouter(s *khttp.Server) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a kratos HTTP server. On a new server the middleware
-// WithMiddleware adds wraps everything as the server's filters, unknown paths too; on the server
-// WithRouter gives it, the middleware wraps each generated route as its filters and nothing
-// else.
+// NewRouter registers every operation on a kratos HTTP server.
 func NewRouter(svc BooksInterface, opts ...ServerOption) *khttp.Server {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)

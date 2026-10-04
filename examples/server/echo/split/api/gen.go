@@ -12,8 +12,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 // BooksInterface is what the generated handlers call. Implement it with the business logic.
@@ -22,7 +21,7 @@ type BooksInterface interface {
 	GetBook(ctx context.Context, opts *GetBookServiceRequestOptions) (*GetBookResponseData, error)
 }
 
-// GetBookServiceRequestOptions is what GetBook receives. RawRequest is the request as it came in.
+// GetBookServiceRequestOptions is what GetBook receives.
 type GetBookServiceRequestOptions struct {
 	PathParams *models.GetBookPathParams
 	RawRequest *http.Request
@@ -33,7 +32,7 @@ func (o *GetBookServiceRequestOptions) Validate() error {
 	return nil
 }
 
-// GetBookResponseData is what GetBook returns: the status, the headers and the body of the response.
+// GetBookResponseData is what GetBook returns.
 type GetBookResponseData struct {
 	Status  int
 	Headers http.Header
@@ -42,12 +41,12 @@ type GetBookResponseData struct {
 	contentType string
 }
 
-// NewGetBookResponseData200 returns the response data of status 200 with body as application/json.
+// NewGetBookResponseData200 returns the 200 response with its application/json body.
 func NewGetBookResponseData200(body *models.Book) *GetBookResponseData {
 	return &GetBookResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
 
-// NewGetBookResponseData404 returns the response data of status 404 with body as application/json.
+// NewGetBookResponseData404 returns the 404 response with its application/json body.
 func NewGetBookResponseData404(body *models.Problem) *GetBookResponseData {
 	return &GetBookResponseData{Status: 404, Body: body, contentType: "application/json"}
 }
@@ -79,14 +78,12 @@ func (r *GetBookResponseData) Payload() any {
 	return r.Body
 }
 
-// ContentType is the media type the body is written as, empty for the default of its Go type.
+// ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *GetBookResponseData) ContentType() string {
 	return r.contentType
 }
 
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
+// ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
@@ -111,7 +108,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	return o
 }
 
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
+// WithMiddleware wraps the routes with mw, outermost first; on a new router, unknown paths too.
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
@@ -132,21 +129,19 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 	}
 }
 
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
+// WithMultipartMaxMemory sets how much of a multipart form stays in memory.
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
 	}
 }
 
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
+// HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  BooksInterface
 	opts *ServerOptions
 }
 
-// responseData is what every response data type gives the adapter.
 type responseData interface {
 	StatusCode() int
 	Header() http.Header
@@ -182,17 +177,14 @@ func (a *HTTPAdapter) GetBook(c echo.Context) error {
 	return nil
 }
 
-// fail answers a request the handler could not serve.
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
-// failDecode answers a request whose body could not be read.
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
 }
 
-// write writes the response of the service.
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())

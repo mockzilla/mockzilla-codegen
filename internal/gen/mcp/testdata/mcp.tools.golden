@@ -11,17 +11,15 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// ErrMCPStreaming is what a tool answers when its operation streams its response, which a tool
-// result cannot carry; read such an operation through the client.
+// ErrMCPStreaming is what the tool of a streaming operation returns.
 var ErrMCPStreaming = errors.New("the operation answers with a stream, which an MCP tool cannot return")
 
-// MCPTools exposes the operations of the API as MCP tools, each calling the client.
+// MCPTools exposes the operations of the API as MCP tools.
 type MCPTools struct {
 	client PetClientInterface
 }
 
-// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
-// a panic in a tool and the first call would end the server.
+// NewMCPTools returns the tools that call c. A nil c panics.
 func NewMCPTools(c PetClientInterface) *MCPTools {
 	if c == nil {
 		panic("NewMCPTools: nil client")
@@ -29,8 +27,7 @@ func NewMCPTools(c PetClientInterface) *MCPTools {
 	return &MCPTools{client: c}
 }
 
-// Register adds every tool to s. To add a few, pass the definition and the handler of each to
-// mcp.AddTool instead.
+// Register adds every tool to s.
 func (t *MCPTools) Register(s *mcp.Server) {
 	mcp.AddTool(s, t.ListPetsTool(), t.ListPets)
 	mcp.AddTool(s, t.CreatePetTool(), t.CreatePet)
@@ -45,8 +42,7 @@ func (t *MCPTools) Register(s *mcp.Server) {
 	mcp.AddTool(s, t.TailTool(), t.Tail)
 }
 
-// ListPetsTool is the definition of the list_pets tool: its name, its description and the schema
-// of its input.
+// ListPetsTool is the definition of the list_pets tool.
 func (t *MCPTools) ListPetsTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "list_pets",
@@ -56,8 +52,7 @@ func (t *MCPTools) ListPetsTool() *mcp.Tool {
 	}
 }
 
-// ListPets handles the list_pets tool: it calls ListPets of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// ListPets handles the list_pets tool.
 func (t *MCPTools) ListPets(ctx context.Context, req *mcp.CallToolRequest, in types.ListPetsToolInput) (*mcp.CallToolResult, any, error) {
 	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
@@ -82,8 +77,7 @@ func (t *MCPTools) ListPets(ctx context.Context, req *mcp.CallToolRequest, in ty
 	return nil, runtime.ToolResult{Value: out}, nil
 }
 
-// CreatePetTool is the definition of the create_pet tool: its name, its description and the schema
-// of its input.
+// CreatePetTool is the definition of the create_pet tool.
 func (t *MCPTools) CreatePetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "create_pet",
@@ -93,8 +87,7 @@ func (t *MCPTools) CreatePetTool() *mcp.Tool {
 	}
 }
 
-// CreatePet handles the create_pet tool: it calls CreatePet of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// CreatePet handles the create_pet tool.
 func (t *MCPTools) CreatePet(ctx context.Context, _ *mcp.CallToolRequest, in types.CreatePetToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &types.CreatePetRequestOptions{
 		BodyJSON: in.Body,
@@ -106,8 +99,7 @@ func (t *MCPTools) CreatePet(ctx context.Context, _ *mcp.CallToolRequest, in typ
 	return nil, runtime.ToolResult{Value: out}, nil
 }
 
-// GetPetTool is the definition of the get_pet tool: its name, its description and the schema
-// of its input.
+// GetPetTool is the definition of the get_pet tool.
 func (t *MCPTools) GetPetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "get_pet",
@@ -117,8 +109,7 @@ func (t *MCPTools) GetPetTool() *mcp.Tool {
 	}
 }
 
-// GetPet handles the get_pet tool: it calls GetPet of the client and answers with what it returns as structured content.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// GetPet handles the get_pet tool.
 func (t *MCPTools) GetPet(ctx context.Context, _ *mcp.CallToolRequest, in types.GetPetToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &types.GetPetRequestOptions{
 		PathParams: &types.GetPetPathParams{
@@ -137,8 +128,7 @@ func (t *MCPTools) GetPet(ctx context.Context, _ *mcp.CallToolRequest, in types.
 	return nil, runtime.ToolResult{Value: out}, nil
 }
 
-// GetPet2Tool is the definition of the get_pet2 tool: its name, its description and the schema
-// of its input.
+// GetPet2Tool is the definition of the get_pet2 tool.
 func (t *MCPTools) GetPet2Tool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "get_pet2",
@@ -148,9 +138,7 @@ func (t *MCPTools) GetPet2Tool() *mcp.Tool {
 	}
 }
 
-// GetPet2 handles the get_pet2 tool: it calls GetPet2 of the client and answers with what it returns as structured content.
-// Another 2xx the spec lists answers ok.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// GetPet2 handles the get_pet2 tool.
 func (t *MCPTools) GetPet2(ctx context.Context, _ *mcp.CallToolRequest, _ types.GetPet2ToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &types.GetPet2RequestOptions{}
 	out, err := t.client.GetPet2(ctx, opts)
@@ -163,8 +151,7 @@ func (t *MCPTools) GetPet2(ctx context.Context, _ *mcp.CallToolRequest, _ types.
 	return nil, runtime.ToolResult{Value: out}, nil
 }
 
-// PutPetTool is the definition of the put_pet tool: its name, its description and the schema
-// of its input.
+// PutPetTool is the definition of the put_pet tool.
 func (t *MCPTools) PutPetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "put_pet",
@@ -174,8 +161,7 @@ func (t *MCPTools) PutPetTool() *mcp.Tool {
 	}
 }
 
-// PutPet handles the put_pet tool: it calls PutPet of the client and answers with the text it returns.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// PutPet handles the put_pet tool.
 func (t *MCPTools) PutPet(ctx context.Context, _ *mcp.CallToolRequest, in types.PutPetToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &types.PutPetRequestOptions{
 		Body: in.Body,
@@ -190,8 +176,7 @@ func (t *MCPTools) PutPet(ctx context.Context, _ *mcp.CallToolRequest, in types.
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: *out}}}, nil, nil
 }
 
-// DeletePetTool is the definition of the remove-pet tool: its name, its description and the schema
-// of its input.
+// DeletePetTool is the definition of the remove-pet tool.
 func (t *MCPTools) DeletePetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "remove-pet",
@@ -201,8 +186,7 @@ func (t *MCPTools) DeletePetTool() *mcp.Tool {
 	}
 }
 
-// DeletePet handles the remove-pet tool: it calls DeletePet of the client and answers ok.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// DeletePet handles the remove-pet tool.
 func (t *MCPTools) DeletePet(ctx context.Context, _ *mcp.CallToolRequest, _ types.DeletePetToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &types.DeletePetRequestOptions{}
 	if err := t.client.DeletePet(ctx, opts); err != nil {
@@ -211,8 +195,7 @@ func (t *MCPTools) DeletePet(ctx context.Context, _ *mcp.CallToolRequest, _ type
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "ok"}}}, nil, nil
 }
 
-// PingTool is the definition of the ping tool: its name, its description and the schema
-// of its input.
+// PingTool is the definition of the ping tool.
 func (t *MCPTools) PingTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "ping",
@@ -222,8 +205,7 @@ func (t *MCPTools) PingTool() *mcp.Tool {
 	}
 }
 
-// Ping handles the ping tool: it calls Ping of the client and answers with the text it returns.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// Ping handles the ping tool.
 func (t *MCPTools) Ping(ctx context.Context, _ *mcp.CallToolRequest, _ types.PingToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &types.PingRequestOptions{}
 	out, err := t.client.Ping(ctx, opts)
@@ -233,8 +215,7 @@ func (t *MCPTools) Ping(ctx context.Context, _ *mcp.CallToolRequest, _ types.Pin
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: out}}}, nil, nil
 }
 
-// NoteTool is the definition of the note tool: its name, its description and the schema
-// of its input.
+// NoteTool is the definition of the note tool.
 func (t *MCPTools) NoteTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "note",
@@ -244,8 +225,7 @@ func (t *MCPTools) NoteTool() *mcp.Tool {
 	}
 }
 
-// Note handles the note tool: it calls Note of the client and answers with the text it returns.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// Note handles the note tool.
 func (t *MCPTools) Note(ctx context.Context, _ *mcp.CallToolRequest, in types.NoteToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &types.NoteRequestOptions{
 		Body: in.Body,
@@ -260,8 +240,7 @@ func (t *MCPTools) Note(ctx context.Context, _ *mcp.CallToolRequest, in types.No
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(*out)}}}, nil, nil
 }
 
-// UploadTool is the definition of the upload tool: its name, its description and the schema
-// of its input.
+// UploadTool is the definition of the upload tool.
 func (t *MCPTools) UploadTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "upload",
@@ -271,8 +250,7 @@ func (t *MCPTools) UploadTool() *mcp.Tool {
 	}
 }
 
-// Upload handles the upload tool: it calls Upload of the client and answers with the file it returns, as image or audio content when it is one.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// Upload handles the upload tool.
 func (t *MCPTools) Upload(ctx context.Context, _ *mcp.CallToolRequest, in types.UploadToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &types.UploadRequestOptions{
 		BodyMultipart: in.Body,
@@ -284,8 +262,7 @@ func (t *MCPTools) Upload(ctx context.Context, _ *mcp.CallToolRequest, in types.
 	return t.fileResult(runtime.NewFile(out, "", "image/png"))
 }
 
-// PhotoTool is the definition of the photo tool: its name, its description and the schema
-// of its input.
+// PhotoTool is the definition of the photo tool.
 func (t *MCPTools) PhotoTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "photo",
@@ -295,8 +272,7 @@ func (t *MCPTools) PhotoTool() *mcp.Tool {
 	}
 }
 
-// Photo handles the photo tool: it calls Photo of the client and answers with the file it returns, as image or audio content when it is one.
-// An error of the client is the error of the tool, with the body of a response outside 2xx.
+// Photo handles the photo tool.
 func (t *MCPTools) Photo(ctx context.Context, _ *mcp.CallToolRequest, _ types.PhotoToolInput) (*mcp.CallToolResult, any, error) {
 	opts := &types.PhotoRequestOptions{}
 	out, err := t.client.Photo(ctx, opts)
@@ -309,8 +285,7 @@ func (t *MCPTools) Photo(ctx context.Context, _ *mcp.CallToolRequest, _ types.Ph
 	return t.fileResult(*out)
 }
 
-// TailTool is the definition of the tail tool: its name, its description and the schema
-// of its input.
+// TailTool is the definition of the tail tool.
 func (t *MCPTools) TailTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "tail",
@@ -320,13 +295,11 @@ func (t *MCPTools) TailTool() *mcp.Tool {
 	}
 }
 
-// Tail handles the tail tool. Tail answers with a stream, so it is ErrMCPStreaming.
+// Tail handles the tail tool.
 func (t *MCPTools) Tail(_ context.Context, _ *mcp.CallToolRequest, _ types.TailToolInput) (*mcp.CallToolResult, any, error) {
 	return nil, nil, ErrMCPStreaming
 }
 
-// fileResult answers with the bytes of f: as image or audio content when its media type is one,
-// else as structured content in base64.
 func (*MCPTools) fileResult(f runtime.File) (*mcp.CallToolResult, any, error) {
 	data, err := f.Bytes()
 	if err != nil {

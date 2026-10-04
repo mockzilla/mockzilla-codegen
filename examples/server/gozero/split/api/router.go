@@ -16,9 +16,7 @@ func WithRouter(r httpx.Router) ServerOption {
 	}
 }
 
-// NewRouter registers every operation on a go-zero router, which rest.WithRouter gives a rest
-// server. On a new router the middleware WithMiddleware adds wraps everything, unknown paths too;
-// on the router WithRouter gives it, the middleware wraps each generated route and nothing else.
+// NewRouter registers every operation on a go-zero router, for rest.WithRouter.
 func NewRouter(svc BooksInterface, opts ...ServerOption) httpx.Router {
 	o := NewServerOptions(opts...)
 	adapter := NewHTTPAdapter(svc, opts...)
@@ -41,7 +39,6 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) httpx.Router {
 	return wrappedRouter{Router: r, handler: wrap(r)}
 }
 
-// wrappedRouter is a router served through the middleware.
 type wrappedRouter struct {
 	httpx.Router
 	handler http.Handler
@@ -51,10 +48,9 @@ func (r wrappedRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.handler.ServeHTTP(w, req)
 }
 
-// handle registers h on r. The route passed the checks of the generator, so an error is a bug of
-// it.
 func handle(r httpx.Router, method, path string, h http.Handler) {
 	if err := r.Handle(method, path, h); err != nil {
+		// The generator checked the route, so this is a bug of the generator.
 		panic(err)
 	}
 }

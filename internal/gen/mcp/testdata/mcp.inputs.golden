@@ -2,7 +2,7 @@ package types
 
 import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 
-// ListPetsToolInput is the input of the list_pets tool: the parameters of the operation.
+// ListPetsToolInput is the input of the list_pets tool.
 type ListPetsToolInput struct {
 	// How many at most.
 	Limit   *int              `json:"limit,omitempty"`
@@ -11,13 +11,13 @@ type ListPetsToolInput struct {
 	Session string            `json:"session"`
 }
 
-// CreatePetToolInput is the input of the create_pet tool: the parameters of the operation.
+// CreatePetToolInput is the input of the create_pet tool.
 type CreatePetToolInput struct {
 	// The pet to add.
 	Body *Pet `json:"body"`
 }
 
-// GetPetToolInput is the input of the get_pet tool: the parameters of the operation.
+// GetPetToolInput is the input of the get_pet tool.
 type GetPetToolInput struct {
 	ID      string  `json:"id"`
 	QueryID *string `json:"query_id,omitempty"`
@@ -26,35 +26,35 @@ type GetPetToolInput struct {
 	RequestBody map[string]string `json:"request_body,omitempty"`
 }
 
-// GetPet2ToolInput is the input of the get_pet2 tool, which takes nothing.
+// GetPet2ToolInput is the input of the get_pet2 tool.
 type GetPet2ToolInput struct{}
 
-// PutPetToolInput is the input of the put_pet tool: the parameters of the operation.
+// PutPetToolInput is the input of the put_pet tool.
 type PutPetToolInput struct {
 	// The request body, sent as image/png.
 	Body *runtime.File `json:"body,omitempty"`
 }
 
-// DeletePetToolInput is the input of the remove-pet tool, which takes nothing.
+// DeletePetToolInput is the input of the remove-pet tool.
 type DeletePetToolInput struct{}
 
-// PingToolInput is the input of the ping tool, which takes nothing.
+// PingToolInput is the input of the ping tool.
 type PingToolInput struct{}
 
-// NoteToolInput is the input of the note tool: the parameters of the operation.
+// NoteToolInput is the input of the note tool.
 type NoteToolInput struct {
 	// The request body, sent as text/markdown.
 	Body *Note `json:"body,omitempty"`
 }
 
-// UploadToolInput is the input of the upload tool: the parameters of the operation.
+// UploadToolInput is the input of the upload tool.
 type UploadToolInput struct {
 	// The request body, sent as multipart/form-data.
 	Body *Upload `json:"body,omitempty"`
 }
 
-// PhotoToolInput is the input of the photo tool, which takes nothing.
+// PhotoToolInput is the input of the photo tool.
 type PhotoToolInput struct{}
 
-// TailToolInput is the input of the tail tool, which takes nothing.
+// TailToolInput is the input of the tail tool.
 type TailToolInput struct{}

@@ -4,8 +4,7 @@ package api
 
 import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 
-// Fails to compile when the runtime package does not match the mockzilla-codegen version that
-// wrote this file.
+// Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
 
 // The error types the handlers use, as the runtime declares them.

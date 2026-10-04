@@ -195,10 +195,10 @@ func TestViewWithoutTools(t *testing.T) {
 
 	assert.Equal(t, "package types\n", string(f.render(t, PartInputs)))
 	assert.Equal(t, "package api\n\nimport \"github.com/modelcontextprotocol/go-sdk/mcp\"\n\n"+
-		"// MCPTools exposes the operations of the API as MCP tools, each calling the client.\ntype MCPTools struct {\n\tclient PetClientInterface\n}\n\n"+
-		"// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover\n// a panic in a tool and the first call would end the server.\n"+
+		"// MCPTools exposes the operations of the API as MCP tools.\ntype MCPTools struct {\n\tclient PetClientInterface\n}\n\n"+
+		"// NewMCPTools returns the tools that call c. A nil c panics.\n"+
 		"func NewMCPTools(c PetClientInterface) *MCPTools {\n\tif c == nil {\n\t\tpanic(\"NewMCPTools: nil client\")\n\t}\n\treturn &MCPTools{client: c}\n}\n\n"+
-		"// Register adds every tool to s. To add a few, pass the definition and the handler of each to\n// mcp.AddTool instead.\nfunc (t *MCPTools) Register(s *mcp.Server) {\n}\n", string(f.render(t, PartTools)))
+		"// Register adds every tool to s.\nfunc (t *MCPTools) Register(s *mcp.Server) {\n}\n", string(f.render(t, PartTools)))
 }
 
 func TestIsToolName(t *testing.T) {

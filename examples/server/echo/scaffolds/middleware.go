@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-// statusWriter keeps the status code a handler wrote.
 type statusWriter struct {
 	http.ResponseWriter
 	status int
@@ -26,8 +25,7 @@ func (w *statusWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
 
-// RequestIDMiddleware gives every request an X-Request-ID header, kept when the client sent one,
-// and echoes it in the response.
+// RequestIDMiddleware gives every request and its response an X-Request-ID header.
 func RequestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.Header.Get("X-Request-ID")
@@ -40,7 +38,7 @@ func RequestIDMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// RecoverMiddleware answers a panic with 500 and logs it, instead of dropping the connection.
+// RecoverMiddleware logs a panic and answers 500.
 func RecoverMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {

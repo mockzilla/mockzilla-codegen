@@ -5,8 +5,6 @@ func main() {
 	}
 }
 
-// run serves on port {{.Port}} until the process is told to stop, then lets the requests in
-// flight finish.
 func run() error {
 	ctx, stop := {{.Signal}}.NotifyContext({{.Context}}.Background(), {{.OS}}.Interrupt, {{.Syscall}}.SIGTERM)
 	defer stop()
