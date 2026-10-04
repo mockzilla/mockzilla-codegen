@@ -181,14 +181,20 @@ func (t *MCPTools) DeletePetTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "remove-pet",
 		Description: "DELETE /pets/{id}\n\nDeprecated: the spec marks it deprecated.",
-		InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`),
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"n":{}},"additionalProperties":false}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: true},
 	}
 }
 
 // DeletePet handles the remove-pet tool.
-func (t *MCPTools) DeletePet(ctx context.Context, _ *mcp.CallToolRequest, _ types.DeletePetToolInput) (*mcp.CallToolResult, any, error) {
-	opts := &types.DeletePetRequestOptions{}
+func (t *MCPTools) DeletePet(ctx context.Context, req *mcp.CallToolRequest, in types.DeletePetToolInput) (*mcp.CallToolResult, any, error) {
+	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+		return nil, nil, err
+	}
+
+	opts := &types.DeletePetRequestOptions{
+		N: in.N,
+	}
 	if err := t.client.DeletePet(ctx, opts); err != nil {
 		return nil, nil, runtime.ToolError(err)
 	}
@@ -200,14 +206,16 @@ func (t *MCPTools) PingTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "ping",
 		Description: "QUERY /ping",
-		InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`),
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"q":{"$ref":"#/$defs/Pet","description":"What to look for.","deprecated":true}},"required":["q"],"additionalProperties":false,"$defs":{"Pet":{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}}}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
 	}
 }
 
 // Ping handles the ping tool.
-func (t *MCPTools) Ping(ctx context.Context, _ *mcp.CallToolRequest, _ types.PingToolInput) (*mcp.CallToolResult, any, error) {
-	opts := &types.PingRequestOptions{}
+func (t *MCPTools) Ping(ctx context.Context, _ *mcp.CallToolRequest, in types.PingToolInput) (*mcp.CallToolResult, any, error) {
+	opts := &types.PingRequestOptions{
+		Q: in.Q,
+	}
 	out, err := t.client.Ping(ctx, opts)
 	if err != nil {
 		return nil, nil, runtime.ToolError(err)

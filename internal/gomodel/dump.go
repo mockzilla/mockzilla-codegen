@@ -254,6 +254,17 @@ func dumpOperation(b *strings.Builder, op *Operation) {
 	b.WriteString("op " + op.Name + " " + op.Spec.Method + " " + op.Spec.Path + "\n")
 	for _, p := range op.Params {
 		b.WriteString("  params " + p.In + " " + p.Decl.Name + "\n")
+		for _, sp := range p.Params {
+			if d := p.Defaults[sp.Name]; d != "" {
+				b.WriteString("    default " + sp.Name + " " + d + "\n")
+			}
+		}
+	}
+	if qs := op.QueryString; qs != nil {
+		b.WriteString("  querystring " + qs.Param.Name + " " + qs.Content.MediaType + " " + typeText(qs.Content.Type) + "\n")
+		if qs.Default != "" {
+			b.WriteString("    default " + qs.Default + "\n")
+		}
 	}
 	for _, c := range op.Bodies {
 		b.WriteString("  body " + c.MediaType + " " + typeText(c.Type) + itemText(c) + "\n")

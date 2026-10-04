@@ -45,13 +45,14 @@ var separators = map[Style]string{StyleSpaceDelimited: " ", StylePipeDelimited: 
 var textMarshaler = reflect.TypeFor[encoding.TextMarshaler]()
 
 // Param describes one parameter: its name, how it is written, and whether it must be there. IsJSON
-// is set for a parameter with content application/json.
+// is set for content application/json; Default is the JSON a decoder sets when it is not there.
 type Param struct {
 	Name       string
 	Style      Style
 	IsExplode  bool
 	IsRequired bool
 	IsJSON     bool
+	Default    string
 }
 
 // pair is one named value of an object parameter, in the order it is written.
@@ -93,7 +94,7 @@ func DecodePath(raw string, p Param, dst any) error {
 }
 
 // DecodeQuery decodes a query parameter into dst, a pointer to the parameter's type. A parameter
-// that is not there leaves dst as it is, unless it is required.
+// that is not there sets its default, else leaves dst as it is, unless it is required.
 func DecodeQuery(q url.Values, p Param, dst any) error {
 	target, err := pointer(dst)
 	if err != nil {
@@ -105,19 +106,19 @@ func DecodeQuery(q url.Values, p Param, dst any) error {
 	case p.Style == StyleDeepObject:
 		fields := nested(q, p.Name)
 		if fields == nil {
-			return absent(p)
+			return missing(p, target)
 		}
 		return assigner{}.assign(target, fields)
 	case sh == shapeObject && p.IsExplode && !p.IsJSON:
 		if len(q) == 0 {
-			return absent(p)
+			return missing(p, target)
 		}
 		return assigner{}.assign(target, firstValues(q))
 	}
 
 	values, ok := q[p.Name]
 	if !ok {
-		return absent(p)
+		return missing(p, target)
 	}
 	return decodeValues(target, values, p, sh)
 }
@@ -130,7 +131,7 @@ func DecodeHeader(h http.Header, p Param, dst any) error {
 	}
 	values := h.Values(p.Name)
 	if len(values) == 0 {
-		return absent(p)
+		return missing(p, target)
 	}
 	raw := strings.Join(values, ",")
 	if p.IsJSON {
@@ -156,9 +157,32 @@ func DecodeCookie(cookies []*http.Cookie, p Param, dst any) error {
 	}
 	values, ok := q[p.Name]
 	if !ok {
-		return absent(p)
+		return missing(p, target)
 	}
 	return decodeValues(target, values, p, sh)
+}
+
+// DecodeQueryString decodes raw, the whole query, into dst: percent-encoded JSON or a form.
+func DecodeQueryString(raw string, p Param, dst any) error {
+	target, err := pointer(dst)
+	if err != nil {
+		return err
+	}
+	if raw == "" {
+		return missing(p, target)
+	}
+
+	if p.IsJSON {
+		if raw, err = url.PathUnescape(raw); err != nil {
+			return fmt.Errorf("%w: %w", ErrParamValue, err)
+		}
+		return assigner{}.json(target, raw)
+	}
+	values, err := url.ParseQuery(raw)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrParamValue, err)
+	}
+	return assignForm(values, dst)
 }
 
 // EncodePath writes v as a path segment.
@@ -394,6 +418,14 @@ func firstValues(q url.Values) map[string]string {
 		}
 	}
 	return out
+}
+
+// missing is a parameter that is not there: an error when it is required, else its default.
+func missing(p Param, target reflect.Value) error {
+	if p.IsRequired || p.Default == "" {
+		return absent(p)
+	}
+	return assigner{}.json(target, p.Default)
 }
 
 func absent(p Param) error {

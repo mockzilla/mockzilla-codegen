@@ -247,6 +247,28 @@ func (o *CookieStylesRequestOptions) Validate() error {
 	return nil
 }
 
+// SearchRequestOptions is what Search sends.
+type SearchRequestOptions struct {
+	// Query sent as application/x-www-form-urlencoded.
+	Filter *Filter
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *SearchRequestOptions) Validate() error {
+	return nil
+}
+
+// FindRequestOptions is what Find sends.
+type FindRequestOptions struct {
+	// Query sent as application/json.
+	Q *Filter
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *FindRequestOptions) Validate() error {
+	return nil
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
@@ -263,6 +285,10 @@ type ClientInterface interface {
 	HeaderStyles(ctx context.Context, opts *HeaderStylesRequestOptions, editors ...RequestEditor) (Echo, error)
 	// CookieStyles calls GET /cookie.
 	CookieStyles(ctx context.Context, opts *CookieStylesRequestOptions, editors ...RequestEditor) (Echo, error)
+	// Search calls GET /search.
+	Search(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) (Echo, error)
+	// Find calls POST /search.
+	Find(ctx context.Context, opts *FindRequestOptions, editors ...RequestEditor) (Echo, error)
 }
 
 var _ ClientInterface = (*Client)(nil)
@@ -464,6 +490,66 @@ func (c *Client) CookieStylesRequest(ctx context.Context, opts *CookieStylesRequ
 		b.CookieParam(opts.Cookies.Session, runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.CookieParam(opts.Cookies.Flags, runtime.Param{Name: "flags", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
 	}
+	return c.newRequest(ctx, b, editors)
+}
+
+// Search calls GET /search.
+func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) (Echo, error) {
+	req, err := c.SearchRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out Echo
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "200", MediaType: "application/json", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SearchRequest builds the request of GET /search.
+func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &SearchRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/search")
+	b.QueryString(opts.Filter, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false})
+	return c.newRequest(ctx, b, editors)
+}
+
+// Find calls POST /search.
+func (c *Client) Find(ctx context.Context, opts *FindRequestOptions, editors ...RequestEditor) (Echo, error) {
+	req, err := c.FindRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out Echo
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "200", MediaType: "application/json", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// FindRequest builds the request of POST /search.
+func (c *Client) FindRequest(ctx context.Context, opts *FindRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &FindRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodPost, "/search")
+	b.QueryString(opts.Q, runtime.Param{Name: "q", IsRequired: true, IsJSON: true})
 	return c.newRequest(ctx, b, editors)
 }
 

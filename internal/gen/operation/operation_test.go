@@ -41,6 +41,34 @@ func TestGroupField(t *testing.T) {
 	}
 }
 
+func TestQueryStringField(t *testing.T) {
+	t.Parallel()
+
+	query := gomodel.ParamGroup{In: spec.InQuery}
+	tests := []struct {
+		name   string
+		param  string
+		params []gomodel.ParamGroup
+		bodies []gomodel.Content
+		want   string
+	}{
+		{name: "Named after the parameter", param: "filter", want: "Filter"},
+		{name: "A parameter group has the name", param: "query", params: []gomodel.ParamGroup{query}, want: "QueryQueryString"},
+		{name: "A body has the name", param: "body", bodies: []gomodel.Content{{MediaType: "application/json"}}, want: "BodyQueryString"},
+		{name: "The server's raw request has the name", param: "raw_request", want: "RawRequestQueryString"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			op := &gomodel.Operation{Params: tc.params, Bodies: tc.bodies, QueryString: &gomodel.QueryString{Param: &spec.Parameter{Name: tc.param}}}
+
+			assert.Equal(t, tc.want, QueryStringField(op, naming.New(nil)))
+		})
+	}
+}
+
 func TestBodyFields(t *testing.T) {
 	t.Parallel()
 
@@ -100,6 +128,28 @@ func TestBodyType(t *testing.T) {
 			t.Parallel()
 
 			assert.Equal(t, tc.want, BodyType(tc.content))
+		})
+	}
+}
+
+func TestQueryStringType(t *testing.T) {
+	t.Parallel()
+
+	pet := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Pet", Kind: gomodel.KindStruct}}
+	tests := []struct {
+		name    string
+		content gomodel.Content
+		want    gomodel.Type
+	}{
+		{name: "A struct is held by pointer", content: gomodel.Content{MediaType: "application/json", Type: pet}, want: gomodel.Pointer{Elem: pet}},
+		{name: "No schema is any", content: gomodel.Content{MediaType: "application/x-www-form-urlencoded"}, want: gomodel.Builtin{Name: "any"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, QueryStringType(&gomodel.QueryString{Content: tc.content}))
 		})
 	}
 }

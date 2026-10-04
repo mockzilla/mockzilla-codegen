@@ -8,6 +8,8 @@
 package mcp
 
 import (
+	"cmp"
+
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
@@ -52,6 +54,10 @@ func inputView(g *Generator, t *tool, s *gocode.Scope) InputView {
 			Tag:  jsonTag(p.name, p.spec.Required || p.spec.In == spec.InPath),
 			Doc:  p.spec.Description,
 		})
+	}
+	if q := t.queryString; q != nil {
+		doc := cmp.Or(t.op.QueryString.Param.Description, "The query, sent as "+q.content.MediaType+".")
+		v.Fields = append(v.Fields, FieldView{Name: q.goName, Type: s.Expr(operation.QueryStringType(t.op.QueryString)), Tag: jsonTag(q.name, q.isRequired), Doc: doc})
 	}
 	if b := t.body; b != nil {
 		doc := bodyDescription(t.op)

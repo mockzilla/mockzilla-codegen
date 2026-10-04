@@ -31,6 +31,10 @@ func (mirror) CookieStyles(_ context.Context, opts *CookieStylesServiceRequestOp
 	return NewCookieStylesResponseData(Echo{"cookie": opts.Cookies}), nil
 }
 
+func (mirror) Search(_ context.Context, opts *SearchServiceRequestOptions) (*SearchResponseData, error) {
+	return NewSearchResponseData(Echo{"search": opts.Filter}), nil
+}
+
 func TestStyles(t *testing.T) {
 	t.Parallel()
 

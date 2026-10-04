@@ -46,19 +46,28 @@ type Model struct {
 
 // Operation is an operation or webhook with its Go name and the types it uses.
 type Operation struct {
-	Name      string
-	Spec      *spec.Operation
-	Params    []ParamGroup
-	Bodies    []Content
-	Responses []Response
+	Name        string
+	Spec        *spec.Operation
+	Params      []ParamGroup
+	QueryString *QueryString
+	Bodies      []Content
+	Responses   []Response
 }
 
 // ParamGroup is the struct that holds the parameters of one location; Params are the parameters
 // in the order of the struct's fields.
 type ParamGroup struct {
-	In     string
-	Decl   *Decl
-	Params []*spec.Parameter
+	In       string
+	Decl     *Decl
+	Params   []*spec.Parameter
+	Defaults map[string]string
+}
+
+// QueryString is a querystring parameter: the whole query in one media type.
+type QueryString struct {
+	Param   *spec.Parameter
+	Content Content
+	Default string
 }
 
 // Content is one media type; Type is nil when it has no schema. Item is the type of one frame of

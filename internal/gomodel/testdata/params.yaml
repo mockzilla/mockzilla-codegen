@@ -1,0 +1,96 @@
+openapi: 3.2.0
+info: {title: params, version: "1"}
+paths:
+  /items/{id}:
+    get:
+      operationId: listItems
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, default: 1}}
+        - {name: limit, in: query, schema: {type: integer, default: 20}}
+        - {name: sort, in: query, schema: {$ref: '#/components/schemas/Sort'}}
+        - {name: tags, in: query, schema: {type: array, items: {type: string}, default: [a, b]}}
+        - {name: page, in: query, required: true, schema: {type: integer, default: 1}}
+        - {name: ratio, in: query, schema: {type: integer, default: 1.5}}
+        - {name: X-Mode, in: header, schema: {type: string, default: fast}}
+        - {name: session, in: cookie, schema: {type: boolean, default: false}}
+        - name: id2
+          in: query
+          schema:
+            oneOf: [{type: integer}, {type: string, enum: [a, b]}]
+        - name: shape
+          in: query
+          schema:
+            oneOf: [{type: integer}, {type: object, properties: {x: {type: integer}}}]
+        - name: shapes
+          in: query
+          schema: {type: array, items: {anyOf: [{type: integer}, {type: array, items: {type: string}}]}}
+        - name: X-Owned
+          in: header
+          schema:
+            oneOf: [{type: integer}, {type: string}]
+            properties: {note: {type: string}}
+        - name: X-Typed
+          in: header
+          schema:
+            oneOf: [{type: integer}, {x-go-type: time.Duration}]
+        - {name: shapeRef, in: query, schema: {$ref: '#/components/schemas/Shape'}}
+        - {name: wait, in: query, schema: {x-go-type: time.Duration, x-go-type-import: time}}
+        - {name: bare, in: query, schema: {type: array}}
+        - {name: tree, in: query, schema: {$ref: '#/components/schemas/Tree'}}
+        - name: loop
+          in: cookie
+          schema: {$ref: '#/components/schemas/Loop'}
+      responses:
+        "200": {description: ok}
+  /search:
+    get:
+      operationId: searchItems
+      parameters:
+        - name: filter
+          in: querystring
+          content:
+            application/x-www-form-urlencoded:
+              schema:
+                type: object
+                properties:
+                  name: {type: string}
+                  tag: {type: array, items: {type: string}}
+                default: {name: all}
+        - name: again
+          in: querystring
+          content:
+            application/json: {schema: {type: object}}
+      responses:
+        "200": {description: ok}
+    post:
+      operationId: findItems
+      parameters:
+        - name: q
+          in: querystring
+          content:
+            application/json; charset=utf-8: {schema: {$ref: '#/components/schemas/Filter'}}
+      responses:
+        "200": {description: ok}
+    put:
+      operationId: mixItems
+      parameters:
+        - {name: q, in: querystring, content: {application/json: {schema: {type: object}}}}
+        - {name: page, in: query, schema: {type: integer}}
+      responses:
+        "200": {description: ok}
+    patch:
+      operationId: xmlItems
+      parameters:
+        - {name: q, in: querystring, content: {application/xml: {schema: {type: object}}}}
+        - {name: bare, in: querystring, schema: {type: string}}
+      responses:
+        "200": {description: ok}
+components:
+  schemas:
+    Sort: {type: string, enum: [asc, desc], default: asc}
+    Filter: {type: object, properties: {name: {type: string}}}
+    Loop:
+      oneOf: [{type: integer}, {$ref: '#/components/schemas/Loop'}]
+    Shape:
+      oneOf: [{type: integer}, {type: object, properties: {x: {type: integer}}}]
+    Tree: {type: array, items: {$ref: '#/components/schemas/Tree'}}

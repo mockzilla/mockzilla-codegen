@@ -44,6 +44,7 @@ const (
 	CodeServerBodyUnwritable   = "server-body-unwritable"
 	CodeStreamUnread           = "stream-unread"
 	CodeQueryStringUnsupported = "querystring-unsupported"
+	CodeParamUnsupported       = "param-unsupported"
 	CodeEncodingIgnored        = "encoding-ignored"
 	CodeMCPToolName            = "mcp-tool-name"
 	CodeImportUnused           = "import-unused"

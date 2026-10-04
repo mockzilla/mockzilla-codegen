@@ -209,6 +209,8 @@ func (r *CreatePetResponseData) ContentType() string {
 // DeletePetServiceRequestOptions is what DeletePet receives.
 type DeletePetServiceRequestOptions struct {
 	PathParams *DeletePetPathParams
+	// Query sent as application/x-www-form-urlencoded.
+	Filter *Pet
 	// Body sent as application/json.
 	Body       map[string]string
 	RawRequest *http.Request
@@ -216,7 +218,11 @@ type DeletePetServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *DeletePetServiceRequestOptions) Validate() error {
-	return nil
+	var errs runtime.ValidationErrors
+	if o.Filter != nil {
+		errs.Append("querystring", o.Filter.Validate())
+	}
+	return errs.Err()
 }
 
 // DeletePetResponseData is what DeletePet returns.
@@ -272,6 +278,8 @@ func (r *DeletePetResponseData) ContentType() string {
 
 // PingServiceRequestOptions is what Ping receives.
 type PingServiceRequestOptions struct {
+	// Query sent as application/json.
+	BodyQueryString any
 	// Body sent as application/json.
 	Body       []Pet
 	RawRequest *http.Request

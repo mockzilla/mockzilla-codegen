@@ -82,6 +82,7 @@ type HandlerView struct {
 	Options        string
 	HasQuery       bool
 	Groups         []GroupView
+	QueryString    *ParamView
 	HasBody        bool
 	Bodies         []BodyView
 	Wildcards      []BodyView
@@ -109,6 +110,7 @@ type ParamView struct {
 	IsExplode  bool
 	IsRequired bool
 	IsJSON     bool
+	Default    string
 }
 
 // BodyView is one media type of the request body. MediaType is quoted, in lower case and without
@@ -195,6 +197,17 @@ func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope) HandlerVi
 		v.HasQuery = v.HasQuery || p.In == spec.InQuery
 		v.Groups = append(v.Groups, groupView(g, p, s))
 	}
+	if qs := op.QueryString; qs != nil {
+		v.QueryString = &ParamView{
+			Source:     gocode.Selector(gocode.Selector("r", "URL"), "RawQuery"),
+			Target:     gocode.AddressOf(gocode.Selector("opts", operation.QueryStringField(op, g.opts.Namer))),
+			Name:       gocode.Quote(qs.Param.Name),
+			Location:   gocode.Quote(spec.InQueryString),
+			IsRequired: qs.Param.Required,
+			IsJSON:     runtime.IsJSON(qs.Content.MediaType),
+			Default:    quoteDefault(qs.Default),
+		}
+	}
 
 	v.IsBodyRequired = op.Spec.Body != nil && op.Spec.Body.Required
 	at := bodyAt{id: v.ID, isRequired: v.IsBodyRequired, ret: g.opts.Framework.Handler(s).Return, scope: s}
@@ -240,9 +253,21 @@ func groupView(g *Generator, p gomodel.ParamGroup, s *gocode.Scope) GroupView {
 			IsExplode:  param.Explode,
 			IsRequired: param.Required,
 			IsJSON:     operation.IsJSONParam(param),
+			Default:    quoteDefault(p.Defaults[param.Name]),
 		})
 	}
 	return v
+}
+
+// quoteDefault writes the JSON of a default as a Go string, raw when it holds a quote.
+func quoteDefault(value string) string {
+	switch {
+	case value == "":
+		return ""
+	case strings.Contains(value, `"`):
+		return gocode.RawString(value)
+	}
+	return gocode.Quote(value)
 }
 
 // bodyView picks the decoder of a media type by the type of its field: JSON and forms decode into

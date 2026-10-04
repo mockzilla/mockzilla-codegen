@@ -8,12 +8,14 @@
 package gomodel
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
 	"slices"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/extension"
+	"github.com/mockzilla/mockzilla-codegen/internal/jsonschema"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
@@ -73,6 +75,19 @@ func (b *builder) build(list []*pending, ops []*Operation, headers map[*spec.Res
 	settleUnions(decls)
 
 	for _, op := range ops {
+		for i := range op.Params {
+			g := &op.Params[i]
+			g.Defaults = map[string]string{}
+			for _, p := range g.Params {
+				if d := b.paramDefault(p, paramSchema(p)); d != "" {
+					g.Defaults[p.Name] = d
+				}
+			}
+		}
+		if qs := op.QueryString; qs != nil {
+			mt := qs.Param.Contents[0]
+			qs.Content, qs.Default = b.contents([]*spec.MediaType{mt})[0], b.paramDefault(qs.Param, mt.Schema)
+		}
 		if op.Spec.Body != nil {
 			op.Bodies = b.contents(op.Spec.Body.Contents)
 		}
@@ -242,6 +257,28 @@ func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
 		d.Struct.Fields = append(d.Struct.Fields, fd)
 	}
 	resolveFields(d, b.opts.Namer, b.methods(d), b.diags)
+}
+
+// paramDefault is the JSON of the default the server sets for p when it is not there, or "".
+func (b *builder) paramDefault(p *spec.Parameter, s *spec.Schema) string {
+	if !b.opts.IsServer || p.In == spec.InPath || p.Required || s == nil {
+		return ""
+	}
+	d := cmp.Or(s.Default, b.flat.flatten(target(s)).Default)
+	if d == nil {
+		return ""
+	}
+	if why := jsonschema.Misfit(*d, s); why != "" {
+		b.diags.Append(diag.Diagnostic{
+			Severity: diag.Warning,
+			Code:     diag.CodeDefaultIgnored,
+			Pointer:  p.Origin.Pointer,
+			Origin:   origin(p.Origin),
+			Message:  fmt.Sprintf("the default of %s parameter %q does not fit its schema, so the server does not set it: %s", p.In, p.Name, why),
+		})
+		return ""
+	}
+	return string(jsonschema.Marshal(*d))
 }
 
 // applyExtensions sets what the extensions of a field ask for, then its tags.
