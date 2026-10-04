@@ -173,6 +173,27 @@ func TestCallTools(t *testing.T) {
 	assert.Nil(t, pong.StructuredContent)
 }
 
+func TestIntegersAbove2To53KeepEveryDigit(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	session := newSession(t)
+	call := func(name string, args map[string]any) *mcp.CallToolResult {
+		res, err := session.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
+		require.NoError(t, err)
+		return res
+	}
+
+	created := call("create_pet", map[string]any{"body": map[string]any{"id": 9007199254740993, "name": "Rex"}})
+	require.False(t, created.IsError)
+	assert.Equal(t, `{"id":9007199254740993,"name":"Rex"}`, created.Content[0].(*mcp.TextContent).Text)
+
+	found := call("get_pet", map[string]any{"id": 9007199254740993})
+	assert.False(t, found.IsError)
+	rounded := call("get_pet", map[string]any{"id": 9007199254740992})
+	assert.True(t, rounded.IsError, "the id a float64 rounds to is another pet")
+}
+
 func TestToolErrors(t *testing.T) {
 	t.Parallel()
 

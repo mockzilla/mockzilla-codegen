@@ -37,10 +37,11 @@ type ToolsView struct {
 // ToolView is one tool: its definition and its handler. Name is the operation; Tool is the tool
 // name and Schema the input schema as a Go literal. Input and Options are the input type and the
 // request options type as the file writes them; Groups and Body say how the handler fills the
-// options from the input, and HasInput whether it reads any. HasResult says whether the client
-// method returns a body; Text is the expression of that body as text, empty when it is returned as
-// it is, and IsTextPointer says whether Text dereferences a pointer. IsStream marks a tool that
-// answers with the streaming error.
+// options from the input, and HasInput whether it reads any. IsRounded says whether the SDK's
+// pass through float64 can round a number of the input, so the handler decodes the arguments
+// again. HasResult says whether the client method returns a body; Text is the expression of that
+// body as text, empty when it is returned as it is, and IsTextPointer says whether Text
+// dereferences a pointer. IsStream marks a tool that answers with the streaming error.
 type ToolView struct {
 	Name          string
 	Tool          string
@@ -51,6 +52,7 @@ type ToolView struct {
 	IsReadOnly    bool
 	IsIdempotent  bool
 	HasInput      bool
+	IsRounded     bool
 	Groups        []GroupView
 	Body          *AssignView
 	IsStream      bool
@@ -112,6 +114,7 @@ func toolView(g *Generator, t *tool, s *gocode.Scope) ToolView {
 		IsIdempotent: slices.Contains(safeMethods, t.op.Spec.Method) || slices.Contains(idempotentMethods, t.op.Spec.Method),
 		IsStream:     t.isStream,
 		HasInput:     len(t.params) > 0 || t.body != nil,
+		IsRounded:    isRounded(t),
 	}
 	for _, p := range t.params {
 		field := operation.GroupField(p.group.In, n)
@@ -131,6 +134,15 @@ func toolView(g *Generator, t *tool, s *gocode.Scope) ToolView {
 		v.Text, v.IsTextPointer = textResult(operation.BodyType(c), s)
 	}
 	return v
+}
+
+// isRounded reports whether a field of the input of t holds a number that loses digits when read
+// through float64.
+func isRounded(t *tool) bool {
+	if t.body != nil && !gomodel.FitsFloat64(operation.BodyType(t.body.content)) {
+		return true
+	}
+	return slices.ContainsFunc(t.params, func(p param) bool { return !gomodel.FitsFloat64(p.field.Type) })
 }
 
 // textResult is the expression that reads a result of type t as a string, when its underlying
