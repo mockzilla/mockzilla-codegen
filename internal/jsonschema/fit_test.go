@@ -88,6 +88,12 @@ func TestMisfit(t *testing.T) {
 		{name: "Min length counts code points", value: stringValue("é"), schema: &spec.Schema{Limits: spec.Limits{MinLength: new(int64(2))}}, want: "it is shorter than 2 characters"},
 		{name: "Max length counts code points", value: stringValue("éé"), schema: &spec.Schema{Limits: spec.Limits{MaxLength: new(int64(2))}}},
 		{name: "Max length", value: stringValue("abc"), schema: &spec.Schema{Limits: spec.Limits{MaxLength: new(int64(2))}}, want: "it is longer than 2 characters"},
+		{name: "Length before pattern", value: stringValue("abc"), schema: &spec.Schema{Pattern: "^x$", Limits: spec.Limits{MaxLength: new(int64(2))}}, want: "it is longer than 2 characters"},
+		{name: "Pattern", value: stringValue("red"), schema: &spec.Schema{Pattern: "^[0-9a-f]{6}$"}, want: `it does not match the pattern "^[0-9a-f]{6}$"`},
+		{name: "A pattern matches anywhere", value: stringValue("a-1"), schema: &spec.Schema{Pattern: `\d`}},
+		{name: "A pattern with a \\u escape", value: stringValue("a b"), schema: &spec.Schema{Pattern: `^[\u0021-\u007E]+$`}, want: `it does not match the pattern "^[\\u0021-\\u007E]+$"`},
+		{name: "A pattern that is not RE2 checks nothing", value: stringValue("root"), schema: &spec.Schema{Pattern: "^(?!root$).+$"}},
+		{name: "A pattern applies to strings only", value: numberValue("1"), schema: &spec.Schema{Pattern: "^x$"}},
 
 		{name: "A $ref", value: stringValue("x"), schema: &spec.Schema{Ref: &spec.Ref{Name: "N", Target: integer}}, want: "it is a string, the schema wants integer"},
 		{name: "Keywords next to a $ref", value: stringValue("x"), schema: &spec.Schema{Ref: &spec.Ref{Name: "S", Target: str}, Enum: []spec.Value{stringValue("y")}}, want: "it is none of the enum values"},

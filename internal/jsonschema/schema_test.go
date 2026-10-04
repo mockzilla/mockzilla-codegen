@@ -88,6 +88,8 @@ func TestSchema(t *testing.T) {
 			want: `{"minimum":0,"exclusiveMaximum":10.5,"multipleOf":2,"minLength":1,"maxLength":2,"minItems":3,"maxItems":4,"uniqueItems":true,"minProperties":5,"maxProperties":6}`,
 		},
 		{name: "Exclusive minimum", schema: &spec.Schema{Limits: spec.Limits{Minimum: &spec.Bound{Value: num("1"), Exclusive: true}}}, want: `{"exclusiveMinimum":1}`},
+		{name: "Pattern after the lengths", schema: &spec.Schema{Types: spec.TypeString, Pattern: `^\d+$`, Limits: spec.Limits{MaxLength: new(int64(4))}}, want: `{"type":"string","maxLength":4,"pattern":"^\\d+$"}`},
+		{name: "Pattern with \\u escapes", schema: &spec.Schema{Pattern: `^[\u0020-\u007E\u00e9]+\u2026$`}, want: `{"pattern":"^[\\x20-\\x7E\\xE9]+…$"}`},
 		{name: "Extensions and discriminator are left out", schema: &spec.Schema{Extensions: []spec.Extension{{Name: "x-go-type"}}, Discriminator: &spec.Discriminator{Property: "kind"}}, want: `{}`},
 	}
 
@@ -142,6 +144,28 @@ func TestSchemaLeavesOutADefaultThatDoesNotFit(t *testing.T) {
 			Message:  "the default does not fit its schema, so the tool input leaves it out: it is an array, the schema wants string",
 		},
 	}, b.Diagnostics(), "a component used twice is warned about once")
+}
+
+func TestSchemaLeavesOutAPatternThatIsNotRE2(t *testing.T) {
+	t.Parallel()
+
+	owner := &spec.Schema{
+		Types:   spec.TypeString,
+		Pattern: "^(?!root$).+$",
+		Origin:  spec.Origin{Pointer: "/components/schemas/Owner", File: "api.yaml", Line: 9, Col: 7},
+	}
+	b := NewBuilder()
+
+	got := b.Document(b.Schema(owner))
+
+	assert.JSONEq(t, `{"type":"string"}`, string(got))
+	assert.Equal(t, []diag.Diagnostic{{
+		Severity: diag.Warning,
+		Code:     diag.CodePatternUnsupported,
+		Pointer:  "/components/schemas/Owner",
+		Origin:   diag.Origin{File: "api.yaml", Line: 9, Col: 7},
+		Message:  "pattern \"^(?!root$).+$\" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?!`), so the tool input leaves it out",
+	}}, b.Diagnostics())
 }
 
 func TestSchemaRefs(t *testing.T) {

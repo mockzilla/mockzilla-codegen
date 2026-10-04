@@ -1,0 +1,43 @@
+openapi: 3.1.0
+info: {title: tags over MCP, version: "1"}
+paths:
+  /tags:
+    post:
+      operationId: addTag
+      summary: Add a tag
+      parameters:
+        - name: color
+          in: query
+          description: The color as six hex digits.
+          schema: {type: string, pattern: '^[0-9a-f]{6}$', default: red}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Tag'}
+      responses:
+        "200":
+          description: the tag as it was added
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Added'}}
+components:
+  schemas:
+    Tag:
+      type: object
+      required: [name]
+      properties:
+        name:
+          description: Printable characters, no space.
+          type: string
+          pattern: '^[\u0021-\u007E]+$'
+        owner:
+          description: Anyone but root.
+          type: string
+          pattern: '^(?!root$).+$'
+    Added:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+        owner: {type: string}
+        color: {type: string}
