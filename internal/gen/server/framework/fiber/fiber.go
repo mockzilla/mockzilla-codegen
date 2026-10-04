@@ -20,7 +20,7 @@ import (
 
 const importPath = "github.com/gofiber/fiber/v3"
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // pattern writes routes as fiber takes them: the characters fiber reads as the start of a

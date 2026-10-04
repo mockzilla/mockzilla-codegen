@@ -30,7 +30,7 @@ func TestFramework(t *testing.T) {
 	assert.Equal(t, "std-http", fw.Name())
 	assert.Equal(t, framework.NetHTTP, fw.Family())
 	assert.Equal(t, []gomodel.Import{{Path: "net/http"}}, fw.Imports())
-	_, err := fw.Templates().Open("router.tmpl")
+	_, err := fw.Templates().Open("templates/router.tmpl")
 	require.NoError(t, err)
 }
 

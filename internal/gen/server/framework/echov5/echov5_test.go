@@ -25,7 +25,7 @@ func TestFramework(t *testing.T) {
 	assert.Equal(t, "echo-v5", fw.Name())
 	assert.Equal(t, framework.Native, fw.Family())
 	assert.Equal(t, []gomodel.Import{{Path: "github.com/labstack/echo/v5"}}, fw.Imports())
-	_, err := fw.Templates().Open("router.tmpl")
+	_, err := fw.Templates().Open("templates/router.tmpl")
 	require.NoError(t, err)
 }
 

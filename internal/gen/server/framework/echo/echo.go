@@ -18,7 +18,7 @@ import (
 
 const importPath = "github.com/labstack/echo/v4"
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // pattern writes routes as echo takes them.

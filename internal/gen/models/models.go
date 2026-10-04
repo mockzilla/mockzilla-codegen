@@ -15,7 +15,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/render"
 )
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // partOrder is the order parts are listed in, and so the order they fill a shared file.

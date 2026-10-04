@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/fs"
 	"maps"
+	"path"
 	"slices"
 	"strings"
 	"text/template"
@@ -24,6 +25,9 @@ import (
 )
 
 const (
+	// Dir is the folder of a set's FS that holds its templates.
+	Dir = "templates"
+
 	fileTemplate = "render/file.tmpl"
 
 	// missingKey makes a key a map does not have an error, where a template would write noValue.
@@ -34,12 +38,12 @@ const (
 	noValue = "<no value>"
 )
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
-// Set is the templates of one generator: the .tmpl files at the root of FS, named Name/<file>
-// once loaded. Parts maps each part to the file that renders it; Blocks lists the blocks a
-// config may override, which a template writes with the override func.
+// Set is the templates of one generator: the .tmpl files in the Dir folder of FS, named
+// Name/<file> once loaded. Parts maps each part to the file that renders it; Blocks lists the
+// blocks a config may override, which a template writes with the override func.
 type Set struct {
 	Name   string
 	FS     fs.FS
@@ -131,7 +135,7 @@ func (e *Engine) RenderFile(d FileData) ([]byte, error) {
 }
 
 func (e *Engine) load(set Set) error {
-	entries, err := fs.ReadDir(set.FS, ".")
+	entries, err := fs.ReadDir(set.FS, Dir)
 	if err != nil {
 		return fmt.Errorf("%w: %s: %w", ErrTemplate, set.Name, err)
 	}
@@ -142,7 +146,7 @@ func (e *Engine) load(set Set) error {
 		}
 		name := set.Name + "/" + entry.Name()
 		var text []byte
-		if text, err = fs.ReadFile(set.FS, entry.Name()); err == nil {
+		if text, err = fs.ReadFile(set.FS, path.Join(Dir, entry.Name())); err == nil {
 			_, err = e.tmpl.New(name).Parse(string(text))
 		}
 		if err != nil {

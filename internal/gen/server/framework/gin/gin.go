@@ -19,7 +19,7 @@ import (
 
 const importPath = "github.com/gin-gonic/gin"
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // pattern writes routes as gin takes them: a literal colon or star cannot be escaped, and the

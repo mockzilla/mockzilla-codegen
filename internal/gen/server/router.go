@@ -9,11 +9,13 @@ package server
 
 import (
 	"io/fs"
+	"path"
 	"regexp"
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
+	"github.com/mockzilla/mockzilla-codegen/internal/render"
 )
 
 // RouterView is the data of the router part. Framework is the name the framework's package is
@@ -80,6 +82,6 @@ func packages(fw framework.Framework, s *gocode.Scope, name string) map[string]s
 // uses reports whether the template name of fw writes field, such as .Framework, so that a view
 // imports what its template writes and nothing else.
 func uses(fw framework.Framework, name, field string) bool {
-	text, err := fs.ReadFile(fw.Templates(), name)
+	text, err := fs.ReadFile(fw.Templates(), path.Join(render.Dir, name))
 	return err == nil && regexp.MustCompile(regexp.QuoteMeta(field)+`\b`).Match(text)
 }

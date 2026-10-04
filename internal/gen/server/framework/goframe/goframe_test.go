@@ -25,7 +25,7 @@ func TestFramework(t *testing.T) {
 	assert.Equal(t, "goframe", fw.Name())
 	assert.Equal(t, framework.NetHTTP, fw.Family())
 	assert.Equal(t, []gomodel.Import{{Path: "github.com/gogf/gf/v2/net/ghttp"}, {Path: "github.com/gogf/gf/v2/util/guid"}, {Path: "net/http"}}, fw.Imports())
-	for _, name := range []string{"router.tmpl", "scaffold-main.tmpl"} {
+	for _, name := range []string{"templates/router.tmpl", "templates/scaffold-main.tmpl"} {
 		_, err := fw.Templates().Open(name)
 		require.NoError(t, err)
 	}

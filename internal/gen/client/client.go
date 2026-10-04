@@ -35,7 +35,7 @@ const (
 // blockInterfaceHeader is the block of the client templates a config may override.
 const blockInterfaceHeader = "client.interface-header"
 
-//go:embed *.tmpl
+//go:embed templates/*.tmpl
 var templates embed.FS
 
 // Options are the settings of the client generator. Name is the client type; Timeout is what the
