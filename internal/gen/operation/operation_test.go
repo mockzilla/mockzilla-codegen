@@ -255,3 +255,32 @@ func TestPartsOf(t *testing.T) {
 		})
 	}
 }
+
+func TestFrameType(t *testing.T) {
+	t.Parallel()
+
+	str := gomodel.Builtin{Name: "string"}
+	chunk := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Chunk", Kind: gomodel.KindStruct}}
+	note := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Note", Kind: gomodel.KindDefined, Target: str}}
+	tests := []struct {
+		name    string
+		content gomodel.Content
+		want    gomodel.Type
+	}{
+		{name: "A struct", content: gomodel.Content{Item: chunk}, want: chunk},
+		{name: "Anything JSON", content: gomodel.Content{Item: gomodel.Builtin{Name: "any"}}, want: gomodel.Builtin{Name: "any"}},
+		{name: "No schema is bytes", content: gomodel.Content{}, want: bytesType},
+		{name: "A string is bytes", content: gomodel.Content{Item: gomodel.Pointer{Elem: str}}, want: bytesType},
+		{name: "A defined string is bytes", content: gomodel.Content{Item: note}, want: bytesType},
+		{name: "A date-time is bytes", content: gomodel.Content{Item: gomodel.Qualified{Import: gomodel.Import{Path: "time"}, Name: "Time"}}, want: bytesType},
+		{name: "A string enum is bytes", content: gomodel.Content{Item: gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Kind", Kind: gomodel.KindDefined, Target: str, Enum: &gomodel.Enum{Base: str}}}}, want: bytesType},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, FrameType(tc.content))
+		})
+	}
+}

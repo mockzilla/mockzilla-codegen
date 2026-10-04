@@ -98,7 +98,7 @@ func signatureView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Signatu
 		v.Response = s.Symbol(PartResponses, n.ClientResponse(op.Name))
 	}
 	if _, c, ok := streamBody(op); ok && g.opts.HasStreams {
-		v.StreamType = streamType(s.Expr(frameType(c)), s)
+		v.StreamType = streamType(s.Expr(operation.FrameType(c)), s)
 	}
 	return v
 }

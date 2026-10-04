@@ -419,7 +419,7 @@ func TestGenerateImports(t *testing.T) {
 				"imports: [{package: net/netip}, {package: example.com/shop/tenant, alias: tn}, {package: math/big}]\n" +
 				"templates: {server.request-options-extra: \"Remote netip.Addr\\nTenant tn.ID\"}\n",
 			want: map[string][]string{
-				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, `"net/netip"`, `tn "example.com/shop/tenant"`, ofModels, ofChi, ofRuntime},
+				"api/gen.go":       {`"context"`, `"errors"`, `"io"`, `"net/http"`, `"net/netip"`, `tn "example.com/shop/tenant"`, ofModels, ofChi, ofRuntime},
 				"models/models.go": nil,
 			},
 			unused: []Diagnostic{{
@@ -433,7 +433,7 @@ func TestGenerateImports(t *testing.T) {
 			cfg: base + "server: {framework: chi, scaffold: {service: ./api/service.go, main: ./cmd/main.go}}\n" +
 				"imports: [{package: embed, alias: _}]\n",
 			want: map[string][]string{
-				"api/gen.go":       {`"context"`, `_ "embed"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
+				"api/gen.go":       {`"context"`, `_ "embed"`, `"errors"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
 				"api/service.go":   {`"context"`, `_ "embed"`, `"errors"`},
 				"cmd/main.go":      {`"context"`, `_ "embed"`, `"log/slog"`, `"net/http"`, `"os"`, `"os/signal"`, `"syscall"`, `"time"`, `"example.com/work/api"`},
 				"models/models.go": {`_ "embed"`},
@@ -444,7 +444,7 @@ func TestGenerateImports(t *testing.T) {
 			cfg: base + "server: {framework: chi}\nimports: [{package: embed, alias: _}, {package: embed}]\n" +
 				"templates: {server.request-options-extra: Files embed.FS}\n",
 			want: map[string][]string{
-				"api/gen.go":       {`"context"`, `"embed"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
+				"api/gen.go":       {`"context"`, `"embed"`, `"errors"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
 				"models/models.go": {`_ "embed"`},
 			},
 		},
@@ -452,7 +452,7 @@ func TestGenerateImports(t *testing.T) {
 			name: "Path under _ and under a name no code names keeps its _ import",
 			cfg:  base + "server: {framework: chi}\nimports: [{package: example.com/shop/models, alias: _}, {package: example.com/shop/models}]\n",
 			want: map[string][]string{
-				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, `_ "example.com/shop/models"`, ofModels, ofChi, ofRuntime},
+				"api/gen.go":       {`"context"`, `"errors"`, `"io"`, `"net/http"`, `_ "example.com/shop/models"`, ofModels, ofChi, ofRuntime},
 				"models/models.go": {`_ "example.com/shop/models"`},
 			},
 			unused: []Diagnostic{{
@@ -466,7 +466,7 @@ func TestGenerateImports(t *testing.T) {
 			cfg: base + "server: {framework: chi}\nimports: [{package: example.com/shop/models}]\n" +
 				"templates: {server.request-options-extra: Owner models.Owner}\n",
 			want: map[string][]string{
-				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, `"example.com/shop/models"`, `models2 "example.com/work/models"`, ofChi, ofRuntime},
+				"api/gen.go":       {`"context"`, `"errors"`, `"io"`, `"net/http"`, `"example.com/shop/models"`, `models2 "example.com/work/models"`, ofChi, ofRuntime},
 				"models/models.go": nil,
 			},
 		},
@@ -474,7 +474,7 @@ func TestGenerateImports(t *testing.T) {
 			name: "Listed package no code names changes no name",
 			cfg:  base + "server: {framework: chi}\nimports: [{package: example.com/shop/models}, {package: example.com/shop/context}]\n",
 			want: map[string][]string{
-				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
+				"api/gen.go":       {`"context"`, `"errors"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
 				"models/models.go": nil,
 			},
 			unused: []Diagnostic{
@@ -486,7 +486,7 @@ func TestGenerateImports(t *testing.T) {
 			name: "Listed alias of a package the generator imports is its name in the generated code too",
 			cfg:  base + "server: {framework: chi}\nimports: [{package: net/http, alias: web}]\n",
 			want: map[string][]string{
-				"api/gen.go":       {`"context"`, `"io"`, `web "net/http"`, ofModels, ofChi, ofRuntime},
+				"api/gen.go":       {`"context"`, `"errors"`, `"io"`, `web "net/http"`, ofModels, ofChi, ofRuntime},
 				"models/models.go": nil,
 			},
 			has: "\tRawRequest *web.Request\n",
@@ -502,7 +502,7 @@ func TestGenerateImports(t *testing.T) {
 			cfg: base + "server: {framework: chi}\nimports: [{package: example.com/work/api}, {package: example.com/work/models}]\n" +
 				"templates: {server.request-options-extra: First models.Pet}\n",
 			want: map[string][]string{
-				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
+				"api/gen.go":       {`"context"`, `"errors"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
 				"models/models.go": nil,
 			},
 			unused: []Diagnostic{{
@@ -518,7 +518,7 @@ func TestGenerateImports(t *testing.T) {
 				"templates: {server.scaffold.service-fields: Tenant tn.ID}\n" +
 				"extra-files: {./tenant/tenant.go: 'var Default tn.ID'}\n",
 			want: map[string][]string{
-				"api/gen.go":       {`"context"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
+				"api/gen.go":       {`"context"`, `"errors"`, `"io"`, `"net/http"`, ofModels, ofChi, ofRuntime},
 				"api/service.go":   {`"context"`, `"errors"`, `tn "example.com/shop/tenant"`},
 				"models/models.go": nil,
 				"tenant/tenant.go": {`tn "example.com/shop/tenant"`},

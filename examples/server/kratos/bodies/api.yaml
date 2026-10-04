@@ -24,6 +24,37 @@ paths:
           description: echo
           content:
             application/json: {schema: {$ref: '#/components/schemas/Note'}}
+    get:
+      operationId: getForm
+      responses:
+        "200":
+          description: a note as a form
+          content:
+            application/x-www-form-urlencoded: {schema: {$ref: '#/components/schemas/Note'}}
+  /quote:
+    get:
+      operationId: getQuote
+      responses:
+        "200":
+          description: a JSON string
+          content:
+            application/json: {schema: {type: string}}
+  /count:
+    get:
+      operationId: getCount
+      responses:
+        "200":
+          description: a number as text
+          content:
+            text/plain: {schema: {type: integer}}
+  /notes:
+    get:
+      operationId: listNotes
+      responses:
+        "200":
+          description: one note per event
+          content:
+            text/event-stream: {schema: {$ref: '#/components/schemas/Note'}}
   /upload:
     post:
       operationId: upload

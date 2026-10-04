@@ -65,13 +65,14 @@ type Operation struct {
 // without one. IsRaw is set when the body has no schema: any, a string or bytes. Constructor is the
 // function that makes the response data of this status, empty without a server: it takes the
 // status first when HasStatusArg is set, which is when the key is no number, then the body when
-// there is one.
+// there is one. With IsStream it takes an iter.Seq of Body, one frame.
 type Response struct {
 	Status       string
 	Code         int
 	ContentType  string
 	Body         TypeRef
 	IsRaw        bool
+	IsStream     bool
 	Constructor  TypeRef
 	HasStatusArg bool
 }
@@ -177,15 +178,16 @@ func describeResponses(namer *naming.Namer, op *gomodel.Operation, lay *layout.L
 	for _, r := range op.Responses {
 		code, _ := spec.StatusCode(r.Status)
 		res := Response{Status: r.Status, Code: code}
-		if c, ok := operation.FirstBody(r.Contents); ok {
-			res.ContentType = c.MediaType
-			res.Body = typeRef(operation.BodyType(c), lay)
-			res.IsRaw = c.Type == nil
+		c := server.Constructors(namer, op, r)[0]
+		switch {
+		case c.IsStream:
+			res.ContentType, res.Body, res.IsStream = c.Body.MediaType, typeRef(operation.FrameType(c.Body), lay), true
+		case c.HasBody:
+			res.ContentType, res.Body, res.IsRaw = c.Body.MediaType, typeRef(operation.BodyType(c.Body), lay), c.Body.Type == nil
 		}
 		if service != nil {
-			name, hasStatusArg := server.Constructor(namer, op, r)
-			res.Constructor = inFile(name, service)
-			res.HasStatusArg = hasStatusArg
+			res.Constructor = inFile(c.Name, service)
+			res.HasStatusArg = c.HasStatusArg
 		}
 		out = append(out, res)
 	}

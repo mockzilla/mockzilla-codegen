@@ -40,6 +40,7 @@ func ContentType(h http.Header) string {
 
 // IsJSON reports a JSON media type: application/json or one with a +json suffix.
 func IsJSON(mediaType string) bool {
+	mediaType = baseMediaType(mediaType)
 	return mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
 }
 
@@ -143,6 +144,11 @@ func DecodeFile(r *http.Request, isRequired bool) (File, error) {
 		return File{}, err
 	}
 	return NewFileReader(body, "", ContentType(r.Header), r.ContentLength), nil
+}
+
+func baseMediaType(mediaType string) string {
+	mediaType, _, _ = strings.Cut(strings.ToLower(mediaType), ";")
+	return strings.TrimSpace(mediaType)
 }
 
 // assignForm stores form values in dst, nesting bracketed keys.

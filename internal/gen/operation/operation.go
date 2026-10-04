@@ -43,6 +43,8 @@ var styleNames = map[string]string{
 	"deepObject":     "StyleDeepObject",
 }
 
+var bytesType = gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}
+
 // defaultStyles are the styles of parameters that name none, by location.
 var defaultStyles = map[string]string{spec.InPath: "simple", spec.InQuery: "form", spec.InHeader: "simple", spec.InCookie: "form"}
 
@@ -84,10 +86,24 @@ func BodyType(c gomodel.Content) gomodel.Type {
 		return gomodel.Held(c.Type)
 	case runtime.IsJSON(c.MediaType):
 		return gomodel.Builtin{Name: "any"}
-	case strings.HasPrefix(c.MediaType, "text/"):
+	case strings.HasPrefix(BaseMediaType(c.MediaType), "text/"):
 		return gomodel.Builtin{Name: "string"}
 	}
-	return gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}
+	return bytesType
+}
+
+// FrameType is the type of one frame: the item type, or bytes for none and for text.
+func FrameType(c gomodel.Content) gomodel.Type {
+	if c.Item == nil || gomodel.JSONKinds(c.Item) == gomodel.JSONString {
+		return bytesType
+	}
+	return c.Item
+}
+
+// BaseMediaType is a media type in lower case and without its parameters.
+func BaseMediaType(mediaType string) string {
+	base, _, _ := strings.Cut(strings.ToLower(mediaType), ";")
+	return strings.TrimSpace(base)
 }
 
 // FirstBody is the JSON body of a response, else its first one.

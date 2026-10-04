@@ -24,6 +24,24 @@ paths:
           description: echo
           content:
             application/json: {schema: {$ref: '#/components/schemas/Note'}}
+    get:
+      operationId: getForm
+      responses:
+        "200":
+          description: a note as a form
+          content:
+            application/x-www-form-urlencoded: {schema: {$ref: '#/components/schemas/Note'}}
+  /charset:
+    post:
+      operationId: postCharset
+      requestBody:
+        content:
+          application/json; charset=utf-8: {schema: {$ref: '#/components/schemas/Note'}}
+      responses:
+        "200":
+          description: echo
+          content:
+            application/json; charset=utf-8: {schema: {$ref: '#/components/schemas/Note'}}
   /upload:
     post:
       operationId: upload

@@ -24,7 +24,7 @@ func (service) Chat(_ context.Context, opts *ChatServiceRequestOptions) (*ChatRe
 }
 
 func (service) ListEvents(context.Context, *ListEventsServiceRequestOptions) (*ListEventsResponseData, error) {
-	return NewListEventsResponseData("data: {\"seq\":1}\n\n"), nil
+	return NewListEventsResponseData(func(yield func(Event) bool) { yield(Event{Seq: 1}) }), nil
 }
 
 // newSession serves the service over HTTP, registers the tools on an MCP server that calls it

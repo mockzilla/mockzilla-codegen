@@ -393,9 +393,10 @@ type Operation struct {
 type Response struct {
 	Status       string  // the key as the spec writes it: 200, 2XX, default
 	Code         int     // the code read from the key: 200 for 2XX, 0 for default
-	ContentType  string  // of the JSON body, else the first one; empty without a body
-	Body         TypeRef // the type the constructor takes; empty without a body
+	ContentType  string  // of the JSON body, else the first one read whole, else the first stream
+	Body         TypeRef // the type the constructor takes, one frame with IsStream; empty without a body
 	IsRaw        bool    // the body has no schema: any, string or []byte
+	IsStream     bool    // the body is sequential: the constructor takes an iter.Seq of Body
 	Constructor  TypeRef // makes the response data of this status; empty without a server block
 	HasStatusArg bool    // the constructor takes the status first
 }
@@ -411,7 +412,9 @@ every key that is no code from 100 to 599, no range and not `default`, and the k
 `Constructor` is the function a hand-written service calls to answer with one status, such as
 `NewGetPetResponseData404`. It takes the status first when `HasStatusArg` is set, which is when
 the key is no number, such as a range or `default`. Then it takes the body, when the response has
-one. It also sets the content type the spec gives. That field is unexported, so a literal of
+one; with `IsStream` set that is an `iter.Seq` of `Body`, the frames of a response that is only a
+stream. A response with a body read whole and a stream describes the first, and its stream has a
+constructor of the same name with the suffix `Stream`. It also sets the content type the spec gives. That field is unexported, so a literal of
 `ResponseData` in another package cannot set it. Write the constructor with `expr`, like a type.
 For a success response with a body, and `body` of the type it takes:
 

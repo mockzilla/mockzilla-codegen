@@ -89,10 +89,13 @@ func TestDefaultErrorHandler(t *testing.T) {
 	tests := []struct {
 		name            string
 		accept          string
+		contentType     string
 		err             error
 		wantContentType string
 		wantBody        string
 	}{
+		{name: "Under the JSON media type set", contentType: "application/problem+json", err: notFound{Message: "gone"}, wantContentType: "application/problem+json", wantBody: `{"message":"gone"}`},
+		{name: "A media type set that is no JSON", contentType: "application/xml", err: notFound{Message: "gone"}, wantContentType: "application/json", wantBody: `{"message":"gone"}`},
 		{name: "Handler error as JSON", err: &HandlerError{Kind: ErrorDecode, Err: errors.New("bad")}, wantContentType: "application/json", wantBody: `{"error":"invalid request body: bad"}`},
 		{name: "Typed error as its own JSON", accept: "application/json", err: notFound{Message: "gone"}, wantContentType: "application/json", wantBody: `{"message":"gone"}`},
 		{name: "Wildcard accept", accept: "text/html, */*;q=0.1", err: notFound{Message: "gone"}, wantContentType: "application/json", wantBody: `{"message":"gone"}`},
@@ -108,6 +111,9 @@ func TestDefaultErrorHandler(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			r.Header.Set("Accept", tc.accept)
 			w := httptest.NewRecorder()
+			if tc.contentType != "" {
+				w.Header().Set("Content-Type", tc.contentType)
+			}
 			DefaultErrorHandler{}.HandleError(w, r, http.StatusTeapot, tc.err)
 
 			assert.Equal(t, http.StatusTeapot, w.Code)
@@ -115,6 +121,17 @@ func TestDefaultErrorHandler(t *testing.T) {
 			assert.Equal(t, tc.wantBody, w.Body.String())
 		})
 	}
+}
+
+func TestDefaultErrorHandlerAfterACut(t *testing.T) {
+	t.Parallel()
+
+	w := httptest.NewRecorder()
+	err := &HandlerError{Kind: ErrorService, Err: fmt.Errorf("%w: gone", ErrResponseCut)}
+	DefaultErrorHandler{}.HandleError(w, httptest.NewRequest(http.MethodGet, "/", nil), http.StatusInternalServerError, err)
+
+	assert.Empty(t, w.Header())
+	assert.Zero(t, w.Body.Len())
 }
 
 func TestErrorHandlerFunc(t *testing.T) {

@@ -35,3 +35,36 @@ func TestHeaderSuffix(t *testing.T) {
 		})
 	}
 }
+
+func TestConstructors(t *testing.T) {
+	t.Parallel()
+
+	whole := gomodel.Content{MediaType: "application/json", Type: gomodel.Builtin{Name: "string"}}
+	events := gomodel.Content{MediaType: "text/event-stream", Item: gomodel.Builtin{Name: "int"}}
+	tests := []struct {
+		name     string
+		response gomodel.Response
+		want     []Constructor
+	}{
+		{name: "No body", response: gomodel.Response{Status: "204"}, want: []Constructor{{Name: "NewOpResponseData"}}},
+		{name: "A body read whole", response: gomodel.Response{Status: "200", Contents: []gomodel.Content{whole}}, want: []Constructor{{Name: "NewOpResponseData", Body: whole, HasBody: true}}},
+		{name: "Frames alone", response: gomodel.Response{Status: "200", Contents: []gomodel.Content{events}}, want: []Constructor{{Name: "NewOpResponseData", Body: events, HasBody: true, IsStream: true}}},
+		{
+			name:     "Both, the frames with a suffix",
+			response: gomodel.Response{Status: "default", Contents: []gomodel.Content{events, whole}},
+			want: []Constructor{
+				{Name: "NewOpResponseData", HasStatusArg: true, Body: whole, HasBody: true},
+				{Name: "NewOpResponseDataStream", HasStatusArg: true, Body: events, HasBody: true, IsStream: true},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			op := &gomodel.Operation{Name: "Op", Responses: []gomodel.Response{tc.response}}
+			assert.Equal(t, tc.want, Constructors(naming.New(nil), op, tc.response))
+		})
+	}
+}

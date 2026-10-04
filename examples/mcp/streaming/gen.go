@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"iter"
 	"net/http"
 	"net/url"
 	"slices"
@@ -77,6 +78,11 @@ func NewChatResponseData(body *Reply) *ChatResponseData {
 	return &ChatResponseData{Status: 200, Body: body, contentType: "application/json"}
 }
 
+// NewChatResponseDataStream returns the 200 response that streams frames as text/event-stream.
+func NewChatResponseDataStream(frames iter.Seq[Chunk]) *ChatResponseData {
+	return &ChatResponseData{Status: 200, Body: frames, contentType: "text/event-stream"}
+}
+
 // WithStatus sets the status code.
 func (r *ChatResponseData) WithStatus(code int) *ChatResponseData {
 	r.Status = code
@@ -128,9 +134,9 @@ type ListEventsResponseData struct {
 	contentType string
 }
 
-// NewListEventsResponseData returns the 200 response with its text/event-stream body.
-func NewListEventsResponseData(body string) *ListEventsResponseData {
-	return &ListEventsResponseData{Status: 200, Body: body, contentType: "text/event-stream"}
+// NewListEventsResponseData returns the 200 response that streams frames as text/event-stream.
+func NewListEventsResponseData(frames iter.Seq[Event]) *ListEventsResponseData {
+	return &ListEventsResponseData{Status: 200, Body: frames, contentType: "text/event-stream"}
 }
 
 // WithStatus sets the status code.
@@ -300,6 +306,8 @@ func (a *HTTPAdapter) ListEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+	// A response that failed to write leaves its media type, which is not the error's.
+	w.Header().Del("Content-Type")
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
@@ -311,7 +319,11 @@ func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, r
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	if err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
+	err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	switch {
+	case errors.Is(err, runtime.ErrContentType):
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+	case err != nil:
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
 	}
 }

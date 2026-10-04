@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"path"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
@@ -37,6 +38,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/render"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // The server parts. The scaffold parts are layout's, since the layout places them.
@@ -101,8 +103,7 @@ type routeIssue struct {
 	reason string
 }
 
-// New returns the generator of the server parts of m, and a warning for each operation the
-// router cannot serve.
+// New returns the generator of the server parts of m, with its warnings.
 func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 	g := &Generator{opts: opts, ops: m.Operations}
 	var issues []routeIssue
@@ -110,13 +111,20 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 
 	var diags []diag.Diagnostic
 	for _, is := range issues {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Warning,
-			Code:     diag.CodeRouteDropped,
-			Pointer:  is.op.Spec.Origin.Pointer,
-			Origin:   diag.Origin{File: is.op.Spec.Origin.File, Line: is.op.Spec.Origin.Line, Col: is.op.Spec.Origin.Col},
-			Message:  is.op.Name + " is not routed: " + is.reason,
-		})
+		diags = append(diags, warning(is.op, diag.CodeRouteDropped, is.op.Name+" is not routed: "+is.reason))
+	}
+	for _, op := range m.Operations {
+		if op.Spec.IsWebhook {
+			continue
+		}
+		for _, r := range op.Responses {
+			for _, c := range r.Contents {
+				if !isWritable(c) {
+					diags = append(diags, warning(op, diag.CodeServerBodyUnwritable, op.Name+" answers "+r.Status+" as "+c.MediaType+
+						", which the server cannot write "+gocode.Text(gomodel.Elem(operation.BodyType(c)))+" as; set Body to a string, []byte or runtime.File"))
+				}
+			}
+		}
 	}
 	return g, diags
 }
@@ -274,6 +282,36 @@ func routes(ops []*gomodel.Operation, fw framework.Framework) ([]framework.Route
 	return kept, issues
 }
 
+func warning(op *gomodel.Operation, code, message string) diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.Warning,
+		Code:     code,
+		Pointer:  op.Spec.Origin.Pointer,
+		Origin:   diag.Origin{File: op.Spec.Origin.File, Line: op.Spec.Origin.Line, Col: op.Spec.Origin.Col},
+		Message:  message,
+	}
+}
+
+// isWritable reports a body runtime.Write encodes under its media type.
+func isWritable(c gomodel.Content) bool {
+	mediaType := operation.BaseMediaType(c.MediaType)
+	base := gomodel.Elem(operation.BodyType(c))
+	under := gomodel.Underlying(base)
+	switch {
+	case under == stringType, under == bytesType, under == fileType, under == anyType:
+		return true
+	case runtime.IsJSON(mediaType), runtime.IsSequential(mediaType), strings.Contains(mediaType, "*"), mediaType == "application/x-www-form-urlencoded":
+		return true
+	case mediaType == "multipart/form-data":
+		return gomodel.StructDecl(base) != nil
+	case strings.HasPrefix(mediaType, "text/"):
+		_, isBuiltin := under.(gomodel.Builtin)
+		_, isQualified := under.(gomodel.Qualified)
+		return isBuiltin || isQualified
+	}
+	return false
+}
+
 // operationTypes lists the types an operation's contract names.
 func operationTypes(op *gomodel.Operation) []gomodel.Type {
 	var out []gomodel.Type
@@ -285,7 +323,7 @@ func operationTypes(op *gomodel.Operation) []gomodel.Type {
 	}
 	for _, r := range op.Responses {
 		for _, c := range r.Contents {
-			out = append(out, c.Type)
+			out = append(out, c.Type, c.Item)
 		}
 		if r.Headers != nil {
 			out = append(out, gomodel.DeclRef{Decl: r.Headers})

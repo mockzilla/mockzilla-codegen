@@ -5,6 +5,7 @@ package basic
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -562,6 +563,7 @@ func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
 	res, err := a.svc.CreatePet(r.Context(), opts)
 	if err != nil {
 		if problem, ok := runtime.AsError[Problem](err); ok {
+			w.Header().Set("Content-Type", "application/problem+json")
 			a.opts.ErrorHandler.HandleError(w, r, 409, problem)
 			return
 		}
@@ -587,6 +589,7 @@ func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
 	res, err := a.svc.GetPet(r.Context(), opts)
 	if err != nil {
 		if problem, ok := runtime.AsError[Problem](err); ok {
+			w.Header().Set("Content-Type", "application/problem+json")
 			a.opts.ErrorHandler.HandleError(w, r, 404, problem)
 			return
 		}
@@ -638,6 +641,8 @@ func (a *HTTPAdapter) Ping(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+	// A response that failed to write leaves its media type, which is not the error's.
+	w.Header().Del("Content-Type")
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
@@ -649,7 +654,11 @@ func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, r
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	if err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
+	err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	switch {
+	case errors.Is(err, runtime.ErrContentType):
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+	case err != nil:
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
 	}
 }
