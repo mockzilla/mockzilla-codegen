@@ -17,8 +17,10 @@ translation, sits next to each guide's generated output in `examples/migration/`
    ([getting started](getting-started.md)). The old tool can stay until the build is green again.
 2. Write `codegen.yaml` next to the spec from the guide's table. Unknown keys are errors that name
    their path, so a key that did not carry over is caught on the first run, not silently ignored.
-3. Keep the spec. Every version from 3.0 to 3.2 is read, and the `x-go-*` and `x-oapi-codegen-*`
-   extensions the spec already carries keep working ([extensions](extensions.md)). An extension
+3. Keep the spec. Every version from 3.0 to 3.2 is read, and the `x-go-*` extensions the spec
+   already carries keep working ([extensions](extensions.md)). Two are renamed:
+   `x-oapi-codegen-extra-tags` is `x-go-extra-tags`, and `x-oapi-codegen-only-honour-go-name` is
+   `x-go-name-exact`. The old names are ignored, so keep both while both tools run. An extension
    the guide lists as unsupported is ignored, and can stay in the spec while both tools run.
 4. Delete the old generated files and the old `go:generate` lines, then generate. Every file the
    config names is written on every run, so nothing of the old output has to be kept in sync.

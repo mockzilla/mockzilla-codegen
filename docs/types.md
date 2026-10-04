@@ -272,11 +272,3 @@ leaves out.
 ## const
 
 A `const` sets the type of a field and is checked by validation. It makes no constant.
-
-## Coming from oapi-codegen
-
-| Schema | oapi-codegen | mockzilla-codegen |
-|---|---|---|
-| `number` without a format, or with an unknown one | `float32` | `float64` |
-| `string` with format `uuid` | `uuid.UUID` | `string`, checked by validation |
-| `string` with format `email` | `runtime.Email` that fails JSON encoding and decoding on a bad address | `runtime.Email` that decodes any string; `Validate` checks it |

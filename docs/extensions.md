@@ -8,19 +8,18 @@ Extensions change what mockzilla-codegen writes for one schema, property or para
 | `x-go-type-import` | next to `x-go-type` | the package of that type: a path, or `{path, name}` to import it under a name |
 | `x-go-type-name` | schema | the name of the type the schema declares |
 | `x-go-name` | schema, property, parameter | the name of the type, field or parameter field |
-| `x-oapi-codegen-only-honour-go-name` | next to `x-go-name` | use the name as written, even unexported |
+| `x-go-name-exact` | next to `x-go-name` | use the name as written, even unexported |
 | `x-go-type-skip-optional-pointer` | property, parameter | no pointer for an optional field |
 | `x-go-json-ignore` | property | JSON tag `-` |
 | `x-omitempty` | property | `omitempty` on (`true`) or off (`false`) |
-| `x-oapi-codegen-extra-tags` | property | extra struct tags; they win over `models.extra-tags` on the same key |
+| `x-go-extra-tags` | property | extra struct tags; they win over `models.extra-tags` on the same key |
 | `x-enum-names` | enum schema | constant names, in value order |
 | `x-deprecated-reason` | schema, property | the text of `// Deprecated:` when `deprecated: true` is set |
 | `x-sensitive-data` | property | masked in `Masked()` and in logs |
 | `x-mcp` | operation | MCP tool settings: `skip`, `name`, `description` ([MCP](mcp.md#x-mcp)) |
 
 A value of the wrong kind is left out, with a warning. An unknown extension starting with `x-go-`
-or `x-oapi-codegen-` is left out with a warning too, since it is likely a typo. Other `x-*`
-extensions are ignored. Booleans may be written as strings, `"true"`, as older specs do.
+is left out with a warning too, since it is likely a typo. Other `x-*` extensions are ignored. Booleans may be written as strings, `"true"`, as older specs do.
 
 ## x-go-type
 
@@ -63,7 +62,7 @@ type Port = uint16
 `x-go-name` names a field, a parameter field, or a type declared under `components` or for a body.
 `x-go-type-name` names the type any schema declares, inline ones included, and never a field. Both
 take part in clash resolution with the highest rank; a name that still has to change gets a
-warning. The name is exported unless `x-oapi-codegen-only-honour-go-name: true` is set.
+warning. The name is exported unless `x-go-name-exact: true` is set.
 
 ## x-sensitive-data
 
@@ -89,10 +88,3 @@ A type with a sensitive value gets two methods:
 
 JSON encoding stays raw: `json.Marshal(user)` sends the real values, `json.Marshal(user.Masked())`
 the masked ones. A regex pattern RE2 cannot compile falls back to the full mask, with a warning.
-
-## Coming from oapi-codegen
-
-- `x-go-type-name` on a component declares the type under the new name only. oapi-codegen also
-  kept an alias under the component name.
-- `x-mcp` picks the tools of the [MCP](mcp.md) block as it did, with `name` checked against what
-  the SDK takes.

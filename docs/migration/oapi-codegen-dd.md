@@ -64,8 +64,10 @@ not `<Op>ErrorResponse`.
 
 ## Extensions
 
-The list is the same, `x-mcp` included ([extensions](../extensions.md)). `x-go-type-name` on a
-component declares the type under the new name only, without an alias under the component name.
+The list is the same, `x-mcp` included ([extensions](../extensions.md)), apart from two names:
+`x-oapi-codegen-extra-tags` is `x-go-extra-tags`, and `x-oapi-codegen-only-honour-go-name` is
+`x-go-name-exact`. The old names are ignored. `x-go-type-name` on a component declares the type
+under the new name only, without an alias under the component name.
 
 ## Generated code
 

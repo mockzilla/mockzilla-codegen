@@ -40,8 +40,7 @@ func (r *extReader) of(exts []spec.Extension, at spec.Origin) extension.Set {
 	return s
 }
 
-// goName is the Go name x-go-name asks for: as written with x-oapi-codegen-only-honour-go-name,
-// else exported.
+// goName is the Go name x-go-name asks for: as written with x-go-name-exact, else exported.
 func (r *extReader) goName(set extension.Set, name string) string {
 	if name == "" || set.IsExactName {
 		return name

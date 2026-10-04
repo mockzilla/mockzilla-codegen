@@ -1,5 +1,5 @@
 openapi: 3.1.0
-info: {title: x-oapi-codegen-extra-tags, version: "1"}
+info: {title: x-go-extra-tags, version: "1"}
 paths: {}
 components:
   schemas:
@@ -8,7 +8,7 @@ components:
       properties:
         id:
           type: string
-          x-oapi-codegen-extra-tags: {db: order_id, validate: required}
+          x-go-extra-tags: {db: order_id, validate: required}
         total:
           type: number
-          x-oapi-codegen-extra-tags: {db: total_cents}
+          x-go-extra-tags: {db: total_cents}
