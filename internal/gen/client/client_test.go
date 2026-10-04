@@ -169,6 +169,45 @@ func TestViewWithoutOperations(t *testing.T) {
 		"// stand in for the client.\ntype PetClientInterface interface {\n}\n\nvar _ PetClientInterface = (*PetClient)(nil)\n", string(f.render(t, PartOperations)))
 }
 
+func TestViewOfABodyThatCannotBeSent(t *testing.T) {
+	t.Parallel()
+
+	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}
+	path := &gomodel.Decl{Name: "ImportPetPathParams", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
+		Fields: []*gomodel.Field{{Name: "ID", Type: gomodel.Builtin{Name: "string"}}},
+	}}
+	m := &gomodel.Model{
+		Decls: []*gomodel.Decl{pet, path},
+		Operations: []*gomodel.Operation{{
+			Name:   "ImportPet",
+			Spec:   &spec.Operation{Method: "PUT", Path: "/pets/{id}", Body: &spec.RequestBody{Required: true}},
+			Params: []gomodel.ParamGroup{{In: spec.InPath, Decl: path, Params: []*spec.Parameter{{Name: "id", In: spec.InPath, Style: "simple", Required: true}}}},
+			Bodies: []gomodel.Content{
+				{MediaType: "application/xml", Type: gomodel.DeclRef{Decl: pet}},
+				{MediaType: "application/yaml", Type: gomodel.DeclRef{Decl: pet}},
+			},
+			Responses: []gomodel.Response{{Status: "204"}},
+		}},
+	}
+	g, _ := New(m, allOptions())
+
+	got := string(fixture{m: m, g: g, cfg: splitConfig}.render(t, PartOperations))
+
+	assert.Contains(t, got, "func (c *PetClient) ImportPetRequest(ctx context.Context, opts *types.ImportPetRequestOptions) (*http.Request, error) {\n"+
+		"\tif opts == nil {\n"+
+		"\t\topts = &types.ImportPetRequestOptions{}\n"+
+		"\t}\n"+
+		"\tswitch {\n"+
+		"\tcase opts.BodyXML != nil:\n"+
+		"\t\treturn nil, runtime.ContentTypeError(\"application/xml\")\n"+
+		"\tcase opts.BodyYaml != nil:\n"+
+		"\t\treturn nil, runtime.ContentTypeError(\"application/yaml\")\n"+
+		"\tdefault:\n"+
+		"\t\treturn nil, runtime.ErrBodyEmpty\n"+
+		"\t}\n"+
+		"}\n")
+}
+
 // assertGolden compares got with the file at path, or writes it when UPDATE is set.
 func assertGolden(t *testing.T, path string, got []byte) {
 	t.Helper()
