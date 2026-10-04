@@ -52,7 +52,11 @@ func (t *MCPTools) ListPetsTool() *mcp.Tool {
 
 // ListPets handles the list_pets tool: it calls ListPets of the client and answers with what it returns as structured content.
 // An error of the client is the error of the tool, with the body of a response outside 2xx.
-func (t *MCPTools) ListPets(ctx context.Context, _ *mcp.CallToolRequest, in types.ListPetsToolInput) (*mcp.CallToolResult, any, error) {
+func (t *MCPTools) ListPets(ctx context.Context, req *mcp.CallToolRequest, in types.ListPetsToolInput) (*mcp.CallToolResult, any, error) {
+	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+		return nil, nil, err
+	}
+
 	opts := &types.ListPetsRequestOptions{
 		Query: &types.ListPetsQuery{
 			Limit:  in.Limit,

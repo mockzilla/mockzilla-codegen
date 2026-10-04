@@ -55,6 +55,56 @@ func TestToolResult(t *testing.T) {
 	}
 }
 
+func TestToolInput(t *testing.T) {
+	t.Parallel()
+
+	type pet struct {
+		ID uint64 `json:"id"`
+	}
+	type input struct {
+		ID    int64           `json:"id"`
+		Sort  string          `json:"sort,omitempty"`
+		Tags  []int64         `json:"tags,omitempty"`
+		Size  float64         `json:"size,omitempty"`
+		Pet   *pet            `json:"pet,omitempty"`
+		Extra json.RawMessage `json:"extra,omitempty"`
+	}
+	tests := []struct {
+		name    string
+		in      input
+		args    string
+		want    input
+		wantErr bool
+	}{
+		{name: "An integer above 2^53 keeps every digit", in: input{ID: 9007199254740992}, args: `{"id":9007199254740993}`, want: input{ID: 9007199254740993}},
+		{name: "A nested integer keeps every digit", in: input{Pet: &pet{ID: 1 << 63}}, args: `{"pet":{"id":18446744073709551615}}`, want: input{Pet: &pet{ID: 18446744073709551615}}},
+		{name: "Raw JSON keeps every digit", in: input{Extra: json.RawMessage(`{"n":9007199254740992}`)}, args: `{"extra":{"n":9007199254740993}}`, want: input{Extra: json.RawMessage(`{"n":9007199254740993}`)}},
+		{name: "A key the call left out keeps its value", in: input{ID: 1, Sort: "name"}, args: `{"id":1}`, want: input{ID: 1, Sort: "name"}},
+		{name: "A whole number with a fraction or exponent is an integer", in: input{ID: 1, Tags: []int64{1000, 2}}, args: `{"id":1.0,"tags":[1e3,2]}`, want: input{ID: 1, Tags: []int64{1000, 2}}},
+		{name: "A fraction stays", in: input{Size: 1.5}, args: `{"size":1.5}`, want: input{Size: 1.5}},
+		{name: "No arguments change nothing", in: input{ID: 3, Sort: "name"}, want: input{ID: 3, Sort: "name"}},
+		{name: "Arguments that are no JSON fail", args: `{`, wantErr: true},
+		{name: "A number beyond float64 fails", args: `{"size":1e400}`, wantErr: true},
+		{name: "A value of the wrong type fails", args: `{"id":"x"}`, wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tc.in
+			err := ToolInput(json.RawMessage(tc.args), &got)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestToolError(t *testing.T) {
 	t.Parallel()
 

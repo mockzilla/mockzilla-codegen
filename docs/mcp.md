@@ -40,6 +40,11 @@ func (t *MCPTools) ListPets(ctx context.Context, req *mcp.CallToolRequest, in Li
 - `<Op>` is the handler. The SDK validates the arguments against the schema, decodes them into the
   input type and calls it; the handler builds the request options of the client from the input
   and calls the client method.
+- The SDK reads the numbers of the arguments as float64, which rounds an integer above 2^53. So
+  the handler of an input that holds a wider integer than `int32`, raw JSON or a type of another
+  package first decodes the arguments again with `runtime.ToolInput`. An integer sent as plain
+  digits then keeps all of them, and a default the SDK filled in stays. A host written in
+  JavaScript may round such an integer before the server gets it.
 - The tool name is the operation ID in snake case: `listPets` and `list-pets` give `list_pets`.
   Two operations whose names collide are numbered, `list_pets2`, with a `name-clash` note. The
   description is the operation's summary and description.
@@ -178,7 +183,8 @@ res, _ := session.CallTool(ctx, &mcp.CallToolParams{Name: "list_pets", Arguments
 
 The [examples](../examples/mcp) do this for the tools of a pet store, for a spec that picks its
 tools with `x-mcp`, for one that streams, for one with a default that does not fit, for
-nullable schemas of 3.0, and for results that are no object.
+nullable schemas of 3.0, and for results that are no object. The pet store example also sends an
+id above 2^53.
 
 ## Layout
 

@@ -1062,7 +1062,11 @@ func (t *MCPTools) ListPetsTool() *mcp.Tool {
 
 // ListPets handles the list_pets tool: it calls ListPets of the client and answers with what it returns as structured content.
 // An error of the client is the error of the tool, with the body of a response outside 2xx.
-func (t *MCPTools) ListPets(ctx context.Context, _ *mcp.CallToolRequest, in ListPetsToolInput) (*mcp.CallToolResult, any, error) {
+func (t *MCPTools) ListPets(ctx context.Context, req *mcp.CallToolRequest, in ListPetsToolInput) (*mcp.CallToolResult, any, error) {
+	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+		return nil, nil, err
+	}
+
 	opts := &ListPetsRequestOptions{
 		Query: &ListPetsQuery{
 			Limit: in.Limit,
@@ -1088,7 +1092,11 @@ func (t *MCPTools) CreatePetTool() *mcp.Tool {
 
 // CreatePet handles the create_pet tool: it calls CreatePet of the client and answers with what it returns as structured content.
 // An error of the client is the error of the tool, with the body of a response outside 2xx.
-func (t *MCPTools) CreatePet(ctx context.Context, _ *mcp.CallToolRequest, in CreatePetToolInput) (*mcp.CallToolResult, any, error) {
+func (t *MCPTools) CreatePet(ctx context.Context, req *mcp.CallToolRequest, in CreatePetToolInput) (*mcp.CallToolResult, any, error) {
+	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+		return nil, nil, err
+	}
+
 	opts := &CreatePetRequestOptions{
 		Body: in.Body,
 	}
@@ -1112,7 +1120,11 @@ func (t *MCPTools) GetPetTool() *mcp.Tool {
 
 // GetPet handles the get_pet tool: it calls GetPet of the client and answers with what it returns as structured content.
 // An error of the client is the error of the tool, with the body of a response outside 2xx.
-func (t *MCPTools) GetPet(ctx context.Context, _ *mcp.CallToolRequest, in GetPetToolInput) (*mcp.CallToolResult, any, error) {
+func (t *MCPTools) GetPet(ctx context.Context, req *mcp.CallToolRequest, in GetPetToolInput) (*mcp.CallToolResult, any, error) {
+	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+		return nil, nil, err
+	}
+
 	opts := &GetPetRequestOptions{
 		PathParams: &GetPetPathParams{
 			ID: in.ID,
@@ -1138,7 +1150,11 @@ func (t *MCPTools) DeletePetTool() *mcp.Tool {
 
 // DeletePet handles the delete_pet tool: it calls DeletePet of the client and answers ok.
 // An error of the client is the error of the tool, with the body of a response outside 2xx.
-func (t *MCPTools) DeletePet(ctx context.Context, _ *mcp.CallToolRequest, in DeletePetToolInput) (*mcp.CallToolResult, any, error) {
+func (t *MCPTools) DeletePet(ctx context.Context, req *mcp.CallToolRequest, in DeletePetToolInput) (*mcp.CallToolResult, any, error) {
+	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+		return nil, nil, err
+	}
+
 	opts := &DeletePetRequestOptions{
 		PathParams: &DeletePetPathParams{
 			ID: in.ID,
