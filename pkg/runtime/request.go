@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 )
@@ -164,9 +165,9 @@ func (b *RequestBuilder) FileBody(f File, mediaType string) {
 	b.body, b.length, b.contentType = rc, f.Size(), mediaType
 }
 
-// Build makes the request against base: the path goes after the base's, the query parameters are
-// encoded and sorted, and a File body streams. A placeholder that no PathParam filled is a missing
-// parameter.
+// Build makes the request against base: the path goes after the base's, the query is the base's,
+// then the template's, then the query parameters encoded and sorted, and a File body streams. The
+// fragment of base is not sent. A placeholder that no PathParam filled is a missing parameter.
 func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Request, error) {
 	if b.err != nil {
 		return nil, b.err
@@ -185,11 +186,9 @@ func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Reques
 		return nil, fmt.Errorf("%w: %w", ErrParamValue, err)
 	}
 
-	query := b.query.Encode()
-	if b.pathQuery != "" && query != "" {
-		query = "&" + query
-	}
-	u.Path, u.RawQuery = path, escape(b.pathQuery, isQueryChar)+query
+	query := []string{escape(base.RawQuery, isQueryChar), escape(b.pathQuery, isQueryChar), b.query.Encode()}
+	u.Path, u.RawQuery = path, strings.Join(slices.DeleteFunc(query, func(s string) bool { return s == "" }), "&")
+	u.ForceQuery, u.Fragment, u.RawFragment = false, "", ""
 
 	req, err := http.NewRequestWithContext(ctx, b.method, u.String(), b.body)
 	if err != nil {

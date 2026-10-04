@@ -24,6 +24,7 @@ func TestRequests(t *testing.T) {
 	ctx := context.Background()
 	tests := []struct {
 		name string
+		base string
 		call func(c *Client) error
 		want string
 	}{
@@ -55,13 +56,21 @@ func TestRequests(t *testing.T) {
 			},
 			want: "GET /?Action=ListUsers",
 		},
+		{
+			name: "The query of the base URL goes first",
+			base: "/v1?key=abc#top",
+			call: func(c *Client) error {
+				return c.SearchPhotos(ctx, &SearchPhotosRequestOptions{Query: &SearchPhotosQuery{Text: new("red fox")}})
+			},
+			want: "GET /v1/rest?key=abc&method=photos.search&text=red+fox",
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			c, seen := serve(t)
+			c, seen := serve(t, tc.base)
 
 			err := tc.call(c)
 
@@ -83,7 +92,8 @@ func TestAPlaceholderNoPathParameterFills(t *testing.T) {
 }
 
 // serve starts a server that answers 204 and passes on the method and the URI of each request.
-func serve(t *testing.T) (*Client, <-chan string) {
+// The client's base URL is the server's followed by base.
+func serve(t *testing.T, base string) (*Client, <-chan string) {
 	t.Helper()
 
 	seen := make(chan string, 1)
@@ -92,7 +102,7 @@ func serve(t *testing.T) (*Client, <-chan string) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	t.Cleanup(srv.Close)
-	c, err := NewClient(srv.URL)
+	c, err := NewClient(srv.URL + base)
 	require.NoError(t, err)
 	return c, seen
 }
