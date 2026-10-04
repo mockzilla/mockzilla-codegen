@@ -8,6 +8,7 @@ package mcp
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,11 +35,7 @@ func TestNew(t *testing.T) {
 
 	g, diags := New(petModel(), testOptions())
 
-	names := make([]string, len(g.tools))
-	for i, tool := range g.tools {
-		names[i] = tool.name
-	}
-	assert.Equal(t, []string{"list_pets", "create_pet", "get_pet", "get_pet2", "put_pet", "remove-pet", "ping", "note", "upload", "tail"}, names)
+	assert.Equal(t, []string{"list_pets", "create_pet", "get_pet", "get_pet2", "put_pet", "remove-pet", "ping", "note", "upload", "photo", "tail"}, toolNames(g))
 	assert.Equal(t, []diag.Diagnostic{
 		{
 			Severity: diag.Warning,
@@ -57,6 +54,38 @@ func TestNew(t *testing.T) {
 	}, diags)
 	assert.Equal(t, "Fetch a pet by its id.", g.tools[2].desc, "x-mcp.description wins")
 	assert.Equal(t, "List pets\n\nReturns pets.", g.tools[0].desc)
+	assert.Equal(t, "POST /pets", g.tools[1].desc, "an empty x-mcp.description keeps the method and path")
+	assert.Equal(t, "DELETE /pets/{id}\n\nDeprecated: the spec marks it deprecated.", g.tools[5].desc)
+	assert.Equal(t, []string{"limit", "filter", "X-Trace", "session"}, paramNames(g.tools[0]), "OpenAPI ignores an Authorization header parameter")
+}
+
+func TestNewWarnsAboutNamesHostsTurnDown(t *testing.T) {
+	t.Parallel()
+
+	long := strings.Repeat("a", 65)
+	m := &gomodel.Model{Operations: []*gomodel.Operation{
+		{Name: "List", Spec: &spec.Operation{ID: "list", Method: "GET", Path: "/a", Origin: spec.Origin{Pointer: "/paths/~1a/get"}, Extensions: xmcp(strField("name", "pets.list"))}},
+		{Name: "Long", Spec: &spec.Operation{ID: long, Method: "GET", Path: "/b", Origin: spec.Origin{Pointer: "/paths/~1b/get"}}},
+		{Name: "Short", Spec: &spec.Operation{ID: strings.Repeat("b", 64), Method: "GET", Path: "/c", Origin: spec.Origin{Pointer: "/paths/~1c/get"}}},
+	}}
+
+	g, diags := New(m, testOptions())
+
+	assert.Equal(t, []string{"pets.list", long, strings.Repeat("b", 64)}, toolNames(g), "the names stay")
+	assert.Equal(t, []diag.Diagnostic{
+		{
+			Severity: diag.Warning,
+			Code:     diag.CodeMCPToolName,
+			Pointer:  "/paths/~1a/get/x-mcp/name",
+			Message:  `tool name "pets.list" may be turned down by hosts that take only letters, digits, _ and - up to 64 characters; x-mcp.name sets another`,
+		},
+		{
+			Severity: diag.Warning,
+			Code:     diag.CodeMCPToolName,
+			Pointer:  "/paths/~1b/get",
+			Message:  `tool name "` + long + `" may be turned down by hosts that take only letters, digits, _ and - up to 64 characters; x-mcp.name sets another`,
+		},
+	}, diags)
 }
 
 func TestNewWithDefaultSkip(t *testing.T) {
@@ -67,11 +96,7 @@ func TestNewWithDefaultSkip(t *testing.T) {
 
 	g, _ := New(petModel(), opts)
 
-	names := make([]string, len(g.tools))
-	for i, tool := range g.tools {
-		names[i] = tool.name
-	}
-	assert.Equal(t, []string{"get_pet", "remove-pet"}, names, "only x-mcp.skip false keeps an operation")
+	assert.Equal(t, []string{"get_pet", "remove-pet"}, toolNames(g), "only x-mcp.skip false keeps an operation")
 }
 
 func TestNewReportsBadExtensions(t *testing.T) {
@@ -171,7 +196,8 @@ func TestViewWithoutTools(t *testing.T) {
 	assert.Equal(t, "package types\n", string(f.render(t, PartInputs)))
 	assert.Equal(t, "package api\n\nimport \"github.com/modelcontextprotocol/go-sdk/mcp\"\n\n"+
 		"// MCPTools exposes the operations of the API as MCP tools, each calling the client.\ntype MCPTools struct {\n\tclient PetClientInterface\n}\n\n"+
-		"// NewMCPTools returns the tools that call c.\nfunc NewMCPTools(c PetClientInterface) *MCPTools {\n\treturn &MCPTools{client: c}\n}\n\n"+
+		"// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover\n// a panic in a tool and the first call would end the server.\n"+
+		"func NewMCPTools(c PetClientInterface) *MCPTools {\n\tif c == nil {\n\t\tpanic(\"NewMCPTools: nil client\")\n\t}\n\treturn &MCPTools{client: c}\n}\n\n"+
 		"// Register adds every tool to s. To add a few, pass the definition and the handler of each to\n// mcp.AddTool instead.\nfunc (t *MCPTools) Register(s *mcp.Server) {\n}\n", string(f.render(t, PartTools)))
 }
 
@@ -197,6 +223,22 @@ func TestIsToolName(t *testing.T) {
 			assert.Equal(t, tc.want, isToolName(tc.in))
 		})
 	}
+}
+
+func toolNames(g *Generator) []string {
+	names := make([]string, len(g.tools))
+	for i, tl := range g.tools {
+		names[i] = tl.name
+	}
+	return names
+}
+
+func paramNames(tl *tool) []string {
+	names := make([]string, len(tl.params))
+	for i, p := range tl.params {
+		names[i] = p.name
+	}
+	return names
 }
 
 func testOptions() Options {
@@ -251,9 +293,9 @@ func boolField(name string, value bool) spec.Field {
 }
 
 // petModel is a model with every shape the tools write: parameters of each location with a name
-// taken twice, a querystring group that is left out, bodies of every kind, results that are
-// values, text, pointers to text and nothing, an operation that streams alone, x-mcp in every
-// form, two operations whose tools would share a name, and a webhook.
+// taken twice, a header and a querystring group that are left out, bodies of every kind, results
+// that are values, text, pointers to text, files and nothing, a second 2xx, an operation that
+// streams alone, x-mcp in every form, two operations whose tools would share a name, and a webhook.
 func petModel() *gomodel.Model {
 	str := gomodel.Builtin{Name: "string"}
 	strSchema := &spec.Schema{Types: spec.TypeString}
@@ -269,7 +311,7 @@ func petModel() *gomodel.Model {
 		Fields: []*gomodel.Field{{Name: "Limit", Type: gomodel.Pointer{Elem: gomodel.Builtin{Name: "int"}}}, {Name: "Filter", Type: gomodel.Map{Key: str, Elem: str}}},
 	}}
 	headers := &gomodel.Decl{Name: "ListPetsHeaders", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
-		Fields: []*gomodel.Field{{Name: "XTrace", Type: gomodel.Pointer{Elem: str}}},
+		Fields: []*gomodel.Field{{Name: "XTrace", Type: gomodel.Pointer{Elem: str}}, {Name: "Authorization", Type: str}},
 	}}
 	cookies := &gomodel.Decl{Name: "ListPetsCookies", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "Session", Type: str}},
@@ -289,7 +331,7 @@ func petModel() *gomodel.Model {
 				{Name: "limit", In: spec.InQuery, Description: "How many at most.", Schema: intSchema, Deprecated: true},
 				{Name: "filter", In: spec.InQuery, Required: true, Contents: []*spec.MediaType{{Name: "application/json", Schema: &spec.Schema{Types: spec.TypeObject}}}},
 			}},
-			{In: spec.InHeader, Decl: headers, Params: []*spec.Parameter{{Name: "X-Trace", In: spec.InHeader, Schema: strSchema}}},
+			{In: spec.InHeader, Decl: headers, Params: []*spec.Parameter{{Name: "X-Trace", In: spec.InHeader, Schema: strSchema}, {Name: "authorization", In: spec.InHeader, Required: true, Schema: strSchema}}},
 			{In: spec.InCookie, Decl: cookies, Params: []*spec.Parameter{{Name: "session", In: spec.InCookie, Required: true, Schema: strSchema}}},
 			{In: spec.InQueryString, Decl: querystring, Params: []*spec.Parameter{{Name: "raw", In: spec.InQueryString}}},
 		},
@@ -321,7 +363,7 @@ func petModel() *gomodel.Model {
 	getAgain := &gomodel.Operation{
 		Name:      "GetPet2",
 		Spec:      &spec.Operation{ID: "get-pet", Method: "POST", Path: "/pets/{id}", Origin: spec.Origin{Pointer: "/paths/~1pets~1{id}/post", File: "api.yaml", Line: 25, Col: 5}},
-		Responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{{MediaType: "application/json", Type: gomodel.DeclRef{Decl: pet}}}}},
+		Responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{{MediaType: "application/json", Type: gomodel.DeclRef{Decl: pet}}}}, {Status: "204"}},
 	}
 	put := &gomodel.Operation{
 		Name:      "PutPet",
@@ -351,6 +393,11 @@ func petModel() *gomodel.Model {
 		Bodies:    []gomodel.Content{{MediaType: "multipart/form-data", Type: gomodel.DeclRef{Decl: upload}}, {MediaType: "image/png"}},
 		Responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{{MediaType: "image/png"}}}},
 	}
+	photo := &gomodel.Operation{
+		Name:      "Photo",
+		Spec:      &spec.Operation{ID: "photo", Method: "GET", Path: "/photo", Origin: spec.Origin{Pointer: "/paths/~1photo/get"}, Summary: "The photo"},
+		Responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{{MediaType: "image/*", Type: file}}}},
+	}
 	tail := &gomodel.Operation{
 		Name:      "Tail",
 		Spec:      &spec.Operation{ID: "tail", Method: "GET", Path: "/tail", Origin: spec.Origin{Pointer: "/paths/~1tail/get"}},
@@ -360,6 +407,6 @@ func petModel() *gomodel.Model {
 	hook := &gomodel.Operation{Name: "Hook", Spec: &spec.Operation{ID: "hook", Method: "POST", Path: "/hook", IsWebhook: true}}
 	return &gomodel.Model{
 		Decls:      []*gomodel.Decl{pet, problem, note, upload, query, headers, cookies, querystring, path, getQuery},
-		Operations: []*gomodel.Operation{list, create, get, getAgain, put, del, ping, noteOp, uploadOp, tail, skipped, hook},
+		Operations: []*gomodel.Operation{list, create, get, getAgain, put, del, ping, noteOp, uploadOp, photo, tail, skipped, hook},
 	}
 }

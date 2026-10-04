@@ -36,20 +36,23 @@ const (
 // SDKPath is the import path of the MCP SDK the tools are written for.
 const SDKPath = "github.com/modelcontextprotocol/go-sdk/mcp"
 
-// maxToolName is the longest tool name the MCP SDK takes; bodyID is the naming request of the
-// body next to the parameters, which are numbered.
+// maxToolName is the longest tool name the MCP SDK takes, maxHostToolName the longest some hosts
+// take; bodyID is the naming request of the body next to the parameters, which are numbered.
 const (
-	maxToolName = 128
-	bodyID      = "body"
+	maxToolName     = 128
+	maxHostToolName = 64
+	bodyID          = "body"
 )
 
 //go:embed *.tmpl
 var templates embed.FS
 
-// safeMethods are the HTTP methods that read only; idempotentMethods can be repeated.
+// safeMethods are the HTTP methods that read only; idempotentMethods can be repeated. OpenAPI
+// ignores a header parameter named in ignoredHeaders, which the client sets itself.
 var (
 	safeMethods       = []string{"GET", "HEAD", "OPTIONS", "TRACE", "QUERY"}
 	idempotentMethods = []string{"PUT", "DELETE"}
+	ignoredHeaders    = []string{"Accept", "Authorization", "Content-Type"}
 )
 
 // Options are the settings of the MCP generator. Client is the client type the tools call;
@@ -103,8 +106,8 @@ type body struct {
 
 // New returns the generator of the tools of m: one per operation the config and x-mcp keep,
 // webhooks left out. Tool names that clash are numbered, with a note; an x-mcp name the SDK would
-// reject is replaced with a warning. A default that does not fit its schema is left out of every
-// input, with one warning.
+// reject is replaced with a warning, and a name some hosts reject is kept with one. A default that
+// does not fit its schema is left out of every input, with one warning.
 func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 	g := &Generator{opts: opts}
 	var diags []diag.Diagnostic
@@ -148,6 +151,9 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 	}
 	for i, t := range g.tools {
 		t.name = res.Names[reqs[i].ID]
+		if len(t.name) > maxHostToolName || strings.Contains(t.name, ".") {
+			diags = append(diags, hostName(t, reqs[i].Rank == naming.RankGoName))
+		}
 	}
 	return g, diags
 }
@@ -192,10 +198,11 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 }
 
 // newTool reads the parameters and the body of op into a tool named after the operation ID in
-// snake case, and builds the schema of its input. A property or field name taken twice, by
-// parameters of two locations, gets the location in front.
+// snake case, described by its summary and description or else by its method and path, and
+// builds the schema of its input. A property or field name taken twice, by parameters of two
+// locations, gets the location in front.
 func newTool(op *gomodel.Operation, n *naming.Namer) (*tool, []diag.Diagnostic) {
-	t := &tool{op: op, name: n.Snake(n.Exported(op.Spec.ID)), desc: operation.Doc(op.Spec), isStream: client.IsStreamOnly(op)}
+	t := &tool{op: op, name: n.Snake(n.Exported(op.Spec.ID)), desc: description(op.Spec), isStream: client.IsStreamOnly(op)}
 	var goReqs, jsonReqs []naming.Request
 	for _, p := range op.Params {
 		if !slices.Contains(inputLocations, p.In) {
@@ -203,6 +210,9 @@ func newTool(op *gomodel.Operation, n *naming.Namer) (*tool, []diag.Diagnostic) 
 		}
 		for i, f := range p.Decl.Struct.Fields {
 			sp := p.Params[i]
+			if isIgnoredHeader(sp) {
+				continue
+			}
 			id := strconv.Itoa(len(t.params))
 			t.params = append(t.params, param{group: p, field: f, spec: sp})
 			goReqs = append(goReqs, naming.Request{ID: id, Want: f.Name, Fallback: operation.GroupField(p.In, n) + f.Name, Order: len(goReqs)})
@@ -237,6 +247,37 @@ func isToolName(name string) bool {
 		isLetter := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z'
 		return !isLetter && (r < '0' || r > '9') && r != '_' && r != '-' && r != '.'
 	})
+}
+
+// description is the operation's summary and description, or its method and path when it has
+// neither, with the deprecation note.
+func description(op *spec.Operation) string {
+	if op.Summary != "" || op.Description != "" {
+		return operation.Doc(op)
+	}
+	named := *op
+	named.Summary = op.Method + " " + op.Path
+	return operation.Doc(&named)
+}
+
+func isIgnoredHeader(p *spec.Parameter) bool {
+	return p.In == spec.InHeader && slices.ContainsFunc(ignoredHeaders, func(h string) bool { return strings.EqualFold(h, p.Name) })
+}
+
+// hostName warns about the name of t, which the SDK takes and some hosts do not. The pointer is
+// x-mcp.name when isExtension says the name comes from there.
+func hostName(t *tool, isExtension bool) diag.Diagnostic {
+	pointer := t.op.Spec.Origin.Pointer
+	if isExtension {
+		pointer += "/" + extension.MCPName + "/name"
+	}
+	return diag.Diagnostic{
+		Severity: diag.Warning,
+		Code:     diag.CodeMCPToolName,
+		Pointer:  pointer,
+		Origin:   origin(t.op.Spec),
+		Message:  "tool name " + strconv.Quote(t.name) + " may be turned down by hosts that take only letters, digits, _ and - up to 64 characters; " + extension.MCPName + ".name sets another",
+	}
 }
 
 func badName(op *gomodel.Operation, name, fallback string) diag.Diagnostic {

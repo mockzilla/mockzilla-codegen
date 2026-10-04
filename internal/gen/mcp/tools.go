@@ -10,6 +10,7 @@ package mcp
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/client"
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
@@ -19,9 +20,13 @@ import (
 
 var stringType = gomodel.Builtin{Name: "string"}
 
+// mediaPrefixes are the media types a tool answers as image or audio content.
+var mediaPrefixes = []string{"image/", "audio/"}
+
 // ToolsView is the data of the tools part. Client is the client interface the tools call, as the
-// file writes it; MCP, JSON, Context, Errors and Runtime are the names the packages are imported
-// under. HasStream says whether a tool answers with the streaming error.
+// file writes it; MCP, JSON, Context, Errors, Runtime and Strings are the names the packages are
+// imported under. HasStream says whether a tool answers with the streaming error, HasFile whether
+// one answers with a file.
 type ToolsView struct {
 	Client    string
 	MCP       string
@@ -29,36 +34,36 @@ type ToolsView struct {
 	Context   string
 	Errors    string
 	Runtime   string
+	Strings   string
 	HasStream bool
+	HasFile   bool
 	Tools     []ToolView
 	User      map[string]any
 }
 
-// ToolView is one tool: its definition and its handler. Name is the operation; Tool is the tool
-// name and Schema the input schema as a Go literal. Input and Options are the input type and the
-// request options type as the file writes them; Groups and Body say how the handler fills the
-// options from the input, and HasInput whether it reads any. IsRounded says whether the SDK's
-// pass through float64 can round a number of the input, so the handler decodes the arguments
-// again. HasResult says whether the client method returns a body; Text is the expression of that
-// body as text, empty when it is returned as it is, and IsTextPointer says whether Text
-// dereferences a pointer. IsStream marks a tool that answers with the streaming error.
+// ToolView is one tool: its definition and its handler. Name is the operation, Tool the tool
+// name. IsRounded says the handler decodes the arguments again, past the SDK's float64. Of the
+// result, Text is it as text and File as a file; with neither it is structured content.
+// HasOtherSuccess says another 2xx leaves it nil, HasNilCheck that the handler checks for nil.
 type ToolView struct {
-	Name          string
-	Tool          string
-	Description   string
-	Schema        string
-	Input         string
-	Options       string
-	IsReadOnly    bool
-	IsIdempotent  bool
-	HasInput      bool
-	IsRounded     bool
-	Groups        []GroupView
-	Body          *AssignView
-	IsStream      bool
-	HasResult     bool
-	Text          string
-	IsTextPointer bool
+	Name            string
+	Tool            string
+	Description     string
+	Schema          string
+	Input           string
+	Options         string
+	IsReadOnly      bool
+	IsIdempotent    bool
+	HasInput        bool
+	IsRounded       bool
+	Groups          []GroupView
+	Body            *AssignView
+	IsStream        bool
+	HasResult       bool
+	Text            string
+	File            string
+	HasOtherSuccess bool
+	HasNilCheck     bool
 }
 
 // GroupView is the parameters of one location: the options field that holds them, the type of
@@ -96,6 +101,10 @@ func toolsView(g *Generator, s *gocode.Scope) *ToolsView {
 		default:
 			v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
 		}
+		if tv.File != "" {
+			v.HasFile = true
+			v.Strings = s.Import(gomodel.Import{Path: "strings"})
+		}
 		v.Tools = append(v.Tools, tv)
 	}
 	return v
@@ -129,9 +138,16 @@ func toolView(g *Generator, t *tool, s *gocode.Scope) ToolView {
 		v.Body = &AssignView{Field: t.body.field, From: t.body.goName}
 	}
 
-	if _, c, ok := client.SuccessBody(t.op); ok {
+	if r, c, ok := client.SuccessBody(t.op); ok {
+		typ := operation.BodyType(c)
+		var isTextPointer, isFilePointer bool
 		v.HasResult = true
-		v.Text, v.IsTextPointer = textResult(operation.BodyType(c), s)
+		v.Text, isTextPointer = textResult(typ, s)
+		if v.Text == "" {
+			v.File, isFilePointer = fileResult(c.MediaType, typ, s)
+		}
+		v.HasOtherSuccess = slices.ContainsFunc(t.op.Responses, func(x gomodel.Response) bool { return client.IsOtherSuccess(x, r.Status) })
+		v.HasNilCheck = isTextPointer || isFilePointer || v.HasOtherSuccess
 	}
 	return v
 }
@@ -165,4 +181,19 @@ func textResult(t gomodel.Type, s *gocode.Scope) (string, bool) {
 		out = gocode.Call(s.Expr(stringType), out)
 	}
 	return out, isPointer
+}
+
+// fileResult is the expression of the file a result of type t is, which goes back as image or
+// audio content when its media type is one: a file the client read, dereferenced, or bytes under
+// the image or audio media type the response documents. Any other result comes back empty.
+func fileResult(mediaType string, t gomodel.Type, s *gocode.Scope) (string, bool) {
+	if p, ok := t.(gomodel.Pointer); ok && gomodel.Underlying(p.Elem) == fileType {
+		return gocode.Deref("out"), true
+	}
+	isMedia := slices.ContainsFunc(mediaPrefixes, func(prefix string) bool { return strings.HasPrefix(mediaType, prefix) })
+	if t != bytesType || !isMedia || strings.Contains(mediaType, "*") {
+		return "", false
+	}
+	newFile := gomodel.Qualified{Import: fileType.Import, Name: "NewFile"}
+	return gocode.Call(s.Expr(newFile), "out", gocode.Quote(""), gocode.Quote(mediaType)), false
 }

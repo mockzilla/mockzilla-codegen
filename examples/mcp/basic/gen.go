@@ -1038,8 +1038,12 @@ type MCPTools struct {
 	client PetClientInterface
 }
 
-// NewMCPTools returns the tools that call c.
+// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
+// a panic in a tool and the first call would end the server.
 func NewMCPTools(c PetClientInterface) *MCPTools {
+	if c == nil {
+		panic("NewMCPTools: nil client")
+	}
 	return &MCPTools{client: c}
 }
 
@@ -1189,10 +1193,8 @@ func (t *MCPTools) Ping(ctx context.Context, _ *mcp.CallToolRequest, _ PingToolI
 	if err != nil {
 		return nil, nil, runtime.ToolError(err)
 	}
-
-	res := &mcp.CallToolResult{Content: []mcp.Content{}}
-	if out != nil {
-		res.Content = append(res.Content, &mcp.TextContent{Text: string(*out)})
+	if out == nil {
+		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "ok"}}}, nil, nil
 	}
-	return res, nil, nil
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(*out)}}}, nil, nil
 }

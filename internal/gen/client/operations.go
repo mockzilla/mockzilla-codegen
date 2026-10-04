@@ -386,6 +386,13 @@ func IsStreamOnly(op *gomodel.Operation) bool {
 	return true
 }
 
+// IsOtherSuccess reports a documented 2xx response besides the status success. The plain method
+// does not read its body, so it returns none.
+func IsOtherSuccess(r gomodel.Response, success string) bool {
+	status := operation.StatusOf(r.Status)
+	return r.Status != success && status >= 200 && status <= 299
+}
+
 func isSequential(c gomodel.Content) bool {
 	return runtime.IsSequential(c.MediaType)
 }
@@ -395,7 +402,7 @@ func isSequential(c gomodel.Content) bool {
 func otherSuccesses(op *gomodel.Operation, success string) []TargetView {
 	var out []TargetView
 	for _, r := range op.Responses {
-		if status := operation.StatusOf(r.Status); r.Status != success && status >= 200 && status <= 299 {
+		if IsOtherSuccess(r, success) {
 			out = append(out, TargetView{Status: gocode.Quote(r.Status)})
 		}
 	}

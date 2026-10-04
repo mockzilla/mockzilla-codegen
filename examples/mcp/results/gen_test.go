@@ -13,9 +13,18 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// service knows one pet.
+// files are what GetPhoto stores per pet, each in its own format.
+var files = map[string]runtime.File{
+	"Rex":  runtime.NewFile([]byte("png"), "", "image/png"),
+	"Bark": runtime.NewFile([]byte("wav"), "", "audio/wav"),
+	"Tom":  runtime.NewFile([]byte("pdf"), "", "application/pdf"),
+}
+
+// service knows one pet, the files of three and the icon of the store.
 type service struct{}
 
 func (service) CountPets(context.Context, *CountPetsServiceRequestOptions) (*CountPetsResponseData, error) {
@@ -27,6 +36,15 @@ func (service) FindPet(_ context.Context, opts *FindPetServiceRequestOptions) (*
 		return NewFindPetResponseData204(), nil
 	}
 	return NewFindPetResponseData200(&Pet{Name: "Rex"}), nil
+}
+
+func (service) GetPhoto(_ context.Context, opts *GetPhotoServiceRequestOptions) (*GetPhotoResponseData, error) {
+	f := files[opts.Query.Name]
+	return NewGetPhotoResponseData(&f), nil
+}
+
+func (service) GetIcon(context.Context, *GetIconServiceRequestOptions) (*GetIconResponseData, error) {
+	return NewGetIconResponseData([]byte("icon")), nil
 }
 
 // newSession serves the service over HTTP, registers the tools on an MCP server that calls it
@@ -54,7 +72,7 @@ func newSession(t *testing.T) *mcp.ClientSession {
 }
 
 // TestCallTools checks that structured content is always a JSON object: a pet as it is, a number
-// and the null of a 204 under result.
+// under result. A 204 answers ok.
 func TestCallTools(t *testing.T) {
 	t.Parallel()
 
@@ -67,7 +85,6 @@ func TestCallTools(t *testing.T) {
 	}{
 		{name: "A number is wrapped", tool: "count_pets", want: map[string]any{"result": float64(2)}, text: `{"result":2}`},
 		{name: "An object is as it is", tool: "find_pet", args: map[string]any{"name": "Rex"}, want: map[string]any{"name": "Rex"}, text: `{"name":"Rex"}`},
-		{name: "No body is null wrapped", tool: "find_pet", args: map[string]any{"name": "Tom"}, want: map[string]any{"result": nil}, text: `{"result":null}`},
 	}
 
 	for _, tc := range tests {

@@ -434,8 +434,12 @@ type MCPTools struct {
 	client ClientInterface
 }
 
-// NewMCPTools returns the tools that call c.
+// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
+// a panic in a tool and the first call would end the server.
 func NewMCPTools(c ClientInterface) *MCPTools {
+	if c == nil {
+		panic("NewMCPTools: nil client")
+	}
 	return &MCPTools{client: c}
 }
 

@@ -106,7 +106,7 @@ var (
 	mcpVariant = itest.Variant{
 		Name:    "mcp",
 		Config:  "client: {}\nmcp: {}\n",
-		Init:    `%s.NewMCPTools(nil).Register(mcp.NewServer(&mcp.Implementation{Name: "check"}, nil))`,
+		Init:    `c, _ := %[1]s.NewClient("http://localhost"); %[1]s.NewMCPTools(c).Register(mcp.NewServer(&mcp.Implementation{Name: "check"}, nil))`,
 		Imports: mcpDeps,
 	}
 	mcpDeps = []string{"github.com/modelcontextprotocol/go-sdk/mcp"}

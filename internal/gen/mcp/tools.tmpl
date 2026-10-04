@@ -1,10 +1,20 @@
+{{- if .HasStream -}}
+// ErrMCPStreaming is what a tool answers when its operation streams its response, which a tool
+// result cannot carry; read such an operation through the client.
+var ErrMCPStreaming = {{.Errors}}.New("the operation answers with a stream, which an MCP tool cannot return")
+
+{{end -}}
 // MCPTools exposes the operations of the API as MCP tools, each calling the client.
 type MCPTools struct {
 	client {{.Client}}
 }
 
-// NewMCPTools returns the tools that call c.
+// NewMCPTools returns the tools that call c. A nil c panics here, since the SDK does not recover
+// a panic in a tool and the first call would end the server.
 func NewMCPTools(c {{.Client}}) *MCPTools {
+	if c == nil {
+		panic("NewMCPTools: nil client")
+	}
 	return &MCPTools{client: c}
 }
 
@@ -15,12 +25,6 @@ func (t *MCPTools) Register(s *{{.MCP}}.Server) {
 	{{$.MCP}}.AddTool(s, t.{{.Name}}Tool(), t.{{.Name}})
 {{- end}}
 }
-{{- if .HasStream}}
-
-// ErrMCPStreaming is what a tool answers when its operation streams its response, which a tool
-// result cannot carry; read such an operation through the client.
-var ErrMCPStreaming = {{.Errors}}.New("the operation answers with a stream, which an MCP tool cannot return")
-{{- end}}
 {{- range .Tools}}
 
 // {{.Name}}Tool is the definition of the {{.Tool}} tool: its name, its description and the schema
@@ -43,7 +47,10 @@ func (t *MCPTools) {{.Name}}(_ {{$.Context}}.Context, _ *{{$.MCP}}.CallToolReque
 }
 {{- else}}
 
-// {{.Name}} handles the {{.Tool}} tool: it calls {{.Name}} of the client and answers {{if .HasResult}}{{if .Text}}with the text it returns{{else}}with what it returns as structured content{{end}}{{else}}ok{{end}}.
+// {{.Name}} handles the {{.Tool}} tool: it calls {{.Name}} of the client and answers {{if not .HasResult}}ok{{else if .Text}}with the text it returns{{else if .File}}with the file it returns, as image or audio content when it is one{{else}}with what it returns as structured content{{end}}.
+{{- if .HasOtherSuccess}}
+// Another 2xx the spec lists answers ok.
+{{- end}}
 // An error of the client is the error of the tool, with the body of a response outside 2xx.
 func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, {{if .IsRounded}}req{{else}}_{{end}} *{{$.MCP}}.CallToolRequest, {{if .HasInput}}in{{else}}_{{end}} {{.Input}}) (*{{$.MCP}}.CallToolResult, any, error) {
 {{- if .IsRounded}}
@@ -73,19 +80,39 @@ func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, {{if .IsRounded}}req{{el
 	if err != nil {
 		return nil, nil, {{$.Runtime}}.ToolError(err)
 	}
-{{- if not .Text}}
-	return nil, {{$.Runtime}}.ToolResult{Value: out}, nil
-{{- else if .IsTextPointer}}
-
-	res := &{{$.MCP}}.CallToolResult{Content: []{{$.MCP}}.Content{}}
-	if out != nil {
-		res.Content = append(res.Content, &{{$.MCP}}.TextContent{Text: {{.Text}}})
+{{- if .HasNilCheck}}
+	if out == nil {
+		return &{{$.MCP}}.CallToolResult{Content: []{{$.MCP}}.Content{&{{$.MCP}}.TextContent{Text: "ok"}}}, nil, nil
 	}
-	return res, nil, nil
-{{- else}}
+{{- end}}
+{{- if .Text}}
 	return &{{$.MCP}}.CallToolResult{Content: []{{$.MCP}}.Content{&{{$.MCP}}.TextContent{Text: {{.Text}}}}}, nil, nil
+{{- else if .File}}
+	return t.fileResult({{.File}})
+{{- else}}
+	return nil, {{$.Runtime}}.ToolResult{Value: out}, nil
 {{- end}}
 {{- end}}
 }
 {{- end}}
+{{- end}}
+{{- if .HasFile}}
+
+// fileResult answers with the bytes of f: as image or audio content when its media type is one,
+// else as structured content in base64.
+func (*MCPTools) fileResult(f {{.Runtime}}.File) (*{{.MCP}}.CallToolResult, any, error) {
+	data, err := f.Bytes()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	mediaType := f.ContentType()
+	switch {
+	case {{.Strings}}.HasPrefix(mediaType, "image/"):
+		return &{{.MCP}}.CallToolResult{Content: []{{.MCP}}.Content{&{{.MCP}}.ImageContent{Data: data, MIMEType: mediaType}}}, nil, nil
+	case {{.Strings}}.HasPrefix(mediaType, "audio/"):
+		return &{{.MCP}}.CallToolResult{Content: []{{.MCP}}.Content{&{{.MCP}}.AudioContent{Data: data, MIMEType: mediaType}}}, nil, nil
+	}
+	return nil, {{.Runtime}}.ToolResult{Value: data}, nil
+}
 {{- end}}
