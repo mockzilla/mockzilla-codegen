@@ -59,6 +59,33 @@ func TestBodyView(t *testing.T) {
 	}
 }
 
+func TestIsSendable(t *testing.T) {
+	t.Parallel()
+
+	jsonBody := BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body"}
+	xml := BodyView{IsSet: "opts.BodyXML != nil", Value: "opts.BodyXML", MediaType: `"application/xml"`}
+	tests := []struct {
+		name       string
+		bodies     []BodyView
+		isRequired bool
+		want       bool
+	}{
+		{name: "No body", want: true},
+		{name: "A required body without media types", isRequired: true, want: true},
+		{name: "An optional body the client cannot send", bodies: []BodyView{xml}, want: true},
+		{name: "A required body with one media type the client can send", bodies: []BodyView{xml, jsonBody}, isRequired: true, want: true},
+		{name: "A required body the client cannot send", bodies: []BodyView{xml, xml}, isRequired: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, isSendable(tc.bodies, tc.isRequired))
+		})
+	}
+}
+
 func TestSuccessBody(t *testing.T) {
 	t.Parallel()
 

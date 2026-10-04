@@ -75,11 +75,13 @@ type OperationsView struct {
 
 // OperationView is one operation: the request it builds, the method that returns the body of its
 // success response, and with HasEnvelopes the method that returns its envelope. Method is the
-// net/http constant or a quoted method; Path is quoted. Success is the status of the response the
-// plain method returns the body of, as the spec writes it, empty for none; Result is that body's
-// type and Zero the value returned on an error. Targets are what the plain method decodes,
-// EnvelopeTargets what the HasEnvelopes method decodes into the envelope Response. Stream is the
-// Stream method of an operation that answers in a sequential media type, nil without HasStreams.
+// net/http constant or a quoted method; Path is quoted. IsSendable is false when the body is
+// required and the client can send none of its media types, so the request is never built.
+// Success is the status of the response the plain method returns the body of, as the spec writes
+// it, empty for none; Result is that body's type and Zero the value returned on an error. Targets
+// are what the plain method decodes, EnvelopeTargets what the HasEnvelopes method decodes into the
+// envelope Response. Stream is the Stream method of an operation that answers in a sequential media
+// type, nil without HasStreams.
 type OperationView struct {
 	Name            string
 	Doc             string
@@ -89,6 +91,7 @@ type OperationView struct {
 	Groups          []GroupView
 	Bodies          []BodyView
 	IsBodyRequired  bool
+	IsSendable      bool
 	Success         string
 	Result          string
 	Zero            string
@@ -187,6 +190,7 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 	for i, c := range op.Bodies {
 		v.Bodies = append(v.Bodies, bodyView(c, fields[i], s))
 	}
+	v.IsSendable = isSendable(v.Bodies, v.IsBodyRequired)
 
 	if r, c, ok := SuccessBody(op); ok {
 		v.Success = r.Status
@@ -301,6 +305,12 @@ func bodyView(c gomodel.Content, field string, s *gocode.Scope) BodyView {
 		v.MediaType = gocode.Quote(wildcardMediaTypes[v.Encoder])
 	}
 	return v
+}
+
+// isSendable says whether a request with these bodies can be built: not when the body is required
+// and the client can send none of them.
+func isSendable(bodies []BodyView, isRequired bool) bool {
+	return !isRequired || len(bodies) == 0 || slices.ContainsFunc(bodies, func(b BodyView) bool { return b.Encoder != "" })
 }
 
 // held writes value, a field of type t, as its underlying string or bytes: dereferenced when the
