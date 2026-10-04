@@ -27,6 +27,7 @@ paths:
         - {name: json, in: query, content: {application/json: {schema: {$ref: '#/components/schemas/Point'}}}}
         - {name: filter, in: query, style: deepObject, schema: {$ref: '#/components/schemas/Filter'}}
         - {name: where, in: query, explode: false, schema: {$ref: '#/components/schemas/Filter'}}
+        - {name: id, in: query, schema: {oneOf: [{type: integer}, {type: string}]}}
         - {name: needed, in: query, required: true, schema: {type: string}}
       responses:
         "200":
@@ -40,6 +41,7 @@ paths:
         - {name: X-Tags, in: header, schema: {type: array, items: {type: string}}}
         - {name: X-Point, in: header, schema: {$ref: '#/components/schemas/Point'}}
         - {name: X-When, in: header, schema: {type: string, format: date-time}}
+        - {name: X-Limit, in: header, schema: {anyOf: [{type: integer}, {type: boolean}]}}
       responses:
         "200":
           description: echo

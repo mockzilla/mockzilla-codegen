@@ -26,6 +26,9 @@ var structMethods = []string{"Validate", "MarshalJSON", "UnmarshalJSON", "Masked
 // additionalMethods come with an AdditionalProperties field.
 var additionalMethods = []string{"AdditionalProperties", "Get", "Set"}
 
+// textMethods come with a union of scalars, so its variants cannot take these names.
+var textMethods = []string{"MarshalText", "UnmarshalText"}
+
 // Methods are the suffixes of the methods the generator declares next to the one named after an
 // operation. Every operation but a webhook gets Client; one that answers a 2xx in a sequential
 // media type also gets Stream, and one the MCP tools keep gets Tool, where x-mcp decides over
@@ -155,7 +158,7 @@ func resolveFields(d *Decl, n *naming.Namer, methods []string, c *diag.Collector
 
 // resolveVariants names the fields of union variants after the shared fields, which keep theirs.
 func resolveVariants(d *Decl, methods []string, c *diag.Collector) {
-	reserved := slices.Clone(methods)
+	reserved := slices.Concat(methods, textMethods)
 	for _, f := range d.Struct.Fields {
 		reserved = append(reserved, f.Name)
 	}

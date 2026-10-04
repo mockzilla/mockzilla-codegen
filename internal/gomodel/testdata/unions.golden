@@ -107,7 +107,7 @@ Nested union models.unions
   | Pet *Pet kinds=object
   | Option2 *NestedOption2 kinds=integer|string
 NestedOption2 union models.unions
-  | oneOf
+  | oneOf text
   | String *string kinds=string
   | Int *int kinds=integer
 Holder struct models.types
@@ -117,11 +117,11 @@ Holder struct models.types
   Maybe *Dog json=maybe required nullable
   Text *string json=text nullable omitempty
 HolderListItem union models.unions
-  | oneOf
+  | oneOf text
   | String *string kinds=string
   | Int *int kinds=integer
 HolderMapValue union models.unions
-  | anyOf
+  | anyOf text
   | String *string kinds=string
   | Bool *bool kinds=boolean
 OnlyNull alias any models.types
@@ -131,7 +131,7 @@ Anything union models.unions
   | RawMessage json.RawMessage kinds=any
   | String *string kinds=string
 Self union models.unions
-  | oneOf
+  | oneOf text
   | String *string kinds=string
   | Int *int kinds=integer
 NoIf union models.unions
@@ -181,7 +181,7 @@ Only alias OnlyChild models.types
 OnlyChild struct models.types
   X *string json=x omitempty
 Flag union models.unions
-  | oneOf
+  | oneOf text
   | String *string kinds=string
   | Bool *bool kinds=boolean
 ---

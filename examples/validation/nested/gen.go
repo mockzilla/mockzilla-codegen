@@ -111,6 +111,16 @@ func (o *OwnerContact) UnmarshalJSON(data []byte) error {
 	})
 }
 
+// MarshalText writes the variant that is set as text.
+func (o OwnerContact) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(o.MarshalJSON())
+}
+
+// UnmarshalText sets the variants text matches.
+func (o *OwnerContact) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, o.UnmarshalJSON)
+}
+
 // Validate checks the value against the constraints of the spec.
 func (o OwnerContact) Validate() error {
 	var errs runtime.ValidationErrors

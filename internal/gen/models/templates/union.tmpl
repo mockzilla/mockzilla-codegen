@@ -72,4 +72,16 @@ func ({{.Receiver}} *{{$.Name}}) UnmarshalJSON(data []byte) error {
 		},
 	})
 }
+{{- if .IsText}}
+
+// MarshalText writes the variant that is set as text.
+func ({{.Receiver}} {{$.Name}}) MarshalText() ([]byte, error) {
+	return {{.Runtime}}.MarshalUnionText({{.Receiver}}.MarshalJSON())
+}
+
+// UnmarshalText sets the variants text matches.
+func ({{.Receiver}} *{{$.Name}}) UnmarshalText(text []byte) error {
+	return {{.Runtime}}.UnmarshalUnionText(text, {{.Receiver}}.UnmarshalJSON)
+}
+{{- end}}
 {{- end}}

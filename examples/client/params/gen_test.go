@@ -81,6 +81,11 @@ func TestQueryStyles(t *testing.T) {
 			want: url.Values{"filter[name]": {"a"}, "where": {"name,b"}, "needed": {"yes"}},
 		},
 		{
+			name:  "A union writes the variant that is set",
+			query: &QueryStylesQuery{ID: &QueryStylesQueryID{String: new("a7")}, Needed: "yes"},
+			want:  url.Values{"id": {"a7"}, "needed": {"yes"}},
+		},
+		{
 			name:  "Query parameters left out stay out",
 			query: &QueryStylesQuery{Needed: "yes"},
 			want:  url.Values{"needed": {"yes"}},
@@ -110,6 +115,7 @@ func TestHeaderStyles(t *testing.T) {
 
 	_, err := c.HeaderStyles(context.Background(), &HeaderStylesRequestOptions{Headers: &HeaderStylesHeaders{
 		XTags: []string{"a", "b"}, XPoint: &Point{X: new(1), Y: new(2)}, XWhen: new(time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)),
+		XLimit: &HeaderStylesHeadersXLimit{Int: new(5)},
 	}})
 
 	require.NoError(t, err)
@@ -117,6 +123,7 @@ func TestHeaderStyles(t *testing.T) {
 	assert.Equal(t, "a,b", r.Header.Get("X-Tags"))
 	assert.Equal(t, "x,1,y,2", r.Header.Get("X-Point"))
 	assert.Equal(t, "2026-01-02T03:04:05Z", r.Header.Get("X-When"))
+	assert.Equal(t, "5", r.Header.Get("X-Limit"))
 }
 
 func TestCookieStyles(t *testing.T) {
@@ -155,4 +162,7 @@ func TestMissingParameters(t *testing.T) {
 
 	_, err = c.QueryStylesRequest(ctx, &QueryStylesRequestOptions{Query: &QueryStylesQuery{Where: &Filter{Tags: []string{"a"}}}})
 	require.ErrorIs(t, err, runtime.ErrParamValue, "only a deep object can hold a list")
+
+	_, err = c.QueryStylesRequest(ctx, &QueryStylesRequestOptions{Query: &QueryStylesQuery{ID: &QueryStylesQueryID{}}})
+	require.EqualError(t, err, "invalid parameter value: cannot write null as text", "a union with no variant set")
 }

@@ -100,6 +100,20 @@ func UnmarshalUnion(data []byte, u Union) error {
 	return u.decodeOne(data, kind, cands)
 }
 
+// UnmarshalUnionText decodes raw with a union's UnmarshalJSON, as a number or boolean first.
+func UnmarshalUnionText(raw []byte, decode func(data []byte) error) error {
+	quoted, _ := json.Marshal(string(raw))
+	if !isLiteral(raw) {
+		return decode(quoted)
+	}
+
+	err := decode(raw)
+	if err == nil || decode(quoted) == nil {
+		return nil
+	}
+	return err
+}
+
 // discriminate returns the variant the discriminator value picks, else -1 and the variants left to
 // match by shape: all of them without the property, those without values for an unknown value.
 func (u Union) discriminate(obj map[string]json.RawMessage) (int, []int, error) {
@@ -223,4 +237,14 @@ func discriminatorValue(raw json.RawMessage) string {
 		return s
 	}
 	return string(bytes.TrimSpace(raw))
+}
+
+// isLiteral reports raw written as a JSON number or boolean, with no space around it.
+func isLiteral(raw []byte) bool {
+	switch JSONKind(raw) {
+	case KindBool, KindInteger, KindNumber:
+		return json.Valid(raw) && len(bytes.TrimSpace(raw)) == len(raw)
+	default:
+	}
+	return false
 }

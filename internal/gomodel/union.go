@@ -199,9 +199,13 @@ func settleUnions(decls []*Decl) {
 		if d.Union == nil {
 			continue
 		}
+		d.Union.IsText = len(d.Union.Variants) > 0 && len(d.Struct.Fields) == 0
 		for _, v := range d.Union.Variants {
 			v.FieldType = elemType(v.Type, true)
 			v.Kinds = JSONKinds(v.Type)
+			if v.Kinds == 0 || v.Kinds&^JSONScalar != 0 {
+				d.Union.IsText = false
+			}
 			st := structOf(v.Type)
 			if st == nil {
 				continue

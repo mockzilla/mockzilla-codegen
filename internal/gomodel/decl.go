@@ -39,7 +39,8 @@ const (
 	JSONArray
 	JSONObject
 
-	JSONAny = JSONNull | JSONBool | JSONInteger | JSONNumber | JSONString | JSONArray | JSONObject
+	JSONAny    = JSONNull | JSONBool | JSONInteger | JSONNumber | JSONString | JSONArray | JSONObject
+	JSONScalar = JSONBool | JSONInteger | JSONNumber | JSONString
 )
 
 // Parts a declaration goes to. Layout places each part in one file.
@@ -199,9 +200,11 @@ type Struct struct {
 
 // Union holds one field per variant. Exactly one is set for oneOf, one or more for anyOf; with
 // IsNullable nothing set is null. Discriminator is the property whose value picks a variant.
+// IsText is a union of scalars with no shared properties, which a parameter writes as text.
 type Union struct {
 	IsAnyOf       bool
 	IsNullable    bool
+	IsText        bool
 	Discriminator string
 	Variants      []*Variant
 }

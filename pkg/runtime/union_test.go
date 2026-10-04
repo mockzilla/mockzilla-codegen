@@ -35,6 +35,15 @@ type holder struct {
 	List  []int
 }
 
+// scalars stands in for a generated union of scalars; isNoText leaves out its string variant.
+type scalars struct {
+	Int  *int
+	Bool *bool
+	Text *string
+
+	isNoText bool
+}
+
 func (h *holder) union() Union {
 	return Union{Variants: []Variant{
 		{Name: "Cat", Kind: KindObject, Values: []string{"cat"}, Required: []string{"meow"}, Known: []string{"type", "name", "meow"}, Into: Into(&h.Cat)},
@@ -45,6 +54,19 @@ func (h *holder) union() Union {
 		{Name: "Int", Kind: KindInteger, Into: Into(&h.Int)},
 		{Name: "List", Kind: KindArray, Into: Into(&h.List)},
 	}}
+}
+
+func (s *scalars) UnmarshalJSON(data []byte) error {
+	*s = scalars{isNoText: s.isNoText}
+	u := Union{Variants: []Variant{
+		{Name: "Int", Kind: KindInteger, Into: Into(&s.Int)},
+		{Name: "Bool", Kind: KindBool, Into: Into(&s.Bool)},
+		{Name: "Text", Kind: KindString, Into: Into(&s.Text)},
+	}}
+	if s.isNoText {
+		u.Variants = u.Variants[:2]
+	}
+	return UnmarshalUnion(data, u)
 }
 
 func TestUnmarshalUnion(t *testing.T) {
@@ -173,6 +195,52 @@ func TestUnmarshalUnionOpenVariant(t *testing.T) {
 
 	require.NoError(t, UnmarshalUnion([]byte(`{"type":"fish"}`), u))
 	assert.Equal(t, holder{Other: map[string]any{"type": "fish"}}, h)
+}
+
+func TestUnmarshalUnionText(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		text       string
+		isNoText   bool
+		want       scalars
+		wantErrMsg string
+	}{
+		{name: "An integer goes to the integer variant", text: "30", want: scalars{Int: new(30)}},
+		{name: "A boolean goes to the boolean variant", text: "true", want: scalars{Bool: new(true)}},
+		{name: "Other text is a string", text: "abc", want: scalars{Text: new("abc")}},
+		{name: "A number no variant takes is a string", text: "1.5", want: scalars{Text: new("1.5")}},
+		{name: "Text that only starts like a boolean is a string", text: "tomato", want: scalars{Text: new("tomato")}},
+		{name: "Space around a number keeps it a string", text: " 30", want: scalars{Text: new(" 30")}},
+		{name: "Quotes stay in the string", text: `"a"`, want: scalars{Text: new(`"a"`)}},
+		{name: "Empty text is an empty string", text: "", want: scalars{Text: new("")}},
+		{
+			name: "Without a string variant other text is an error", text: "abc", isNoText: true,
+			wantErrMsg: "no union variant matches for a JSON string",
+		},
+		{
+			name: "Without a string variant a number keeps its own error", text: "1.5", isNoText: true,
+			wantErrMsg: "no union variant matches for a JSON number",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := scalars{isNoText: tc.isNoText}
+			err := UnmarshalUnionText([]byte(tc.text), s.UnmarshalJSON)
+
+			if tc.wantErrMsg != "" {
+				require.ErrorIs(t, err, ErrNoVariant)
+				require.EqualError(t, err, tc.wantErrMsg)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, s)
+		})
+	}
 }
 
 func TestInto(t *testing.T) {
