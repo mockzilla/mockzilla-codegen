@@ -37,7 +37,8 @@ git ls-files --others --exclude-standard -- '*.go' '*.tmpl'
 ```
 
 Generated files under `examples/` are output, not source: check them only for rule 13 (they must
-come from an `UPDATE=1` run) and rule 16.
+come from an `UPDATE=1` run), rule 16, and rule 1 on the comments a template writes. For every
+changed template, read the comments it writes in the golden examples the diff changes.
 
 If nothing changed, the gate doesn't apply.
 
@@ -137,6 +138,15 @@ Allowed:
 - Short godoc (a sentence or two) on an exported identifier, starting with its name.
 
 Never flag "missing doc comment". Doc comments are permitted, not required.
+
+Generated code follows this rule too, read in the output, not in the template:
+- A doc comment is one plain line that says what the declaration is or what it calls:
+  `// GetPet calls GET /pets/{id}.`, `// GetPetRequest builds the request of GET /pets/{id}.`
+  Never how its body works, such as which editors run in which order.
+- An unexported generated helper gets no comment.
+- Template text that holds a name or a path is one short sentence per line. Hand-wrapped text
+  around a value of any length comes out ragged: a line past 100 columns, or a word alone on the
+  next line. Text from the spec goes through `comment`, which wraps it.
 
 ### 2. Tests
 

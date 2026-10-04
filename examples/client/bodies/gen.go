@@ -4,12 +4,11 @@ package bodies
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
-	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
@@ -47,980 +46,141 @@ type PostAnyResponse200 = string
 
 type GetAnyTextResponse200 = string
 
-// ServiceInterface is what the generated handlers call. Implement it with the business logic.
-type ServiceInterface interface {
-	PostJSON(ctx context.Context, opts *PostJSONServiceRequestOptions) (*PostJSONResponseData, error)
-	PostForm(ctx context.Context, opts *PostFormServiceRequestOptions) (*PostFormResponseData, error)
-	Upload(ctx context.Context, opts *UploadServiceRequestOptions) (*UploadResponseData, error)
-	PostText(ctx context.Context, opts *PostTextServiceRequestOptions) (*PostTextResponseData, error)
-	PutFile(ctx context.Context, opts *PutFileServiceRequestOptions) (*PutFileResponseData, error)
-	PutXML(ctx context.Context, opts *PutXMLServiceRequestOptions) (*PutXMLResponseData, error)
-	PostAny(ctx context.Context, opts *PostAnyServiceRequestOptions) (*PostAnyResponseData, error)
-	GetAnyText(ctx context.Context, opts *GetAnyTextServiceRequestOptions) (*GetAnyTextResponseData, error)
-	GetAnyBytes(ctx context.Context, opts *GetAnyBytesServiceRequestOptions) (*GetAnyBytesResponseData, error)
-}
-
-// PostJSONServiceRequestOptions is what PostJSON receives. RawRequest is the request as it came in.
-type PostJSONServiceRequestOptions struct {
+// PostJSONRequestOptions is what PostJSON sends.
+type PostJSONRequestOptions struct {
 	// Body sent as application/json.
-	Body       *Note
-	RawRequest *http.Request
+	Body *Note
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *PostJSONServiceRequestOptions) Validate() error {
+func (o *PostJSONRequestOptions) Validate() error {
 	return nil
 }
 
-// PostJSONResponseData is what PostJSON returns: the status, the headers and the body of the response.
-type PostJSONResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewPostJSONResponseData returns the response data of status 200 with body as application/json.
-func NewPostJSONResponseData(body *Note) *PostJSONResponseData {
-	return &PostJSONResponseData{Status: 200, Body: body, contentType: "application/json"}
-}
-
-// WithStatus sets the status code.
-func (r *PostJSONResponseData) WithStatus(code int) *PostJSONResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *PostJSONResponseData) WithHeaders(h http.Header) *PostJSONResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *PostJSONResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *PostJSONResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *PostJSONResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *PostJSONResponseData) ContentType() string {
-	return r.contentType
-}
-
-// PostFormServiceRequestOptions is what PostForm receives. RawRequest is the request as it came in.
-type PostFormServiceRequestOptions struct {
+// PostFormRequestOptions is what PostForm sends.
+type PostFormRequestOptions struct {
 	// Body sent as application/x-www-form-urlencoded.
-	Body       *Note
-	RawRequest *http.Request
+	Body *Note
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *PostFormServiceRequestOptions) Validate() error {
+func (o *PostFormRequestOptions) Validate() error {
 	return nil
 }
 
-// PostFormResponseData is what PostForm returns: the status, the headers and the body of the response.
-type PostFormResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewPostFormResponseData returns the response data of status 200 with body as application/json.
-func NewPostFormResponseData(body *Note) *PostFormResponseData {
-	return &PostFormResponseData{Status: 200, Body: body, contentType: "application/json"}
-}
-
-// WithStatus sets the status code.
-func (r *PostFormResponseData) WithStatus(code int) *PostFormResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *PostFormResponseData) WithHeaders(h http.Header) *PostFormResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *PostFormResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *PostFormResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *PostFormResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *PostFormResponseData) ContentType() string {
-	return r.contentType
-}
-
-// UploadServiceRequestOptions is what Upload receives. RawRequest is the request as it came in.
-type UploadServiceRequestOptions struct {
+// UploadRequestOptions is what Upload sends.
+type UploadRequestOptions struct {
 	// Body sent as multipart/form-data.
-	Body       *UploadRequestBody
-	RawRequest *http.Request
+	Body *UploadRequestBody
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *UploadServiceRequestOptions) Validate() error {
+func (o *UploadRequestOptions) Validate() error {
 	return nil
 }
 
-// UploadResponseData is what Upload returns: the status, the headers and the body of the response.
-type UploadResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewUploadResponseData returns the response data of status 200 with body as application/json.
-func NewUploadResponseData(body UploadResponse200) *UploadResponseData {
-	return &UploadResponseData{Status: 200, Body: body, contentType: "application/json"}
-}
-
-// WithStatus sets the status code.
-func (r *UploadResponseData) WithStatus(code int) *UploadResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *UploadResponseData) WithHeaders(h http.Header) *UploadResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *UploadResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *UploadResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *UploadResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *UploadResponseData) ContentType() string {
-	return r.contentType
-}
-
-// PostTextServiceRequestOptions is what PostText receives. RawRequest is the request as it came in.
-type PostTextServiceRequestOptions struct {
+// PostTextRequestOptions is what PostText sends.
+type PostTextRequestOptions struct {
 	// Body sent as text/plain.
 	BodyText *PostTextRequestBody
 	// Body sent as application/octet-stream.
 	BodyOctetStream []byte
-	RawRequest      *http.Request
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *PostTextServiceRequestOptions) Validate() error {
+func (o *PostTextRequestOptions) Validate() error {
 	return nil
 }
 
-// PostTextResponseData is what PostText returns: the status, the headers and the body of the response.
-type PostTextResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewPostTextResponseData returns the response data of status 200 with body as text/plain.
-func NewPostTextResponseData(body *PostTextResponse200) *PostTextResponseData {
-	return &PostTextResponseData{Status: 200, Body: body, contentType: "text/plain"}
-}
-
-// WithStatus sets the status code.
-func (r *PostTextResponseData) WithStatus(code int) *PostTextResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *PostTextResponseData) WithHeaders(h http.Header) *PostTextResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *PostTextResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *PostTextResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *PostTextResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *PostTextResponseData) ContentType() string {
-	return r.contentType
-}
-
-// PutFileServiceRequestOptions is what PutFile receives. RawRequest is the request as it came in.
-type PutFileServiceRequestOptions struct {
+// PutFileRequestOptions is what PutFile sends.
+type PutFileRequestOptions struct {
 	// Body sent as image/png.
-	Body       *PutFileRequestBody
-	RawRequest *http.Request
+	Body *PutFileRequestBody
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *PutFileServiceRequestOptions) Validate() error {
+func (o *PutFileRequestOptions) Validate() error {
 	return nil
 }
 
-// PutFileResponseData is what PutFile returns: the status, the headers and the body of the response.
-type PutFileResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewPutFileResponseData returns the response data of status 200 with body as image/png.
-func NewPutFileResponseData(body *PutFileResponse200) *PutFileResponseData {
-	return &PutFileResponseData{Status: 200, Body: body, contentType: "image/png"}
-}
-
-// WithStatus sets the status code.
-func (r *PutFileResponseData) WithStatus(code int) *PutFileResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *PutFileResponseData) WithHeaders(h http.Header) *PutFileResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *PutFileResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *PutFileResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *PutFileResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *PutFileResponseData) ContentType() string {
-	return r.contentType
-}
-
-// PutXMLServiceRequestOptions is what PutXML receives. RawRequest is the request as it came in.
-type PutXMLServiceRequestOptions struct {
+// PutXMLRequestOptions is what PutXML sends.
+type PutXMLRequestOptions struct {
 	// Body sent as application/xml.
-	Body       *Note
-	RawRequest *http.Request
+	Body *Note
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *PutXMLServiceRequestOptions) Validate() error {
+func (o *PutXMLRequestOptions) Validate() error {
 	return nil
 }
 
-// PutXMLResponseData is what PutXML returns: the status, the headers and the body of the response.
-type PutXMLResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewPutXMLResponseData returns the response data of status 204.
-func NewPutXMLResponseData() *PutXMLResponseData {
-	return &PutXMLResponseData{Status: 204, contentType: ""}
-}
-
-// WithStatus sets the status code.
-func (r *PutXMLResponseData) WithStatus(code int) *PutXMLResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *PutXMLResponseData) WithHeaders(h http.Header) *PutXMLResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *PutXMLResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *PutXMLResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *PutXMLResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *PutXMLResponseData) ContentType() string {
-	return r.contentType
-}
-
-// PostAnyServiceRequestOptions is what PostAny receives. RawRequest is the request as it came in.
-type PostAnyServiceRequestOptions struct {
+// PostAnyRequestOptions is what PostAny sends.
+type PostAnyRequestOptions struct {
 	// Body sent as application/xml.
 	BodyXML *PostAnyXMLRequestBody
 	// Body sent as text/xml.
 	BodyTextXML *PostAnyXMLRequestBody2
 	// Body sent as */*.
-	BodyAny    []byte
-	RawRequest *http.Request
+	BodyAny []byte
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *PostAnyServiceRequestOptions) Validate() error {
+func (o *PostAnyRequestOptions) Validate() error {
 	return nil
 }
 
-// PostAnyResponseData is what PostAny returns: the status, the headers and the body of the response.
-type PostAnyResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewPostAnyResponseData returns the response data of status 200 with body as text/plain.
-func NewPostAnyResponseData(body *PostAnyResponse200) *PostAnyResponseData {
-	return &PostAnyResponseData{Status: 200, Body: body, contentType: "text/plain"}
-}
-
-// WithStatus sets the status code.
-func (r *PostAnyResponseData) WithStatus(code int) *PostAnyResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *PostAnyResponseData) WithHeaders(h http.Header) *PostAnyResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *PostAnyResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *PostAnyResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *PostAnyResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *PostAnyResponseData) ContentType() string {
-	return r.contentType
-}
-
-// GetAnyTextServiceRequestOptions is what GetAnyText receives. RawRequest is the request as it came in.
-type GetAnyTextServiceRequestOptions struct {
-	RawRequest *http.Request
+// GetAnyTextRequestOptions is what GetAnyText sends.
+type GetAnyTextRequestOptions struct {
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *GetAnyTextServiceRequestOptions) Validate() error {
+func (o *GetAnyTextRequestOptions) Validate() error {
 	return nil
 }
 
-// GetAnyTextResponseData is what GetAnyText returns: the status, the headers and the body of the response.
-type GetAnyTextResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewGetAnyTextResponseData returns the response data of status 200 with body as */*.
-func NewGetAnyTextResponseData(body *GetAnyTextResponse200) *GetAnyTextResponseData {
-	return &GetAnyTextResponseData{Status: 200, Body: body, contentType: "*/*"}
-}
-
-// WithStatus sets the status code.
-func (r *GetAnyTextResponseData) WithStatus(code int) *GetAnyTextResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *GetAnyTextResponseData) WithHeaders(h http.Header) *GetAnyTextResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *GetAnyTextResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *GetAnyTextResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *GetAnyTextResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *GetAnyTextResponseData) ContentType() string {
-	return r.contentType
-}
-
-// GetAnyBytesServiceRequestOptions is what GetAnyBytes receives. RawRequest is the request as it came in.
-type GetAnyBytesServiceRequestOptions struct {
-	RawRequest *http.Request
+// GetAnyBytesRequestOptions is what GetAnyBytes sends.
+type GetAnyBytesRequestOptions struct {
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *GetAnyBytesServiceRequestOptions) Validate() error {
+func (o *GetAnyBytesRequestOptions) Validate() error {
 	return nil
-}
-
-// GetAnyBytesResponseData is what GetAnyBytes returns: the status, the headers and the body of the response.
-type GetAnyBytesResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewGetAnyBytesResponseData returns the response data of status 200 with body as */*.
-func NewGetAnyBytesResponseData(body []byte) *GetAnyBytesResponseData {
-	return &GetAnyBytesResponseData{Status: 200, Body: body, contentType: "*/*"}
-}
-
-// WithStatus sets the status code.
-func (r *GetAnyBytesResponseData) WithStatus(code int) *GetAnyBytesResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *GetAnyBytesResponseData) WithHeaders(h http.Header) *GetAnyBytesResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *GetAnyBytesResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *GetAnyBytesResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *GetAnyBytesResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *GetAnyBytesResponseData) ContentType() string {
-	return r.contentType
-}
-
-// The error types the handlers use, as the runtime declares them.
-type (
-	ErrorKind           = runtime.ErrorKind
-	HandlerError        = runtime.HandlerError
-	ErrorHandler        = runtime.ErrorHandler
-	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
-	DefaultErrorHandler = runtime.DefaultErrorHandler
-)
-
-// The kinds of HandlerError.
-const (
-	ErrorParse      = runtime.ErrorParse
-	ErrorDecode     = runtime.ErrorDecode
-	ErrorValidation = runtime.ErrorValidation
-	ErrorService    = runtime.ErrorService
-	ErrorResponse   = runtime.ErrorResponse
-)
-
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
-type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       runtime.ErrorHandler
-	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
-	MultipartMaxMemory int64
-}
-
-// ServerOption sets one field of ServerOptions.
-type ServerOption func(*ServerOptions)
-
-// NewServerOptions applies opts to the defaults.
-func NewServerOptions(opts ...ServerOption) *ServerOptions {
-	o := &ServerOptions{
-		ErrorHandler:       runtime.DefaultErrorHandler{},
-		JSONDecoder:        runtime.DecodeJSON,
-		MultipartMaxMemory: 33554432,
-	}
-	for _, opt := range opts {
-		opt(o)
-	}
-	return o
-}
-
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
-func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
-	return func(o *ServerOptions) {
-		o.Middleware = append(o.Middleware, mw...)
-	}
-}
-
-// WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
-	return func(o *ServerOptions) {
-		o.ErrorHandler = h
-	}
-}
-
-// WithJSONDecoder sets what reads JSON bodies. isRequired says whether an empty body is an error.
-func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error) ServerOption {
-	return func(o *ServerOptions) {
-		o.JSONDecoder = decode
-	}
-}
-
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
-func WithMultipartMaxMemory(n int64) ServerOption {
-	return func(o *ServerOptions) {
-		o.MultipartMaxMemory = n
-	}
-}
-
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
-type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
-}
-
-// responseData is what every response data type gives the adapter.
-type responseData interface {
-	StatusCode() int
-	Header() http.Header
-	Payload() any
-	ContentType() string
-}
-
-// NewHTTPAdapter returns the adapter of svc.
-func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
-}
-
-// PostJSON handles POST /json.
-func (a *HTTPAdapter) PostJSON(w http.ResponseWriter, r *http.Request) {
-	opts := &PostJSONServiceRequestOptions{RawRequest: r}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "application/json":
-		if err := a.opts.JSONDecoder(r.Body, &opts.Body, false); err != nil {
-			a.failDecode(w, r, "PostJSON", err)
-			return
-		}
-	case "":
-	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PostJSON", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return
-	}
-
-	res, err := a.svc.PostJSON(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostJSON", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostJSON", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "PostJSON", res)
-}
-
-// PostForm handles POST /form.
-func (a *HTTPAdapter) PostForm(w http.ResponseWriter, r *http.Request) {
-	opts := &PostFormServiceRequestOptions{RawRequest: r}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "application/x-www-form-urlencoded":
-		if err := runtime.DecodeForm(r.Body, &opts.Body, true); err != nil {
-			a.failDecode(w, r, "PostForm", err)
-			return
-		}
-	case "":
-		a.failDecode(w, r, "PostForm", runtime.ErrBodyEmpty)
-		return
-	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PostForm", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return
-	}
-
-	res, err := a.svc.PostForm(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostForm", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostForm", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "PostForm", res)
-}
-
-// Upload handles POST /upload.
-func (a *HTTPAdapter) Upload(w http.ResponseWriter, r *http.Request) {
-	opts := &UploadServiceRequestOptions{RawRequest: r}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "multipart/form-data":
-		opts.Body = &UploadRequestBody{}
-		if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory); err != nil {
-			a.failDecode(w, r, "Upload", err)
-			return
-		}
-	case "":
-		a.failDecode(w, r, "Upload", runtime.ErrBodyEmpty)
-		return
-	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "Upload", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return
-	}
-
-	res, err := a.svc.Upload(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Upload", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Upload", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "Upload", res)
-}
-
-// PostText handles POST /text.
-func (a *HTTPAdapter) PostText(w http.ResponseWriter, r *http.Request) {
-	opts := &PostTextServiceRequestOptions{RawRequest: r}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "text/plain":
-		text, err := runtime.DecodeText(r.Body, false)
-		if err != nil {
-			a.failDecode(w, r, "PostText", err)
-			return
-		}
-		opts.BodyText = runtime.Ptr(PostTextRequestBody(text))
-	case "application/octet-stream":
-		data, err := runtime.DecodeBytes(r.Body, false)
-		if err != nil {
-			a.failDecode(w, r, "PostText", err)
-			return
-		}
-		opts.BodyOctetStream = data
-	case "":
-	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PostText", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return
-	}
-
-	res, err := a.svc.PostText(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostText", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostText", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "PostText", res)
-}
-
-// PutFile handles PUT /file.
-func (a *HTTPAdapter) PutFile(w http.ResponseWriter, r *http.Request) {
-	opts := &PutFileServiceRequestOptions{RawRequest: r}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "image/png":
-		file, err := runtime.DecodeFile(r, true)
-		if err != nil {
-			a.failDecode(w, r, "PutFile", err)
-			return
-		}
-		opts.Body = runtime.Ptr(PutFileRequestBody(file))
-	case "":
-		a.failDecode(w, r, "PutFile", runtime.ErrBodyEmpty)
-		return
-	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PutFile", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return
-	}
-
-	res, err := a.svc.PutFile(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutFile", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutFile", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "PutFile", res)
-}
-
-// PutXML handles PUT /xml.
-func (a *HTTPAdapter) PutXML(w http.ResponseWriter, r *http.Request) {
-	opts := &PutXMLServiceRequestOptions{RawRequest: r}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "application/xml":
-	case "":
-		a.failDecode(w, r, "PutXML", runtime.ErrBodyEmpty)
-		return
-	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PutXML", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return
-	}
-
-	res, err := a.svc.PutXML(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutXML", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutXML", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "PutXML", res)
-}
-
-// PostAny handles POST /any.
-func (a *HTTPAdapter) PostAny(w http.ResponseWriter, r *http.Request) {
-	opts := &PostAnyServiceRequestOptions{RawRequest: r}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "application/xml":
-		text, err := runtime.DecodeText(r.Body, false)
-		if err != nil {
-			a.failDecode(w, r, "PostAny", err)
-			return
-		}
-		opts.BodyXML = runtime.Ptr(PostAnyXMLRequestBody(text))
-	case "text/xml":
-		text, err := runtime.DecodeText(r.Body, false)
-		if err != nil {
-			a.failDecode(w, r, "PostAny", err)
-			return
-		}
-		opts.BodyTextXML = runtime.Ptr(PostAnyXMLRequestBody2(text))
-	case "":
-	default:
-		data, err := runtime.DecodeBytes(r.Body, false)
-		if err != nil {
-			a.failDecode(w, r, "PostAny", err)
-			return
-		}
-		opts.BodyAny = data
-	}
-
-	res, err := a.svc.PostAny(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostAny", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostAny", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "PostAny", res)
-}
-
-// GetAnyText handles GET /any/text.
-func (a *HTTPAdapter) GetAnyText(w http.ResponseWriter, r *http.Request) {
-	opts := &GetAnyTextServiceRequestOptions{RawRequest: r}
-
-	res, err := a.svc.GetAnyText(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetAnyText", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetAnyText", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "GetAnyText", res)
-}
-
-// GetAnyBytes handles GET /any/bytes.
-func (a *HTTPAdapter) GetAnyBytes(w http.ResponseWriter, r *http.Request) {
-	opts := &GetAnyBytesServiceRequestOptions{RawRequest: r}
-
-	res, err := a.svc.GetAnyBytes(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetAnyBytes", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetAnyBytes", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "GetAnyBytes", res)
-}
-
-// fail answers a request the handler could not serve.
-func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
-	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
-}
-
-// failDecode answers a request whose body could not be read.
-func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
-	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
-}
-
-// write writes the response of the service.
-func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
-	if res.ContentType() != "" {
-		w.Header().Set("Content-Type", res.ContentType())
-	}
-	if err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
-	}
-}
-
-// WithRouter registers the routes on r instead of a new router.
-func WithRouter(r chi.Router) ServerOption {
-	return func(o *ServerOptions) {
-		o.Router = r
-	}
-}
-
-// NewRouter registers every operation on a chi router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
-// wraps the generated routes and nothing else.
-func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
-	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
-	register := func(r chi.Router) {
-		r.Post("/json", adapter.PostJSON)
-		r.Post("/form", adapter.PostForm)
-		r.Post("/upload", adapter.Upload)
-		r.Post("/text", adapter.PostText)
-		r.Put("/file", adapter.PutFile)
-		r.Put("/xml", adapter.PutXML)
-		r.Post("/any", adapter.PostAny)
-		r.Get("/any/text", adapter.GetAnyText)
-		r.Get("/any/bytes", adapter.GetAnyBytes)
-	}
-
-	router, _ := o.Router.(chi.Router)
-	if router == nil {
-		router = chi.NewRouter()
-		router.Use(o.Middleware...)
-		register(router)
-		return router
-	}
-	router.Group(func(r chi.Router) {
-		r.Use(o.Middleware...)
-		register(r)
-	})
-	return router
 }
 
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
+
+// ClientInterface is what Client implements.
+type ClientInterface interface {
+	// PostJSON calls POST /json.
+	PostJSON(ctx context.Context, opts *PostJSONRequestOptions, editors ...RequestEditor) (*Note, error)
+	// PostForm calls POST /form.
+	PostForm(ctx context.Context, opts *PostFormRequestOptions, editors ...RequestEditor) (*Note, error)
+	// Upload calls POST /upload.
+	Upload(ctx context.Context, opts *UploadRequestOptions, editors ...RequestEditor) (UploadResponse200, error)
+	// PostText calls POST /text.
+	PostText(ctx context.Context, opts *PostTextRequestOptions, editors ...RequestEditor) (*PostTextResponse200, error)
+	// PutFile calls PUT /file.
+	PutFile(ctx context.Context, opts *PutFileRequestOptions, editors ...RequestEditor) (*PutFileResponse200, error)
+	// PutXML calls PUT /xml.
+	PutXML(ctx context.Context, opts *PutXMLRequestOptions, editors ...RequestEditor) error
+	// PostAny calls POST /any.
+	PostAny(ctx context.Context, opts *PostAnyRequestOptions, editors ...RequestEditor) (*PostAnyResponse200, error)
+	// GetAnyText calls GET /any/text.
+	GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions, editors ...RequestEditor) (*GetAnyTextResponse200, error)
+	// GetAnyBytes calls GET /any/bytes.
+	GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOptions, editors ...RequestEditor) ([]byte, error)
+}
+
+var _ ClientInterface = (*Client)(nil)
 
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// Client calls the API at a base URL, with one method per operation.
-type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
-}
-
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
-func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c, nil
-}
-
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -1037,8 +197,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -1050,155 +209,32 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+type Client struct {
+	baseURL *url.URL
+	doer    HTTPDoer
+	timeout time.Duration
+	editors []RequestEditor
+}
+
+// NewClient returns a client of the API at baseURL.
+func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
+	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
+
+	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	for _, opt := range opts {
+		opt(c)
 	}
-	return req, nil
+	return c, nil
 }
 
-// PostJSONRequestOptions is what PostJSON sends: its parameters by location, and its body.
-type PostJSONRequestOptions struct {
-	// Body sent as application/json.
-	Body *Note
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *PostJSONRequestOptions) Validate() error {
-	return nil
-}
-
-// PostFormRequestOptions is what PostForm sends: its parameters by location, and its body.
-type PostFormRequestOptions struct {
-	// Body sent as application/x-www-form-urlencoded.
-	Body *Note
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *PostFormRequestOptions) Validate() error {
-	return nil
-}
-
-// UploadRequestOptions is what Upload sends: its parameters by location, and its body.
-type UploadRequestOptions struct {
-	// Body sent as multipart/form-data.
-	Body *UploadRequestBody
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *UploadRequestOptions) Validate() error {
-	return nil
-}
-
-// PostTextRequestOptions is what PostText sends: its parameters by location, and its body.
-type PostTextRequestOptions struct {
-	// Body sent as text/plain.
-	BodyText *PostTextRequestBody
-	// Body sent as application/octet-stream.
-	BodyOctetStream []byte
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *PostTextRequestOptions) Validate() error {
-	return nil
-}
-
-// PutFileRequestOptions is what PutFile sends: its parameters by location, and its body.
-type PutFileRequestOptions struct {
-	// Body sent as image/png.
-	Body *PutFileRequestBody
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *PutFileRequestOptions) Validate() error {
-	return nil
-}
-
-// PutXMLRequestOptions is what PutXML sends: its parameters by location, and its body.
-type PutXMLRequestOptions struct {
-	// Body sent as application/xml.
-	Body *Note
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *PutXMLRequestOptions) Validate() error {
-	return nil
-}
-
-// PostAnyRequestOptions is what PostAny sends: its parameters by location, and its body.
-type PostAnyRequestOptions struct {
-	// Body sent as application/xml.
-	BodyXML *PostAnyXMLRequestBody
-	// Body sent as text/xml.
-	BodyTextXML *PostAnyXMLRequestBody2
-	// Body sent as */*.
-	BodyAny []byte
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *PostAnyRequestOptions) Validate() error {
-	return nil
-}
-
-// GetAnyTextRequestOptions is what GetAnyText sends: its parameters by location, and its body.
-type GetAnyTextRequestOptions struct {
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *GetAnyTextRequestOptions) Validate() error {
-	return nil
-}
-
-// GetAnyBytesRequestOptions is what GetAnyBytes sends: its parameters by location, and its body.
-type GetAnyBytesRequestOptions struct {
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *GetAnyBytesRequestOptions) Validate() error {
-	return nil
-}
-
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
-type ClientInterface interface {
-	PostJSON(ctx context.Context, opts *PostJSONRequestOptions) (*Note, error)
-	PostForm(ctx context.Context, opts *PostFormRequestOptions) (*Note, error)
-	Upload(ctx context.Context, opts *UploadRequestOptions) (UploadResponse200, error)
-	PostText(ctx context.Context, opts *PostTextRequestOptions) (*PostTextResponse200, error)
-	PutFile(ctx context.Context, opts *PutFileRequestOptions) (*PutFileResponse200, error)
-	PutXML(ctx context.Context, opts *PutXMLRequestOptions) error
-	PostAny(ctx context.Context, opts *PostAnyRequestOptions) (*PostAnyResponse200, error)
-	GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions) (*GetAnyTextResponse200, error)
-	GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOptions) ([]byte, error)
-}
-
-var _ ClientInterface = (*Client)(nil)
-
-// PostJSONRequest builds the request of PostJSON, with the editors of the client applied.
-func (c *Client) PostJSONRequest(ctx context.Context, opts *PostJSONRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &PostJSONRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/json")
-	switch {
-	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
-	}
-	return c.newRequest(ctx, b)
-}
-
-// PostJSON returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) PostJSON(ctx context.Context, opts *PostJSONRequestOptions) (*Note, error) {
-	req, err := c.PostJSONRequest(ctx, opts)
+// PostJSON calls POST /json.
+func (c *Client) PostJSON(ctx context.Context, opts *PostJSONRequestOptions, editors ...RequestEditor) (*Note, error) {
+	req, err := c.PostJSONRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1216,8 +252,41 @@ func (c *Client) PostJSON(ctx context.Context, opts *PostJSONRequestOptions) (*N
 	return out, nil
 }
 
-// PostFormRequest builds the request of PostForm, with the editors of the client applied.
-func (c *Client) PostFormRequest(ctx context.Context, opts *PostFormRequestOptions) (*http.Request, error) {
+// PostJSONRequest builds the request of POST /json.
+func (c *Client) PostJSONRequest(ctx context.Context, opts *PostJSONRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &PostJSONRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodPost, "/json")
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json")
+	}
+	return c.newRequest(ctx, b, editors)
+}
+
+// PostForm calls POST /form.
+func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions, editors ...RequestEditor) (*Note, error) {
+	req, err := c.PostFormRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out *Note
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "200", MediaType: "application/json", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PostFormRequest builds the request of POST /form.
+func (c *Client) PostFormRequest(ctx context.Context, opts *PostFormRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &PostFormRequestOptions{}
 	}
@@ -1228,51 +297,12 @@ func (c *Client) PostFormRequest(ctx context.Context, opts *PostFormRequestOptio
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// PostForm returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions) (*Note, error) {
-	req, err := c.PostFormRequest(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
-	if err != nil {
-		return nil, err
-	}
-
-	var out *Note
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
-		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// UploadRequest builds the request of Upload, with the editors of the client applied.
-func (c *Client) UploadRequest(ctx context.Context, opts *UploadRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &UploadRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/upload")
-	switch {
-	case opts.Body != nil:
-		b.MultipartBody(opts.Body)
-	default:
-		return nil, runtime.ErrBodyEmpty
-	}
-	return c.newRequest(ctx, b)
-}
-
-// Upload returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) Upload(ctx context.Context, opts *UploadRequestOptions) (UploadResponse200, error) {
-	req, err := c.UploadRequest(ctx, opts)
+// Upload calls POST /upload.
+func (c *Client) Upload(ctx context.Context, opts *UploadRequestOptions, editors ...RequestEditor) (UploadResponse200, error) {
+	req, err := c.UploadRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1290,26 +320,24 @@ func (c *Client) Upload(ctx context.Context, opts *UploadRequestOptions) (Upload
 	return out, nil
 }
 
-// PostTextRequest builds the request of PostText, with the editors of the client applied.
-func (c *Client) PostTextRequest(ctx context.Context, opts *PostTextRequestOptions) (*http.Request, error) {
+// UploadRequest builds the request of POST /upload.
+func (c *Client) UploadRequest(ctx context.Context, opts *UploadRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &PostTextRequestOptions{}
+		opts = &UploadRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/text")
+	b := runtime.NewRequestBuilder(http.MethodPost, "/upload")
 	switch {
-	case opts.BodyText != nil:
-		b.TextBody(string(*opts.BodyText), "text/plain")
-	case opts.BodyOctetStream != nil:
-		b.BytesBody(opts.BodyOctetStream, "application/octet-stream")
+	case opts.Body != nil:
+		b.MultipartBody(opts.Body)
+	default:
+		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// PostText returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) PostText(ctx context.Context, opts *PostTextRequestOptions) (*PostTextResponse200, error) {
-	req, err := c.PostTextRequest(ctx, opts)
+// PostText calls POST /text.
+func (c *Client) PostText(ctx context.Context, opts *PostTextRequestOptions, editors ...RequestEditor) (*PostTextResponse200, error) {
+	req, err := c.PostTextRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1327,26 +355,24 @@ func (c *Client) PostText(ctx context.Context, opts *PostTextRequestOptions) (*P
 	return out, nil
 }
 
-// PutFileRequest builds the request of PutFile, with the editors of the client applied.
-func (c *Client) PutFileRequest(ctx context.Context, opts *PutFileRequestOptions) (*http.Request, error) {
+// PostTextRequest builds the request of POST /text.
+func (c *Client) PostTextRequest(ctx context.Context, opts *PostTextRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &PutFileRequestOptions{}
+		opts = &PostTextRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPut, "/file")
+	b := runtime.NewRequestBuilder(http.MethodPost, "/text")
 	switch {
-	case opts.Body != nil:
-		b.FileBody(*opts.Body, "image/png")
-	default:
-		return nil, runtime.ErrBodyEmpty
+	case opts.BodyText != nil:
+		b.TextBody(string(*opts.BodyText), "text/plain")
+	case opts.BodyOctetStream != nil:
+		b.BytesBody(opts.BodyOctetStream, "application/octet-stream")
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// PutFile returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) PutFile(ctx context.Context, opts *PutFileRequestOptions) (*PutFileResponse200, error) {
-	req, err := c.PutFileRequest(ctx, opts)
+// PutFile calls PUT /file.
+func (c *Client) PutFile(ctx context.Context, opts *PutFileRequestOptions, editors ...RequestEditor) (*PutFileResponse200, error) {
+	req, err := c.PutFileRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1364,8 +390,36 @@ func (c *Client) PutFile(ctx context.Context, opts *PutFileRequestOptions) (*Put
 	return out, nil
 }
 
-// PutXMLRequest builds the request of PutXML, with the editors of the client applied.
-func (c *Client) PutXMLRequest(ctx context.Context, opts *PutXMLRequestOptions) (*http.Request, error) {
+// PutFileRequest builds the request of PUT /file.
+func (c *Client) PutFileRequest(ctx context.Context, opts *PutFileRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &PutFileRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodPut, "/file")
+	switch {
+	case opts.Body != nil:
+		b.FileBody(*opts.Body, "image/png")
+	default:
+		return nil, runtime.ErrBodyEmpty
+	}
+	return c.newRequest(ctx, b, editors)
+}
+
+// PutXML calls PUT /xml.
+func (c *Client) PutXML(ctx context.Context, opts *PutXMLRequestOptions, editors ...RequestEditor) error {
+	req, err := c.PutXMLRequest(ctx, opts, editors...)
+	if err != nil {
+		return err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return err
+	}
+	return runtime.DecodeSuccess(res, body, nil)
+}
+
+// PutXMLRequest builds the request of PUT /xml.
+func (c *Client) PutXMLRequest(ctx context.Context, opts *PutXMLRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &PutXMLRequestOptions{}
 	}
@@ -1377,42 +431,9 @@ func (c *Client) PutXMLRequest(ctx context.Context, opts *PutXMLRequestOptions) 
 	}
 }
 
-// PutXML sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *Client) PutXML(ctx context.Context, opts *PutXMLRequestOptions) error {
-	req, err := c.PutXMLRequest(ctx, opts)
-	if err != nil {
-		return err
-	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
-	if err != nil {
-		return err
-	}
-	return runtime.DecodeSuccess(res, body, nil)
-}
-
-// PostAnyRequest builds the request of PostAny, with the editors of the client applied.
-func (c *Client) PostAnyRequest(ctx context.Context, opts *PostAnyRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &PostAnyRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/any")
-	switch {
-	case opts.BodyXML != nil:
-		b.TextBody(string(*opts.BodyXML), "application/xml")
-	case opts.BodyTextXML != nil:
-		b.TextBody(string(*opts.BodyTextXML), "text/xml")
-	case opts.BodyAny != nil:
-		b.BytesBody(opts.BodyAny, "application/octet-stream")
-	}
-	return c.newRequest(ctx, b)
-}
-
-// PostAny returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) PostAny(ctx context.Context, opts *PostAnyRequestOptions) (*PostAnyResponse200, error) {
-	req, err := c.PostAnyRequest(ctx, opts)
+// PostAny calls POST /any.
+func (c *Client) PostAny(ctx context.Context, opts *PostAnyRequestOptions, editors ...RequestEditor) (*PostAnyResponse200, error) {
+	req, err := c.PostAnyRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1430,20 +451,26 @@ func (c *Client) PostAny(ctx context.Context, opts *PostAnyRequestOptions) (*Pos
 	return out, nil
 }
 
-// GetAnyTextRequest builds the request of GetAnyText, with the editors of the client applied.
-func (c *Client) GetAnyTextRequest(ctx context.Context, opts *GetAnyTextRequestOptions) (*http.Request, error) {
+// PostAnyRequest builds the request of POST /any.
+func (c *Client) PostAnyRequest(ctx context.Context, opts *PostAnyRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &GetAnyTextRequestOptions{}
+		opts = &PostAnyRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/any/text")
-	return c.newRequest(ctx, b)
+	b := runtime.NewRequestBuilder(http.MethodPost, "/any")
+	switch {
+	case opts.BodyXML != nil:
+		b.TextBody(string(*opts.BodyXML), "application/xml")
+	case opts.BodyTextXML != nil:
+		b.TextBody(string(*opts.BodyTextXML), "text/xml")
+	case opts.BodyAny != nil:
+		b.BytesBody(opts.BodyAny, "application/octet-stream")
+	}
+	return c.newRequest(ctx, b, editors)
 }
 
-// GetAnyText returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions) (*GetAnyTextResponse200, error) {
-	req, err := c.GetAnyTextRequest(ctx, opts)
+// GetAnyText calls GET /any/text.
+func (c *Client) GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions, editors ...RequestEditor) (*GetAnyTextResponse200, error) {
+	req, err := c.GetAnyTextRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1461,20 +488,18 @@ func (c *Client) GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions)
 	return out, nil
 }
 
-// GetAnyBytesRequest builds the request of GetAnyBytes, with the editors of the client applied.
-func (c *Client) GetAnyBytesRequest(ctx context.Context, opts *GetAnyBytesRequestOptions) (*http.Request, error) {
+// GetAnyTextRequest builds the request of GET /any/text.
+func (c *Client) GetAnyTextRequest(ctx context.Context, opts *GetAnyTextRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &GetAnyBytesRequestOptions{}
+		opts = &GetAnyTextRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/any/bytes")
-	return c.newRequest(ctx, b)
+	b := runtime.NewRequestBuilder(http.MethodGet, "/any/text")
+	return c.newRequest(ctx, b, editors)
 }
 
-// GetAnyBytes returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOptions) ([]byte, error) {
-	req, err := c.GetAnyBytesRequest(ctx, opts)
+// GetAnyBytes calls GET /any/bytes.
+func (c *Client) GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOptions, editors ...RequestEditor) ([]byte, error) {
+	req, err := c.GetAnyBytesRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -1490,4 +515,26 @@ func (c *Client) GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOption
 		return nil, err
 	}
 	return out, nil
+}
+
+// GetAnyBytesRequest builds the request of GET /any/bytes.
+func (c *Client) GetAnyBytesRequest(ctx context.Context, opts *GetAnyBytesRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &GetAnyBytesRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/any/bytes")
+	return c.newRequest(ctx, b, editors)
+}
+
+func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
+	if err != nil {
+		return nil, err
+	}
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
 }

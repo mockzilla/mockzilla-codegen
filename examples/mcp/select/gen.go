@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	chi "github.com/go-chi/chi/v5"
@@ -49,12 +50,20 @@ type DeleteItemPathParams struct {
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
+	// GetItem handles GET /items/{id}.
+	//
 	// Fetch an item
 	GetItem(ctx context.Context, opts *GetItemServiceRequestOptions) (*GetItemResponseData, error)
+	// PutItem handles PUT /items/{id}.
+	//
 	// Replace an item, which stays out of MCP by default
 	PutItem(ctx context.Context, opts *PutItemServiceRequestOptions) (*PutItemResponseData, error)
+	// DeleteItem handles DELETE /items/{id}.
+	//
 	// Remove an item
 	DeleteItem(ctx context.Context, opts *DeleteItemServiceRequestOptions) (*DeleteItemResponseData, error)
+	// Reset handles POST /internal/reset.
+	//
 	// Reset the store, never exposed
 	Reset(ctx context.Context, opts *ResetServiceRequestOptions) (*ResetResponseData, error)
 }
@@ -540,41 +549,81 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	return router
 }
 
+// GetItemRequestOptions is what GetItem sends.
+type GetItemRequestOptions struct {
+	PathParams *GetItemPathParams
+	Query      *GetItemQuery
+	Headers    *GetItemHeaders
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *GetItemRequestOptions) Validate() error {
+	return nil
+}
+
+// PutItemRequestOptions is what PutItem sends.
+type PutItemRequestOptions struct {
+	PathParams *PutItemPathParams
+	// Body sent as application/json.
+	Body *Item
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *PutItemRequestOptions) Validate() error {
+	return nil
+}
+
+// DeleteItemRequestOptions is what DeleteItem sends.
+type DeleteItemRequestOptions struct {
+	PathParams *DeleteItemPathParams
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *DeleteItemRequestOptions) Validate() error {
+	return nil
+}
+
+// ResetRequestOptions is what Reset sends.
+type ResetRequestOptions struct {
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *ResetRequestOptions) Validate() error {
+	return nil
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
+
+// ClientInterface is what Client implements.
+type ClientInterface interface {
+	// GetItem calls GET /items/{id}.
+	//
+	// Fetch an item
+	GetItem(ctx context.Context, opts *GetItemRequestOptions, editors ...RequestEditor) (*Item, error)
+	// PutItem calls PUT /items/{id}.
+	//
+	// Replace an item, which stays out of MCP by default
+	PutItem(ctx context.Context, opts *PutItemRequestOptions, editors ...RequestEditor) (*Item, error)
+	// DeleteItem calls DELETE /items/{id}.
+	//
+	// Remove an item
+	DeleteItem(ctx context.Context, opts *DeleteItemRequestOptions, editors ...RequestEditor) error
+	// Reset calls POST /internal/reset.
+	//
+	// Reset the store, never exposed
+	Reset(ctx context.Context, opts *ResetRequestOptions, editors ...RequestEditor) error
+}
+
+var _ ClientInterface = (*Client)(nil)
 
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// Client calls the API at a base URL, with one method per operation.
-type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
-}
-
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
-func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c, nil
-}
-
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -591,8 +640,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -604,80 +652,53 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+type Client struct {
+	baseURL *url.URL
+	doer    HTTPDoer
+	timeout time.Duration
+	editors []RequestEditor
+}
+
+// NewClient returns a client of the API at baseURL.
+func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
+	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
+
+	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	for _, opt := range opts {
+		opt(c)
 	}
-	return req, nil
+	return c, nil
 }
 
-// GetItemRequestOptions is what GetItem sends: its parameters by location, and its body.
-type GetItemRequestOptions struct {
-	PathParams *GetItemPathParams
-	Query      *GetItemQuery
-	Headers    *GetItemHeaders
+// GetItem calls GET /items/{id}.
+//
+// Fetch an item
+func (c *Client) GetItem(ctx context.Context, opts *GetItemRequestOptions, editors ...RequestEditor) (*Item, error) {
+	req, err := c.GetItemRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out *Item
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "200", MediaType: "application/json", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *GetItemRequestOptions) Validate() error {
-	return nil
-}
-
-// PutItemRequestOptions is what PutItem sends: its parameters by location, and its body.
-type PutItemRequestOptions struct {
-	PathParams *PutItemPathParams
-	// Body sent as application/json.
-	Body *Item
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *PutItemRequestOptions) Validate() error {
-	return nil
-}
-
-// DeleteItemRequestOptions is what DeleteItem sends: its parameters by location, and its body.
-type DeleteItemRequestOptions struct {
-	PathParams *DeleteItemPathParams
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *DeleteItemRequestOptions) Validate() error {
-	return nil
-}
-
-// ResetRequestOptions is what Reset sends: its parameters by location, and its body.
-type ResetRequestOptions struct {
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *ResetRequestOptions) Validate() error {
-	return nil
-}
-
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
-type ClientInterface interface {
-	// Fetch an item
-	GetItem(ctx context.Context, opts *GetItemRequestOptions) (*Item, error)
-	// Replace an item, which stays out of MCP by default
-	PutItem(ctx context.Context, opts *PutItemRequestOptions) (*Item, error)
-	// Remove an item
-	DeleteItem(ctx context.Context, opts *DeleteItemRequestOptions) error
-	// Reset the store, never exposed
-	Reset(ctx context.Context, opts *ResetRequestOptions) error
-}
-
-var _ ClientInterface = (*Client)(nil)
-
-// GetItemRequest builds the request of GetItem, with the editors of the client applied.
-func (c *Client) GetItemRequest(ctx context.Context, opts *GetItemRequestOptions) (*http.Request, error) {
+// GetItemRequest builds the request of GET /items/{id}.
+func (c *Client) GetItemRequest(ctx context.Context, opts *GetItemRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &GetItemRequestOptions{}
 	}
@@ -691,16 +712,14 @@ func (c *Client) GetItemRequest(ctx context.Context, opts *GetItemRequestOptions
 	if opts.Headers != nil {
 		b.HeaderParam(opts.Headers.XTenant, runtime.Param{Name: "X-Tenant", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Fetch an item
+// PutItem calls PUT /items/{id}.
 //
-// GetItem returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) GetItem(ctx context.Context, opts *GetItemRequestOptions) (*Item, error) {
-	req, err := c.GetItemRequest(ctx, opts)
+// Replace an item, which stays out of MCP by default
+func (c *Client) PutItem(ctx context.Context, opts *PutItemRequestOptions, editors ...RequestEditor) (*Item, error) {
+	req, err := c.PutItemRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -718,8 +737,8 @@ func (c *Client) GetItem(ctx context.Context, opts *GetItemRequestOptions) (*Ite
 	return out, nil
 }
 
-// PutItemRequest builds the request of PutItem, with the editors of the client applied.
-func (c *Client) PutItemRequest(ctx context.Context, opts *PutItemRequestOptions) (*http.Request, error) {
+// PutItemRequest builds the request of PUT /items/{id}.
+func (c *Client) PutItemRequest(ctx context.Context, opts *PutItemRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &PutItemRequestOptions{}
 	}
@@ -733,35 +752,26 @@ func (c *Client) PutItemRequest(ctx context.Context, opts *PutItemRequestOptions
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Replace an item, which stays out of MCP by default
+// DeleteItem calls DELETE /items/{id}.
 //
-// PutItem returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) PutItem(ctx context.Context, opts *PutItemRequestOptions) (*Item, error) {
-	req, err := c.PutItemRequest(ctx, opts)
+// Remove an item
+func (c *Client) DeleteItem(ctx context.Context, opts *DeleteItemRequestOptions, editors ...RequestEditor) error {
+	req, err := c.DeleteItemRequest(ctx, opts, editors...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	var out *Item
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
-		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// DeleteItemRequest builds the request of DeleteItem, with the editors of the client applied.
-func (c *Client) DeleteItemRequest(ctx context.Context, opts *DeleteItemRequestOptions) (*http.Request, error) {
+// DeleteItemRequest builds the request of DELETE /items/{id}.
+func (c *Client) DeleteItemRequest(ctx context.Context, opts *DeleteItemRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &DeleteItemRequestOptions{}
 	}
@@ -769,15 +779,14 @@ func (c *Client) DeleteItemRequest(ctx context.Context, opts *DeleteItemRequestO
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Remove an item
+// Reset calls POST /internal/reset.
 //
-// DeleteItem sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *Client) DeleteItem(ctx context.Context, opts *DeleteItemRequestOptions) error {
-	req, err := c.DeleteItemRequest(ctx, opts)
+// Reset the store, never exposed
+func (c *Client) Reset(ctx context.Context, opts *ResetRequestOptions, editors ...RequestEditor) error {
+	req, err := c.ResetRequest(ctx, opts, editors...)
 	if err != nil {
 		return err
 	}
@@ -788,29 +797,26 @@ func (c *Client) DeleteItem(ctx context.Context, opts *DeleteItemRequestOptions)
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// ResetRequest builds the request of Reset, with the editors of the client applied.
-func (c *Client) ResetRequest(ctx context.Context, opts *ResetRequestOptions) (*http.Request, error) {
+// ResetRequest builds the request of POST /internal/reset.
+func (c *Client) ResetRequest(ctx context.Context, opts *ResetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &ResetRequestOptions{}
 	}
 	b := runtime.NewRequestBuilder(http.MethodPost, "/internal/reset")
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Reset the store, never exposed
-//
-// Reset sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *Client) Reset(ctx context.Context, opts *ResetRequestOptions) error {
-	req, err := c.ResetRequest(ctx, opts)
+func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
-	if err != nil {
-		return err
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return req, nil
 }
 
 // GetItemToolInput is the input of the fetch_item tool: the parameters of the operation.

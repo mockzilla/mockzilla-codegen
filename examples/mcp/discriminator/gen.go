@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	chi "github.com/go-chi/chi/v5"
@@ -84,6 +85,8 @@ func (a Animal) Validate() error {
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
+	// AddAnimal handles POST /animals.
+	//
 	// Add an animal
 	AddAnimal(ctx context.Context, opts *AddAnimalServiceRequestOptions) (*AddAnimalResponseData, error)
 }
@@ -323,41 +326,41 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	return router
 }
 
+// AddAnimalRequestOptions is what AddAnimal sends.
+type AddAnimalRequestOptions struct {
+	// Body sent as application/json.
+	Body *Animal
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *AddAnimalRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.Body != nil {
+		errs.Append("body", o.Body.Validate())
+	}
+	return errs.Err()
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
+
+// ClientInterface is what Client implements.
+type ClientInterface interface {
+	// AddAnimal calls POST /animals.
+	//
+	// Add an animal
+	AddAnimal(ctx context.Context, opts *AddAnimalRequestOptions, editors ...RequestEditor) (*Animal, error)
+}
+
+var _ ClientInterface = (*Client)(nil)
 
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// Client calls the API at a base URL, with one method per operation.
-type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
-}
-
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
-func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c, nil
-}
-
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -374,8 +377,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -387,66 +389,34 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+type Client struct {
+	baseURL *url.URL
+	doer    HTTPDoer
+	timeout time.Duration
+	editors []RequestEditor
+}
+
+// NewClient returns a client of the API at baseURL.
+func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
+	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
+
+	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	for _, opt := range opts {
+		opt(c)
 	}
-	return req, nil
+	return c, nil
 }
 
-// AddAnimalRequestOptions is what AddAnimal sends: its parameters by location, and its body.
-type AddAnimalRequestOptions struct {
-	// Body sent as application/json.
-	Body *Animal
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *AddAnimalRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
-	if o.Body != nil {
-		errs.Append("body", o.Body.Validate())
-	}
-	return errs.Err()
-}
-
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
-type ClientInterface interface {
-	// Add an animal
-	AddAnimal(ctx context.Context, opts *AddAnimalRequestOptions) (*Animal, error)
-}
-
-var _ ClientInterface = (*Client)(nil)
-
-// AddAnimalRequest builds the request of AddAnimal, with the editors of the client applied.
-func (c *Client) AddAnimalRequest(ctx context.Context, opts *AddAnimalRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &AddAnimalRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/animals")
-	switch {
-	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
-	default:
-		return nil, runtime.ErrBodyEmpty
-	}
-	return c.newRequest(ctx, b)
-}
-
-// Add an animal
+// AddAnimal calls POST /animals.
 //
-// AddAnimal returns the body of a 201 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) AddAnimal(ctx context.Context, opts *AddAnimalRequestOptions) (*Animal, error) {
-	req, err := c.AddAnimalRequest(ctx, opts)
+// Add an animal
+func (c *Client) AddAnimal(ctx context.Context, opts *AddAnimalRequestOptions, editors ...RequestEditor) (*Animal, error) {
+	req, err := c.AddAnimalRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -462,6 +432,34 @@ func (c *Client) AddAnimal(ctx context.Context, opts *AddAnimalRequestOptions) (
 		return nil, err
 	}
 	return out, nil
+}
+
+// AddAnimalRequest builds the request of POST /animals.
+func (c *Client) AddAnimalRequest(ctx context.Context, opts *AddAnimalRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &AddAnimalRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodPost, "/animals")
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json")
+	default:
+		return nil, runtime.ErrBodyEmpty
+	}
+	return c.newRequest(ctx, b, editors)
+}
+
+func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
+	if err != nil {
+		return nil, err
+	}
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
 }
 
 // AddAnimalToolInput is the input of the add_animal tool: the parameters of the operation.

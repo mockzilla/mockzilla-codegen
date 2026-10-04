@@ -15,14 +15,18 @@ server:
 
 ```go
 type PetsInterface interface {
+	// ListPets handles GET /pets.
+	//
 	// List pets
 	ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error)
+	// CreatePet handles POST /pets.
 	CreatePet(ctx context.Context, opts *CreatePetServiceRequestOptions) (*CreatePetResponseData, error)
 }
 ```
 
 Every operation has the same shape, even one without parameters or body, so middleware and wrappers
-treat them alike. The method's comment is the operation's summary and description.
+treat them alike. The method's comment names the HTTP method and the path, then the operation's
+summary and description.
 
 ## Request options
 

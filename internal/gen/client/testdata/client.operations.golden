@@ -3,71 +3,19 @@ package api
 import (
 	"context"
 	"net/http"
+	"slices"
 
 	"example.com/work/types"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// PetClientInterface is what PetClient implements: one method per operation, so a test double can
-// stand in for the client.
-type PetClientInterface interface {
-	// List pets
-	//
-	// Returns pets.
-	ListPets(ctx context.Context, opts *types.ListPetsRequestOptions) (types.Pets, error)
-	ListPetsWithResponse(ctx context.Context, opts *types.ListPetsRequestOptions) (*types.ListPetsResponse, error)
-	// Same
-	//
-	// Deprecated: the spec marks it deprecated.
-	CreatePet(ctx context.Context, opts *types.CreatePetRequestOptions) (*types.Pet, error)
-	CreatePetWithResponse(ctx context.Context, opts *types.CreatePetRequestOptions) (*types.CreatePetResponse, error)
-	// Deprecated: the spec marks it deprecated.
-	DeletePet(ctx context.Context, opts *types.DeletePetRequestOptions) error
-	DeletePetWithResponse(ctx context.Context, opts *types.DeletePetRequestOptions) (*types.DeletePetResponse, error)
-	Ping(ctx context.Context, opts *types.PingRequestOptions) (string, error)
-	PingWithResponse(ctx context.Context, opts *types.PingRequestOptions) (*types.PingResponse, error)
-	Query(ctx context.Context, opts *types.QueryRequestOptions) error
-	QueryWithResponse(ctx context.Context, opts *types.QueryRequestOptions) (*types.QueryResponse, error)
-	Chat(ctx context.Context, opts *types.ChatRequestOptions) (*types.Pet, error)
-	ChatWithResponse(ctx context.Context, opts *types.ChatRequestOptions) (*types.ChatResponse, error)
-	ChatStream(ctx context.Context, opts *types.ChatRequestOptions) (*runtime.Stream[types.ChatResponseItem], error)
-	ChatStreamWithResponse(ctx context.Context, opts *types.ChatRequestOptions) (*types.ChatResponse, error)
-	Tail(ctx context.Context, opts *types.TailRequestOptions) (*string, error)
-	TailWithResponse(ctx context.Context, opts *types.TailRequestOptions) (*types.TailResponse, error)
-	TailStream(ctx context.Context, opts *types.TailRequestOptions) (*runtime.Stream[[]byte], error)
-	TailStreamWithResponse(ctx context.Context, opts *types.TailRequestOptions) (*types.TailResponse, error)
-}
-
-var _ PetClientInterface = (*PetClient)(nil)
-
-// ListPetsRequest builds the request of ListPets, with the editors of the client applied.
-func (c *PetClient) ListPetsRequest(ctx context.Context, opts *types.ListPetsRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &types.ListPetsRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/pets")
-	if opts.Query != nil {
-		b.QueryParam(opts.Query.Limit, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
-		b.QueryParam(opts.Query.Filter, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: true, IsRequired: true, IsJSON: false})
-	}
-	if opts.Headers != nil {
-		b.HeaderParam(opts.Headers.XTrace, runtime.Param{Name: "X-Trace", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: true})
-	}
-	if opts.Cookies != nil {
-		b.CookieParam(opts.Cookies.Session, runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: false, IsRequired: true, IsJSON: false})
-	}
-	return c.newRequest(ctx, b)
-}
-
-// List pets
+// ListPets calls GET /pets.
+//
+// # List pets
 //
 // Returns pets.
-//
-// ListPets returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *PetClient) ListPets(ctx context.Context, opts *types.ListPetsRequestOptions) (types.Pets, error) {
-	req, err := c.ListPetsRequest(ctx, opts)
+func (c *PetClient) ListPets(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (types.Pets, error) {
+	req, err := c.ListPetsRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -86,11 +34,9 @@ func (c *PetClient) ListPets(ctx context.Context, opts *types.ListPetsRequestOpt
 	return out, nil
 }
 
-// ListPetsWithResponse is ListPets with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *PetClient) ListPetsWithResponse(ctx context.Context, opts *types.ListPetsRequestOptions) (*types.ListPetsResponse, error) {
-	req, err := c.ListPetsRequest(ctx, opts)
+// ListPetsWithResponse calls GET /pets and returns the whole response.
+func (c *PetClient) ListPetsWithResponse(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (*types.ListPetsResponse, error) {
+	req, err := c.ListPetsRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +58,79 @@ func (c *PetClient) ListPetsWithResponse(ctx context.Context, opts *types.ListPe
 	return out, nil
 }
 
-// CreatePetRequest builds the request of CreatePet, with the editors of the client applied.
-func (c *PetClient) CreatePetRequest(ctx context.Context, opts *types.CreatePetRequestOptions) (*http.Request, error) {
+// ListPetsRequest builds the request of GET /pets.
+func (c *PetClient) ListPetsRequest(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &types.ListPetsRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/pets")
+	if opts.Query != nil {
+		b.QueryParam(opts.Query.Limit, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
+		b.QueryParam(opts.Query.Filter, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: true, IsRequired: true, IsJSON: false})
+	}
+	if opts.Headers != nil {
+		b.HeaderParam(opts.Headers.XTrace, runtime.Param{Name: "X-Trace", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: true})
+	}
+	if opts.Cookies != nil {
+		b.CookieParam(opts.Cookies.Session, runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: false, IsRequired: true, IsJSON: false})
+	}
+	return c.newRequest(ctx, b, editors)
+}
+
+// CreatePet calls POST /pets.
+//
+// # Same
+//
+// Deprecated: the spec marks it deprecated.
+func (c *PetClient) CreatePet(ctx context.Context, opts *types.CreatePetRequestOptions, editors ...RequestEditor) (*types.Pet, error) {
+	req, err := c.CreatePetRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out *types.Pet
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "201", MediaType: "application/json", Dst: &out},
+		{Status: "202"},
+		{Status: "4XX", MediaType: "application/problem+json", Dst: new(types.Problem)},
+		{Status: "5XX", MediaType: "application/problem+json", Dst: new(types.Problem)},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CreatePetWithResponse calls POST /pets and returns the whole response.
+func (c *PetClient) CreatePetWithResponse(ctx context.Context, opts *types.CreatePetRequestOptions, editors ...RequestEditor) (*types.CreatePetResponse, error) {
+	req, err := c.CreatePetRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	out := &types.CreatePetResponse{HTTPResponse: res, Body: body}
+	if err = runtime.Decode(res, body, []runtime.Target{
+		{Status: "202", MediaType: "application/json", Dst: &out.JSON202},
+		{Status: "201", MediaType: "application/json", Dst: &out.JSON201},
+		{Status: "409", MediaType: "application/json", Dst: &out.JSON409},
+		{Status: "4XX", MediaType: "application/problem+json", Dst: &out.ProblemJSON4XX},
+		{Status: "5XX", MediaType: "application/problem+json", Dst: &out.ProblemJSON5XX},
+		{Status: "201", IsHeaders: true, Dst: &out.Headers201},
+	}); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+// CreatePetRequest builds the request of POST /pets.
+func (c *PetClient) CreatePetRequest(ctx context.Context, opts *types.CreatePetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &types.CreatePetRequestOptions{}
 	}
@@ -138,87 +155,14 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *types.CreatePetR
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Same
+// DeletePet calls DELETE /pets/{id}.
 //
 // Deprecated: the spec marks it deprecated.
-//
-// CreatePet returns the body of a 201 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *PetClient) CreatePet(ctx context.Context, opts *types.CreatePetRequestOptions) (*types.Pet, error) {
-	req, err := c.CreatePetRequest(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
-	if err != nil {
-		return nil, err
-	}
-
-	var out *types.Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
-		{Status: "201", MediaType: "application/json", Dst: &out},
-		{Status: "202"},
-		{Status: "4XX", MediaType: "application/problem+json", Dst: new(types.Problem)},
-		{Status: "5XX", MediaType: "application/problem+json", Dst: new(types.Problem)},
-	}); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// CreatePetWithResponse is CreatePet with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *PetClient) CreatePetWithResponse(ctx context.Context, opts *types.CreatePetRequestOptions) (*types.CreatePetResponse, error) {
-	req, err := c.CreatePetRequest(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
-	if err != nil {
-		return nil, err
-	}
-
-	out := &types.CreatePetResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
-		{Status: "202", MediaType: "application/json", Dst: &out.JSON202},
-		{Status: "201", MediaType: "application/json", Dst: &out.JSON201},
-		{Status: "409", MediaType: "application/json", Dst: &out.JSON409},
-		{Status: "4XX", MediaType: "application/problem+json", Dst: &out.ProblemJSON4XX},
-		{Status: "5XX", MediaType: "application/problem+json", Dst: &out.ProblemJSON5XX},
-		{Status: "201", IsHeaders: true, Dst: &out.Headers201},
-	}); err != nil {
-		return out, err
-	}
-	return out, nil
-}
-
-// DeletePetRequest builds the request of DeletePet, with the editors of the client applied.
-func (c *PetClient) DeletePetRequest(ctx context.Context, opts *types.DeletePetRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &types.DeletePetRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodDelete, "/pets/{id}")
-	if opts.PathParams != nil {
-		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
-	}
-	switch {
-	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
-	}
-	return c.newRequest(ctx, b)
-}
-
-// Deprecated: the spec marks it deprecated.
-//
-// DeletePet sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *PetClient) DeletePet(ctx context.Context, opts *types.DeletePetRequestOptions) error {
-	req, err := c.DeletePetRequest(ctx, opts)
+func (c *PetClient) DeletePet(ctx context.Context, opts *types.DeletePetRequestOptions, editors ...RequestEditor) error {
+	req, err := c.DeletePetRequest(ctx, opts, editors...)
 	if err != nil {
 		return err
 	}
@@ -231,11 +175,9 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *types.DeletePetRequestO
 	})
 }
 
-// DeletePetWithResponse is DeletePet with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *PetClient) DeletePetWithResponse(ctx context.Context, opts *types.DeletePetRequestOptions) (*types.DeletePetResponse, error) {
-	req, err := c.DeletePetRequest(ctx, opts)
+// DeletePetWithResponse calls DELETE /pets/{id} and returns the whole response.
+func (c *PetClient) DeletePetWithResponse(ctx context.Context, opts *types.DeletePetRequestOptions, editors ...RequestEditor) (*types.DeletePetResponse, error) {
+	req, err := c.DeletePetRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -253,24 +195,25 @@ func (c *PetClient) DeletePetWithResponse(ctx context.Context, opts *types.Delet
 	return out, nil
 }
 
-// PingRequest builds the request of Ping, with the editors of the client applied.
-func (c *PetClient) PingRequest(ctx context.Context, opts *types.PingRequestOptions) (*http.Request, error) {
+// DeletePetRequest builds the request of DELETE /pets/{id}.
+func (c *PetClient) DeletePetRequest(ctx context.Context, opts *types.DeletePetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &types.PingRequestOptions{}
+		opts = &types.DeletePetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/ping")
+	b := runtime.NewRequestBuilder(http.MethodDelete, "/pets/{id}")
+	if opts.PathParams != nil {
+		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
+	}
 	switch {
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Ping returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *PetClient) Ping(ctx context.Context, opts *types.PingRequestOptions) (string, error) {
-	req, err := c.PingRequest(ctx, opts)
+// Ping calls GET /ping.
+func (c *PetClient) Ping(ctx context.Context, opts *types.PingRequestOptions, editors ...RequestEditor) (string, error) {
+	req, err := c.PingRequest(ctx, opts, editors...)
 	if err != nil {
 		return "", err
 	}
@@ -288,11 +231,9 @@ func (c *PetClient) Ping(ctx context.Context, opts *types.PingRequestOptions) (s
 	return out, nil
 }
 
-// PingWithResponse is Ping with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *PetClient) PingWithResponse(ctx context.Context, opts *types.PingRequestOptions) (*types.PingResponse, error) {
-	req, err := c.PingRequest(ctx, opts)
+// PingWithResponse calls GET /ping and returns the whole response.
+func (c *PetClient) PingWithResponse(ctx context.Context, opts *types.PingRequestOptions, editors ...RequestEditor) (*types.PingResponse, error) {
+	req, err := c.PingRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -313,23 +254,22 @@ func (c *PetClient) PingWithResponse(ctx context.Context, opts *types.PingReques
 	return out, nil
 }
 
-// QueryRequest builds the request of Query, with the editors of the client applied.
-func (c *PetClient) QueryRequest(ctx context.Context, opts *types.QueryRequestOptions) (*http.Request, error) {
+// PingRequest builds the request of GET /ping.
+func (c *PetClient) PingRequest(ctx context.Context, opts *types.PingRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &types.QueryRequestOptions{}
+		opts = &types.PingRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder("QUERY", "/pets/query")
+	b := runtime.NewRequestBuilder(http.MethodGet, "/ping")
 	switch {
 	case opts.Body != nil:
-		b.TextBody(*opts.Body, "text/plain")
+		b.JSONBody(opts.Body, "application/json")
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Query sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *PetClient) Query(ctx context.Context, opts *types.QueryRequestOptions) error {
-	req, err := c.QueryRequest(ctx, opts)
+// Query calls QUERY /pets/query.
+func (c *PetClient) Query(ctx context.Context, opts *types.QueryRequestOptions, editors ...RequestEditor) error {
+	req, err := c.QueryRequest(ctx, opts, editors...)
 	if err != nil {
 		return err
 	}
@@ -340,11 +280,9 @@ func (c *PetClient) Query(ctx context.Context, opts *types.QueryRequestOptions) 
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// QueryWithResponse is Query with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *PetClient) QueryWithResponse(ctx context.Context, opts *types.QueryRequestOptions) (*types.QueryResponse, error) {
-	req, err := c.QueryRequest(ctx, opts)
+// QueryWithResponse calls QUERY /pets/query and returns the whole response.
+func (c *PetClient) QueryWithResponse(ctx context.Context, opts *types.QueryRequestOptions, editors ...RequestEditor) (*types.QueryResponse, error) {
+	req, err := c.QueryRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -357,26 +295,22 @@ func (c *PetClient) QueryWithResponse(ctx context.Context, opts *types.QueryRequ
 	return out, nil
 }
 
-// ChatRequest builds the request of Chat, with the editors of the client applied.
-func (c *PetClient) ChatRequest(ctx context.Context, opts *types.ChatRequestOptions) (*http.Request, error) {
+// QueryRequest builds the request of QUERY /pets/query.
+func (c *PetClient) QueryRequest(ctx context.Context, opts *types.QueryRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &types.ChatRequestOptions{}
+		opts = &types.QueryRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/chat")
+	b := runtime.NewRequestBuilder("QUERY", "/pets/query")
 	switch {
 	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
-	default:
-		return nil, runtime.ErrBodyEmpty
+		b.TextBody(*opts.Body, "text/plain")
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// Chat returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *PetClient) Chat(ctx context.Context, opts *types.ChatRequestOptions) (*types.Pet, error) {
-	req, err := c.ChatRequest(ctx, opts)
+// Chat calls POST /chat.
+func (c *PetClient) Chat(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.Pet, error) {
+	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -395,11 +329,9 @@ func (c *PetClient) Chat(ctx context.Context, opts *types.ChatRequestOptions) (*
 	return out, nil
 }
 
-// ChatWithResponse is Chat with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *PetClient) ChatWithResponse(ctx context.Context, opts *types.ChatRequestOptions) (*types.ChatResponse, error) {
-	req, err := c.ChatRequest(ctx, opts)
+// ChatWithResponse calls POST /chat and returns the whole response.
+func (c *PetClient) ChatWithResponse(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.ChatResponse, error) {
+	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -419,12 +351,9 @@ func (c *PetClient) ChatWithResponse(ctx context.Context, opts *types.ChatReques
 	return out, nil
 }
 
-// ChatStream is Chat over a live stream: it asks for text/event-stream and returns the
-// frames of a 2xx response in a sequential media type as they arrive. The caller closes the stream.
-// Any other 2xx response is runtime.ErrContentType; a response outside 2xx is a *runtime.APIError,
-// as with Chat.
-func (c *PetClient) ChatStream(ctx context.Context, opts *types.ChatRequestOptions) (*runtime.Stream[types.ChatResponseItem], error) {
-	req, err := c.ChatRequest(ctx, opts)
+// ChatStream calls POST /chat and returns its frames as a stream.
+func (c *PetClient) ChatStream(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[types.ChatResponseItem], error) {
+	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -437,12 +366,9 @@ func (c *PetClient) ChatStream(ctx context.Context, opts *types.ChatRequestOptio
 	})
 }
 
-// ChatStreamWithResponse is ChatWithResponse over a live stream: it asks for
-// text/event-stream, and a 2xx response in a sequential media type comes back with Stream200
-// set, Body nil and HTTPResponse.Body open until the stream is closed. Any other response is read
-// and decoded as ChatWithResponse reads it. An error is returned with the response.
-func (c *PetClient) ChatStreamWithResponse(ctx context.Context, opts *types.ChatRequestOptions) (*types.ChatResponse, error) {
-	req, err := c.ChatRequest(ctx, opts)
+// ChatStreamWithResponse calls POST /chat and returns the whole response, with its stream.
+func (c *PetClient) ChatStreamWithResponse(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.ChatResponse, error) {
+	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -463,20 +389,24 @@ func (c *PetClient) ChatStreamWithResponse(ctx context.Context, opts *types.Chat
 	return out, nil
 }
 
-// TailRequest builds the request of Tail, with the editors of the client applied.
-func (c *PetClient) TailRequest(ctx context.Context, opts *types.TailRequestOptions) (*http.Request, error) {
+// ChatRequest builds the request of POST /chat.
+func (c *PetClient) ChatRequest(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &types.TailRequestOptions{}
+		opts = &types.ChatRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/tail")
-	return c.newRequest(ctx, b)
+	b := runtime.NewRequestBuilder(http.MethodPost, "/chat")
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json")
+	default:
+		return nil, runtime.ErrBodyEmpty
+	}
+	return c.newRequest(ctx, b, editors)
 }
 
-// Tail returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *PetClient) Tail(ctx context.Context, opts *types.TailRequestOptions) (*string, error) {
-	req, err := c.TailRequest(ctx, opts)
+// Tail calls GET /tail.
+func (c *PetClient) Tail(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*string, error) {
+	req, err := c.TailRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -494,11 +424,9 @@ func (c *PetClient) Tail(ctx context.Context, opts *types.TailRequestOptions) (*
 	return out, nil
 }
 
-// TailWithResponse is Tail with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *PetClient) TailWithResponse(ctx context.Context, opts *types.TailRequestOptions) (*types.TailResponse, error) {
-	req, err := c.TailRequest(ctx, opts)
+// TailWithResponse calls GET /tail and returns the whole response.
+func (c *PetClient) TailWithResponse(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*types.TailResponse, error) {
+	req, err := c.TailRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -516,12 +444,9 @@ func (c *PetClient) TailWithResponse(ctx context.Context, opts *types.TailReques
 	return out, nil
 }
 
-// TailStream is Tail over a live stream: it asks for application/x-ndjson and returns the
-// frames of a 2xx response in a sequential media type as they arrive. The caller closes the stream.
-// Any other 2xx response is runtime.ErrContentType; a response outside 2xx is a *runtime.APIError,
-// as with Tail.
-func (c *PetClient) TailStream(ctx context.Context, opts *types.TailRequestOptions) (*runtime.Stream[[]byte], error) {
-	req, err := c.TailRequest(ctx, opts)
+// TailStream calls GET /tail and returns its frames as a stream.
+func (c *PetClient) TailStream(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*runtime.Stream[[]byte], error) {
+	req, err := c.TailRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -532,12 +457,9 @@ func (c *PetClient) TailStream(ctx context.Context, opts *types.TailRequestOptio
 	return runtime.OpenStream[[]byte](res, body, nil)
 }
 
-// TailStreamWithResponse is TailWithResponse over a live stream: it asks for
-// application/x-ndjson, and a 2xx response in a sequential media type comes back with Stream200
-// set, Body nil and HTTPResponse.Body open until the stream is closed. Any other response is read
-// and decoded as TailWithResponse reads it. An error is returned with the response.
-func (c *PetClient) TailStreamWithResponse(ctx context.Context, opts *types.TailRequestOptions) (*types.TailResponse, error) {
-	req, err := c.TailRequest(ctx, opts)
+// TailStreamWithResponse calls GET /tail and returns the whole response, with its stream.
+func (c *PetClient) TailStreamWithResponse(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*types.TailResponse, error) {
+	req, err := c.TailRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -554,4 +476,26 @@ func (c *PetClient) TailStreamWithResponse(ctx context.Context, opts *types.Tail
 		return out, err
 	}
 	return out, nil
+}
+
+// TailRequest builds the request of GET /tail.
+func (c *PetClient) TailRequest(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &types.TailRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/tail")
+	return c.newRequest(ctx, b, editors)
+}
+
+func (c *PetClient) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
+	if err != nil {
+		return nil, err
+	}
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
 }

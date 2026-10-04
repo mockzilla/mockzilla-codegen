@@ -66,9 +66,13 @@ type CookieStylesCookies struct {
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
+	// PathStyles handles GET /path/{simple}/{label}/{matrix}/{list}.
 	PathStyles(ctx context.Context, opts *PathStylesServiceRequestOptions) (*PathStylesResponseData, error)
+	// QueryStyles handles GET /query.
 	QueryStyles(ctx context.Context, opts *QueryStylesServiceRequestOptions) (*QueryStylesResponseData, error)
+	// HeaderStyles handles GET /header.
 	HeaderStyles(ctx context.Context, opts *HeaderStylesServiceRequestOptions) (*HeaderStylesResponseData, error)
+	// CookieStyles handles GET /cookie.
 	CookieStyles(ctx context.Context, opts *CookieStylesServiceRequestOptions) (*CookieStylesResponseData, error)
 }
 

@@ -73,7 +73,8 @@ templates:
 ```
 
 `{{.Name}}` is the name of the interface, `PetsInterface` here. `go generate ./...` then writes
-`MockPetsInterface` into `mock_test.go`. The tests need `go.uber.org/mock` in the module.
+`MockPetsInterface` into `mock_test.go`. The tests need `go.uber.org/mock` in the module. The same
+line under `client.interface-header` mocks the interface of the client.
 
 ### A mock server
 
@@ -157,11 +158,13 @@ user-context:
 ```
 
 The text of a block goes on lines of its own, without the blank lines around it, so it needs no
-line break at its start or its end. `server.service-header` is followed by a blank line, which
-keeps it out of the comment of the interface. A block whose text comes out empty adds nothing.
+line break at its start or its end. `server.service-header` and `client.interface-header` are
+followed by a blank line, which keeps them out of the comment of the interface. A block whose text
+comes out empty adds nothing.
 
 | Block | Where | Data | Default |
 |---|---|---|---|
+| `client.interface-header` | before the client interface | the interface | nothing |
 | `server.service-header` | before the service interface | the service | nothing |
 | `server.request-options-extra` | in every request options struct, before `RawRequest` | the operation | nothing |
 | `server.response-data-extra` | in every response data struct, after `Body` | the operation | nothing |
@@ -169,9 +172,10 @@ keeps it out of the comment of the interface. A block whose text comes out empty
 | `server.scaffold.service-fields` | in the struct of the service scaffold | the scaffold | nothing |
 | `server.scaffold.service-method` | the body of every method of the service scaffold | the method | `return nil, ErrNotImplemented` |
 
-In `server.service-header`, `.Name` is the name of the service interface. In the request options
-and response data blocks, the operation's `.Options` and `.Data` are the names of the two structs.
-In the scaffold blocks, `.Name` is the name of the service struct or of the method, and the
+In `server.service-header`, `.Name` is the name of the service interface, and in
+`client.interface-header` the name of the client interface. In the request options and response
+data blocks, the operation's `.Options` and `.Data` are the names of the two structs. In the
+scaffold blocks, `.Name` is the name of the service struct or of the method, and the
 method's `.Options` and `.Data` are written as the scaffold's file spells them.
 
 The text of a block is a `text/template` of its own. It can call the funcs every template of the
@@ -187,7 +191,7 @@ value, or an `index` on its own.
 These are config errors:
 
 - a block that does not exist, with the list of those that do
-- a `server` block in a config without `server`
+- a `server` block in a config without `server`, and a `client` block in one without `client`
 - a scaffold block in a config that does not write that scaffold
 - a value without text, and `{file: }` without a path
 - text that can only be a path, such as `./header.tmpl` or `templates/header.txt`: it would be

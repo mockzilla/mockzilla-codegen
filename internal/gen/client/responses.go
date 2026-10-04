@@ -25,13 +25,11 @@ type ResponsesView struct {
 }
 
 // EnvelopeView is the envelope of one operation: a field per documented body the client decodes
-// and per struct of typed headers, after the response and its raw body. HasStream marks an
-// envelope with a stream field, whose Body is nil when the stream is set.
+// and per struct of typed headers, after the response and its raw body.
 type EnvelopeView struct {
-	Name      string
-	Type      string
-	HasStream bool
-	Fields    []FieldView
+	Name   string
+	Type   string
+	Fields []FieldView
 }
 
 // envelopeField is one field of an envelope with the response it decodes: the status as the spec
@@ -56,7 +54,6 @@ func responsesView(g *Generator, s *gocode.Scope) *ResponsesView {
 		e := EnvelopeView{Name: op.Name, Type: g.opts.Namer.ClientResponse(op.Name)}
 		for _, f := range envelopeFields(g, op, s) {
 			e.Fields = append(e.Fields, f.FieldView)
-			e.HasStream = e.HasStream || f.isStream
 		}
 		v.Operations = append(v.Operations, e)
 	}
@@ -76,7 +73,7 @@ func envelopeFields(g *Generator, op *gomodel.Operation, s *gocode.Scope) []enve
 		name := "Stream" + n.Status(r.Status)
 		names = append(names, name)
 		stream = &envelopeField{
-			FieldView: FieldView{Name: name, Type: streamType(s.Expr(frameType(c)), s), Doc: name + " is the stream of a " + r.Status + " response as " + c.MediaType + ", set by the Stream method alone; Body is nil then."},
+			FieldView: FieldView{Name: name, Type: streamType(s.Expr(frameType(c)), s), Doc: name + " is the stream of a " + r.Status + " response as " + c.MediaType + "."},
 			status:    r.Status,
 			mediaType: c.MediaType,
 			isStream:  true,

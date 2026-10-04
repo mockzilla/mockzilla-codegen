@@ -32,6 +32,9 @@ const (
 	PartResponses  layout.PartID = "client.responses"
 )
 
+// blockInterfaceHeader is the block of the client templates a config may override.
+const blockInterfaceHeader = "client.interface-header"
+
 //go:embed *.tmpl
 var templates embed.FS
 
@@ -69,7 +72,7 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 	return g, diags
 }
 
-// Templates is the client template set. No block can be overridden yet.
+// Templates is the client template set.
 func Templates() render.Set {
 	return render.Set{
 		Name: "client",
@@ -80,7 +83,13 @@ func Templates() render.Set {
 			PartOperations: "operations.tmpl",
 			PartResponses:  "responses.tmpl",
 		},
+		Blocks: Blocks(),
 	}
+}
+
+// Blocks lists the blocks of the client templates a config may override.
+func Blocks() []string {
+	return []string{blockInterfaceHeader}
 }
 
 // Interface is the name of the interface the client implements.
@@ -88,8 +97,9 @@ func (g *Generator) Interface() string {
 	return g.opts.Namer.Interface(g.opts.Name)
 }
 
-// Parts returns the client parts with the parts each refers to. The operations add methods to
-// the client type, so they share the folder of the core.
+// Parts returns the client parts with the parts each refers to, in the order a file holds them:
+// the types the client takes and returns, then the client with its interface, then its methods.
+// The operations add methods to the client type, so they share the folder of the core.
 func (g *Generator) Parts() []layout.Part {
 	var requests, responses []gomodel.Type
 	for _, op := range g.ops {
@@ -109,16 +119,16 @@ func (g *Generator) Parts() []layout.Part {
 		}
 	}
 
-	parts := []layout.Part{
-		{ID: PartCore},
-		{ID: PartOptions, Uses: operation.PartsOf(requests)},
-		{ID: PartOperations, Uses: slices.Concat([]layout.PartID{PartCore, PartOptions}, operation.PartsOf(responses)), Owner: PartCore},
-	}
+	types := []layout.PartID{PartOptions}
+	parts := []layout.Part{{ID: PartOptions, Uses: operation.PartsOf(requests)}}
 	if g.opts.HasEnvelopes {
-		parts[2].Uses = slices.Concat([]layout.PartID{PartCore, PartOptions, PartResponses}, operation.PartsOf(responses))
+		types = append(types, PartResponses)
 		parts = append(parts, layout.Part{ID: PartResponses, Uses: operation.PartsOf(responses)})
 	}
-	return parts
+	return append(parts,
+		layout.Part{ID: PartCore, Uses: slices.Concat(types, operation.PartsOf(responses))},
+		layout.Part{ID: PartOperations, Uses: slices.Concat([]layout.PartID{PartCore}, types, operation.PartsOf(responses)), Owner: PartCore},
+	)
 }
 
 // View returns the data of part, with names written as the file of s spells them.

@@ -4,12 +4,11 @@ package params
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
-	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
@@ -70,22 +69,13 @@ type CookieStylesCookies struct {
 	Flags   []int   `json:"flags,omitempty"`
 }
 
-// ServiceInterface is what the generated handlers call. Implement it with the business logic.
-type ServiceInterface interface {
-	PathStyles(ctx context.Context, opts *PathStylesServiceRequestOptions) (*PathStylesResponseData, error)
-	QueryStyles(ctx context.Context, opts *QueryStylesServiceRequestOptions) (*QueryStylesResponseData, error)
-	HeaderStyles(ctx context.Context, opts *HeaderStylesServiceRequestOptions) (*HeaderStylesResponseData, error)
-	CookieStyles(ctx context.Context, opts *CookieStylesServiceRequestOptions) (*CookieStylesResponseData, error)
-}
-
-// PathStylesServiceRequestOptions is what PathStyles receives. RawRequest is the request as it came in.
-type PathStylesServiceRequestOptions struct {
+// PathStylesRequestOptions is what PathStyles sends.
+type PathStylesRequestOptions struct {
 	PathParams *PathStylesPathParams
-	RawRequest *http.Request
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *PathStylesServiceRequestOptions) Validate() error {
+func (o *PathStylesRequestOptions) Validate() error {
 	var errs runtime.ValidationErrors
 	if o.PathParams != nil {
 		errs.Append("path", o.PathParams.Validate())
@@ -93,550 +83,60 @@ func (o *PathStylesServiceRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// PathStylesResponseData is what PathStyles returns: the status, the headers and the body of the response.
-type PathStylesResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewPathStylesResponseData returns the response data of status 200 with body as application/json.
-func NewPathStylesResponseData(body Echo) *PathStylesResponseData {
-	return &PathStylesResponseData{Status: 200, Body: body, contentType: "application/json"}
-}
-
-// WithStatus sets the status code.
-func (r *PathStylesResponseData) WithStatus(code int) *PathStylesResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *PathStylesResponseData) WithHeaders(h http.Header) *PathStylesResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *PathStylesResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *PathStylesResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *PathStylesResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *PathStylesResponseData) ContentType() string {
-	return r.contentType
-}
-
-// QueryStylesServiceRequestOptions is what QueryStyles receives. RawRequest is the request as it came in.
-type QueryStylesServiceRequestOptions struct {
-	Query      *QueryStylesQuery
-	RawRequest *http.Request
+// QueryStylesRequestOptions is what QueryStyles sends.
+type QueryStylesRequestOptions struct {
+	Query *QueryStylesQuery
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *QueryStylesServiceRequestOptions) Validate() error {
+func (o *QueryStylesRequestOptions) Validate() error {
 	return nil
 }
 
-// QueryStylesResponseData is what QueryStyles returns: the status, the headers and the body of the response.
-type QueryStylesResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewQueryStylesResponseData returns the response data of status 200 with body as application/json.
-func NewQueryStylesResponseData(body Echo) *QueryStylesResponseData {
-	return &QueryStylesResponseData{Status: 200, Body: body, contentType: "application/json"}
-}
-
-// WithStatus sets the status code.
-func (r *QueryStylesResponseData) WithStatus(code int) *QueryStylesResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *QueryStylesResponseData) WithHeaders(h http.Header) *QueryStylesResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *QueryStylesResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *QueryStylesResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *QueryStylesResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *QueryStylesResponseData) ContentType() string {
-	return r.contentType
-}
-
-// HeaderStylesServiceRequestOptions is what HeaderStyles receives. RawRequest is the request as it came in.
-type HeaderStylesServiceRequestOptions struct {
-	Headers    *HeaderStylesHeaders
-	RawRequest *http.Request
+// HeaderStylesRequestOptions is what HeaderStyles sends.
+type HeaderStylesRequestOptions struct {
+	Headers *HeaderStylesHeaders
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *HeaderStylesServiceRequestOptions) Validate() error {
+func (o *HeaderStylesRequestOptions) Validate() error {
 	return nil
 }
 
-// HeaderStylesResponseData is what HeaderStyles returns: the status, the headers and the body of the response.
-type HeaderStylesResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewHeaderStylesResponseData returns the response data of status 200 with body as application/json.
-func NewHeaderStylesResponseData(body Echo) *HeaderStylesResponseData {
-	return &HeaderStylesResponseData{Status: 200, Body: body, contentType: "application/json"}
-}
-
-// WithStatus sets the status code.
-func (r *HeaderStylesResponseData) WithStatus(code int) *HeaderStylesResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *HeaderStylesResponseData) WithHeaders(h http.Header) *HeaderStylesResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *HeaderStylesResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *HeaderStylesResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *HeaderStylesResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *HeaderStylesResponseData) ContentType() string {
-	return r.contentType
-}
-
-// CookieStylesServiceRequestOptions is what CookieStyles receives. RawRequest is the request as it came in.
-type CookieStylesServiceRequestOptions struct {
-	Cookies    *CookieStylesCookies
-	RawRequest *http.Request
+// CookieStylesRequestOptions is what CookieStyles sends.
+type CookieStylesRequestOptions struct {
+	Cookies *CookieStylesCookies
 }
 
 // Validate checks the parameters and the body against the constraints of the spec.
-func (o *CookieStylesServiceRequestOptions) Validate() error {
+func (o *CookieStylesRequestOptions) Validate() error {
 	return nil
-}
-
-// CookieStylesResponseData is what CookieStyles returns: the status, the headers and the body of the response.
-type CookieStylesResponseData struct {
-	Status  int
-	Headers http.Header
-	Body    any
-
-	contentType string
-}
-
-// NewCookieStylesResponseData returns the response data of status 200 with body as application/json.
-func NewCookieStylesResponseData(body Echo) *CookieStylesResponseData {
-	return &CookieStylesResponseData{Status: 200, Body: body, contentType: "application/json"}
-}
-
-// WithStatus sets the status code.
-func (r *CookieStylesResponseData) WithStatus(code int) *CookieStylesResponseData {
-	r.Status = code
-	return r
-}
-
-// WithHeaders sets the headers.
-func (r *CookieStylesResponseData) WithHeaders(h http.Header) *CookieStylesResponseData {
-	r.Headers = h
-	return r
-}
-
-// StatusCode returns the status.
-func (r *CookieStylesResponseData) StatusCode() int {
-	return r.Status
-}
-
-// Header returns the headers.
-func (r *CookieStylesResponseData) Header() http.Header {
-	return r.Headers
-}
-
-// Payload returns the body.
-func (r *CookieStylesResponseData) Payload() any {
-	return r.Body
-}
-
-// ContentType is the media type the body is written as, empty for the default of its Go type.
-func (r *CookieStylesResponseData) ContentType() string {
-	return r.contentType
-}
-
-// The error types the handlers use, as the runtime declares them.
-type (
-	ErrorKind           = runtime.ErrorKind
-	HandlerError        = runtime.HandlerError
-	ErrorHandler        = runtime.ErrorHandler
-	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
-	DefaultErrorHandler = runtime.DefaultErrorHandler
-)
-
-// The kinds of HandlerError.
-const (
-	ErrorParse      = runtime.ErrorParse
-	ErrorDecode     = runtime.ErrorDecode
-	ErrorValidation = runtime.ErrorValidation
-	ErrorService    = runtime.ErrorService
-	ErrorResponse   = runtime.ErrorResponse
-)
-
-// ServerOptions is what the adapter and the router are set up with. Router is the router the
-// routes go on when one is given; Middleware wraps the routes, outermost first; ErrorHandler
-// writes the response of a failed request; JSONDecoder reads JSON bodies.
-type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       runtime.ErrorHandler
-	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
-	MultipartMaxMemory int64
-}
-
-// ServerOption sets one field of ServerOptions.
-type ServerOption func(*ServerOptions)
-
-// NewServerOptions applies opts to the defaults.
-func NewServerOptions(opts ...ServerOption) *ServerOptions {
-	o := &ServerOptions{
-		ErrorHandler:       runtime.DefaultErrorHandler{},
-		JSONDecoder:        runtime.DecodeJSON,
-		MultipartMaxMemory: 33554432,
-	}
-	for _, opt := range opts {
-		opt(o)
-	}
-	return o
-}
-
-// WithMiddleware wraps the routes with mw, outermost first, after any middleware added before.
-func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
-	return func(o *ServerOptions) {
-		o.Middleware = append(o.Middleware, mw...)
-	}
-}
-
-// WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
-	return func(o *ServerOptions) {
-		o.ErrorHandler = h
-	}
-}
-
-// WithJSONDecoder sets what reads JSON bodies. isRequired says whether an empty body is an error.
-func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error) ServerOption {
-	return func(o *ServerOptions) {
-		o.JSONDecoder = decode
-	}
-}
-
-// WithMultipartMaxMemory sets how much of a multipart form stays in memory before parts spill to
-// disk.
-func WithMultipartMaxMemory(n int64) ServerOption {
-	return func(o *ServerOptions) {
-		o.MultipartMaxMemory = n
-	}
-}
-
-// HTTPAdapter answers HTTP requests by calling the service: one handler per operation.
-type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
-}
-
-// responseData is what every response data type gives the adapter.
-type responseData interface {
-	StatusCode() int
-	Header() http.Header
-	Payload() any
-	ContentType() string
-}
-
-// NewHTTPAdapter returns the adapter of svc.
-func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
-}
-
-// PathStyles handles GET /path/{simple}/{label}/{matrix}/{list}.
-func (a *HTTPAdapter) PathStyles(w http.ResponseWriter, r *http.Request) {
-	opts := &PathStylesServiceRequestOptions{RawRequest: r}
-	opts.PathParams = &PathStylesPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "simple"), runtime.Param{Name: "simple", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Simple); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "simple", ParamLocation: "path", Err: err})
-		return
-	}
-	if err := runtime.DecodePath(chi.URLParam(r, "label"), runtime.Param{Name: "label", Style: runtime.StyleLabel, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Label); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "label", ParamLocation: "path", Err: err})
-		return
-	}
-	if err := runtime.DecodePath(chi.URLParam(r, "matrix"), runtime.Param{Name: "matrix", Style: runtime.StyleMatrix, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Matrix); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "matrix", ParamLocation: "path", Err: err})
-		return
-	}
-	if err := runtime.DecodePath(chi.URLParam(r, "list"), runtime.Param{Name: "list", Style: runtime.StyleSimple, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.PathParams.List); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "list", ParamLocation: "path", Err: err})
-		return
-	}
-
-	res, err := a.svc.PathStyles(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PathStyles", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PathStyles", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "PathStyles", res)
-}
-
-// QueryStyles handles GET /query.
-func (a *HTTPAdapter) QueryStyles(w http.ResponseWriter, r *http.Request) {
-	opts := &QueryStylesServiceRequestOptions{RawRequest: r}
-	query := r.URL.Query()
-	opts.Query = &QueryStylesQuery{}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "form", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Form); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "form", ParamLocation: "query", Err: err})
-		return
-	}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "csv", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Csv); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "csv", ParamLocation: "query", Err: err})
-		return
-	}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "space", Style: runtime.StyleSpaceDelimited, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Space); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "space", ParamLocation: "query", Err: err})
-		return
-	}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "pipe", Style: runtime.StylePipeDelimited, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Pipe); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "pipe", ParamLocation: "query", Err: err})
-		return
-	}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "deep", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Deep); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "deep", ParamLocation: "query", Err: err})
-		return
-	}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "flat", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Flat); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "flat", ParamLocation: "query", Err: err})
-		return
-	}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "json", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: true}, &opts.Query.JSON); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "json", ParamLocation: "query", Err: err})
-		return
-	}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Filter); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "filter", ParamLocation: "query", Err: err})
-		return
-	}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "where", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Where); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "where", ParamLocation: "query", Err: err})
-		return
-	}
-	if err := runtime.DecodeQuery(query, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.Query.Needed); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "needed", ParamLocation: "query", Err: err})
-		return
-	}
-
-	res, err := a.svc.QueryStyles(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "QueryStyles", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "QueryStyles", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "QueryStyles", res)
-}
-
-// HeaderStyles handles GET /header.
-func (a *HTTPAdapter) HeaderStyles(w http.ResponseWriter, r *http.Request) {
-	opts := &HeaderStylesServiceRequestOptions{RawRequest: r}
-	opts.Headers = &HeaderStylesHeaders{}
-	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Tags", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XTags); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-Tags", ParamLocation: "header", Err: err})
-		return
-	}
-	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Point", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XPoint); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-Point", ParamLocation: "header", Err: err})
-		return
-	}
-	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-When", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XWhen); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-When", ParamLocation: "header", Err: err})
-		return
-	}
-
-	res, err := a.svc.HeaderStyles(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "HeaderStyles", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "HeaderStyles", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "HeaderStyles", res)
-}
-
-// CookieStyles handles GET /cookie.
-func (a *HTTPAdapter) CookieStyles(w http.ResponseWriter, r *http.Request) {
-	opts := &CookieStylesServiceRequestOptions{RawRequest: r}
-	opts.Cookies = &CookieStylesCookies{}
-	if err := runtime.DecodeCookie(r.Cookies(), runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Cookies.Session); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "CookieStyles", ParamName: "session", ParamLocation: "cookie", Err: err})
-		return
-	}
-	if err := runtime.DecodeCookie(r.Cookies(), runtime.Param{Name: "flags", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Cookies.Flags); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "CookieStyles", ParamName: "flags", ParamLocation: "cookie", Err: err})
-		return
-	}
-
-	res, err := a.svc.CookieStyles(r.Context(), opts)
-	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CookieStyles", Err: err})
-		return
-	}
-	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CookieStyles", Err: runtime.ErrNoResponse})
-		return
-	}
-	a.write(w, r, "CookieStyles", res)
-}
-
-// fail answers a request the handler could not serve.
-func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
-	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
-}
-
-// failDecode answers a request whose body could not be read.
-func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
-	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
-}
-
-// write writes the response of the service.
-func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
-	if res.ContentType() != "" {
-		w.Header().Set("Content-Type", res.ContentType())
-	}
-	if err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload()); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
-	}
-}
-
-// WithRouter registers the routes on r instead of a new router.
-func WithRouter(r chi.Router) ServerOption {
-	return func(o *ServerOptions) {
-		o.Router = r
-	}
-}
-
-// NewRouter registers every operation on a chi router. On a new router the middleware
-// WithMiddleware adds wraps everything, unknown paths too; on the router WithRouter gives it
-// wraps the generated routes and nothing else.
-func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
-	o := NewServerOptions(opts...)
-	adapter := NewHTTPAdapter(svc, opts...)
-	register := func(r chi.Router) {
-		r.Get("/path/{simple}/{label}/{matrix}/{list}", adapter.PathStyles)
-		r.Get("/query", adapter.QueryStyles)
-		r.Get("/header", adapter.HeaderStyles)
-		r.Get("/cookie", adapter.CookieStyles)
-	}
-
-	router, _ := o.Router.(chi.Router)
-	if router == nil {
-		router = chi.NewRouter()
-		router.Use(o.Middleware...)
-		register(router)
-		return router
-	}
-	router.Group(func(r chi.Router) {
-		r.Use(o.Middleware...)
-		register(r)
-	})
-	return router
 }
 
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
+
+// ClientInterface is what Client implements.
+type ClientInterface interface {
+	// PathStyles calls GET /path/{simple}/{label}/{matrix}/{list}.
+	PathStyles(ctx context.Context, opts *PathStylesRequestOptions, editors ...RequestEditor) (Echo, error)
+	// QueryStyles calls GET /query.
+	QueryStyles(ctx context.Context, opts *QueryStylesRequestOptions, editors ...RequestEditor) (Echo, error)
+	// HeaderStyles calls GET /header.
+	HeaderStyles(ctx context.Context, opts *HeaderStylesRequestOptions, editors ...RequestEditor) (Echo, error)
+	// CookieStyles calls GET /cookie.
+	CookieStyles(ctx context.Context, opts *CookieStylesRequestOptions, editors ...RequestEditor) (Echo, error)
+}
+
+var _ ClientInterface = (*Client)(nil)
 
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// Client calls the API at a base URL, with one method per operation.
-type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
-}
-
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
-func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
-	for _, opt := range opts {
-		opt(c)
-	}
-	return c, nil
-}
-
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -653,8 +153,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -666,95 +165,32 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+type Client struct {
+	baseURL *url.URL
+	doer    HTTPDoer
+	timeout time.Duration
+	editors []RequestEditor
+}
+
+// NewClient returns a client of the API at baseURL.
+func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
+	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
+
+	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	for _, opt := range opts {
+		opt(c)
 	}
-	return req, nil
+	return c, nil
 }
 
-// PathStylesRequestOptions is what PathStyles sends: its parameters by location, and its body.
-type PathStylesRequestOptions struct {
-	PathParams *PathStylesPathParams
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *PathStylesRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
-	if o.PathParams != nil {
-		errs.Append("path", o.PathParams.Validate())
-	}
-	return errs.Err()
-}
-
-// QueryStylesRequestOptions is what QueryStyles sends: its parameters by location, and its body.
-type QueryStylesRequestOptions struct {
-	Query *QueryStylesQuery
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *QueryStylesRequestOptions) Validate() error {
-	return nil
-}
-
-// HeaderStylesRequestOptions is what HeaderStyles sends: its parameters by location, and its body.
-type HeaderStylesRequestOptions struct {
-	Headers *HeaderStylesHeaders
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *HeaderStylesRequestOptions) Validate() error {
-	return nil
-}
-
-// CookieStylesRequestOptions is what CookieStyles sends: its parameters by location, and its body.
-type CookieStylesRequestOptions struct {
-	Cookies *CookieStylesCookies
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *CookieStylesRequestOptions) Validate() error {
-	return nil
-}
-
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
-type ClientInterface interface {
-	PathStyles(ctx context.Context, opts *PathStylesRequestOptions) (Echo, error)
-	QueryStyles(ctx context.Context, opts *QueryStylesRequestOptions) (Echo, error)
-	HeaderStyles(ctx context.Context, opts *HeaderStylesRequestOptions) (Echo, error)
-	CookieStyles(ctx context.Context, opts *CookieStylesRequestOptions) (Echo, error)
-}
-
-var _ ClientInterface = (*Client)(nil)
-
-// PathStylesRequest builds the request of PathStyles, with the editors of the client applied.
-func (c *Client) PathStylesRequest(ctx context.Context, opts *PathStylesRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &PathStylesRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/path/{simple}/{label}/{matrix}/{list}")
-	if opts.PathParams != nil {
-		b.PathParam(opts.PathParams.Simple, runtime.Param{Name: "simple", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
-		b.PathParam(opts.PathParams.Label, runtime.Param{Name: "label", Style: runtime.StyleLabel, IsExplode: false, IsRequired: true, IsJSON: false})
-		b.PathParam(opts.PathParams.Matrix, runtime.Param{Name: "matrix", Style: runtime.StyleMatrix, IsExplode: false, IsRequired: true, IsJSON: false})
-		b.PathParam(opts.PathParams.List, runtime.Param{Name: "list", Style: runtime.StyleSimple, IsExplode: true, IsRequired: true, IsJSON: false})
-	}
-	return c.newRequest(ctx, b)
-}
-
-// PathStyles returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) PathStyles(ctx context.Context, opts *PathStylesRequestOptions) (Echo, error) {
-	req, err := c.PathStylesRequest(ctx, opts)
+// PathStyles calls GET /path/{simple}/{label}/{matrix}/{list}.
+func (c *Client) PathStyles(ctx context.Context, opts *PathStylesRequestOptions, editors ...RequestEditor) (Echo, error) {
+	req, err := c.PathStylesRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -772,8 +208,43 @@ func (c *Client) PathStyles(ctx context.Context, opts *PathStylesRequestOptions)
 	return out, nil
 }
 
-// QueryStylesRequest builds the request of QueryStyles, with the editors of the client applied.
-func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesRequestOptions) (*http.Request, error) {
+// PathStylesRequest builds the request of GET /path/{simple}/{label}/{matrix}/{list}.
+func (c *Client) PathStylesRequest(ctx context.Context, opts *PathStylesRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &PathStylesRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/path/{simple}/{label}/{matrix}/{list}")
+	if opts.PathParams != nil {
+		b.PathParam(opts.PathParams.Simple, runtime.Param{Name: "simple", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
+		b.PathParam(opts.PathParams.Label, runtime.Param{Name: "label", Style: runtime.StyleLabel, IsExplode: false, IsRequired: true, IsJSON: false})
+		b.PathParam(opts.PathParams.Matrix, runtime.Param{Name: "matrix", Style: runtime.StyleMatrix, IsExplode: false, IsRequired: true, IsJSON: false})
+		b.PathParam(opts.PathParams.List, runtime.Param{Name: "list", Style: runtime.StyleSimple, IsExplode: true, IsRequired: true, IsJSON: false})
+	}
+	return c.newRequest(ctx, b, editors)
+}
+
+// QueryStyles calls GET /query.
+func (c *Client) QueryStyles(ctx context.Context, opts *QueryStylesRequestOptions, editors ...RequestEditor) (Echo, error) {
+	req, err := c.QueryStylesRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out Echo
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "200", MediaType: "application/json", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// QueryStylesRequest builds the request of GET /query.
+func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &QueryStylesRequestOptions{}
 	}
@@ -790,14 +261,12 @@ func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesReques
 		b.QueryParam(opts.Query.Where, runtime.Param{Name: "where", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.Needed, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// QueryStyles returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) QueryStyles(ctx context.Context, opts *QueryStylesRequestOptions) (Echo, error) {
-	req, err := c.QueryStylesRequest(ctx, opts)
+// HeaderStyles calls GET /header.
+func (c *Client) HeaderStyles(ctx context.Context, opts *HeaderStylesRequestOptions, editors ...RequestEditor) (Echo, error) {
+	req, err := c.HeaderStylesRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -815,8 +284,8 @@ func (c *Client) QueryStyles(ctx context.Context, opts *QueryStylesRequestOption
 	return out, nil
 }
 
-// HeaderStylesRequest builds the request of HeaderStyles, with the editors of the client applied.
-func (c *Client) HeaderStylesRequest(ctx context.Context, opts *HeaderStylesRequestOptions) (*http.Request, error) {
+// HeaderStylesRequest builds the request of GET /header.
+func (c *Client) HeaderStylesRequest(ctx context.Context, opts *HeaderStylesRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &HeaderStylesRequestOptions{}
 	}
@@ -826,14 +295,12 @@ func (c *Client) HeaderStylesRequest(ctx context.Context, opts *HeaderStylesRequ
 		b.HeaderParam(opts.Headers.XPoint, runtime.Param{Name: "X-Point", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.HeaderParam(opts.Headers.XWhen, runtime.Param{Name: "X-When", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// HeaderStyles returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) HeaderStyles(ctx context.Context, opts *HeaderStylesRequestOptions) (Echo, error) {
-	req, err := c.HeaderStylesRequest(ctx, opts)
+// CookieStyles calls GET /cookie.
+func (c *Client) CookieStyles(ctx context.Context, opts *CookieStylesRequestOptions, editors ...RequestEditor) (Echo, error) {
+	req, err := c.CookieStylesRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -851,8 +318,8 @@ func (c *Client) HeaderStyles(ctx context.Context, opts *HeaderStylesRequestOpti
 	return out, nil
 }
 
-// CookieStylesRequest builds the request of CookieStyles, with the editors of the client applied.
-func (c *Client) CookieStylesRequest(ctx context.Context, opts *CookieStylesRequestOptions) (*http.Request, error) {
+// CookieStylesRequest builds the request of GET /cookie.
+func (c *Client) CookieStylesRequest(ctx context.Context, opts *CookieStylesRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &CookieStylesRequestOptions{}
 	}
@@ -861,27 +328,18 @@ func (c *Client) CookieStylesRequest(ctx context.Context, opts *CookieStylesRequ
 		b.CookieParam(opts.Cookies.Session, runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.CookieParam(opts.Cookies.Flags, runtime.Param{Name: "flags", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
 	}
-	return c.newRequest(ctx, b)
+	return c.newRequest(ctx, b, editors)
 }
 
-// CookieStyles returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) CookieStyles(ctx context.Context, opts *CookieStylesRequestOptions) (Echo, error) {
-	req, err := c.CookieStylesRequest(ctx, opts)
+func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
-	if err != nil {
-		return nil, err
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
 	}
-
-	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
-		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return req, nil
 }

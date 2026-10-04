@@ -7,10 +7,13 @@ package errors
 
 import (
 	"context"
+	"encoding/json"
 	stderrors "errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,35 +22,47 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// service answers by id: 1 is a pet, 2 a pet the spec rejects, 3 is locked, anything else a
-// Problem.
-type service struct{}
-
-func (service) AddPet(_ context.Context, opts *AddPetServiceRequestOptions) (*AddPetResponseData, error) {
-	return NewAddPetResponseData201(opts.Body), nil
+func reply(w http.ResponseWriter, status int, mediaType, body string) {
+	w.Header().Set("Content-Type", mediaType)
+	w.WriteHeader(status)
+	_, _ = io.WriteString(w, body)
 }
 
-func (service) GetPet(_ context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error) {
-	switch id := opts.PathParams.ID; id {
-	case 1:
-		return NewGetPetResponseData200(&Pet{Name: "Rex", Age: new(3)}), nil
-	case 2:
-		return NewGetPetResponseData200(&Pet{Name: ""}), nil
-	case 3:
-		return NewGetPetResponseData409(&Locked{Detail: new("locked"), Until: new("later")}), nil
+// getPet answers by id: 1 is a pet, 2 fails, 3 is locked, a number under 1 is rejected, any
+// other is unknown.
+func getPet(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	switch {
+	case err != nil || id < 1:
+		reply(w, http.StatusBadRequest, "application/json", `{"error":"invalid request: path.id: must be at least 1"}`)
+	case id == 1:
+		reply(w, http.StatusOK, "application/json", `{"name":"Rex","age":3}`)
+	case id == 2:
+		reply(w, http.StatusInternalServerError, "application/json", `{"error":"invalid response: name: must be at least 1 characters long"}`)
+	case id == 3:
+		reply(w, http.StatusConflict, "application/problem+json", `{"detail":"locked","until":"later"}`)
 	default:
-		return nil, NewProblem(fmt.Sprintf("no pet %d", id))
+		reply(w, http.StatusNotFound, "application/problem+json", fmt.Sprintf(`{"detail":"no pet %d"}`, id))
 	}
 }
 
-func (service) PutPet(_ context.Context, opts *PutPetServiceRequestOptions) (*PutPetResponseData, error) {
-	return NewPutPetResponseData(opts.Body), nil
+func putPet(w http.ResponseWriter, r *http.Request) {
+	var pet Pet
+	if err := json.NewDecoder(r.Body).Decode(&pet); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(pet)
 }
 
 func newClient(t *testing.T) *Client {
 	t.Helper()
 
-	srv := httptest.NewServer(NewRouter(service{}))
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /pets/{id}", getPet)
+	mux.HandleFunc("PUT /pets/{id}", putPet)
+	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	c, err := NewClient(srv.URL)
 	require.NoError(t, err)

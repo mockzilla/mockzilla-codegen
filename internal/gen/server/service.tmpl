@@ -3,7 +3,9 @@
 {{end}}// {{.Name}} is what the generated handlers call. Implement it with the business logic.
 type {{.Name}} interface {
 {{- range .Operations}}
+	// {{.Name}} handles {{.Method}} {{.Path}}.
 {{- with .Doc}}
+	//
 {{comment .}}
 {{- end}}
 	{{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{.Data}}, error)

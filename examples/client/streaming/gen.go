@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
@@ -86,16 +87,157 @@ type ListEventsResponseItemActor struct {
 
 type TailLogResponseItem = string
 
+// ChatRequestOptions is what Chat sends.
+type ChatRequestOptions struct {
+	// Body sent as application/json.
+	Body *Prompt
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *ChatRequestOptions) Validate() error {
+	return nil
+}
+
+// ListEventsRequestOptions is what ListEvents sends.
+type ListEventsRequestOptions struct {
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *ListEventsRequestOptions) Validate() error {
+	return nil
+}
+
+// TailLogRequestOptions is what TailLog sends.
+type TailLogRequestOptions struct {
+	PathParams *TailLogPathParams
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *TailLogRequestOptions) Validate() error {
+	return nil
+}
+
+// ChatResponse is what ChatWithResponse returns.
+type ChatResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// JSON200 is the body of a 200 response as application/json.
+	JSON200 *Reply
+	// EventStream200 is the body of a 200 response as text/event-stream.
+	EventStream200 *string
+	// ProblemJSON400 is the body of a 400 response as application/problem+json.
+	ProblemJSON400 *Problem
+	// Stream200 is the stream of a 200 response as text/event-stream.
+	Stream200 *runtime.Stream[Chunk]
+	// Headers200 holds the headers the spec declares for a 200 response.
+	Headers200 *ChatResponse200Headers
+}
+
+// StatusCode is the status of the response.
+func (r *ChatResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}
+
+// ListEventsResponse is what ListEventsWithResponse returns.
+type ListEventsResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// Stream200 is the stream of a 200 response as text/event-stream.
+	Stream200 *runtime.Stream[ListEventsResponseItem]
+}
+
+// StatusCode is the status of the response.
+func (r *ListEventsResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}
+
+// TailLogResponse is what TailLogWithResponse returns.
+type TailLogResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// Ndjson200 is the body of a 200 response as application/x-ndjson.
+	Ndjson200 *TailLogResponseItem
+	// ProblemJSON404 is the body of a 404 response as application/problem+json.
+	ProblemJSON404 *Problem
+	// Stream200 is the stream of a 200 response as application/x-ndjson.
+	Stream200 *runtime.Stream[[]byte]
+}
+
+// StatusCode is the status of the response.
+func (r *TailLogResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
+
+// ClientInterface is what Client implements.
+type ClientInterface interface {
+	// Chat calls POST /chat.
+	//
+	// Ask the assistant
+	//
+	// Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
+	Chat(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*Reply, error)
+	ChatWithResponse(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*ChatResponse, error)
+	ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[Chunk], error)
+	ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*ChatResponse, error)
+	// ListEvents calls GET /events.
+	//
+	// Follow the events
+	ListEvents(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) error
+	ListEventsWithResponse(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*ListEventsResponse, error)
+	ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*runtime.Stream[ListEventsResponseItem], error)
+	ListEventsStreamWithResponse(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*ListEventsResponse, error)
+	// TailLog calls GET /logs/{job}.
+	//
+	// Follow the log of a job
+	TailLog(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponseItem, error)
+	TailLogWithResponse(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponse, error)
+	TailLogStream(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*runtime.Stream[[]byte], error)
+	TailLogStreamWithResponse(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponse, error)
+}
+
+var _ ClientInterface = (*Client)(nil)
 
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// Client calls the API at a base URL, with one method per operation.
+// WithHTTPClient sends the requests with d. A nil d panics.
+func WithHTTPClient(d HTTPDoer) ClientOption {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
+	}
+	return func(c *Client) {
+		c.doer = d
+	}
+}
+
+// WithTimeout sets how long a call may take, 0 for no limit.
+// A Stream method waits that long for the response headers only.
+func WithTimeout(d time.Duration) ClientOption {
+	return func(c *Client) {
+		c.timeout = d
+	}
+}
+
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
+func WithRequestEditor(fns ...RequestEditor) ClientOption {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
+	return func(c *Client) {
+		c.editors = append(c.editors, fns...)
+	}
+}
+
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -103,9 +245,7 @@ type Client struct {
 	editors []RequestEditor
 }
 
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
+// NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
@@ -119,131 +259,13 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
-func WithHTTPClient(d HTTPDoer) ClientOption {
-	if d == nil {
-		panic("WithHTTPClient: nil HTTPDoer")
-	}
-	return func(c *Client) {
-		c.doer = d
-	}
-}
-
-// WithTimeout sets how long a call may take, 0 for no limit. A Stream method waits that long for
-// the response headers only, then reads frames until the server ends the stream or the context
-// is canceled. An http.Client with a Timeout cuts the stream after it.
-func WithTimeout(d time.Duration) ClientOption {
-	return func(c *Client) {
-		c.timeout = d
-	}
-}
-
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before.
-// A nil editor panics.
-func WithRequestEditor(fns ...RequestEditor) ClientOption {
-	for _, fn := range fns {
-		if fn == nil {
-			panic("WithRequestEditor: nil RequestEditor")
-		}
-	}
-	return func(c *Client) {
-		c.editors = append(c.editors, fns...)
-	}
-}
-
-// newRequest builds b against the base URL and runs the editors on the request.
-func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder) (*http.Request, error) {
-	req, err := b.Build(ctx, c.baseURL)
-	if err != nil {
-		return nil, err
-	}
-	for _, edit := range c.editors {
-		if err = edit(ctx, req); err != nil {
-			return nil, err
-		}
-	}
-	return req, nil
-}
-
-// ChatRequestOptions is what Chat sends: its parameters by location, and its body.
-type ChatRequestOptions struct {
-	// Body sent as application/json.
-	Body *Prompt
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *ChatRequestOptions) Validate() error {
-	return nil
-}
-
-// ListEventsRequestOptions is what ListEvents sends: its parameters by location, and its body.
-type ListEventsRequestOptions struct {
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *ListEventsRequestOptions) Validate() error {
-	return nil
-}
-
-// TailLogRequestOptions is what TailLog sends: its parameters by location, and its body.
-type TailLogRequestOptions struct {
-	PathParams *TailLogPathParams
-}
-
-// Validate checks the parameters and the body against the constraints of the spec.
-func (o *TailLogRequestOptions) Validate() error {
-	return nil
-}
-
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
-type ClientInterface interface {
-	// Ask the assistant
-	//
-	// Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
-	Chat(ctx context.Context, opts *ChatRequestOptions) (*Reply, error)
-	ChatWithResponse(ctx context.Context, opts *ChatRequestOptions) (*ChatResponse, error)
-	ChatStream(ctx context.Context, opts *ChatRequestOptions) (*runtime.Stream[Chunk], error)
-	ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOptions) (*ChatResponse, error)
-	// Follow the events
-	ListEvents(ctx context.Context, opts *ListEventsRequestOptions) error
-	ListEventsWithResponse(ctx context.Context, opts *ListEventsRequestOptions) (*ListEventsResponse, error)
-	ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions) (*runtime.Stream[ListEventsResponseItem], error)
-	ListEventsStreamWithResponse(ctx context.Context, opts *ListEventsRequestOptions) (*ListEventsResponse, error)
-	// Follow the log of a job
-	TailLog(ctx context.Context, opts *TailLogRequestOptions) (*TailLogResponseItem, error)
-	TailLogWithResponse(ctx context.Context, opts *TailLogRequestOptions) (*TailLogResponse, error)
-	TailLogStream(ctx context.Context, opts *TailLogRequestOptions) (*runtime.Stream[[]byte], error)
-	TailLogStreamWithResponse(ctx context.Context, opts *TailLogRequestOptions) (*TailLogResponse, error)
-}
-
-var _ ClientInterface = (*Client)(nil)
-
-// ChatRequest builds the request of Chat, with the editors of the client applied.
-func (c *Client) ChatRequest(ctx context.Context, opts *ChatRequestOptions) (*http.Request, error) {
-	if opts == nil {
-		opts = &ChatRequestOptions{}
-	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/chat")
-	switch {
-	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
-	default:
-		return nil, runtime.ErrBodyEmpty
-	}
-	return c.newRequest(ctx, b)
-}
-
-// Ask the assistant
+// Chat calls POST /chat.
+//
+// # Ask the assistant
 //
 // Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
-//
-// Chat returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions) (*Reply, error) {
-	req, err := c.ChatRequest(ctx, opts)
+func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*Reply, error) {
+	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -262,11 +284,9 @@ func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions) (*Reply, er
 	return out, nil
 }
 
-// ChatWithResponse is Chat with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *Client) ChatWithResponse(ctx context.Context, opts *ChatRequestOptions) (*ChatResponse, error) {
-	req, err := c.ChatRequest(ctx, opts)
+// ChatWithResponse calls POST /chat and returns the whole response.
+func (c *Client) ChatWithResponse(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*ChatResponse, error) {
+	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -287,12 +307,9 @@ func (c *Client) ChatWithResponse(ctx context.Context, opts *ChatRequestOptions)
 	return out, nil
 }
 
-// ChatStream is Chat over a live stream: it asks for text/event-stream and returns the
-// frames of a 2xx response in a sequential media type as they arrive. The caller closes the stream.
-// Any other 2xx response is runtime.ErrContentType; a response outside 2xx is a *runtime.APIError,
-// as with Chat.
-func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions) (*runtime.Stream[Chunk], error) {
-	req, err := c.ChatRequest(ctx, opts)
+// ChatStream calls POST /chat and returns its frames as a stream.
+func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[Chunk], error) {
+	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -305,12 +322,9 @@ func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions) (*run
 	})
 }
 
-// ChatStreamWithResponse is ChatWithResponse over a live stream: it asks for
-// text/event-stream, and a 2xx response in a sequential media type comes back with Stream200
-// set, Body nil and HTTPResponse.Body open until the stream is closed. Any other response is read
-// and decoded as ChatWithResponse reads it. An error is returned with the response.
-func (c *Client) ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOptions) (*ChatResponse, error) {
-	req, err := c.ChatRequest(ctx, opts)
+// ChatStreamWithResponse calls POST /chat and returns the whole response, with its stream.
+func (c *Client) ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*ChatResponse, error) {
+	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -332,21 +346,26 @@ func (c *Client) ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOp
 	return out, nil
 }
 
-// ListEventsRequest builds the request of ListEvents, with the editors of the client applied.
-func (c *Client) ListEventsRequest(ctx context.Context, opts *ListEventsRequestOptions) (*http.Request, error) {
+// ChatRequest builds the request of POST /chat.
+func (c *Client) ChatRequest(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &ListEventsRequestOptions{}
+		opts = &ChatRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/events")
-	return c.newRequest(ctx, b)
+	b := runtime.NewRequestBuilder(http.MethodPost, "/chat")
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json")
+	default:
+		return nil, runtime.ErrBodyEmpty
+	}
+	return c.newRequest(ctx, b, editors)
 }
 
-// Follow the events
+// ListEvents calls GET /events.
 //
-// ListEvents sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
-// the error type of its status when the spec documents one.
-func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions) error {
-	req, err := c.ListEventsRequest(ctx, opts)
+// Follow the events
+func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) error {
+	req, err := c.ListEventsRequest(ctx, opts, editors...)
 	if err != nil {
 		return err
 	}
@@ -357,11 +376,9 @@ func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions)
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// ListEventsWithResponse is ListEvents with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *Client) ListEventsWithResponse(ctx context.Context, opts *ListEventsRequestOptions) (*ListEventsResponse, error) {
-	req, err := c.ListEventsRequest(ctx, opts)
+// ListEventsWithResponse calls GET /events and returns the whole response.
+func (c *Client) ListEventsWithResponse(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*ListEventsResponse, error) {
+	req, err := c.ListEventsRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -374,12 +391,9 @@ func (c *Client) ListEventsWithResponse(ctx context.Context, opts *ListEventsReq
 	return out, nil
 }
 
-// ListEventsStream is ListEvents over a live stream: it asks for text/event-stream and returns the
-// frames of a 2xx response in a sequential media type as they arrive. The caller closes the stream.
-// Any other 2xx response is runtime.ErrContentType; a response outside 2xx is a *runtime.APIError,
-// as with ListEvents.
-func (c *Client) ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions) (*runtime.Stream[ListEventsResponseItem], error) {
-	req, err := c.ListEventsRequest(ctx, opts)
+// ListEventsStream calls GET /events and returns its frames as a stream.
+func (c *Client) ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*runtime.Stream[ListEventsResponseItem], error) {
+	req, err := c.ListEventsRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -390,12 +404,9 @@ func (c *Client) ListEventsStream(ctx context.Context, opts *ListEventsRequestOp
 	return runtime.OpenStream[ListEventsResponseItem](res, body, nil)
 }
 
-// ListEventsStreamWithResponse is ListEventsWithResponse over a live stream: it asks for
-// text/event-stream, and a 2xx response in a sequential media type comes back with Stream200
-// set, Body nil and HTTPResponse.Body open until the stream is closed. Any other response is read
-// and decoded as ListEventsWithResponse reads it. An error is returned with the response.
-func (c *Client) ListEventsStreamWithResponse(ctx context.Context, opts *ListEventsRequestOptions) (*ListEventsResponse, error) {
-	req, err := c.ListEventsRequest(ctx, opts)
+// ListEventsStreamWithResponse calls GET /events and returns the whole response, with its stream.
+func (c *Client) ListEventsStreamWithResponse(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*ListEventsResponse, error) {
+	req, err := c.ListEventsRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -411,25 +422,20 @@ func (c *Client) ListEventsStreamWithResponse(ctx context.Context, opts *ListEve
 	return out, nil
 }
 
-// TailLogRequest builds the request of TailLog, with the editors of the client applied.
-func (c *Client) TailLogRequest(ctx context.Context, opts *TailLogRequestOptions) (*http.Request, error) {
+// ListEventsRequest builds the request of GET /events.
+func (c *Client) ListEventsRequest(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
-		opts = &TailLogRequestOptions{}
+		opts = &ListEventsRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/logs/{job}")
-	if opts.PathParams != nil {
-		b.PathParam(opts.PathParams.Job, runtime.Param{Name: "job", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
-	}
-	return c.newRequest(ctx, b)
+	b := runtime.NewRequestBuilder(http.MethodGet, "/events")
+	return c.newRequest(ctx, b, editors)
 }
 
-// Follow the log of a job
+// TailLog calls GET /logs/{job}.
 //
-// TailLog returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) TailLog(ctx context.Context, opts *TailLogRequestOptions) (*TailLogResponseItem, error) {
-	req, err := c.TailLogRequest(ctx, opts)
+// Follow the log of a job
+func (c *Client) TailLog(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponseItem, error) {
+	req, err := c.TailLogRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -448,11 +454,9 @@ func (c *Client) TailLog(ctx context.Context, opts *TailLogRequestOptions) (*Tai
 	return out, nil
 }
 
-// TailLogWithResponse is TailLog with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
-func (c *Client) TailLogWithResponse(ctx context.Context, opts *TailLogRequestOptions) (*TailLogResponse, error) {
-	req, err := c.TailLogRequest(ctx, opts)
+// TailLogWithResponse calls GET /logs/{job} and returns the whole response.
+func (c *Client) TailLogWithResponse(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponse, error) {
+	req, err := c.TailLogRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -471,12 +475,9 @@ func (c *Client) TailLogWithResponse(ctx context.Context, opts *TailLogRequestOp
 	return out, nil
 }
 
-// TailLogStream is TailLog over a live stream: it asks for application/x-ndjson and returns the
-// frames of a 2xx response in a sequential media type as they arrive. The caller closes the stream.
-// Any other 2xx response is runtime.ErrContentType; a response outside 2xx is a *runtime.APIError,
-// as with TailLog.
-func (c *Client) TailLogStream(ctx context.Context, opts *TailLogRequestOptions) (*runtime.Stream[[]byte], error) {
-	req, err := c.TailLogRequest(ctx, opts)
+// TailLogStream calls GET /logs/{job} and returns its frames as a stream.
+func (c *Client) TailLogStream(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*runtime.Stream[[]byte], error) {
+	req, err := c.TailLogRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -489,12 +490,9 @@ func (c *Client) TailLogStream(ctx context.Context, opts *TailLogRequestOptions)
 	})
 }
 
-// TailLogStreamWithResponse is TailLogWithResponse over a live stream: it asks for
-// application/x-ndjson, and a 2xx response in a sequential media type comes back with Stream200
-// set, Body nil and HTTPResponse.Body open until the stream is closed. Any other response is read
-// and decoded as TailLogWithResponse reads it. An error is returned with the response.
-func (c *Client) TailLogStreamWithResponse(ctx context.Context, opts *TailLogRequestOptions) (*TailLogResponse, error) {
-	req, err := c.TailLogRequest(ctx, opts)
+// TailLogStreamWithResponse calls GET /logs/{job} and returns the whole response, with its stream.
+func (c *Client) TailLogStreamWithResponse(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponse, error) {
+	req, err := c.TailLogRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
@@ -514,62 +512,27 @@ func (c *Client) TailLogStreamWithResponse(ctx context.Context, opts *TailLogReq
 	return out, nil
 }
 
-// ChatResponse is what ChatWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type. ChatStreamWithResponse leaves the
-// body of a streamed response unread, in the stream field.
-type ChatResponse struct {
-	HTTPResponse *http.Response
-	Body         []byte
-	// JSON200 is the body of a 200 response as application/json.
-	JSON200 *Reply
-	// EventStream200 is the body of a 200 response as text/event-stream.
-	EventStream200 *string
-	// ProblemJSON400 is the body of a 400 response as application/problem+json.
-	ProblemJSON400 *Problem
-	// Stream200 is the stream of a 200 response as text/event-stream, set by the Stream method alone;
-	// Body is nil then.
-	Stream200 *runtime.Stream[Chunk]
-	// Headers200 holds the headers the spec declares for a 200 response.
-	Headers200 *ChatResponse200Headers
+// TailLogRequest builds the request of GET /logs/{job}.
+func (c *Client) TailLogRequest(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &TailLogRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodGet, "/logs/{job}")
+	if opts.PathParams != nil {
+		b.PathParam(opts.PathParams.Job, runtime.Param{Name: "job", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
+	}
+	return c.newRequest(ctx, b, editors)
 }
 
-// StatusCode is the status of the response.
-func (r *ChatResponse) StatusCode() int {
-	return r.HTTPResponse.StatusCode
-}
-
-// ListEventsResponse is what ListEventsWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type. ListEventsStreamWithResponse leaves the
-// body of a streamed response unread, in the stream field.
-type ListEventsResponse struct {
-	HTTPResponse *http.Response
-	Body         []byte
-	// Stream200 is the stream of a 200 response as text/event-stream, set by the Stream method alone;
-	// Body is nil then.
-	Stream200 *runtime.Stream[ListEventsResponseItem]
-}
-
-// StatusCode is the status of the response.
-func (r *ListEventsResponse) StatusCode() int {
-	return r.HTTPResponse.StatusCode
-}
-
-// TailLogResponse is what TailLogWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type. TailLogStreamWithResponse leaves the
-// body of a streamed response unread, in the stream field.
-type TailLogResponse struct {
-	HTTPResponse *http.Response
-	Body         []byte
-	// Ndjson200 is the body of a 200 response as application/x-ndjson.
-	Ndjson200 *TailLogResponseItem
-	// ProblemJSON404 is the body of a 404 response as application/problem+json.
-	ProblemJSON404 *Problem
-	// Stream200 is the stream of a 200 response as application/x-ndjson, set by the Stream method
-	// alone; Body is nil then.
-	Stream200 *runtime.Stream[[]byte]
-}
-
-// StatusCode is the status of the response.
-func (r *TailLogResponse) StatusCode() int {
-	return r.HTTPResponse.StatusCode
+func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+	req, err := b.Build(ctx, c.baseURL)
+	if err != nil {
+		return nil, err
+	}
+	for _, edit := range slices.Concat(c.editors, editors) {
+		if err = edit(ctx, req); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
 }

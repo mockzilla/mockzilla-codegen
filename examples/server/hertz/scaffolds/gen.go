@@ -27,7 +27,9 @@ type ListTodosResponse200 []TodoSchema
 
 // TodoInterface is what the generated handlers call. Implement it with the business logic.
 type TodoInterface interface {
+	// ListTodos handles GET /todos.
 	ListTodos(ctx context.Context, opts *ListTodosServiceRequestOptions) (*ListTodosResponseData, error)
+	// CreateTodo handles POST /todos.
 	CreateTodo(ctx context.Context, opts *CreateTodoServiceRequestOptions) (*CreateTodoResponseData, error)
 }
 

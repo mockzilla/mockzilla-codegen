@@ -125,11 +125,11 @@ once, which oapi-codegen leaves to the project.
 | oapi-codegen | mockzilla-codegen |
 |---|---|
 | `NewClient(server, WithHTTPClient(c), WithRequestEditorFn(fn))` | `NewClient(baseURL, WithHTTPClient(c), WithRequestEditor(fn))`; the type is named by `client.name` |
-| `Client.<Op>(ctx, params, body, reqEditors...)` returning `*http.Response` | `<Op>(ctx, opts)` returns the success body, and an error for any other status ([methods](../client.md#methods)); `<Op>Request(ctx, opts)` builds the request without sending it |
+| `Client.<Op>(ctx, params, body, reqEditors...)` returning `*http.Response` | `<Op>(ctx, opts, editors...)` returns the success body, and an error for any other status ([methods](../client.md#methods)); `<Op>Request(ctx, opts, editors...)` builds the request without sending it |
 | `ClientWithResponses`, `<Op>WithResponse` returning `<Op>Response` with `JSON200`, `Body`, `HTTPResponse` | `client.with-response: true`; the same method and field names on one client type ([envelopes](../client.md#envelopes)) |
 | `Parse<Op>Response(rsp)` | none |
 | `<Op>Params` and a body argument | one `<Op>RequestOptions` struct: `Query`, `Headers`, `PathParams`, `Cookies`, `Body` ([request options](../client.md#request-options)) |
-| `reqEditors` per call | editors on the client; a per-call editor goes through a context value the editor reads |
+| `reqEditors` per call | `editors` per call, after those of `WithRequestEditor` on the client |
 | `<Op>JSONRequestBody` | `<Op>RequestBody`, or the referenced type; `JSON` appears only with several media types |
 | `ClientInterface` | `<Name>Interface`, checked at compile time |
 
