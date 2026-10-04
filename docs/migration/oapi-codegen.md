@@ -140,8 +140,13 @@ documents it, else `runtime.APIError` with the status and the body.
 
 ### Types
 
-The table in [types](../types.md#coming-from-oapi-codegen) lists the differences in the type
-mapping. Beyond it:
+| Schema | oapi-codegen | mockzilla-codegen |
+|---|---|---|
+| `number` without a format, or with an unknown one | `float32` | `float64` |
+| `string` with format `uuid` | `uuid.UUID` | `string`, checked by validation |
+| `string` with format `email` | `runtime.Email` that fails JSON encoding and decoding on a bad address | `runtime.Email` that decodes any string; `Validate` checks it |
+
+Beyond the type mapping:
 
 - `openapi_types.Date`, `File`, `Email` and `UUID` are `runtime.Date`, `runtime.File`,
   `runtime.Email` and a validated `string`. `x-go-type: uuid.UUID` with an import keeps the
