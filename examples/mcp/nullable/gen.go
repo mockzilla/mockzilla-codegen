@@ -295,7 +295,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	return router
 }
 
-// AdoptRequestOptions is what Adopt sends: its parameters by location, and its body.
+// AdoptRequestOptions is what Adopt sends.
 type AdoptRequestOptions struct {
 	// Body sent as application/json.
 	Body *Adoption
@@ -313,11 +313,10 @@ func (o *AdoptRequestOptions) Validate() error {
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
+// ClientInterface is what Client implements.
 type ClientInterface interface {
 	// Adopt calls POST /adoptions.
 	//
@@ -330,8 +329,7 @@ var _ ClientInterface = (*Client)(nil)
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -348,8 +346,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before
-// and before the editors of the call. A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -361,7 +358,8 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// Client calls the API at a base URL, with one method per operation.
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -369,9 +367,7 @@ type Client struct {
 	editors []RequestEditor
 }
 
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
+// NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
@@ -387,11 +383,7 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 
 // Adopt calls POST /adoptions.
 //
-// # Record an adoption
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
+// Record an adoption
 func (c *Client) Adopt(ctx context.Context, opts *AdoptRequestOptions, editors ...RequestEditor) (*Adoption, error) {
 	req, err := c.AdoptRequest(ctx, opts, editors...)
 	if err != nil {
@@ -411,8 +403,7 @@ func (c *Client) Adopt(ctx context.Context, opts *AdoptRequestOptions, editors .
 	return out, nil
 }
 
-// AdoptRequest builds the request of POST /adoptions and runs the editors of the client on it, then
-// editors.
+// AdoptRequest builds the request of POST /adoptions.
 func (c *Client) AdoptRequest(ctx context.Context, opts *AdoptRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &AdoptRequestOptions{}
@@ -427,8 +418,6 @@ func (c *Client) AdoptRequest(ctx context.Context, opts *AdoptRequestOptions, ed
 	return c.newRequest(ctx, b, editors)
 }
 
-// newRequest builds b against the base URL and runs the editors of the client on the request, then
-// editors.
 func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

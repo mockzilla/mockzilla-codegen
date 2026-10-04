@@ -13,11 +13,10 @@ import (
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
-// PetClientInterface is what PetClient implements: one method per operation, so a test double can
-// stand in for the client.
+// PetClientInterface is what PetClient implements.
 type PetClientInterface interface {
 	// ListPets calls GET /pets.
 	//
@@ -61,8 +60,7 @@ var _ PetClientInterface = (*PetClient)(nil)
 // PetClientOption sets one setting of PetClient.
 type PetClientOption func(*PetClient)
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) PetClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -72,17 +70,15 @@ func WithHTTPClient(d HTTPDoer) PetClientOption {
 	}
 }
 
-// WithTimeout sets how long a call may take, 0 for no limit. A Stream method waits that long for
-// the response headers only, then reads frames until the server ends the stream or the context
-// is canceled. An http.Client with a Timeout cuts the stream after it.
+// WithTimeout sets how long a call may take, 0 for no limit.
+// A Stream method waits that long for the response headers only.
 func WithTimeout(d time.Duration) PetClientOption {
 	return func(c *PetClient) {
 		c.timeout = d
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before
-// and before the editors of the call. A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) PetClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -94,7 +90,8 @@ func WithRequestEditor(fns ...RequestEditor) PetClientOption {
 	}
 }
 
-// PetClient calls the API at a base URL, with one method per operation.
+// PetClient calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
 type PetClient struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -102,9 +99,7 @@ type PetClient struct {
 	editors []RequestEditor
 }
 
-// NewPetClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 5 * time.Second unless WithTimeout
-// sets another limit.
+// NewPetClient returns a client of the API at baseURL.
 func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {

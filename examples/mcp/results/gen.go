@@ -511,7 +511,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	return router
 }
 
-// CountPetsRequestOptions is what CountPets sends: its parameters by location, and its body.
+// CountPetsRequestOptions is what CountPets sends.
 type CountPetsRequestOptions struct {
 }
 
@@ -520,7 +520,7 @@ func (o *CountPetsRequestOptions) Validate() error {
 	return nil
 }
 
-// FindPetRequestOptions is what FindPet sends: its parameters by location, and its body.
+// FindPetRequestOptions is what FindPet sends.
 type FindPetRequestOptions struct {
 	Query *FindPetQuery
 }
@@ -530,7 +530,7 @@ func (o *FindPetRequestOptions) Validate() error {
 	return nil
 }
 
-// GetPhotoRequestOptions is what GetPhoto sends: its parameters by location, and its body.
+// GetPhotoRequestOptions is what GetPhoto sends.
 type GetPhotoRequestOptions struct {
 	Query *GetPhotoQuery
 }
@@ -540,7 +540,7 @@ func (o *GetPhotoRequestOptions) Validate() error {
 	return nil
 }
 
-// GetIconRequestOptions is what GetIcon sends: its parameters by location, and its body.
+// GetIconRequestOptions is what GetIcon sends.
 type GetIconRequestOptions struct {
 }
 
@@ -552,11 +552,10 @@ func (o *GetIconRequestOptions) Validate() error {
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
+// ClientInterface is what Client implements.
 type ClientInterface interface {
 	// CountPets calls GET /pets/count.
 	//
@@ -581,8 +580,7 @@ var _ ClientInterface = (*Client)(nil)
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -599,8 +597,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before
-// and before the editors of the call. A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -612,7 +609,8 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// Client calls the API at a base URL, with one method per operation.
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -620,9 +618,7 @@ type Client struct {
 	editors []RequestEditor
 }
 
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
+// NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
@@ -638,11 +634,7 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 
 // CountPets calls GET /pets/count.
 //
-// # Count the pets
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
+// Count the pets
 func (c *Client) CountPets(ctx context.Context, opts *CountPetsRequestOptions, editors ...RequestEditor) (*CountPetsResponse200, error) {
 	req, err := c.CountPetsRequest(ctx, opts, editors...)
 	if err != nil {
@@ -662,8 +654,7 @@ func (c *Client) CountPets(ctx context.Context, opts *CountPetsRequestOptions, e
 	return out, nil
 }
 
-// CountPetsRequest builds the request of GET /pets/count and runs the editors of the client on it, then
-// editors.
+// CountPetsRequest builds the request of GET /pets/count.
 func (c *Client) CountPetsRequest(ctx context.Context, opts *CountPetsRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &CountPetsRequestOptions{}
@@ -674,11 +665,7 @@ func (c *Client) CountPetsRequest(ctx context.Context, opts *CountPetsRequestOpt
 
 // FindPet calls GET /pets/find.
 //
-// # Find a pet by name
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
+// Find a pet by name
 func (c *Client) FindPet(ctx context.Context, opts *FindPetRequestOptions, editors ...RequestEditor) (*Pet, error) {
 	req, err := c.FindPetRequest(ctx, opts, editors...)
 	if err != nil {
@@ -699,8 +686,7 @@ func (c *Client) FindPet(ctx context.Context, opts *FindPetRequestOptions, edito
 	return out, nil
 }
 
-// FindPetRequest builds the request of GET /pets/find and runs the editors of the client on it, then
-// editors.
+// FindPetRequest builds the request of GET /pets/find.
 func (c *Client) FindPetRequest(ctx context.Context, opts *FindPetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &FindPetRequestOptions{}
@@ -714,11 +700,7 @@ func (c *Client) FindPetRequest(ctx context.Context, opts *FindPetRequestOptions
 
 // GetPhoto calls GET /pets/photo.
 //
-// # The photo or the voice of a pet, in whatever format it was stored
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
+// The photo or the voice of a pet, in whatever format it was stored
 func (c *Client) GetPhoto(ctx context.Context, opts *GetPhotoRequestOptions, editors ...RequestEditor) (*GetPhotoResponse200, error) {
 	req, err := c.GetPhotoRequest(ctx, opts, editors...)
 	if err != nil {
@@ -738,8 +720,7 @@ func (c *Client) GetPhoto(ctx context.Context, opts *GetPhotoRequestOptions, edi
 	return out, nil
 }
 
-// GetPhotoRequest builds the request of GET /pets/photo and runs the editors of the client on it, then
-// editors.
+// GetPhotoRequest builds the request of GET /pets/photo.
 func (c *Client) GetPhotoRequest(ctx context.Context, opts *GetPhotoRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &GetPhotoRequestOptions{}
@@ -753,11 +734,7 @@ func (c *Client) GetPhotoRequest(ctx context.Context, opts *GetPhotoRequestOptio
 
 // GetIcon calls GET /pets/icon.
 //
-// # The icon of the pet store
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
+// The icon of the pet store
 func (c *Client) GetIcon(ctx context.Context, opts *GetIconRequestOptions, editors ...RequestEditor) ([]byte, error) {
 	req, err := c.GetIconRequest(ctx, opts, editors...)
 	if err != nil {
@@ -777,8 +754,7 @@ func (c *Client) GetIcon(ctx context.Context, opts *GetIconRequestOptions, edito
 	return out, nil
 }
 
-// GetIconRequest builds the request of GET /pets/icon and runs the editors of the client on it, then
-// editors.
+// GetIconRequest builds the request of GET /pets/icon.
 func (c *Client) GetIconRequest(ctx context.Context, opts *GetIconRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &GetIconRequestOptions{}
@@ -787,8 +763,6 @@ func (c *Client) GetIconRequest(ctx context.Context, opts *GetIconRequestOptions
 	return c.newRequest(ctx, b, editors)
 }
 
-// newRequest builds b against the base URL and runs the editors of the client on the request, then
-// editors.
 func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

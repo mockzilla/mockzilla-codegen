@@ -6,8 +6,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-// ListPetsResponse is what ListPetsWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type.
+// ListPetsResponse is what ListPetsWithResponse returns.
 type ListPetsResponse struct {
 	HTTPResponse *http.Response
 	Body         []byte
@@ -28,8 +27,7 @@ func (r *ListPetsResponse) StatusCode() int {
 	return r.HTTPResponse.StatusCode
 }
 
-// CreatePetResponse is what CreatePetWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type.
+// CreatePetResponse is what CreatePetWithResponse returns.
 type CreatePetResponse struct {
 	HTTPResponse *http.Response
 	Body         []byte
@@ -52,8 +50,7 @@ func (r *CreatePetResponse) StatusCode() int {
 	return r.HTTPResponse.StatusCode
 }
 
-// DeletePetResponse is what DeletePetWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type.
+// DeletePetResponse is what DeletePetWithResponse returns.
 type DeletePetResponse struct {
 	HTTPResponse *http.Response
 	Body         []byte
@@ -66,8 +63,7 @@ func (r *DeletePetResponse) StatusCode() int {
 	return r.HTTPResponse.StatusCode
 }
 
-// PingResponse is what PingWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type.
+// PingResponse is what PingWithResponse returns.
 type PingResponse struct {
 	HTTPResponse *http.Response
 	Body         []byte
@@ -86,8 +82,7 @@ func (r *PingResponse) StatusCode() int {
 	return r.HTTPResponse.StatusCode
 }
 
-// QueryResponse is what QueryWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type.
+// QueryResponse is what QueryWithResponse returns.
 type QueryResponse struct {
 	HTTPResponse *http.Response
 	Body         []byte
@@ -98,9 +93,7 @@ func (r *QueryResponse) StatusCode() int {
 	return r.HTTPResponse.StatusCode
 }
 
-// ChatResponse is what ChatWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type. ChatStreamWithResponse leaves the
-// body of a streamed response unread, in the stream field.
+// ChatResponse is what ChatWithResponse returns.
 type ChatResponse struct {
 	HTTPResponse *http.Response
 	Body         []byte
@@ -110,8 +103,7 @@ type ChatResponse struct {
 	EventStream200 *string
 	// JSONDefault is the body of a default response as application/json.
 	JSONDefault *Problem
-	// Stream200 is the stream of a 200 response as text/event-stream, set by the Stream method alone;
-	// Body is nil then.
+	// Stream200 is the stream of a 200 response as text/event-stream.
 	Stream200 *runtime.Stream[ChatResponseItem]
 }
 
@@ -120,16 +112,13 @@ func (r *ChatResponse) StatusCode() int {
 	return r.HTTPResponse.StatusCode
 }
 
-// TailResponse is what TailWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type. TailStreamWithResponse leaves the
-// body of a streamed response unread, in the stream field.
+// TailResponse is what TailWithResponse returns.
 type TailResponse struct {
 	HTTPResponse *http.Response
 	Body         []byte
 	// Ndjson200 is the body of a 200 response as application/x-ndjson.
 	Ndjson200 *string
-	// Stream200 is the stream of a 200 response as application/x-ndjson, set by the Stream method
-	// alone; Body is nil then.
+	// Stream200 is the stream of a 200 response as application/x-ndjson.
 	Stream200 *runtime.Stream[[]byte]
 }
 

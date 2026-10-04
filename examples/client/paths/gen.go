@@ -55,7 +55,7 @@ type SearchQuery struct {
 	Query string `json:"query"`
 }
 
-// SearchPhotosRequestOptions is what SearchPhotos sends: its parameters by location, and its body.
+// SearchPhotosRequestOptions is what SearchPhotos sends.
 type SearchPhotosRequestOptions struct {
 	Query *SearchPhotosQuery
 }
@@ -65,7 +65,7 @@ func (o *SearchPhotosRequestOptions) Validate() error {
 	return nil
 }
 
-// ListOrdersRequestOptions is what ListOrders sends: its parameters by location, and its body.
+// ListOrdersRequestOptions is what ListOrders sends.
 type ListOrdersRequestOptions struct {
 	PathParams *ListOrdersPathParams
 }
@@ -75,7 +75,7 @@ func (o *ListOrdersRequestOptions) Validate() error {
 	return nil
 }
 
-// ShareFileRequestOptions is what ShareFile sends: its parameters by location, and its body.
+// ShareFileRequestOptions is what ShareFile sends.
 type ShareFileRequestOptions struct {
 	PathParams *ShareFilePathParams
 }
@@ -85,7 +85,7 @@ func (o *ShareFileRequestOptions) Validate() error {
 	return nil
 }
 
-// ListUsersRequestOptions is what ListUsers sends: its parameters by location, and its body.
+// ListUsersRequestOptions is what ListUsers sends.
 type ListUsersRequestOptions struct {
 	Query *ListUsersQuery
 }
@@ -99,7 +99,7 @@ func (o *ListUsersRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// SearchRequestOptions is what Search sends: its parameters by location, and its body.
+// SearchRequestOptions is what Search sends.
 type SearchRequestOptions struct {
 	Query *SearchQuery
 }
@@ -112,11 +112,10 @@ func (o *SearchRequestOptions) Validate() error {
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
+// ClientInterface is what Client implements.
 type ClientInterface interface {
 	// SearchPhotos calls GET /rest?method=photos.search.
 	SearchPhotos(ctx context.Context, opts *SearchPhotosRequestOptions, editors ...RequestEditor) error
@@ -135,8 +134,7 @@ var _ ClientInterface = (*Client)(nil)
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -153,8 +151,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before
-// and before the editors of the call. A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -166,7 +163,8 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// Client calls the API at a base URL, with one method per operation.
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -174,9 +172,7 @@ type Client struct {
 	editors []RequestEditor
 }
 
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
+// NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
@@ -191,9 +187,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // SearchPhotos calls GET /rest?method=photos.search.
-//
-// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
-// when the spec documents one.
 func (c *Client) SearchPhotos(ctx context.Context, opts *SearchPhotosRequestOptions, editors ...RequestEditor) error {
 	req, err := c.SearchPhotosRequest(ctx, opts, editors...)
 	if err != nil {
@@ -206,8 +199,7 @@ func (c *Client) SearchPhotos(ctx context.Context, opts *SearchPhotosRequestOpti
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// SearchPhotosRequest builds the request of GET /rest?method=photos.search and runs the editors of the client on it, then
-// editors.
+// SearchPhotosRequest builds the request of GET /rest?method=photos.search.
 func (c *Client) SearchPhotosRequest(ctx context.Context, opts *SearchPhotosRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &SearchPhotosRequestOptions{}
@@ -220,9 +212,6 @@ func (c *Client) SearchPhotosRequest(ctx context.Context, opts *SearchPhotosRequ
 }
 
 // ListOrders calls GET /orders?end={end}&page={page}.
-//
-// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
-// when the spec documents one.
 func (c *Client) ListOrders(ctx context.Context, opts *ListOrdersRequestOptions, editors ...RequestEditor) error {
 	req, err := c.ListOrdersRequest(ctx, opts, editors...)
 	if err != nil {
@@ -235,8 +224,7 @@ func (c *Client) ListOrders(ctx context.Context, opts *ListOrdersRequestOptions,
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// ListOrdersRequest builds the request of GET /orders?end={end}&page={page} and runs the editors of the client on it, then
-// editors.
+// ListOrdersRequest builds the request of GET /orders?end={end}&page={page}.
 func (c *Client) ListOrdersRequest(ctx context.Context, opts *ListOrdersRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &ListOrdersRequestOptions{}
@@ -250,9 +238,6 @@ func (c *Client) ListOrdersRequest(ctx context.Context, opts *ListOrdersRequestO
 }
 
 // ShareFile calls PUT /files/{id}#share.
-//
-// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
-// when the spec documents one.
 func (c *Client) ShareFile(ctx context.Context, opts *ShareFileRequestOptions, editors ...RequestEditor) error {
 	req, err := c.ShareFileRequest(ctx, opts, editors...)
 	if err != nil {
@@ -265,8 +250,7 @@ func (c *Client) ShareFile(ctx context.Context, opts *ShareFileRequestOptions, e
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// ShareFileRequest builds the request of PUT /files/{id}#share and runs the editors of the client on it, then
-// editors.
+// ShareFileRequest builds the request of PUT /files/{id}#share.
 func (c *Client) ShareFileRequest(ctx context.Context, opts *ShareFileRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &ShareFileRequestOptions{}
@@ -279,9 +263,6 @@ func (c *Client) ShareFileRequest(ctx context.Context, opts *ShareFileRequestOpt
 }
 
 // ListUsers calls GET /#Action=ListUsers.
-//
-// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
-// when the spec documents one.
 func (c *Client) ListUsers(ctx context.Context, opts *ListUsersRequestOptions, editors ...RequestEditor) error {
 	req, err := c.ListUsersRequest(ctx, opts, editors...)
 	if err != nil {
@@ -294,8 +275,7 @@ func (c *Client) ListUsers(ctx context.Context, opts *ListUsersRequestOptions, e
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// ListUsersRequest builds the request of GET /#Action=ListUsers and runs the editors of the client on it, then
-// editors.
+// ListUsersRequest builds the request of GET /#Action=ListUsers.
 func (c *Client) ListUsersRequest(ctx context.Context, opts *ListUsersRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &ListUsersRequestOptions{}
@@ -308,9 +288,6 @@ func (c *Client) ListUsersRequest(ctx context.Context, opts *ListUsersRequestOpt
 }
 
 // Search calls GET /search?query={query}.
-//
-// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
-// when the spec documents one.
 func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) error {
 	req, err := c.SearchRequest(ctx, opts, editors...)
 	if err != nil {
@@ -323,8 +300,7 @@ func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions, editors
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// SearchRequest builds the request of GET /search?query={query} and runs the editors of the client on it, then
-// editors.
+// SearchRequest builds the request of GET /search?query={query}.
 func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &SearchRequestOptions{}
@@ -336,8 +312,6 @@ func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions, 
 	return c.newRequest(ctx, b, editors)
 }
 
-// newRequest builds b against the base URL and runs the editors of the client on the request, then
-// editors.
 func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

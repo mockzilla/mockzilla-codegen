@@ -549,7 +549,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	return router
 }
 
-// GetItemRequestOptions is what GetItem sends: its parameters by location, and its body.
+// GetItemRequestOptions is what GetItem sends.
 type GetItemRequestOptions struct {
 	PathParams *GetItemPathParams
 	Query      *GetItemQuery
@@ -561,7 +561,7 @@ func (o *GetItemRequestOptions) Validate() error {
 	return nil
 }
 
-// PutItemRequestOptions is what PutItem sends: its parameters by location, and its body.
+// PutItemRequestOptions is what PutItem sends.
 type PutItemRequestOptions struct {
 	PathParams *PutItemPathParams
 	// Body sent as application/json.
@@ -573,7 +573,7 @@ func (o *PutItemRequestOptions) Validate() error {
 	return nil
 }
 
-// DeleteItemRequestOptions is what DeleteItem sends: its parameters by location, and its body.
+// DeleteItemRequestOptions is what DeleteItem sends.
 type DeleteItemRequestOptions struct {
 	PathParams *DeleteItemPathParams
 }
@@ -583,7 +583,7 @@ func (o *DeleteItemRequestOptions) Validate() error {
 	return nil
 }
 
-// ResetRequestOptions is what Reset sends: its parameters by location, and its body.
+// ResetRequestOptions is what Reset sends.
 type ResetRequestOptions struct {
 }
 
@@ -595,11 +595,10 @@ func (o *ResetRequestOptions) Validate() error {
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
+// ClientInterface is what Client implements.
 type ClientInterface interface {
 	// GetItem calls GET /items/{id}.
 	//
@@ -624,8 +623,7 @@ var _ ClientInterface = (*Client)(nil)
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -642,8 +640,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before
-// and before the editors of the call. A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -655,7 +652,8 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// Client calls the API at a base URL, with one method per operation.
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -663,9 +661,7 @@ type Client struct {
 	editors []RequestEditor
 }
 
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
+// NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
@@ -681,11 +677,7 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 
 // GetItem calls GET /items/{id}.
 //
-// # Fetch an item
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
+// Fetch an item
 func (c *Client) GetItem(ctx context.Context, opts *GetItemRequestOptions, editors ...RequestEditor) (*Item, error) {
 	req, err := c.GetItemRequest(ctx, opts, editors...)
 	if err != nil {
@@ -705,8 +697,7 @@ func (c *Client) GetItem(ctx context.Context, opts *GetItemRequestOptions, edito
 	return out, nil
 }
 
-// GetItemRequest builds the request of GET /items/{id} and runs the editors of the client on it, then
-// editors.
+// GetItemRequest builds the request of GET /items/{id}.
 func (c *Client) GetItemRequest(ctx context.Context, opts *GetItemRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &GetItemRequestOptions{}
@@ -726,11 +717,7 @@ func (c *Client) GetItemRequest(ctx context.Context, opts *GetItemRequestOptions
 
 // PutItem calls PUT /items/{id}.
 //
-// # Replace an item, which stays out of MCP by default
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
+// Replace an item, which stays out of MCP by default
 func (c *Client) PutItem(ctx context.Context, opts *PutItemRequestOptions, editors ...RequestEditor) (*Item, error) {
 	req, err := c.PutItemRequest(ctx, opts, editors...)
 	if err != nil {
@@ -750,8 +737,7 @@ func (c *Client) PutItem(ctx context.Context, opts *PutItemRequestOptions, edito
 	return out, nil
 }
 
-// PutItemRequest builds the request of PUT /items/{id} and runs the editors of the client on it, then
-// editors.
+// PutItemRequest builds the request of PUT /items/{id}.
 func (c *Client) PutItemRequest(ctx context.Context, opts *PutItemRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &PutItemRequestOptions{}
@@ -771,10 +757,7 @@ func (c *Client) PutItemRequest(ctx context.Context, opts *PutItemRequestOptions
 
 // DeleteItem calls DELETE /items/{id}.
 //
-// # Remove an item
-//
-// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
-// when the spec documents one.
+// Remove an item
 func (c *Client) DeleteItem(ctx context.Context, opts *DeleteItemRequestOptions, editors ...RequestEditor) error {
 	req, err := c.DeleteItemRequest(ctx, opts, editors...)
 	if err != nil {
@@ -787,8 +770,7 @@ func (c *Client) DeleteItem(ctx context.Context, opts *DeleteItemRequestOptions,
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// DeleteItemRequest builds the request of DELETE /items/{id} and runs the editors of the client on it, then
-// editors.
+// DeleteItemRequest builds the request of DELETE /items/{id}.
 func (c *Client) DeleteItemRequest(ctx context.Context, opts *DeleteItemRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &DeleteItemRequestOptions{}
@@ -802,10 +784,7 @@ func (c *Client) DeleteItemRequest(ctx context.Context, opts *DeleteItemRequestO
 
 // Reset calls POST /internal/reset.
 //
-// # Reset the store, never exposed
-//
-// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
-// when the spec documents one.
+// Reset the store, never exposed
 func (c *Client) Reset(ctx context.Context, opts *ResetRequestOptions, editors ...RequestEditor) error {
 	req, err := c.ResetRequest(ctx, opts, editors...)
 	if err != nil {
@@ -818,8 +797,7 @@ func (c *Client) Reset(ctx context.Context, opts *ResetRequestOptions, editors .
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// ResetRequest builds the request of POST /internal/reset and runs the editors of the client on it, then
-// editors.
+// ResetRequest builds the request of POST /internal/reset.
 func (c *Client) ResetRequest(ctx context.Context, opts *ResetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &ResetRequestOptions{}
@@ -828,8 +806,6 @@ func (c *Client) ResetRequest(ctx context.Context, opts *ResetRequestOptions, ed
 	return c.newRequest(ctx, b, editors)
 }
 
-// newRequest builds b against the base URL and runs the editors of the client on the request, then
-// editors.
 func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

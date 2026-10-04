@@ -46,7 +46,7 @@ type PostAnyResponse200 = string
 
 type GetAnyTextResponse200 = string
 
-// PostJSONRequestOptions is what PostJSON sends: its parameters by location, and its body.
+// PostJSONRequestOptions is what PostJSON sends.
 type PostJSONRequestOptions struct {
 	// Body sent as application/json.
 	Body *Note
@@ -57,7 +57,7 @@ func (o *PostJSONRequestOptions) Validate() error {
 	return nil
 }
 
-// PostFormRequestOptions is what PostForm sends: its parameters by location, and its body.
+// PostFormRequestOptions is what PostForm sends.
 type PostFormRequestOptions struct {
 	// Body sent as application/x-www-form-urlencoded.
 	Body *Note
@@ -68,7 +68,7 @@ func (o *PostFormRequestOptions) Validate() error {
 	return nil
 }
 
-// UploadRequestOptions is what Upload sends: its parameters by location, and its body.
+// UploadRequestOptions is what Upload sends.
 type UploadRequestOptions struct {
 	// Body sent as multipart/form-data.
 	Body *UploadRequestBody
@@ -79,7 +79,7 @@ func (o *UploadRequestOptions) Validate() error {
 	return nil
 }
 
-// PostTextRequestOptions is what PostText sends: its parameters by location, and its body.
+// PostTextRequestOptions is what PostText sends.
 type PostTextRequestOptions struct {
 	// Body sent as text/plain.
 	BodyText *PostTextRequestBody
@@ -92,7 +92,7 @@ func (o *PostTextRequestOptions) Validate() error {
 	return nil
 }
 
-// PutFileRequestOptions is what PutFile sends: its parameters by location, and its body.
+// PutFileRequestOptions is what PutFile sends.
 type PutFileRequestOptions struct {
 	// Body sent as image/png.
 	Body *PutFileRequestBody
@@ -103,7 +103,7 @@ func (o *PutFileRequestOptions) Validate() error {
 	return nil
 }
 
-// PutXMLRequestOptions is what PutXML sends: its parameters by location, and its body.
+// PutXMLRequestOptions is what PutXML sends.
 type PutXMLRequestOptions struct {
 	// Body sent as application/xml.
 	Body *Note
@@ -114,7 +114,7 @@ func (o *PutXMLRequestOptions) Validate() error {
 	return nil
 }
 
-// PostAnyRequestOptions is what PostAny sends: its parameters by location, and its body.
+// PostAnyRequestOptions is what PostAny sends.
 type PostAnyRequestOptions struct {
 	// Body sent as application/xml.
 	BodyXML *PostAnyXMLRequestBody
@@ -129,7 +129,7 @@ func (o *PostAnyRequestOptions) Validate() error {
 	return nil
 }
 
-// GetAnyTextRequestOptions is what GetAnyText sends: its parameters by location, and its body.
+// GetAnyTextRequestOptions is what GetAnyText sends.
 type GetAnyTextRequestOptions struct {
 }
 
@@ -138,7 +138,7 @@ func (o *GetAnyTextRequestOptions) Validate() error {
 	return nil
 }
 
-// GetAnyBytesRequestOptions is what GetAnyBytes sends: its parameters by location, and its body.
+// GetAnyBytesRequestOptions is what GetAnyBytes sends.
 type GetAnyBytesRequestOptions struct {
 }
 
@@ -150,11 +150,10 @@ func (o *GetAnyBytesRequestOptions) Validate() error {
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
+// ClientInterface is what Client implements.
 type ClientInterface interface {
 	// PostJSON calls POST /json.
 	PostJSON(ctx context.Context, opts *PostJSONRequestOptions, editors ...RequestEditor) (*Note, error)
@@ -181,8 +180,7 @@ var _ ClientInterface = (*Client)(nil)
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -199,8 +197,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before
-// and before the editors of the call. A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -212,7 +209,8 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// Client calls the API at a base URL, with one method per operation.
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -220,9 +218,7 @@ type Client struct {
 	editors []RequestEditor
 }
 
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
+// NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
@@ -237,10 +233,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // PostJSON calls POST /json.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) PostJSON(ctx context.Context, opts *PostJSONRequestOptions, editors ...RequestEditor) (*Note, error) {
 	req, err := c.PostJSONRequest(ctx, opts, editors...)
 	if err != nil {
@@ -260,8 +252,7 @@ func (c *Client) PostJSON(ctx context.Context, opts *PostJSONRequestOptions, edi
 	return out, nil
 }
 
-// PostJSONRequest builds the request of POST /json and runs the editors of the client on it, then
-// editors.
+// PostJSONRequest builds the request of POST /json.
 func (c *Client) PostJSONRequest(ctx context.Context, opts *PostJSONRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &PostJSONRequestOptions{}
@@ -275,10 +266,6 @@ func (c *Client) PostJSONRequest(ctx context.Context, opts *PostJSONRequestOptio
 }
 
 // PostForm calls POST /form.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions, editors ...RequestEditor) (*Note, error) {
 	req, err := c.PostFormRequest(ctx, opts, editors...)
 	if err != nil {
@@ -298,8 +285,7 @@ func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions, edi
 	return out, nil
 }
 
-// PostFormRequest builds the request of POST /form and runs the editors of the client on it, then
-// editors.
+// PostFormRequest builds the request of POST /form.
 func (c *Client) PostFormRequest(ctx context.Context, opts *PostFormRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &PostFormRequestOptions{}
@@ -315,10 +301,6 @@ func (c *Client) PostFormRequest(ctx context.Context, opts *PostFormRequestOptio
 }
 
 // Upload calls POST /upload.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) Upload(ctx context.Context, opts *UploadRequestOptions, editors ...RequestEditor) (UploadResponse200, error) {
 	req, err := c.UploadRequest(ctx, opts, editors...)
 	if err != nil {
@@ -338,8 +320,7 @@ func (c *Client) Upload(ctx context.Context, opts *UploadRequestOptions, editors
 	return out, nil
 }
 
-// UploadRequest builds the request of POST /upload and runs the editors of the client on it, then
-// editors.
+// UploadRequest builds the request of POST /upload.
 func (c *Client) UploadRequest(ctx context.Context, opts *UploadRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &UploadRequestOptions{}
@@ -355,10 +336,6 @@ func (c *Client) UploadRequest(ctx context.Context, opts *UploadRequestOptions, 
 }
 
 // PostText calls POST /text.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) PostText(ctx context.Context, opts *PostTextRequestOptions, editors ...RequestEditor) (*PostTextResponse200, error) {
 	req, err := c.PostTextRequest(ctx, opts, editors...)
 	if err != nil {
@@ -378,8 +355,7 @@ func (c *Client) PostText(ctx context.Context, opts *PostTextRequestOptions, edi
 	return out, nil
 }
 
-// PostTextRequest builds the request of POST /text and runs the editors of the client on it, then
-// editors.
+// PostTextRequest builds the request of POST /text.
 func (c *Client) PostTextRequest(ctx context.Context, opts *PostTextRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &PostTextRequestOptions{}
@@ -395,10 +371,6 @@ func (c *Client) PostTextRequest(ctx context.Context, opts *PostTextRequestOptio
 }
 
 // PutFile calls PUT /file.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) PutFile(ctx context.Context, opts *PutFileRequestOptions, editors ...RequestEditor) (*PutFileResponse200, error) {
 	req, err := c.PutFileRequest(ctx, opts, editors...)
 	if err != nil {
@@ -418,8 +390,7 @@ func (c *Client) PutFile(ctx context.Context, opts *PutFileRequestOptions, edito
 	return out, nil
 }
 
-// PutFileRequest builds the request of PUT /file and runs the editors of the client on it, then
-// editors.
+// PutFileRequest builds the request of PUT /file.
 func (c *Client) PutFileRequest(ctx context.Context, opts *PutFileRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &PutFileRequestOptions{}
@@ -435,9 +406,6 @@ func (c *Client) PutFileRequest(ctx context.Context, opts *PutFileRequestOptions
 }
 
 // PutXML calls PUT /xml.
-//
-// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
-// when the spec documents one.
 func (c *Client) PutXML(ctx context.Context, opts *PutXMLRequestOptions, editors ...RequestEditor) error {
 	req, err := c.PutXMLRequest(ctx, opts, editors...)
 	if err != nil {
@@ -450,8 +418,7 @@ func (c *Client) PutXML(ctx context.Context, opts *PutXMLRequestOptions, editors
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// PutXMLRequest builds the request of PUT /xml and runs the editors of the client on it, then
-// editors.
+// PutXMLRequest builds the request of PUT /xml.
 func (c *Client) PutXMLRequest(ctx context.Context, opts *PutXMLRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &PutXMLRequestOptions{}
@@ -465,10 +432,6 @@ func (c *Client) PutXMLRequest(ctx context.Context, opts *PutXMLRequestOptions, 
 }
 
 // PostAny calls POST /any.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) PostAny(ctx context.Context, opts *PostAnyRequestOptions, editors ...RequestEditor) (*PostAnyResponse200, error) {
 	req, err := c.PostAnyRequest(ctx, opts, editors...)
 	if err != nil {
@@ -488,8 +451,7 @@ func (c *Client) PostAny(ctx context.Context, opts *PostAnyRequestOptions, edito
 	return out, nil
 }
 
-// PostAnyRequest builds the request of POST /any and runs the editors of the client on it, then
-// editors.
+// PostAnyRequest builds the request of POST /any.
 func (c *Client) PostAnyRequest(ctx context.Context, opts *PostAnyRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &PostAnyRequestOptions{}
@@ -507,10 +469,6 @@ func (c *Client) PostAnyRequest(ctx context.Context, opts *PostAnyRequestOptions
 }
 
 // GetAnyText calls GET /any/text.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions, editors ...RequestEditor) (*GetAnyTextResponse200, error) {
 	req, err := c.GetAnyTextRequest(ctx, opts, editors...)
 	if err != nil {
@@ -530,8 +488,7 @@ func (c *Client) GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions,
 	return out, nil
 }
 
-// GetAnyTextRequest builds the request of GET /any/text and runs the editors of the client on it, then
-// editors.
+// GetAnyTextRequest builds the request of GET /any/text.
 func (c *Client) GetAnyTextRequest(ctx context.Context, opts *GetAnyTextRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &GetAnyTextRequestOptions{}
@@ -541,10 +498,6 @@ func (c *Client) GetAnyTextRequest(ctx context.Context, opts *GetAnyTextRequestO
 }
 
 // GetAnyBytes calls GET /any/bytes.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOptions, editors ...RequestEditor) ([]byte, error) {
 	req, err := c.GetAnyBytesRequest(ctx, opts, editors...)
 	if err != nil {
@@ -564,8 +517,7 @@ func (c *Client) GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOption
 	return out, nil
 }
 
-// GetAnyBytesRequest builds the request of GET /any/bytes and runs the editors of the client on it, then
-// editors.
+// GetAnyBytesRequest builds the request of GET /any/bytes.
 func (c *Client) GetAnyBytesRequest(ctx context.Context, opts *GetAnyBytesRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &GetAnyBytesRequestOptions{}
@@ -574,8 +526,6 @@ func (c *Client) GetAnyBytesRequest(ctx context.Context, opts *GetAnyBytesReques
 	return c.newRequest(ctx, b, editors)
 }
 
-// newRequest builds b against the base URL and runs the editors of the client on the request, then
-// editors.
 func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

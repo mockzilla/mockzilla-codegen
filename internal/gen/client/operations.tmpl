@@ -1,18 +1,9 @@
 {{- range $op := .Operations}}
 
 // {{.Name}} calls {{.Route}}.
-//
 {{- with .Doc}}
-{{comment .}}
 //
-{{- end}}
-{{- if .Success}}
-// It returns the body of a {{.Success}} response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
-{{- else}}
-// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
-// when the spec documents one.
+{{comment .}}
 {{- end}}
 func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) ({{with .Result}}{{.}}, {{end}}error) {
 	req, err := c.{{.Name}}Request(ctx, opts, editors...)
@@ -42,9 +33,7 @@ func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}, 
 }
 {{- if $.HasEnvelopes}}
 
-// {{.Name}}WithResponse is {{.Name}} with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
+// {{.Name}}WithResponse calls {{.Route}} and returns the whole response.
 func (c *{{$.Client}}) {{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) (*{{.Response}}, error) {
 	req, err := c.{{.Name}}Request(ctx, opts, editors...)
 	if err != nil {
@@ -68,10 +57,7 @@ func (c *{{$.Client}}) {{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{
 {{- end}}
 {{- if .Stream}}
 
-// {{.Name}}Stream is {{.Name}} over a live stream: it asks for {{.Stream.MediaType}} and returns the
-// frames of a 2xx response in a sequential media type as they arrive. The caller closes the stream.
-// Any other 2xx response is runtime.ErrContentType; a response outside 2xx is a *runtime.APIError,
-// as with {{.Name}}.
+// {{.Name}}Stream calls {{.Route}} and returns its frames as a stream.
 func (c *{{$.Client}}) {{.Name}}Stream(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) ({{.StreamType}}, error) {
 	req, err := c.{{.Name}}Request(ctx, opts, editors...)
 	if err != nil {
@@ -91,10 +77,7 @@ func (c *{{$.Client}}) {{.Name}}Stream(ctx {{$.Context}}.Context, opts *{{.Optio
 }
 {{- if $.HasEnvelopes}}
 
-// {{.Name}}StreamWithResponse is {{.Name}}WithResponse over a live stream: it asks for
-// {{.Stream.MediaType}}, and a 2xx response in a sequential media type comes back with {{.Stream.Field}}
-// set, Body nil and HTTPResponse.Body open until the stream is closed. Any other response is read
-// and decoded as {{.Name}}WithResponse reads it. An error is returned with the response.
+// {{.Name}}StreamWithResponse calls {{.Route}} and returns the whole response, with its stream.
 func (c *{{$.Client}}) {{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) (*{{.Response}}, error) {
 	req, err := c.{{.Name}}Request(ctx, opts, editors...)
 	if err != nil {
@@ -123,8 +106,7 @@ func (c *{{$.Client}}) {{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, op
 {{- end}}
 {{- end}}
 
-// {{.Name}}Request builds the request of {{.Route}} and runs the editors of the client on it, then
-// editors.
+// {{.Name}}Request builds the request of {{.Route}}.
 func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) (*{{$.HTTP}}.Request, error) {
 	if opts == nil {
 		opts = &{{.Options}}{}
@@ -162,8 +144,6 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 {{- end}}
 {{- if .Operations}}
 
-// newRequest builds b against the base URL and runs the editors of the client on the request, then
-// editors.
 func (c *{{.Client}}) newRequest(ctx {{.Context}}.Context, b *{{.Runtime}}.RequestBuilder, editors []RequestEditor) (*{{.HTTP}}.Request, error) {
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

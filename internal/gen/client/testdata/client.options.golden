@@ -2,7 +2,7 @@ package types
 
 import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 
-// ListPetsRequestOptions is what ListPets sends: its parameters by location, and its body.
+// ListPetsRequestOptions is what ListPets sends.
 type ListPetsRequestOptions struct {
 	Query   *ListPetsQuery
 	Headers *ListPetsHeaders
@@ -18,7 +18,7 @@ func (o *ListPetsRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// CreatePetRequestOptions is what CreatePet sends: its parameters by location, and its body.
+// CreatePetRequestOptions is what CreatePet sends.
 type CreatePetRequestOptions struct {
 	// Body sent as application/json.
 	BodyJSON *Pet
@@ -53,7 +53,7 @@ func (o *CreatePetRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// DeletePetRequestOptions is what DeletePet sends: its parameters by location, and its body.
+// DeletePetRequestOptions is what DeletePet sends.
 type DeletePetRequestOptions struct {
 	PathParams *DeletePetPathParams
 	// Body sent as application/json.
@@ -65,7 +65,7 @@ func (o *DeletePetRequestOptions) Validate() error {
 	return nil
 }
 
-// PingRequestOptions is what Ping sends: its parameters by location, and its body.
+// PingRequestOptions is what Ping sends.
 type PingRequestOptions struct {
 	// Body sent as */*.
 	Body []Pet
@@ -76,7 +76,7 @@ func (o *PingRequestOptions) Validate() error {
 	return nil
 }
 
-// QueryRequestOptions is what Query sends: its parameters by location, and its body.
+// QueryRequestOptions is what Query sends.
 type QueryRequestOptions struct {
 	// Body sent as text/plain.
 	Body *string
@@ -87,7 +87,7 @@ func (o *QueryRequestOptions) Validate() error {
 	return nil
 }
 
-// ChatRequestOptions is what Chat sends: its parameters by location, and its body.
+// ChatRequestOptions is what Chat sends.
 type ChatRequestOptions struct {
 	// Body sent as application/json.
 	Body *Pet
@@ -102,7 +102,7 @@ func (o *ChatRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// TailRequestOptions is what Tail sends: its parameters by location, and its body.
+// TailRequestOptions is what Tail sends.
 type TailRequestOptions struct {
 }
 

@@ -14,10 +14,6 @@ import (
 // # List pets
 //
 // Returns pets.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *PetClient) ListPets(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (types.Pets, error) {
 	req, err := c.ListPetsRequest(ctx, opts, editors...)
 	if err != nil {
@@ -38,8 +34,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *types.ListPetsRequestOpt
 	return out, nil
 }
 
-// ListPetsRequest builds the request of GET /pets and runs the editors of the client on it, then
-// editors.
+// ListPetsRequest builds the request of GET /pets.
 func (c *PetClient) ListPetsRequest(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &types.ListPetsRequestOptions{}
@@ -63,10 +58,6 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *types.ListPetsReq
 // # Same
 //
 // Deprecated: the spec marks it deprecated.
-//
-// It returns the body of a 201 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *PetClient) CreatePet(ctx context.Context, opts *types.CreatePetRequestOptions, editors ...RequestEditor) (*types.Pet, error) {
 	req, err := c.CreatePetRequest(ctx, opts, editors...)
 	if err != nil {
@@ -89,8 +80,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *types.CreatePetRequestO
 	return out, nil
 }
 
-// CreatePetRequest builds the request of POST /pets and runs the editors of the client on it, then
-// editors.
+// CreatePetRequest builds the request of POST /pets.
 func (c *PetClient) CreatePetRequest(ctx context.Context, opts *types.CreatePetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &types.CreatePetRequestOptions{}
@@ -122,9 +112,6 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *types.CreatePetR
 // DeletePet calls DELETE /pets/{id}.
 //
 // Deprecated: the spec marks it deprecated.
-//
-// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
-// when the spec documents one.
 func (c *PetClient) DeletePet(ctx context.Context, opts *types.DeletePetRequestOptions, editors ...RequestEditor) error {
 	req, err := c.DeletePetRequest(ctx, opts, editors...)
 	if err != nil {
@@ -139,8 +126,7 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *types.DeletePetRequestO
 	})
 }
 
-// DeletePetRequest builds the request of DELETE /pets/{id} and runs the editors of the client on it, then
-// editors.
+// DeletePetRequest builds the request of DELETE /pets/{id}.
 func (c *PetClient) DeletePetRequest(ctx context.Context, opts *types.DeletePetRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &types.DeletePetRequestOptions{}
@@ -157,10 +143,6 @@ func (c *PetClient) DeletePetRequest(ctx context.Context, opts *types.DeletePetR
 }
 
 // Ping calls GET /ping.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *PetClient) Ping(ctx context.Context, opts *types.PingRequestOptions, editors ...RequestEditor) (string, error) {
 	req, err := c.PingRequest(ctx, opts, editors...)
 	if err != nil {
@@ -180,8 +162,7 @@ func (c *PetClient) Ping(ctx context.Context, opts *types.PingRequestOptions, ed
 	return out, nil
 }
 
-// PingRequest builds the request of GET /ping and runs the editors of the client on it, then
-// editors.
+// PingRequest builds the request of GET /ping.
 func (c *PetClient) PingRequest(ctx context.Context, opts *types.PingRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &types.PingRequestOptions{}
@@ -195,9 +176,6 @@ func (c *PetClient) PingRequest(ctx context.Context, opts *types.PingRequestOpti
 }
 
 // Query calls QUERY /pets/query.
-//
-// A response outside 2xx comes back as a *runtime.APIError, wrapping the error type of its status
-// when the spec documents one.
 func (c *PetClient) Query(ctx context.Context, opts *types.QueryRequestOptions, editors ...RequestEditor) error {
 	req, err := c.QueryRequest(ctx, opts, editors...)
 	if err != nil {
@@ -210,8 +188,7 @@ func (c *PetClient) Query(ctx context.Context, opts *types.QueryRequestOptions, 
 	return runtime.DecodeSuccess(res, body, nil)
 }
 
-// QueryRequest builds the request of QUERY /pets/query and runs the editors of the client on it, then
-// editors.
+// QueryRequest builds the request of QUERY /pets/query.
 func (c *PetClient) QueryRequest(ctx context.Context, opts *types.QueryRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &types.QueryRequestOptions{}
@@ -225,10 +202,6 @@ func (c *PetClient) QueryRequest(ctx context.Context, opts *types.QueryRequestOp
 }
 
 // Chat calls POST /chat.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *PetClient) Chat(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.Pet, error) {
 	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
@@ -249,10 +222,7 @@ func (c *PetClient) Chat(ctx context.Context, opts *types.ChatRequestOptions, ed
 	return out, nil
 }
 
-// ChatStream is Chat over a live stream: it asks for text/event-stream and returns the
-// frames of a 2xx response in a sequential media type as they arrive. The caller closes the stream.
-// Any other 2xx response is runtime.ErrContentType; a response outside 2xx is a *runtime.APIError,
-// as with Chat.
+// ChatStream calls POST /chat and returns its frames as a stream.
 func (c *PetClient) ChatStream(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[types.ChatResponseItem], error) {
 	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
@@ -267,8 +237,7 @@ func (c *PetClient) ChatStream(ctx context.Context, opts *types.ChatRequestOptio
 	})
 }
 
-// ChatRequest builds the request of POST /chat and runs the editors of the client on it, then
-// editors.
+// ChatRequest builds the request of POST /chat.
 func (c *PetClient) ChatRequest(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &types.ChatRequestOptions{}
@@ -284,10 +253,6 @@ func (c *PetClient) ChatRequest(ctx context.Context, opts *types.ChatRequestOpti
 }
 
 // Tail calls GET /tail.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *PetClient) Tail(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*string, error) {
 	req, err := c.TailRequest(ctx, opts, editors...)
 	if err != nil {
@@ -307,10 +272,7 @@ func (c *PetClient) Tail(ctx context.Context, opts *types.TailRequestOptions, ed
 	return out, nil
 }
 
-// TailStream is Tail over a live stream: it asks for application/x-ndjson and returns the
-// frames of a 2xx response in a sequential media type as they arrive. The caller closes the stream.
-// Any other 2xx response is runtime.ErrContentType; a response outside 2xx is a *runtime.APIError,
-// as with Tail.
+// TailStream calls GET /tail and returns its frames as a stream.
 func (c *PetClient) TailStream(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*runtime.Stream[[]byte], error) {
 	req, err := c.TailRequest(ctx, opts, editors...)
 	if err != nil {
@@ -323,8 +285,7 @@ func (c *PetClient) TailStream(ctx context.Context, opts *types.TailRequestOptio
 	return runtime.OpenStream[[]byte](res, body, nil)
 }
 
-// TailRequest builds the request of GET /tail and runs the editors of the client on it, then
-// editors.
+// TailRequest builds the request of GET /tail.
 func (c *PetClient) TailRequest(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &types.TailRequestOptions{}
@@ -333,8 +294,6 @@ func (c *PetClient) TailRequest(ctx context.Context, opts *types.TailRequestOpti
 	return c.newRequest(ctx, b, editors)
 }
 
-// newRequest builds b against the base URL and runs the editors of the client on the request, then
-// editors.
 func (c *PetClient) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

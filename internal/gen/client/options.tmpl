@@ -1,5 +1,5 @@
 {{- range .Operations}}
-// {{.Type}} is what {{.Name}} sends: its parameters by location, and its body.
+// {{.Type}} is what {{.Name}} sends.
 type {{.Type}} struct {
 {{- range .Fields}}
 {{- with .Doc}}

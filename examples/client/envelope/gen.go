@@ -66,7 +66,7 @@ type GetJobLogTextResponse200 = string
 
 type GetJobLogJSONResponse200 []string
 
-// SubmitJobRequestOptions is what SubmitJob sends: its parameters by location, and its body.
+// SubmitJobRequestOptions is what SubmitJob sends.
 type SubmitJobRequestOptions struct {
 	// Body sent as application/json.
 	Body *Job
@@ -77,7 +77,7 @@ func (o *SubmitJobRequestOptions) Validate() error {
 	return nil
 }
 
-// GetJobLogRequestOptions is what GetJobLog sends: its parameters by location, and its body.
+// GetJobLogRequestOptions is what GetJobLog sends.
 type GetJobLogRequestOptions struct {
 	PathParams *GetJobLogPathParams
 	Headers    *GetJobLogHeaders
@@ -88,8 +88,7 @@ func (o *GetJobLogRequestOptions) Validate() error {
 	return nil
 }
 
-// SubmitJobResponse is what SubmitJobWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type.
+// SubmitJobResponse is what SubmitJobWithResponse returns.
 type SubmitJobResponse struct {
 	HTTPResponse *http.Response
 	Body         []byte
@@ -110,8 +109,7 @@ func (r *SubmitJobResponse) StatusCode() int {
 	return r.HTTPResponse.StatusCode
 }
 
-// GetJobLogResponse is what GetJobLogWithResponse returns: the response with its body read, and the body
-// decoded into the field of its status and media type.
+// GetJobLogResponse is what GetJobLogWithResponse returns.
 type GetJobLogResponse struct {
 	HTTPResponse *http.Response
 	Body         []byte
@@ -129,11 +127,10 @@ func (r *GetJobLogResponse) StatusCode() int {
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
+// ClientInterface is what Client implements.
 type ClientInterface interface {
 	// SubmitJob calls POST /jobs.
 	//
@@ -152,8 +149,7 @@ var _ ClientInterface = (*Client)(nil)
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -170,8 +166,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before
-// and before the editors of the call. A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -183,7 +178,8 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// Client calls the API at a base URL, with one method per operation.
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -191,9 +187,7 @@ type Client struct {
 	editors []RequestEditor
 }
 
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
+// NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
@@ -212,10 +206,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 // # Submit a job
 //
 // Small jobs run at once and come back as 201; large ones are queued as 202.
-//
-// It returns the body of a 201 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*Result, error) {
 	req, err := c.SubmitJobRequest(ctx, opts, editors...)
 	if err != nil {
@@ -237,9 +227,7 @@ func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions, e
 	return out, nil
 }
 
-// SubmitJobWithResponse is SubmitJob with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
+// SubmitJobWithResponse calls POST /jobs and returns the whole response.
 func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*SubmitJobResponse, error) {
 	req, err := c.SubmitJobRequest(ctx, opts, editors...)
 	if err != nil {
@@ -263,8 +251,7 @@ func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobReque
 	return out, nil
 }
 
-// SubmitJobRequest builds the request of POST /jobs and runs the editors of the client on it, then
-// editors.
+// SubmitJobRequest builds the request of POST /jobs.
 func (c *Client) SubmitJobRequest(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &SubmitJobRequestOptions{}
@@ -280,10 +267,6 @@ func (c *Client) SubmitJobRequest(ctx context.Context, opts *SubmitJobRequestOpt
 }
 
 // GetJobLog calls GET /jobs/{id}/log.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions, editors ...RequestEditor) (GetJobLogJSONResponse200, error) {
 	req, err := c.GetJobLogRequest(ctx, opts, editors...)
 	if err != nil {
@@ -303,9 +286,7 @@ func (c *Client) GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions, e
 	return out, nil
 }
 
-// GetJobLogWithResponse is GetJobLog with the whole response: its status, its headers, its raw
-// body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here. A body or header that does not decode is an error, returned with the response.
+// GetJobLogWithResponse calls GET /jobs/{id}/log and returns the whole response.
 func (c *Client) GetJobLogWithResponse(ctx context.Context, opts *GetJobLogRequestOptions, editors ...RequestEditor) (*GetJobLogResponse, error) {
 	req, err := c.GetJobLogRequest(ctx, opts, editors...)
 	if err != nil {
@@ -326,8 +307,7 @@ func (c *Client) GetJobLogWithResponse(ctx context.Context, opts *GetJobLogReque
 	return out, nil
 }
 
-// GetJobLogRequest builds the request of GET /jobs/{id}/log and runs the editors of the client on it, then
-// editors.
+// GetJobLogRequest builds the request of GET /jobs/{id}/log.
 func (c *Client) GetJobLogRequest(ctx context.Context, opts *GetJobLogRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &GetJobLogRequestOptions{}
@@ -342,8 +322,6 @@ func (c *Client) GetJobLogRequest(ctx context.Context, opts *GetJobLogRequestOpt
 	return c.newRequest(ctx, b, editors)
 }
 
-// newRequest builds b against the base URL and runs the editors of the client on the request, then
-// editors.
 func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

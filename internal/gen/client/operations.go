@@ -77,8 +77,7 @@ type OperationsView struct {
 // success response, and with HasEnvelopes the method that returns its envelope. Method is the
 // net/http constant or a quoted method; Path is quoted. IsSendable is false when the body is
 // required and the client can send none of its media types, so the request is never built.
-// Success is the status of the response the plain method returns the body of, as the spec writes
-// it, empty for none; Zero is the value returned on an error. Targets are what the plain method
+// Zero is the value the plain method returns on an error. Targets are what the plain method
 // decodes, with the other documented 2xx statuses when it has a Result, EnvelopeTargets what the
 // HasEnvelopes method decodes into the envelope Response. Stream is the Stream method of an
 // operation that answers in a sequential media type, nil without HasStreams.
@@ -90,7 +89,6 @@ type OperationView struct {
 	Bodies          []BodyView
 	IsBodyRequired  bool
 	IsSendable      bool
-	Success         string
 	Zero            string
 	Targets         []TargetView
 	EnvelopeTargets []TargetView
@@ -183,7 +181,6 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 	v.IsSendable = isSendable(v.Bodies, v.IsBodyRequired)
 
 	if r, c, ok := SuccessBody(op); ok {
-		v.Success = r.Status
 		v.Zero = gocode.Zero(operation.BodyType(c))
 		v.Targets = append(v.Targets, TargetView{Status: gocode.Quote(r.Status), MediaType: gocode.Quote(c.MediaType), Dst: gocode.AddressOf("out")})
 		v.Targets = append(v.Targets, otherSuccesses(op, r.Status)...)

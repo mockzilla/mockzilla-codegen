@@ -356,7 +356,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	return router
 }
 
-// ChatRequestOptions is what Chat sends: its parameters by location, and its body.
+// ChatRequestOptions is what Chat sends.
 type ChatRequestOptions struct {
 	// Body sent as application/json.
 	Body *Prompt
@@ -367,7 +367,7 @@ func (o *ChatRequestOptions) Validate() error {
 	return nil
 }
 
-// ListEventsRequestOptions is what ListEvents sends: its parameters by location, and its body.
+// ListEventsRequestOptions is what ListEvents sends.
 type ListEventsRequestOptions struct {
 }
 
@@ -379,11 +379,10 @@ func (o *ListEventsRequestOptions) Validate() error {
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
+// ClientInterface is what Client implements.
 type ClientInterface interface {
 	// Chat calls POST /chat.
 	//
@@ -404,8 +403,7 @@ var _ ClientInterface = (*Client)(nil)
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -415,17 +413,15 @@ func WithHTTPClient(d HTTPDoer) ClientOption {
 	}
 }
 
-// WithTimeout sets how long a call may take, 0 for no limit. A Stream method waits that long for
-// the response headers only, then reads frames until the server ends the stream or the context
-// is canceled. An http.Client with a Timeout cuts the stream after it.
+// WithTimeout sets how long a call may take, 0 for no limit.
+// A Stream method waits that long for the response headers only.
 func WithTimeout(d time.Duration) ClientOption {
 	return func(c *Client) {
 		c.timeout = d
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before
-// and before the editors of the call. A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -437,7 +433,8 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// Client calls the API at a base URL, with one method per operation.
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -445,9 +442,7 @@ type Client struct {
 	editors []RequestEditor
 }
 
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
+// NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
@@ -466,10 +461,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 // # Ask the assistant
 //
 // Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*Reply, error) {
 	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
@@ -489,10 +480,7 @@ func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions, editors ...
 	return out, nil
 }
 
-// ChatStream is Chat over a live stream: it asks for text/event-stream and returns the
-// frames of a 2xx response in a sequential media type as they arrive. The caller closes the stream.
-// Any other 2xx response is runtime.ErrContentType; a response outside 2xx is a *runtime.APIError,
-// as with Chat.
+// ChatStream calls POST /chat and returns its frames as a stream.
 func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[Chunk], error) {
 	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
@@ -505,8 +493,7 @@ func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions, edito
 	return runtime.OpenStream[Chunk](res, body, nil)
 }
 
-// ChatRequest builds the request of POST /chat and runs the editors of the client on it, then
-// editors.
+// ChatRequest builds the request of POST /chat.
 func (c *Client) ChatRequest(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &ChatRequestOptions{}
@@ -523,11 +510,7 @@ func (c *Client) ChatRequest(ctx context.Context, opts *ChatRequestOptions, edit
 
 // ListEvents calls GET /events.
 //
-// # Follow the events
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
+// Follow the events
 func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (string, error) {
 	req, err := c.ListEventsRequest(ctx, opts, editors...)
 	if err != nil {
@@ -547,10 +530,7 @@ func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions,
 	return out, nil
 }
 
-// ListEventsStream is ListEvents over a live stream: it asks for text/event-stream and returns the
-// frames of a 2xx response in a sequential media type as they arrive. The caller closes the stream.
-// Any other 2xx response is runtime.ErrContentType; a response outside 2xx is a *runtime.APIError,
-// as with ListEvents.
+// ListEventsStream calls GET /events and returns its frames as a stream.
 func (c *Client) ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*runtime.Stream[Event], error) {
 	req, err := c.ListEventsRequest(ctx, opts, editors...)
 	if err != nil {
@@ -563,8 +543,7 @@ func (c *Client) ListEventsStream(ctx context.Context, opts *ListEventsRequestOp
 	return runtime.OpenStream[Event](res, body, nil)
 }
 
-// ListEventsRequest builds the request of GET /events and runs the editors of the client on it, then
-// editors.
+// ListEventsRequest builds the request of GET /events.
 func (c *Client) ListEventsRequest(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &ListEventsRequestOptions{}
@@ -573,8 +552,6 @@ func (c *Client) ListEventsRequest(ctx context.Context, opts *ListEventsRequestO
 	return c.newRequest(ctx, b, editors)
 }
 
-// newRequest builds b against the base URL and runs the editors of the client on the request, then
-// editors.
 func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

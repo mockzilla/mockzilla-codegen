@@ -250,7 +250,6 @@ func TestViewWithoutOperations(t *testing.T) {
 
 	core := string(f.render(t, PartCore))
 	assert.Contains(t, core, "func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error)")
-	assert.Contains(t, core, "// WithHTTPClient sets another. A call has no time limit unless WithTimeout sets one.\n")
 	assert.Contains(t, core, "c := &PetClient{baseURL: u, doer: &http.Client{}}\n")
 	assert.Contains(t, core, "// WithTimeout sets how long a call may take, 0 for no limit.\nfunc WithTimeout(d time.Duration) PetClientOption {\n")
 	assert.Contains(t, core, "\ntype PetClientInterface interface {\n}\n\nvar _ PetClientInterface = (*PetClient)(nil)\n")

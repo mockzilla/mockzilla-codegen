@@ -69,7 +69,7 @@ type CookieStylesCookies struct {
 	Flags   []int   `json:"flags,omitempty"`
 }
 
-// PathStylesRequestOptions is what PathStyles sends: its parameters by location, and its body.
+// PathStylesRequestOptions is what PathStyles sends.
 type PathStylesRequestOptions struct {
 	PathParams *PathStylesPathParams
 }
@@ -83,7 +83,7 @@ func (o *PathStylesRequestOptions) Validate() error {
 	return errs.Err()
 }
 
-// QueryStylesRequestOptions is what QueryStyles sends: its parameters by location, and its body.
+// QueryStylesRequestOptions is what QueryStyles sends.
 type QueryStylesRequestOptions struct {
 	Query *QueryStylesQuery
 }
@@ -93,7 +93,7 @@ func (o *QueryStylesRequestOptions) Validate() error {
 	return nil
 }
 
-// HeaderStylesRequestOptions is what HeaderStyles sends: its parameters by location, and its body.
+// HeaderStylesRequestOptions is what HeaderStyles sends.
 type HeaderStylesRequestOptions struct {
 	Headers *HeaderStylesHeaders
 }
@@ -103,7 +103,7 @@ func (o *HeaderStylesRequestOptions) Validate() error {
 	return nil
 }
 
-// CookieStylesRequestOptions is what CookieStyles sends: its parameters by location, and its body.
+// CookieStylesRequestOptions is what CookieStyles sends.
 type CookieStylesRequestOptions struct {
 	Cookies *CookieStylesCookies
 }
@@ -116,11 +116,10 @@ func (o *CookieStylesRequestOptions) Validate() error {
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
-// RequestEditor changes a request before it is sent, to add credentials for one.
+// RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
 
-// ClientInterface is what Client implements: one method per operation, so a test double can
-// stand in for the client.
+// ClientInterface is what Client implements.
 type ClientInterface interface {
 	// PathStyles calls GET /path/{simple}/{label}/{matrix}/{list}.
 	PathStyles(ctx context.Context, opts *PathStylesRequestOptions, editors ...RequestEditor) (Echo, error)
@@ -137,8 +136,7 @@ var _ ClientInterface = (*Client)(nil)
 // ClientOption sets one setting of Client.
 type ClientOption func(*Client)
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
-// panics.
+// WithHTTPClient sends the requests with d. A nil d panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
 	if d == nil {
 		panic("WithHTTPClient: nil HTTPDoer")
@@ -155,8 +153,7 @@ func WithTimeout(d time.Duration) ClientOption {
 	}
 }
 
-// WithRequestEditor runs fns on every request before it is sent, after any editor added before
-// and before the editors of the call. A nil editor panics.
+// WithRequestEditor runs fns on every request before it is sent. A nil one panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	for _, fn := range fns {
 		if fn == nil {
@@ -168,7 +165,8 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
-// Client calls the API at a base URL, with one method per operation.
+// Client calls the API at a base URL.
+// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -176,9 +174,7 @@ type Client struct {
 	editors []RequestEditor
 }
 
-// NewClient returns a client of the API at baseURL. It sends with an http.Client unless
-// WithHTTPClient sets another. A call gives up after 3 * time.Second unless WithTimeout
-// sets another limit.
+// NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	u, err := runtime.ParseBaseURL(baseURL)
 	if err != nil {
@@ -193,10 +189,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // PathStyles calls GET /path/{simple}/{label}/{matrix}/{list}.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) PathStyles(ctx context.Context, opts *PathStylesRequestOptions, editors ...RequestEditor) (Echo, error) {
 	req, err := c.PathStylesRequest(ctx, opts, editors...)
 	if err != nil {
@@ -216,8 +208,7 @@ func (c *Client) PathStyles(ctx context.Context, opts *PathStylesRequestOptions,
 	return out, nil
 }
 
-// PathStylesRequest builds the request of GET /path/{simple}/{label}/{matrix}/{list} and runs the editors of the client on it, then
-// editors.
+// PathStylesRequest builds the request of GET /path/{simple}/{label}/{matrix}/{list}.
 func (c *Client) PathStylesRequest(ctx context.Context, opts *PathStylesRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &PathStylesRequestOptions{}
@@ -233,10 +224,6 @@ func (c *Client) PathStylesRequest(ctx context.Context, opts *PathStylesRequestO
 }
 
 // QueryStyles calls GET /query.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) QueryStyles(ctx context.Context, opts *QueryStylesRequestOptions, editors ...RequestEditor) (Echo, error) {
 	req, err := c.QueryStylesRequest(ctx, opts, editors...)
 	if err != nil {
@@ -256,8 +243,7 @@ func (c *Client) QueryStyles(ctx context.Context, opts *QueryStylesRequestOption
 	return out, nil
 }
 
-// QueryStylesRequest builds the request of GET /query and runs the editors of the client on it, then
-// editors.
+// QueryStylesRequest builds the request of GET /query.
 func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &QueryStylesRequestOptions{}
@@ -279,10 +265,6 @@ func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesReques
 }
 
 // HeaderStyles calls GET /header.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) HeaderStyles(ctx context.Context, opts *HeaderStylesRequestOptions, editors ...RequestEditor) (Echo, error) {
 	req, err := c.HeaderStylesRequest(ctx, opts, editors...)
 	if err != nil {
@@ -302,8 +284,7 @@ func (c *Client) HeaderStyles(ctx context.Context, opts *HeaderStylesRequestOpti
 	return out, nil
 }
 
-// HeaderStylesRequest builds the request of GET /header and runs the editors of the client on it, then
-// editors.
+// HeaderStylesRequest builds the request of GET /header.
 func (c *Client) HeaderStylesRequest(ctx context.Context, opts *HeaderStylesRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &HeaderStylesRequestOptions{}
@@ -318,10 +299,6 @@ func (c *Client) HeaderStylesRequest(ctx context.Context, opts *HeaderStylesRequ
 }
 
 // CookieStyles calls GET /cookie.
-//
-// It returns the body of a 200 response. A response outside 2xx, or a 2xx the spec does
-// not list, comes back as a *runtime.APIError, wrapping the error type of its status when the spec
-// documents one.
 func (c *Client) CookieStyles(ctx context.Context, opts *CookieStylesRequestOptions, editors ...RequestEditor) (Echo, error) {
 	req, err := c.CookieStylesRequest(ctx, opts, editors...)
 	if err != nil {
@@ -341,8 +318,7 @@ func (c *Client) CookieStyles(ctx context.Context, opts *CookieStylesRequestOpti
 	return out, nil
 }
 
-// CookieStylesRequest builds the request of GET /cookie and runs the editors of the client on it, then
-// editors.
+// CookieStylesRequest builds the request of GET /cookie.
 func (c *Client) CookieStylesRequest(ctx context.Context, opts *CookieStylesRequestOptions, editors ...RequestEditor) (*http.Request, error) {
 	if opts == nil {
 		opts = &CookieStylesRequestOptions{}
@@ -355,8 +331,6 @@ func (c *Client) CookieStylesRequest(ctx context.Context, opts *CookieStylesRequ
 	return c.newRequest(ctx, b, editors)
 }
 
-// newRequest builds b against the base URL and runs the editors of the client on the request, then
-// editors.
 func (c *Client) newRequest(ctx context.Context, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
