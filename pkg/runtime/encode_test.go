@@ -119,7 +119,7 @@ func TestEncodeFormRoundTrip(t *testing.T) {
 	assert.Equal(t, in, out)
 }
 
-func TestEncodeMultipart(t *testing.T) {
+func TestWriteMultipart(t *testing.T) {
 	t.Parallel()
 
 	in := upload{
@@ -133,8 +133,7 @@ func TestEncodeMultipart(t *testing.T) {
 		Count:    3,
 	}
 
-	data, contentType, err := EncodeMultipart(&in)
-	require.NoError(t, err)
+	data, contentType := writeForm(t, &in)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(data))
 	req.Header.Set("Content-Type", contentType)
@@ -156,12 +155,11 @@ func TestEncodeMultipart(t *testing.T) {
 	assert.Equal(t, "Cat", out.Title)
 }
 
-func TestEncodeMultipartParts(t *testing.T) {
+func TestWriteMultipartParts(t *testing.T) {
 	t.Parallel()
 
 	when := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-	data, contentType, err := EncodeMultipart(stamped{Title: `a "quoted" \ name`, When: when, Raw: []byte{0, 1}, Any: map[string]int{"n": 1}, Ptrs: []*string{Ptr("p"), nil}})
-	require.NoError(t, err)
+	data, contentType := writeForm(t, stamped{Title: `a "quoted" \ name`, When: when, Raw: []byte{0, 1}, Any: map[string]int{"n": 1}, Ptrs: []*string{Ptr("p"), nil}})
 
 	_, params, err := mime.ParseMediaType(contentType)
 	require.NoError(t, err)
@@ -178,7 +176,7 @@ func TestEncodeMultipartParts(t *testing.T) {
 	}, form.Value)
 }
 
-func TestEncodeMultipartErrors(t *testing.T) {
+func TestWriteMultipartErrors(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -199,7 +197,7 @@ func TestEncodeMultipartErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, _, err := EncodeMultipart(tc.value)
+			err := WriteMultipart(multipart.NewWriter(io.Discard), tc.value)
 
 			require.EqualError(t, err, tc.wantErr)
 		})
@@ -215,13 +213,60 @@ func TestWriteMultipartFailingWriter(t *testing.T) {
 		stamped{Raw: []byte{1}},
 	}
 	for _, v := range values {
-		var buf bytes.Buffer
-		_, err := writeMultipart(&buf, v)
-		require.NoError(t, err)
+		data, _ := writeForm(t, v)
 
-		for n := range buf.Len() {
-			_, err = writeMultipart(&failAfter{n: n}, v)
+		for n := range len(data) {
+			err := WriteMultipart(multipart.NewWriter(&failAfter{n: n}), v)
 			require.ErrorIs(t, err, io.ErrClosedPipe, n)
 		}
 	}
+}
+
+func TestMultipartSize(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		value     any
+		wantSized bool
+		wantErr   error
+	}{
+		{name: "Files that know their size", value: upload{Title: "Cat", File: NewFile([]byte("meow"), "cat.txt", ""), Files: []File{NewFile([]byte("abc"), "a", "")}}, wantSized: true},
+		{name: "No files", value: stamped{Title: "x"}, wantSized: true},
+		{name: "A file of unknown size", value: upload{File: NewFile([]byte("a"), "a", ""), Files: []File{NewFileReader(strings.NewReader("b"), "b", "", -1)}}},
+		{name: "No struct", value: 42, wantErr: ErrBodyValue},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			size, boundary, err := multipartSize(tc.value)
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			if !tc.wantSized {
+				assert.Equal(t, int64(-1), size)
+				return
+			}
+			var buf bytes.Buffer
+			mw := multipart.NewWriter(&buf)
+			require.NoError(t, mw.SetBoundary(boundary))
+			require.NoError(t, WriteMultipart(mw, tc.value))
+			assert.Equal(t, int64(buf.Len()), size)
+		})
+	}
+}
+
+// writeForm writes v as a multipart form and returns it with its content type.
+func writeForm(t *testing.T, v any) ([]byte, string) {
+	t.Helper()
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	require.NoError(t, WriteMultipart(mw, v))
+	return buf.Bytes(), mw.FormDataContentType()
 }

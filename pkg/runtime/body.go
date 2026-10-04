@@ -28,10 +28,11 @@ const DefaultMultipartMemory = 32 << 20
 
 var fileType = reflect.TypeFor[File]()
 
-// ContentType is the media type of a request or response body, without its parameters.
+// ContentType is the media type of a request or response body, without its parameters. A
+// parameter that does not parse, such as a charset without a value, leaves the media type.
 func ContentType(h http.Header) string {
 	mediaType, _, err := mime.ParseMediaType(h.Get("Content-Type"))
-	if err != nil {
+	if err != nil && !errors.Is(err, mime.ErrInvalidMediaParameter) {
 		return ""
 	}
 	return mediaType

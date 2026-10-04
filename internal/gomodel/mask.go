@@ -85,7 +85,7 @@ func maskOf(d *Decl, m maskable, masked map[*Decl]bool, patterns *patternSet) *M
 	out := &Mask{Field: m.name, IsPointer: isPointer(m.typ)}
 	s := m.sensitive
 	switch {
-	case s != nil && groupOf(elem(m.typ)) == groupString:
+	case s != nil && groupOf(Elem(m.typ)) == groupString:
 		out.Kind, out.KeepPrefix, out.KeepSuffix = maskKind(s.Kind), s.KeepPrefix, s.KeepSuffix
 		if s.Kind == extension.MaskRegex {
 			if out.Pattern = patterns.add(d.Part, s.Pattern, m.at, d.Name+m.name); out.Pattern == nil {
@@ -111,13 +111,13 @@ func heldMask(t Type, masked map[*Decl]bool) (MaskKind, bool) {
 		r, ok := unalias(t).(DeclRef)
 		return ok && masked[r.Decl]
 	}
-	switch u := unalias(elem(t)).(type) {
+	switch u := unalias(Elem(t)).(type) {
 	case Slice:
 		return MaskItems, isMasked(u.Elem)
 	case Map:
 		return MaskValues, isMasked(u.Elem)
 	}
-	return MaskNested, isMasked(elem(t))
+	return MaskNested, isMasked(Elem(t))
 }
 
 func maskKind(k extension.MaskKind) MaskKind {

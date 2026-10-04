@@ -87,8 +87,12 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API.
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
+// panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
+	}
 	return func(c *Client) {
 		c.doer = d
 	}
@@ -102,7 +106,13 @@ func WithTimeout(d time.Duration) ClientOption {
 }
 
 // WithRequestEditor runs fns on every request before it is sent, after any editor added before.
+// A nil editor panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
 	return func(c *Client) {
 		c.editors = append(c.editors, fns...)
 	}
@@ -200,8 +210,8 @@ func (c *Client) SearchPhotosRequest(ctx context.Context, opts *SearchPhotosRequ
 	return c.newRequest(ctx, b)
 }
 
-// SearchPhotos sends the request. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// SearchPhotos sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
+// the error type of its status when the spec documents one.
 func (c *Client) SearchPhotos(ctx context.Context, opts *SearchPhotosRequestOptions) error {
 	req, err := c.SearchPhotosRequest(ctx, opts)
 	if err != nil {
@@ -227,8 +237,8 @@ func (c *Client) ListOrdersRequest(ctx context.Context, opts *ListOrdersRequestO
 	return c.newRequest(ctx, b)
 }
 
-// ListOrders sends the request. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// ListOrders sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
+// the error type of its status when the spec documents one.
 func (c *Client) ListOrders(ctx context.Context, opts *ListOrdersRequestOptions) error {
 	req, err := c.ListOrdersRequest(ctx, opts)
 	if err != nil {
@@ -253,8 +263,8 @@ func (c *Client) ShareFileRequest(ctx context.Context, opts *ShareFileRequestOpt
 	return c.newRequest(ctx, b)
 }
 
-// ShareFile sends the request. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// ShareFile sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
+// the error type of its status when the spec documents one.
 func (c *Client) ShareFile(ctx context.Context, opts *ShareFileRequestOptions) error {
 	req, err := c.ShareFileRequest(ctx, opts)
 	if err != nil {
@@ -279,8 +289,8 @@ func (c *Client) ListUsersRequest(ctx context.Context, opts *ListUsersRequestOpt
 	return c.newRequest(ctx, b)
 }
 
-// ListUsers sends the request. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// ListUsers sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
+// the error type of its status when the spec documents one.
 func (c *Client) ListUsers(ctx context.Context, opts *ListUsersRequestOptions) error {
 	req, err := c.ListUsersRequest(ctx, opts)
 	if err != nil {
@@ -305,8 +315,8 @@ func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions) 
 	return c.newRequest(ctx, b)
 }
 
-// Search sends the request. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// Search sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
+// the error type of its status when the spec documents one.
 func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions) error {
 	req, err := c.SearchRequest(ctx, opts)
 	if err != nil {

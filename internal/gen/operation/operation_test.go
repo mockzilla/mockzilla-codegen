@@ -27,7 +27,6 @@ func TestGroupField(t *testing.T) {
 	}{
 		{name: "Path", in: spec.InPath, want: "PathParams"},
 		{name: "Query", in: spec.InQuery, want: "Query"},
-		{name: "Query string", in: spec.InQueryString, want: "QueryString"},
 		{name: "Header", in: spec.InHeader, want: "Headers"},
 		{name: "Cookie", in: spec.InCookie, want: "Cookies"},
 		{name: "A location the spec does not know", in: "body-ref", want: "BodyRef"},

@@ -33,7 +33,7 @@ type CoreView struct {
 func coreView(g *Generator, s *gocode.Scope) *CoreView {
 	v := &CoreView{
 		Name:       g.opts.Name,
-		Option:     g.opts.Name + "Option",
+		Option:     g.opts.Namer.ClientOption(g.opts.Name),
 		Context:    s.Import(gomodel.Import{Path: "context"}),
 		HTTP:       s.Import(gomodel.Import{Path: "net/http"}),
 		Time:       s.Import(gomodel.Import{Path: "time"}),

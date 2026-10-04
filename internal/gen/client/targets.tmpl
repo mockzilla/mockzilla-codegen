@@ -1,0 +1,3 @@
+{{- range .}}
+		{Status: {{.Status}}{{if .IsHeaders}}, IsHeaders: true{{else if .Dst}}, MediaType: {{.MediaType}}{{end}}{{with .Dst}}, Dst: {{.}}{{end}}},
+{{- end}}

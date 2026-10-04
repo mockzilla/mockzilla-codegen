@@ -45,6 +45,11 @@ type unionReader struct {
 	memo  map[*spec.Schema]*unionSchema
 }
 
+// JSONKinds is what JSON a value of type t is written as. A union takes what its variants take.
+func JSONKinds(t Type) JSONKind {
+	return jsonKinds(t, map[*Decl]bool{})
+}
+
 func newUnionReader(n *naming.Namer, flat *flattener) *unionReader {
 	return &unionReader{namer: n, flat: flat, memo: map[*spec.Schema]*unionSchema{}}
 }
@@ -196,7 +201,7 @@ func settleUnions(decls []*Decl) {
 		}
 		for _, v := range d.Union.Variants {
 			v.FieldType = elemType(v.Type, true)
-			v.Kinds = jsonKinds(v.Type, map[*Decl]bool{})
+			v.Kinds = JSONKinds(v.Type)
 			st := structOf(v.Type)
 			if st == nil {
 				continue
@@ -218,7 +223,6 @@ func settleUnions(decls []*Decl) {
 	}
 }
 
-// jsonKinds is what JSON a value of type t is written as. A union takes what its variants take.
 func jsonKinds(t Type, seen map[*Decl]bool) JSONKind {
 	switch t := t.(type) {
 	case Builtin:

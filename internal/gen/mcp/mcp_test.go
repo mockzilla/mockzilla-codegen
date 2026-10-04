@@ -293,7 +293,7 @@ func boolField(name string, value bool) spec.Field {
 }
 
 // petModel is a model with every shape the tools write: parameters of each location with a name
-// taken twice, a header and a querystring group that are left out, bodies of every kind, results
+// taken twice, a header that is left out, bodies of every kind, results
 // that are values, text, pointers to text, files and nothing, a second 2xx, an operation that
 // streams alone, x-mcp in every form, two operations whose tools would share a name, and a webhook.
 func petModel() *gomodel.Model {
@@ -316,7 +316,6 @@ func petModel() *gomodel.Model {
 	cookies := &gomodel.Decl{Name: "ListPetsCookies", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "Session", Type: str}},
 	}}
-	querystring := &gomodel.Decl{Name: "ListPetsQueryString", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{Fields: []*gomodel.Field{{Name: "Raw", Type: str}}}}
 	path := &gomodel.Decl{Name: "GetPetPathParams", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{Fields: []*gomodel.Field{{Name: "ID", Type: str}}}}
 	getQuery := &gomodel.Decl{Name: "GetPetQuery", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "ID", Type: gomodel.Pointer{Elem: str}}, {Name: "Body", Type: gomodel.Pointer{Elem: str}}},
@@ -333,7 +332,6 @@ func petModel() *gomodel.Model {
 			}},
 			{In: spec.InHeader, Decl: headers, Params: []*spec.Parameter{{Name: "X-Trace", In: spec.InHeader, Schema: strSchema}, {Name: "authorization", In: spec.InHeader, Required: true, Schema: strSchema}}},
 			{In: spec.InCookie, Decl: cookies, Params: []*spec.Parameter{{Name: "session", In: spec.InCookie, Required: true, Schema: strSchema}}},
-			{In: spec.InQueryString, Decl: querystring, Params: []*spec.Parameter{{Name: "raw", In: spec.InQueryString}}},
 		},
 		Responses: []gomodel.Response{
 			{Status: "200", Contents: []gomodel.Content{{MediaType: "application/json", Type: gomodel.Slice{Elem: gomodel.DeclRef{Decl: pet}}}}},
@@ -406,7 +404,7 @@ func petModel() *gomodel.Model {
 	skipped := &gomodel.Operation{Name: "Reset", Spec: &spec.Operation{ID: "reset", Method: "POST", Path: "/reset", Extensions: xmcp(boolField("skip", true))}}
 	hook := &gomodel.Operation{Name: "Hook", Spec: &spec.Operation{ID: "hook", Method: "POST", Path: "/hook", IsWebhook: true}}
 	return &gomodel.Model{
-		Decls:      []*gomodel.Decl{pet, problem, note, upload, query, headers, cookies, querystring, path, getQuery},
+		Decls:      []*gomodel.Decl{pet, problem, note, upload, query, headers, cookies, path, getQuery},
 		Operations: []*gomodel.Operation{list, create, get, getAgain, put, del, ping, noteOp, uploadOp, photo, tail, skipped, hook},
 	}
 }

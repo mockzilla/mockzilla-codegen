@@ -154,7 +154,7 @@ type TargetView struct {
 func operationsView(g *Generator, s *gocode.Scope) *OperationsView {
 	v := &OperationsView{
 		Client:       s.Symbol(PartCore, g.opts.Name),
-		Interface:    g.opts.Name + "Interface",
+		Interface:    g.Interface(),
 		HasEnvelopes: g.opts.HasEnvelopes,
 		User:         g.opts.User,
 	}
@@ -182,9 +182,6 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 		IsBodyRequired: op.Spec.Body != nil && op.Spec.Body.Required,
 	}
 	for _, p := range op.Params {
-		if encoders[p.In] == "" {
-			continue
-		}
 		v.Groups = append(v.Groups, groupView(g, p))
 	}
 	fields := operation.BodyFields(op.Bodies, n)
@@ -196,10 +193,7 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 	if r, c, ok := SuccessBody(op); ok {
 		v.Success = r.Status
 		v.Result = s.Expr(operation.BodyType(c))
-		v.Zero = "nil"
-		if v.Result == "string" {
-			v.Zero = `""`
-		}
+		v.Zero = gocode.Zero(operation.BodyType(c))
 		v.Targets = append(v.Targets, TargetView{Status: gocode.Quote(r.Status), MediaType: gocode.Quote(c.MediaType), Dst: gocode.AddressOf("out")})
 		v.Targets = append(v.Targets, otherSuccesses(op, r.Status)...)
 	}
@@ -247,9 +241,9 @@ func streamType(frame string, s *gocode.Scope) string {
 }
 
 // frameType is the type of one frame of a sequential content: its item type, or bytes without one
-// or when it is a string, which is no JSON.
+// or when its JSON is a string, such as a date-time or a string enum, which a frame carries as text.
 func frameType(c gomodel.Content) gomodel.Type {
-	if c.Item == nil || gomodel.Underlying(elem(c.Item)) == stringType {
+	if c.Item == nil || gomodel.JSONKinds(c.Item) == gomodel.JSONString {
 		return bytesType
 	}
 	return c.Item
@@ -281,7 +275,7 @@ func bodyView(c gomodel.Content, field string, s *gocode.Scope) BodyView {
 	t := operation.BodyType(c)
 	value := gocode.Selector("opts", field)
 	v := BodyView{IsSet: gocode.NotNil(value), Value: value, MediaType: gocode.Quote(c.MediaType)}
-	base := elem(t)
+	base := gomodel.Elem(t)
 	under := gomodel.Underlying(base)
 	mediaType := strings.ToLower(c.MediaType)
 	isWildcard := strings.Contains(mediaType, "*")
@@ -328,14 +322,14 @@ func held(value string, base, t gomodel.Type, s *gocode.Scope) string {
 	return out
 }
 
-// SuccessBody is the lowest documented 2xx response that has a body, with the body the plain
-// method returns: its JSON one, else its first.
+// SuccessBody is the lowest documented 2xx response with a body the client decodes, with the
+// body the plain method returns: its JSON one, else its first the client decodes.
 func SuccessBody(op *gomodel.Operation) (gomodel.Response, gomodel.Content, bool) {
-	r, ok := lowestSuccess(op, func(gomodel.Content) bool { return true })
+	r, ok := lowestSuccess(op, isDecodable)
 	if !ok {
 		return gomodel.Response{}, gomodel.Content{}, false
 	}
-	c, _ := operation.FirstBody(r.Contents)
+	c, _ := operation.FirstBody(slices.DeleteFunc(slices.Clone(r.Contents), func(c gomodel.Content) bool { return !isDecodable(c) }))
 	return r, c, true
 }
 
@@ -409,8 +403,8 @@ func otherSuccesses(op *gomodel.Operation, success string) []TargetView {
 	return out
 }
 
-// errorTargets are the bodies of the responses outside 2xx whose type is an error type, which the
-// plain method decodes into the error it returns.
+// errorTargets are the bodies of the responses outside 2xx that the client decodes and whose
+// type is an error type, which the plain method decodes into the error it returns.
 func errorTargets(op *gomodel.Operation, s *gocode.Scope) []TargetView {
 	var out []TargetView
 	for _, r := range op.Responses {
@@ -419,7 +413,7 @@ func errorTargets(op *gomodel.Operation, s *gocode.Scope) []TargetView {
 		}
 		for _, c := range r.Contents {
 			d := errorDecl(c.Type)
-			if d == nil {
+			if d == nil || !isDecodable(c) {
 				continue
 			}
 			out = append(out, TargetView{Status: gocode.Quote(r.Status), MediaType: gocode.Quote(c.MediaType), Dst: gocode.Call("new", s.Expr(gomodel.DeclRef{Decl: d}))})

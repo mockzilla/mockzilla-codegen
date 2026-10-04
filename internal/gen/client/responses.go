@@ -129,14 +129,6 @@ func isDecodable(c gomodel.Content) bool {
 	if runtime.IsJSON(c.MediaType) || strings.Contains(c.MediaType, "*") {
 		return true
 	}
-	t := gomodel.Underlying(elem(operation.BodyType(c)))
+	t := gomodel.Underlying(gomodel.Elem(operation.BodyType(c)))
 	return t == stringType || t == bytesType || t == anyType || t == fileType
-}
-
-// elem is the type a pointer points to, else t.
-func elem(t gomodel.Type) gomodel.Type {
-	if p, ok := t.(gomodel.Pointer); ok {
-		return p.Elem
-	}
-	return t
 }

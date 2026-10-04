@@ -127,7 +127,7 @@ func (g *Generator) Framework() framework.Framework {
 
 // Interface is the name of the service interface.
 func (g *Generator) Interface() string {
-	return g.opts.Name + "Interface"
+	return g.opts.Namer.Interface(g.opts.Name)
 }
 
 // Routes lists the operations the router registers.

@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
 
 func TestExpressions(t *testing.T) {
@@ -23,6 +25,8 @@ func TestExpressions(t *testing.T) {
 	assert.Equal(t, "p.Cat != nil", NotNil("p.Cat"))
 	assert.Equal(t, `opts.Body != ""`, NotEmpty("opts.Body"))
 	assert.Equal(t, "&opts.Body", AddressOf("opts.Body"))
+	assert.Equal(t, `""`, Zero(gomodel.Builtin{Name: "string"}))
+	assert.Equal(t, "nil", Zero(gomodel.Pointer{Elem: gomodel.Builtin{Name: "string"}}))
 }
 
 func TestDuration(t *testing.T) {

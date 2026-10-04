@@ -192,11 +192,14 @@ func isSuccess(status string) bool {
 }
 
 // mediaRank says how well a documented media type fits the response's: the same one, then JSON
-// for JSON, then a wildcard, then not at all. A response without a media type takes any target.
+// for JSON, then a wildcard, then not at all. A response without a media type takes any target,
+// a JSON one first.
 func mediaRank(documented, actual string) int {
 	documented, _, _ = strings.Cut(strings.ToLower(documented), ";")
 	documented = strings.TrimSpace(documented)
 	switch {
+	case actual == "" && IsJSON(documented):
+		return 2
 	case actual == "":
 		return 1
 	case documented == actual:

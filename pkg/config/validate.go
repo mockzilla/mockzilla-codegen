@@ -114,11 +114,27 @@ func checkServer(s *Server) []Issue {
 	if s == nil {
 		return nil
 	}
-	issues := checkEnum("server.framework", s.Framework, frameworks)
+	issues := slices.Concat(checkEnum("server.framework", s.Framework, frameworks), checkName("server.name", s.Name))
 	if s.Scaffold.Main != "" && s.Scaffold.Service == "" {
 		issues = append(issues, Issue{Key: "server.scaffold.main", Message: "needs server.scaffold.service, which main starts"})
 	}
 	return issues
+}
+
+func checkClient(cl *Client) []Issue {
+	if cl == nil {
+		return nil
+	}
+	return checkName("client.name", cl.Name)
+}
+
+// checkName wants a name the generated code declares to be a Go identifier. An empty one takes the
+// default.
+func checkName(key, name string) []Issue {
+	if name == "" || token.IsIdentifier(name) {
+		return nil
+	}
+	return []Issue{{Key: key, Message: fmt.Sprintf("%q is not a valid Go identifier", name)}}
 }
 
 func checkMCP(m *MCP, cl *Client) []Issue {

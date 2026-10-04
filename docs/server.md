@@ -39,7 +39,9 @@ type ListPetsServiceRequestOptions struct {
 func (o *ListPetsServiceRequestOptions) Validate() error
 ```
 
-- One field per parameter location the operation uses, holding the struct of its parameters.
+- One field per parameter location the operation uses, holding the struct of its parameters. A
+  `querystring` parameter (OpenAPI 3.2) gets none yet, see
+  [client](client.md#not-supported-yet).
 - `Body` holds the request body. An operation with several media types gets one field per media
   type, named after it: `BodyJSON`, `BodyForm`, `BodyMultipart`, `BodyText`. Two media types that
   would share a name are told apart by their type: `BodyXML` for `application/xml`, `BodyTextXML`
@@ -431,5 +433,5 @@ The runtime package holds what the generated HTTP code and clients use, standard
   an empty optional one is left alone.
 - Responses: `Write` sends a status, headers and a body: JSON for most values, text and bytes as
   they are, a `File` streamed.
-- Clients: `RequestBuilder`, `EncodeForm`, `EncodeMultipart`, `Send`, `Decode`, `DecodeSuccess`,
+- Clients: `RequestBuilder`, `EncodeForm`, `WriteMultipart`, `Send`, `Decode`, `DecodeSuccess`,
   `DecodeHeaders` and `APIError`, see [client](client.md#runtime).
