@@ -429,8 +429,9 @@ func (c *Client) AddTagRequest(ctx context.Context, opts *AddTagRequestOptions) 
 
 // Add a tag
 //
-// AddTag returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// AddTag returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) AddTag(ctx context.Context, opts *AddTagRequestOptions) (*Added, error) {
 	req, err := c.AddTagRequest(ctx, opts)
 	if err != nil {

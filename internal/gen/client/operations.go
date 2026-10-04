@@ -79,9 +79,9 @@ type OperationsView struct {
 // required and the client can send none of its media types, so the request is never built.
 // Success is the status of the response the plain method returns the body of, as the spec writes
 // it, empty for none; Result is that body's type and Zero the value returned on an error. Targets
-// are what the plain method decodes, EnvelopeTargets what the HasEnvelopes method decodes into the
-// envelope Response. Stream is the Stream method of an operation that answers in a sequential media
-// type, nil without HasStreams.
+// are what the plain method decodes, with the other documented 2xx statuses when it has a Result,
+// EnvelopeTargets what the HasEnvelopes method decodes into the envelope Response. Stream is the
+// Stream method of an operation that answers in a sequential media type, nil without HasStreams.
 type OperationView struct {
 	Name            string
 	Doc             string
@@ -142,7 +142,8 @@ type BodyView struct {
 }
 
 // TargetView is one runtime.Target: the quoted status and media type, and the address of what
-// the body is decoded into; IsHeaders marks the typed headers of the status.
+// the body is decoded into, empty for a status whose body is not read; IsHeaders marks the typed
+// headers of the status.
 type TargetView struct {
 	Status    string
 	MediaType string
@@ -200,6 +201,7 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 			v.Zero = `""`
 		}
 		v.Targets = append(v.Targets, TargetView{Status: gocode.Quote(r.Status), MediaType: gocode.Quote(c.MediaType), Dst: gocode.AddressOf("out")})
+		v.Targets = append(v.Targets, otherSuccesses(op, r.Status)...)
 	}
 	v.Targets = append(v.Targets, errorTargets(op, s)...)
 
@@ -386,6 +388,18 @@ func IsStreamOnly(op *gomodel.Operation) bool {
 
 func isSequential(c gomodel.Content) bool {
 	return runtime.IsSequential(c.MediaType)
+}
+
+// otherSuccesses are the documented 2xx statuses besides success, which the plain method takes
+// without reading their body.
+func otherSuccesses(op *gomodel.Operation, success string) []TargetView {
+	var out []TargetView
+	for _, r := range op.Responses {
+		if status := operation.StatusOf(r.Status); r.Status != success && status >= 200 && status <= 299 {
+			out = append(out, TargetView{Status: gocode.Quote(r.Status)})
+		}
+	}
+	return out
 }
 
 // errorTargets are the bodies of the responses outside 2xx whose type is an error type, which the

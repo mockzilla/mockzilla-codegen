@@ -60,8 +60,14 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 {{comment .}}
 //
 {{- end}}
-// {{.Name}} {{with .Success}}returns the body of a {{.}} response{{else}}sends the request{{end}}. A response outside 2xx comes
+{{- if .Success}}
+// {{.Name}} returns the body of a {{.Success}} response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
+{{- else}}
+// {{.Name}} sends the request. A response outside 2xx comes
 // back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+{{- end}}
 func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) ({{with .Result}}{{.}}, {{end}}error) {
 	req, err := c.{{.Name}}Request(ctx, opts)
 	if err != nil {
@@ -76,7 +82,7 @@ func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) 
 	var out {{.Result}}
 	if err = {{$.Runtime}}.DecodeSuccess(res, body, []{{$.Runtime}}.Target{
 {{- range .Targets}}
-		{Status: {{.Status}}, MediaType: {{.MediaType}}, Dst: {{.Dst}}},
+		{Status: {{.Status}}{{if .Dst}}, MediaType: {{.MediaType}}, Dst: {{.Dst}}{{end}}},
 {{- end}}
 	}); err != nil {
 		return {{.Zero}}, err

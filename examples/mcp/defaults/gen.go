@@ -403,8 +403,9 @@ func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions) 
 
 // Search the catalog
 //
-// Search returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// Search returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions) (*Asked, error) {
 	req, err := c.SearchRequest(ctx, opts)
 	if err != nil {

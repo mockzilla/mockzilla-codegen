@@ -1,6 +1,24 @@
 openapi: 3.1.0
 info: {title: errors, version: "1"}
 paths:
+  /pets:
+    post:
+      operationId: addPet
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+      responses:
+        "201":
+          description: added
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+        "204":
+          description: already there
+        default:
+          description: failed
+          content:
+            application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}
   /pets/{id}:
     get:
       operationId: getPet

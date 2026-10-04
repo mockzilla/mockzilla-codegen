@@ -23,6 +23,10 @@ import (
 // Problem.
 type service struct{}
 
+func (service) AddPet(_ context.Context, opts *AddPetServiceRequestOptions) (*AddPetResponseData, error) {
+	return NewAddPetResponseData201(opts.Body), nil
+}
+
 func (service) GetPet(_ context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error) {
 	switch id := opts.PathParams.ID; id {
 	case 1:
@@ -88,6 +92,51 @@ func TestErrors(t *testing.T) {
 			}
 			assert.False(t, stderrors.As(err, &problem))
 			assert.Equal(t, tc.wantBody, string(apiErr.Body))
+		})
+	}
+}
+
+func TestSuccessStatuses(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		status      int
+		body        string
+		want        *Pet
+		wantMessage string
+	}{
+		{name: "The 2xx whose body the method returns", status: http.StatusCreated, body: `{"name":"Rex"}`, want: &Pet{Name: "Rex"}},
+		{name: "Another listed 2xx", status: http.StatusNoContent},
+		{name: "A 2xx the spec does not list", status: http.StatusAccepted, body: `{"detail":"queued"}`, wantMessage: "unexpected status 202 Accepted"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			t.Cleanup(srv.Close)
+			c, err := NewClient(srv.URL)
+			require.NoError(t, err)
+
+			pet, err := c.AddPet(context.Background(), &AddPetRequestOptions{Body: &Pet{Name: "Rex"}})
+
+			assert.Equal(t, tc.want, pet)
+			if tc.wantMessage == "" {
+				require.NoError(t, err)
+				return
+			}
+			var apiErr *runtime.APIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.EqualError(t, err, tc.wantMessage)
+			assert.Equal(t, tc.body, string(apiErr.Body))
+			var problem *Problem
+			assert.False(t, stderrors.As(err, &problem))
 		})
 	}
 }

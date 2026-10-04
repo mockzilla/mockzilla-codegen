@@ -740,8 +740,9 @@ func (c *Client) PathStylesRequest(ctx context.Context, opts *PathStylesRequestO
 	return c.newRequest(ctx, b)
 }
 
-// PathStyles returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// PathStyles returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) PathStyles(ctx context.Context, opts *PathStylesRequestOptions) (Echo, error) {
 	req, err := c.PathStylesRequest(ctx, opts)
 	if err != nil {
@@ -782,8 +783,9 @@ func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesReques
 	return c.newRequest(ctx, b)
 }
 
-// QueryStyles returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// QueryStyles returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) QueryStyles(ctx context.Context, opts *QueryStylesRequestOptions) (Echo, error) {
 	req, err := c.QueryStylesRequest(ctx, opts)
 	if err != nil {
@@ -817,8 +819,9 @@ func (c *Client) HeaderStylesRequest(ctx context.Context, opts *HeaderStylesRequ
 	return c.newRequest(ctx, b)
 }
 
-// HeaderStyles returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// HeaderStyles returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) HeaderStyles(ctx context.Context, opts *HeaderStylesRequestOptions) (Echo, error) {
 	req, err := c.HeaderStylesRequest(ctx, opts)
 	if err != nil {
@@ -851,8 +854,9 @@ func (c *Client) CookieStylesRequest(ctx context.Context, opts *CookieStylesRequ
 	return c.newRequest(ctx, b)
 }
 
-// CookieStyles returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// CookieStyles returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) CookieStyles(ctx context.Context, opts *CookieStylesRequestOptions) (Echo, error) {
 	req, err := c.CookieStylesRequest(ctx, opts)
 	if err != nil {

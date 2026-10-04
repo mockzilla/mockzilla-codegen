@@ -229,8 +229,9 @@ func (c *Client) ChatRequest(ctx context.Context, opts *ChatRequestOptions) (*ht
 //
 // Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
 //
-// Chat returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// Chat returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions) (*Reply, error) {
 	req, err := c.ChatRequest(ctx, opts)
 	if err != nil {
@@ -332,8 +333,9 @@ func (c *Client) ListEventsRequest(ctx context.Context, opts *ListEventsRequestO
 
 // Follow the events
 //
-// ListEvents returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// ListEvents returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions) (*ListEventsResponseItem, error) {
 	req, err := c.ListEventsRequest(ctx, opts)
 	if err != nil {
@@ -421,8 +423,9 @@ func (c *Client) TailLogRequest(ctx context.Context, opts *TailLogRequestOptions
 
 // Follow the log of a job
 //
-// TailLog returns the body of a 200 response. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// TailLog returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
+// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
+// spec documents one.
 func (c *Client) TailLog(ctx context.Context, opts *TailLogRequestOptions) (*TailLogResponseItem, error) {
 	req, err := c.TailLogRequest(ctx, opts)
 	if err != nil {
