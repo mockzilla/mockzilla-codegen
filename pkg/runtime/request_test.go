@@ -111,6 +111,13 @@ func TestRequestBuilder(t *testing.T) {
 			wantErrText: "parameter is required: id",
 		},
 		{
+			name: "A path parameter written as nothing",
+			build: func(b *RequestBuilder) {
+				b.PathParam("", Param{Name: "id", Style: StyleSimple})
+			},
+			wantErrText: "parameter is required: id is empty",
+		},
+		{
 			name: "A path parameter that cannot be written",
 			build: func(b *RequestBuilder) {
 				b.PathParam(make(chan int), Param{Name: "id"})
@@ -130,6 +137,13 @@ func TestRequestBuilder(t *testing.T) {
 				b.CookieParam(make(chan int), Param{Name: "bad"})
 			},
 			wantErr: ErrParamValue,
+		},
+		{
+			name: "A cookie value net/http would alter",
+			build: func(b *RequestBuilder) {
+				b.CookieParam("a;b", Param{Name: "session", Style: StyleForm})
+			},
+			wantErrText: `invalid parameter value: session: http: invalid byte ';' in Cookie.Value`,
 		},
 		{
 			name: "A query parameter that cannot be written",
@@ -323,6 +337,77 @@ func TestRequestBuilder(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRequestBuilderMultipartBody(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		value         upload
+		wantLength    bool
+		wantErrInBody string
+	}{
+		{name: "Files that know their size go with a length", value: upload{Title: "Cat", File: NewFile([]byte("meow"), "cat.txt", "text/plain")}, wantLength: true},
+		{name: "A file of unknown size goes chunked", value: upload{Title: "Cat", File: NewFileReader(strings.NewReader("meow"), "cat.txt", "text/plain", -1)}},
+		{name: "A file that fails while sent fails the request", value: upload{File: NewFileReader(errReader{}, "a", "", 4)}, wantLength: true, wantErrInBody: "unexpected EOF"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var gotLength int64
+			var gotEncoding []string
+			var got upload
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotLength, gotEncoding = r.ContentLength, r.TransferEncoding
+				if err := DecodeMultipart(r, &got, 0); err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+				}
+			}))
+			t.Cleanup(srv.Close)
+			b := NewRequestBuilder(http.MethodPost, "/upload")
+			b.MultipartBody(tc.value)
+			req, err := b.Build(context.Background(), parseURL(t, srv.URL))
+			require.NoError(t, err)
+
+			res, err := srv.Client().Do(req)
+
+			if tc.wantErrInBody != "" {
+				require.ErrorContains(t, err, tc.wantErrInBody)
+				return
+			}
+			require.NoError(t, err)
+			require.NoError(t, res.Body.Close())
+			require.Equal(t, http.StatusOK, res.StatusCode)
+			content, err := got.File.Bytes()
+			require.NoError(t, err)
+			assert.Equal(t, "meow", string(content))
+			assert.Equal(t, "Cat", got.Title)
+			if tc.wantLength {
+				assert.Equal(t, req.ContentLength, gotLength)
+				assert.Positive(t, gotLength)
+				return
+			}
+			assert.Equal(t, int64(-1), gotLength)
+			assert.Equal(t, []string{"chunked"}, gotEncoding)
+		})
+	}
+}
+
+func TestMultipartBodyReadAfterClose(t *testing.T) {
+	t.Parallel()
+
+	b := NewRequestBuilder(http.MethodPost, "/upload")
+	b.MultipartBody(upload{Title: "Cat"})
+	body, ok := b.body.(*multipartBody)
+	require.True(t, ok)
+
+	require.NoError(t, body.Close())
+	_, err := body.Read(make([]byte, 8))
+
+	require.ErrorIs(t, err, io.ErrClosedPipe, "a closed body reads nothing, and its writer stops")
 }
 
 func TestRequestBuilderQueryAndHeaderInOnePlace(t *testing.T) {

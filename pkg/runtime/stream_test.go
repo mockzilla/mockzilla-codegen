@@ -215,7 +215,7 @@ func TestLFReaderReadsOnPastADroppedLF(t *testing.T) {
 func TestLineStream(t *testing.T) {
 	t.Parallel()
 
-	s := NewLineStream[chunk](streamResponse(http.StatusOK, "application/x-ndjson", "{\"text\":\"a\"}\r\n\n{\"text\":\"b\"}\n\n"))
+	s := NewLineStream[chunk](streamResponse(http.StatusOK, "application/x-ndjson", "{\"text\":\"a\"}\r\n\n \t\n{\"text\":\"b\"}\n\n"))
 
 	frames, events, err := collect(t, s)
 
@@ -260,6 +260,59 @@ func TestStreamOfBytes(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, [][]byte{[]byte("not json"), []byte("still not")}, frames)
+}
+
+func TestStreamSkipsEmptyData(t *testing.T) {
+	t.Parallel()
+
+	const body = "event: ping\ndata:\n\ndata: {\"text\":\"a\"}\n\ndata:  \n\n"
+	typed := NewEventStream[chunk](streamResponse(http.StatusOK, MediaTypeEventStream, body))
+	raw := NewEventStream[[]byte](streamResponse(http.StatusOK, MediaTypeEventStream, body))
+
+	typedFrames, _, err := collect(t, typed)
+	require.NoError(t, err)
+	rawFrames, rawEvents, err := collect(t, raw)
+	require.NoError(t, err)
+
+	assert.Equal(t, []chunk{{Text: "a"}}, typedFrames)
+	assert.Equal(t, [][]byte{nil, []byte(`{"text":"a"}`), []byte(" ")}, rawFrames, "bytes take every event")
+	assert.Equal(t, "ping", rawEvents[0].Type)
+}
+
+func TestStreamMaxFrameSize(t *testing.T) {
+	t.Parallel()
+
+	long := strings.Repeat("x", 5000)
+	tests := []struct {
+		name        string
+		contentType string
+		body        string
+		limit       int
+		wantFrames  [][]byte
+		wantErr     error
+	}{
+		{name: "Lines up to the limit", contentType: "application/x-ndjson", body: "1234\r\n12\n", limit: 4, wantFrames: [][]byte{[]byte("1234"), []byte("12")}},
+		{name: "A line one byte over", contentType: "application/x-ndjson", body: "12\n12345\n", limit: 4, wantFrames: [][]byte{[]byte("12")}, wantErr: ErrFrameSize},
+		{name: "A line far over is cut short", contentType: "application/x-ndjson", body: long + "\n", limit: 4, wantErr: ErrFrameSize},
+		{name: "No limit", contentType: "application/x-ndjson", body: long + "\n", wantFrames: [][]byte{[]byte(long)}},
+		{name: "Event data up to the limit, newlines counted", contentType: MediaTypeEventStream, body: "data:12345\ndata:1234\n\n", limit: 10, wantFrames: [][]byte{[]byte("12345\n1234")}},
+		{name: "Event data over the limit", contentType: MediaTypeEventStream, body: "data:12345\ndata:12345\n\n", limit: 10, wantErr: ErrFrameSize},
+		{name: "An event line over the limit", contentType: MediaTypeEventStream, body: "data:" + long + "\n\n", limit: 10, wantErr: ErrFrameSize},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := NewStream[[]byte](streamResponse(http.StatusOK, tc.contentType, tc.body))
+			s.MaxFrameSize = tc.limit
+
+			frames, _, err := collect(t, s)
+
+			require.ErrorIs(t, err, tc.wantErr)
+			assert.Equal(t, tc.wantFrames, frames)
+		})
+	}
 }
 
 func TestStreamErrors(t *testing.T) {
@@ -558,7 +611,8 @@ func TestOpenStream(t *testing.T) {
 	}{
 		{name: "A stream", res: streamResponse(http.StatusOK, "application/ndjson", "{\"text\":\"a\"}\n"), wantFrames: []chunk{{Text: "a"}}},
 		{name: "A 2xx in another media type", res: streamResponse(http.StatusOK, "application/json", `{"text":"a"}`), wantErr: ErrContentType},
-		{name: "A 2xx without a body", res: &http.Response{StatusCode: http.StatusNoContent, Header: http.Header{}}, wantErr: ErrContentType},
+		{name: "A 2xx without a body has no frames", res: &http.Response{StatusCode: http.StatusNoContent, Header: http.Header{}}},
+		{name: "A 2xx with an empty JSON body has no frames", res: streamResponse(http.StatusOK, "application/json", "")},
 		{name: "An error response decoded into its type", res: streamResponse(http.StatusNotFound, "application/json", `{"message":"gone"}`), wantErr: &notFound{Message: "gone"}, wantStatus: http.StatusNotFound},
 	}
 

@@ -55,10 +55,7 @@ type Generator struct {
 	ops  []*gomodel.Operation
 }
 
-// New returns the generator of m's operations. It warns about every operation whose path holds a
-// placeholder no path parameter fills, since its methods always fail. Without HasStreams, it also
-// warns about every operation whose 2xx responses come only in sequential media types, which the
-// plain method reads whole and so never returns from while the server keeps sending.
+// New returns the generator of m's operations, with the warnings of each, see warnings.
 func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 	g := &Generator{opts: opts}
 	var diags []diag.Diagnostic
@@ -67,30 +64,7 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 			continue
 		}
 		g.ops = append(g.ops, op)
-
-		origin := diag.Origin{File: op.Spec.Origin.File, Line: op.Spec.Origin.Line, Col: op.Spec.Origin.Col}
-		if names := unfilled(op); len(names) > 0 {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Warning,
-				Code:     diag.CodePathParamMissing,
-				Pointer:  op.Spec.Origin.Pointer,
-				Origin:   origin,
-				Message:  "no path parameter fills {" + strings.Join(names, "}, {") + "} in " + op.Spec.Path + ", so " + op.Name + " always fails",
-			})
-		}
-
-		if opts.HasStreams || !IsStreamOnly(op) {
-			continue
-		}
-
-		_, c, _ := streamBody(op)
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Warning,
-			Code:     diag.CodeStreamOnly,
-			Pointer:  op.Spec.Origin.Pointer,
-			Origin:   origin,
-			Message:  op.Name + " answers only as " + c.MediaType + ", which " + op.Name + " reads whole; set client.streaming to read it as it arrives",
-		})
+		diags = append(diags, warnings(op, opts.HasStreams)...)
 	}
 	return g, diags
 }
@@ -107,6 +81,11 @@ func Templates() render.Set {
 			PartResponses:  "responses.tmpl",
 		},
 	}
+}
+
+// Interface is the name of the interface the client implements.
+func (g *Generator) Interface() string {
+	return g.opts.Namer.Interface(g.opts.Name)
 }
 
 // Parts returns the client parts with the parts each refers to. The operations add methods to
@@ -154,6 +133,69 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 	default:
 		return operationsView(g, s)
 	}
+}
+
+// warnings are what the client cannot do for op: fill a placeholder of its path, decode a 2xx
+// body, stream a body documented under default alone, and, without hasStreams, return from a
+// method whose 2xx responses only stream, which it reads whole while the server keeps sending.
+func warnings(op *gomodel.Operation, hasStreams bool) []diag.Diagnostic {
+	var out []diag.Diagnostic
+	if names := unfilled(op); len(names) > 0 {
+		out = append(out, warning(op, diag.CodePathParamMissing, "no path parameter fills {"+strings.Join(names, "}, {")+"} in "+op.Spec.Path+", so "+op.Name+" always fails"))
+	}
+	for _, r := range op.Responses {
+		if c, ok := unreadBody(r); ok {
+			out = append(out, warning(op, diag.CodeClientBodyUnread, op.Name+" answers "+r.Status+" as "+c.MediaType+", which the client cannot decode, so "+op.Name+" returns no body for it"))
+		}
+	}
+
+	_, c, hasStream := streamBody(op)
+	switch {
+	case !hasStream:
+		if body, ok := defaultStream(op); ok {
+			out = append(out, warning(op, diag.CodeStreamUnread, op.Name+" documents "+body.MediaType+" under default alone, which never covers a 2xx, so it has no Stream method; document it under 200 or 2XX"))
+		}
+	case !hasStreams && IsStreamOnly(op):
+		out = append(out, warning(op, diag.CodeStreamOnly, op.Name+" answers only as "+c.MediaType+", which "+op.Name+" reads whole; set client.streaming to read it as it arrives"))
+	}
+	return out
+}
+
+func warning(op *gomodel.Operation, code, message string) diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.Warning,
+		Code:     code,
+		Pointer:  op.Spec.Origin.Pointer,
+		Origin:   diag.Origin{File: op.Spec.Origin.File, Line: op.Spec.Origin.Line, Col: op.Spec.Origin.Col},
+		Message:  message,
+	}
+}
+
+// unreadBody is the first body of a 2xx response that the client decodes none of, unless the
+// body is sequential, which the Stream method reads.
+func unreadBody(r gomodel.Response) (gomodel.Content, bool) {
+	status := operation.StatusOf(r.Status)
+	if status < 200 || status > 299 || slices.ContainsFunc(r.Contents, isDecodable) {
+		return gomodel.Content{}, false
+	}
+	i := slices.IndexFunc(r.Contents, func(c gomodel.Content) bool { return !isSequential(c) })
+	if i < 0 {
+		return gomodel.Content{}, false
+	}
+	return r.Contents[i], true
+}
+
+// defaultStream is the first sequential body of the default response of op.
+func defaultStream(op *gomodel.Operation) (gomodel.Content, bool) {
+	for _, r := range op.Responses {
+		if !strings.EqualFold(r.Status, "default") {
+			continue
+		}
+		if i := slices.IndexFunc(r.Contents, isSequential); i >= 0 {
+			return r.Contents[i], true
+		}
+	}
+	return gomodel.Content{}, false
 }
 
 // unfilled lists, each once, the placeholders in the path of op, its query included, that no path

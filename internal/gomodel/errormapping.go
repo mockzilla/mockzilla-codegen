@@ -74,13 +74,13 @@ func errorPath(t Type, segs []string) (isFound, isSettable bool) {
 			return false, false
 		}
 
-		t = elem(f.Type)
+		t = Elem(f.Type)
 		if isFirst {
 			s, ok := sliceOf(t)
 			if !ok {
 				return false, false
 			}
-			t = elem(s.Elem)
+			t = Elem(s.Elem)
 		}
 	}
 	return true, !isThroughUnion && groupOf(t) == groupString
@@ -101,12 +101,4 @@ func sliceOf(t Type) (Slice, bool) {
 	}
 	s, ok := t.(Slice)
 	return s, ok
-}
-
-// elem is the type a pointer points to, or t itself.
-func elem(t Type) Type {
-	if p, ok := t.(Pointer); ok {
-		return p.Elem
-	}
-	return t
 }

@@ -7,6 +7,8 @@ package envelope
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -36,7 +38,7 @@ func (service) GetJobLog(_ context.Context, opts *GetJobLogServiceRequestOptions
 	switch opts.PathParams.ID {
 	case "j1":
 		if opts.Headers.Accept != nil && *opts.Headers.Accept == "text/plain" {
-			return NewGetJobLogResponseData200(nil).WithHeaders(http.Header{"Content-Type": {"text/plain"}}), nil
+			return &GetJobLogResponseData{Status: http.StatusOK, Headers: http.Header{"Content-Type": {"text/plain"}}, Body: "started\ndone"}, nil
 		}
 		return NewGetJobLogResponseData200(GetJobLogJSONResponse200{"started", "done"}), nil
 	}
@@ -95,6 +97,27 @@ func TestSubmitJobWithResponse(t *testing.T) {
 	}
 }
 
+func TestSubmitJobWithResponseKeepsTheResponseOfABodyThatDoesNotDecode(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = io.WriteString(w, `{"id":1}`)
+	}))
+	t.Cleanup(srv.Close)
+	c, err := NewClient(srv.URL)
+	require.NoError(t, err)
+
+	res, err := c.SubmitJobWithResponse(context.Background(), &SubmitJobRequestOptions{Body: &Job{Size: 1}})
+
+	var typeErr *json.UnmarshalTypeError
+	require.ErrorAs(t, err, &typeErr)
+	require.NotNil(t, res)
+	assert.Equal(t, http.StatusCreated, res.StatusCode())
+	assert.Equal(t, []byte(`{"id":1}`), res.Body)
+}
+
 func TestSubmitJobPicksTheLowestSuccess(t *testing.T) {
 	t.Parallel()
 
@@ -127,7 +150,7 @@ func TestGetJobLogWithResponse(t *testing.T) {
 		want   *GetJobLogResponse
 	}{
 		{name: "As JSON", id: "j1", want: &GetJobLogResponse{Body: []byte(`["started","done"]`), JSON200: GetJobLogJSONResponse200{"started", "done"}}},
-		{name: "As text", id: "j1", accept: new("text/plain"), want: &GetJobLogResponse{Body: []byte("null"), Text200: new("null")}},
+		{name: "As text", id: "j1", accept: new("text/plain"), want: &GetJobLogResponse{Body: []byte("started\ndone"), Text200: new("started\ndone")}},
 		{name: "Not found, with nothing decoded", id: "j9", want: &GetJobLogResponse{Body: []byte{}}},
 	}
 

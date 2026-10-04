@@ -65,8 +65,8 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 // does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
 // spec documents one.
 {{- else}}
-// {{.Name}} sends the request. A response outside 2xx comes
-// back as a *runtime.APIError, wrapping the error type of its status when the spec documents one.
+// {{.Name}} sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
+// the error type of its status when the spec documents one.
 {{- end}}
 func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) ({{with .Result}}{{.}}, {{end}}error) {
 	req, err := c.{{.Name}}Request(ctx, opts)
@@ -81,18 +81,14 @@ func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) 
 
 	var out {{.Result}}
 	if err = {{$.Runtime}}.DecodeSuccess(res, body, []{{$.Runtime}}.Target{
-{{- range .Targets}}
-		{Status: {{.Status}}{{if .Dst}}, MediaType: {{.MediaType}}, Dst: {{.Dst}}{{end}}},
-{{- end}}
+{{- template "client/targets.tmpl" .Targets}}
 	}); err != nil {
 		return {{.Zero}}, err
 	}
 	return out, nil
 {{- else if .Targets}}
 	return {{$.Runtime}}.DecodeSuccess(res, body, []{{$.Runtime}}.Target{
-{{- range .Targets}}
-		{Status: {{.Status}}, MediaType: {{.MediaType}}, Dst: {{.Dst}}},
-{{- end}}
+{{- template "client/targets.tmpl" .Targets}}
 	})
 {{- else}}
 	return {{$.Runtime}}.DecodeSuccess(res, body, nil)
@@ -102,7 +98,7 @@ func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}) 
 
 // {{.Name}}WithResponse is {{.Name}} with the whole response: its status, its headers, its raw
 // body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here.
+// no error here. A body or header that does not decode is an error, returned with the response.
 func (c *{{$.Client}}) {{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{.Response}}, error) {
 	req, err := c.{{.Name}}Request(ctx, opts)
 	if err != nil {
@@ -116,11 +112,9 @@ func (c *{{$.Client}}) {{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{
 	out := &{{.Response}}{HTTPResponse: res, Body: body}
 {{- if .EnvelopeTargets}}
 	if err = {{$.Runtime}}.Decode(res, body, []{{$.Runtime}}.Target{
-{{- range .EnvelopeTargets}}
-		{Status: {{.Status}}, {{if .IsHeaders}}IsHeaders: true{{else}}MediaType: {{.MediaType}}{{end}}, Dst: {{.Dst}}},
-{{- end}}
+{{- template "client/targets.tmpl" .EnvelopeTargets}}
 	}); err != nil {
-		return nil, err
+		return out, err
 	}
 {{- end}}
 	return out, nil
@@ -143,9 +137,7 @@ func (c *{{$.Client}}) {{.Name}}Stream(ctx {{$.Context}}.Context, opts *{{.Optio
 	}
 {{- if .Stream.Targets}}
 	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](res, body, []{{$.Runtime}}.Target{
-{{- range .Stream.Targets}}
-		{Status: {{.Status}}, MediaType: {{.MediaType}}, Dst: {{.Dst}}},
-{{- end}}
+{{- template "client/targets.tmpl" .Stream.Targets}}
 	})
 {{- else}}
 	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](res, body, nil)
@@ -156,7 +148,7 @@ func (c *{{$.Client}}) {{.Name}}Stream(ctx {{$.Context}}.Context, opts *{{.Optio
 // {{.Name}}StreamWithResponse is {{.Name}}WithResponse over a live stream: it asks for
 // {{.Stream.MediaType}}, and a 2xx response in a sequential media type comes back with {{.Stream.Field}}
 // set, Body nil and HTTPResponse.Body open until the stream is closed. Any other response is read
-// and decoded as {{.Name}}WithResponse reads it.
+// and decoded as {{.Name}}WithResponse reads it. An error is returned with the response.
 func (c *{{$.Client}}) {{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}) (*{{.Response}}, error) {
 	req, err := c.{{.Name}}Request(ctx, opts)
 	if err != nil {
@@ -170,12 +162,10 @@ func (c *{{$.Client}}) {{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, op
 	out := &{{.Response}}{HTTPResponse: res, Body: body}
 {{- if .EnvelopeTargets}}
 	out.{{.Stream.Field}}, err = {{$.Runtime}}.DecodeStream[{{.Stream.Frame}}](res, body, []{{$.Runtime}}.Target{
-{{- range .EnvelopeTargets}}
-		{Status: {{.Status}}, {{if .IsHeaders}}IsHeaders: true{{else}}MediaType: {{.MediaType}}{{end}}, Dst: {{.Dst}}},
-{{- end}}
+{{- template "client/targets.tmpl" .EnvelopeTargets}}
 	})
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 {{- else}}
 	if {{$.Runtime}}.IsStreaming(res) {

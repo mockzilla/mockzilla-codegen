@@ -104,7 +104,7 @@ func (v *validator) structChecks(d *Decl) []*Check {
 // checked.
 func (v *validator) check(d *Decl, s *spec.Schema, t Type, name string) *Check {
 	c := &Check{IsPointer: isPointer(t), IsGuarded: nilable(t)}
-	t = elem(t)
+	t = Elem(t)
 
 	kw := v.keywords(s)
 	c.Rules = v.rules(d, kw, t, name)

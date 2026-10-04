@@ -119,8 +119,12 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
-// WithHTTPClient sends the requests with d, such as an http.Client set up for the API.
+// WithHTTPClient sends the requests with d, such as an http.Client set up for the API. A nil d
+// panics.
 func WithHTTPClient(d HTTPDoer) ClientOption {
+	if d == nil {
+		panic("WithHTTPClient: nil HTTPDoer")
+	}
 	return func(c *Client) {
 		c.doer = d
 	}
@@ -136,7 +140,13 @@ func WithTimeout(d time.Duration) ClientOption {
 }
 
 // WithRequestEditor runs fns on every request before it is sent, after any editor added before.
+// A nil editor panics.
 func WithRequestEditor(fns ...RequestEditor) ClientOption {
+	for _, fn := range fns {
+		if fn == nil {
+			panic("WithRequestEditor: nil RequestEditor")
+		}
+	}
 	return func(c *Client) {
 		c.editors = append(c.editors, fns...)
 	}
@@ -197,7 +207,7 @@ type ClientInterface interface {
 	ChatStream(ctx context.Context, opts *ChatRequestOptions) (*runtime.Stream[Chunk], error)
 	ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOptions) (*ChatResponse, error)
 	// Follow the events
-	ListEvents(ctx context.Context, opts *ListEventsRequestOptions) (*ListEventsResponseItem, error)
+	ListEvents(ctx context.Context, opts *ListEventsRequestOptions) error
 	ListEventsWithResponse(ctx context.Context, opts *ListEventsRequestOptions) (*ListEventsResponse, error)
 	ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions) (*runtime.Stream[ListEventsResponseItem], error)
 	ListEventsStreamWithResponse(ctx context.Context, opts *ListEventsRequestOptions) (*ListEventsResponse, error)
@@ -254,7 +264,7 @@ func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions) (*Reply, er
 
 // ChatWithResponse is Chat with the whole response: its status, its headers, its raw
 // body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here.
+// no error here. A body or header that does not decode is an error, returned with the response.
 func (c *Client) ChatWithResponse(ctx context.Context, opts *ChatRequestOptions) (*ChatResponse, error) {
 	req, err := c.ChatRequest(ctx, opts)
 	if err != nil {
@@ -272,7 +282,7 @@ func (c *Client) ChatWithResponse(ctx context.Context, opts *ChatRequestOptions)
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
 		{Status: "200", IsHeaders: true, Dst: &out.Headers200},
 	}); err != nil {
-		return nil, err
+		return out, err
 	}
 	return out, nil
 }
@@ -298,7 +308,7 @@ func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions) (*run
 // ChatStreamWithResponse is ChatWithResponse over a live stream: it asks for
 // text/event-stream, and a 2xx response in a sequential media type comes back with Stream200
 // set, Body nil and HTTPResponse.Body open until the stream is closed. Any other response is read
-// and decoded as ChatWithResponse reads it.
+// and decoded as ChatWithResponse reads it. An error is returned with the response.
 func (c *Client) ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOptions) (*ChatResponse, error) {
 	req, err := c.ChatRequest(ctx, opts)
 	if err != nil {
@@ -317,7 +327,7 @@ func (c *Client) ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOp
 		{Status: "200", IsHeaders: true, Dst: &out.Headers200},
 	})
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	return out, nil
 }
@@ -333,31 +343,23 @@ func (c *Client) ListEventsRequest(ctx context.Context, opts *ListEventsRequestO
 
 // Follow the events
 //
-// ListEvents returns the body of a 200 response. A response outside 2xx, or a 2xx the spec
-// does not list, comes back as a *runtime.APIError, wrapping the error type of its status when the
-// spec documents one.
-func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions) (*ListEventsResponseItem, error) {
+// ListEvents sends the request. A response outside 2xx comes back as a *runtime.APIError, wrapping
+// the error type of its status when the spec documents one.
+func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions) error {
 	req, err := c.ListEventsRequest(ctx, opts)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	res, body, err := runtime.Send(c.doer, req, c.timeout)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	var out *ListEventsResponseItem
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
-		{Status: "200", MediaType: "text/event-stream", Dst: &out},
-	}); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return runtime.DecodeSuccess(res, body, nil)
 }
 
 // ListEventsWithResponse is ListEvents with the whole response: its status, its headers, its raw
 // body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here.
+// no error here. A body or header that does not decode is an error, returned with the response.
 func (c *Client) ListEventsWithResponse(ctx context.Context, opts *ListEventsRequestOptions) (*ListEventsResponse, error) {
 	req, err := c.ListEventsRequest(ctx, opts)
 	if err != nil {
@@ -391,7 +393,7 @@ func (c *Client) ListEventsStream(ctx context.Context, opts *ListEventsRequestOp
 // ListEventsStreamWithResponse is ListEventsWithResponse over a live stream: it asks for
 // text/event-stream, and a 2xx response in a sequential media type comes back with Stream200
 // set, Body nil and HTTPResponse.Body open until the stream is closed. Any other response is read
-// and decoded as ListEventsWithResponse reads it.
+// and decoded as ListEventsWithResponse reads it. An error is returned with the response.
 func (c *Client) ListEventsStreamWithResponse(ctx context.Context, opts *ListEventsRequestOptions) (*ListEventsResponse, error) {
 	req, err := c.ListEventsRequest(ctx, opts)
 	if err != nil {
@@ -448,7 +450,7 @@ func (c *Client) TailLog(ctx context.Context, opts *TailLogRequestOptions) (*Tai
 
 // TailLogWithResponse is TailLog with the whole response: its status, its headers, its raw
 // body, and the body decoded into the field of its status and media type. A status outside 2xx is
-// no error here.
+// no error here. A body or header that does not decode is an error, returned with the response.
 func (c *Client) TailLogWithResponse(ctx context.Context, opts *TailLogRequestOptions) (*TailLogResponse, error) {
 	req, err := c.TailLogRequest(ctx, opts)
 	if err != nil {
@@ -464,7 +466,7 @@ func (c *Client) TailLogWithResponse(ctx context.Context, opts *TailLogRequestOp
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 		{Status: "404", MediaType: "application/problem+json", Dst: &out.ProblemJSON404},
 	}); err != nil {
-		return nil, err
+		return out, err
 	}
 	return out, nil
 }
@@ -490,7 +492,7 @@ func (c *Client) TailLogStream(ctx context.Context, opts *TailLogRequestOptions)
 // TailLogStreamWithResponse is TailLogWithResponse over a live stream: it asks for
 // application/x-ndjson, and a 2xx response in a sequential media type comes back with Stream200
 // set, Body nil and HTTPResponse.Body open until the stream is closed. Any other response is read
-// and decoded as TailLogWithResponse reads it.
+// and decoded as TailLogWithResponse reads it. An error is returned with the response.
 func (c *Client) TailLogStreamWithResponse(ctx context.Context, opts *TailLogRequestOptions) (*TailLogResponse, error) {
 	req, err := c.TailLogRequest(ctx, opts)
 	if err != nil {
@@ -507,7 +509,7 @@ func (c *Client) TailLogStreamWithResponse(ctx context.Context, opts *TailLogReq
 		{Status: "404", MediaType: "application/problem+json", Dst: &out.ProblemJSON404},
 	})
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	return out, nil
 }

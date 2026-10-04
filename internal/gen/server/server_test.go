@@ -266,7 +266,7 @@ func TestBlocks(t *testing.T) {
 			scaffold := string(f.render(t, layout.PartScaffoldService))
 
 			assert.Contains(t, service, ")\n\n// Owned by platform.\n\n// PetsInterface is what")
-			assert.Contains(t, service, "\tQueryString *ListPetsQueryString\n\tOwner       string // platform\n\tRawRequest  *http.Request\n")
+			assert.Contains(t, service, "\tCookies    *ListPetsCookies\n\tOwner      string // platform\n\tRawRequest *http.Request\n")
 			assert.Contains(t, service, "\tBody    any\n\tOwner   string // platform\n\n\tcontentType string\n")
 			assert.Contains(t, router, "r.Get(\"/ping\", adapter.Ping)\n\t\tr.Get(\"/owner\", ownerHandler)\n\t}\n")
 			assert.Contains(t, scaffold, "type Pets struct {\n\towner string // platform\n}\n")
@@ -461,7 +461,6 @@ func petModel() *gomodel.Model {
 	cookies := &gomodel.Decl{Name: "ListPetsCookies", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "Session", Type: str}},
 	}}
-	querystring := &gomodel.Decl{Name: "ListPetsQueryString", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}
 	path := &gomodel.Decl{Name: "DeletePetPathParams", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "ID", Type: str}},
 	}}
@@ -485,7 +484,6 @@ func petModel() *gomodel.Model {
 			{In: spec.InCookie, Decl: cookies, Params: []*spec.Parameter{
 				{Name: "session", In: spec.InCookie, Style: "form", Required: true},
 			}},
-			{In: spec.InQueryString, Decl: querystring},
 		},
 		Responses: []gomodel.Response{
 			{Status: "200", Contents: []gomodel.Content{{MediaType: "application/xml", Type: str}, {MediaType: "application/json", Type: gomodel.DeclRef{Decl: pets}}}, Headers: respHeaders},
@@ -530,7 +528,7 @@ func petModel() *gomodel.Model {
 		},
 	}
 	return &gomodel.Model{
-		Decls:      []*gomodel.Decl{pet, problem, query, headers, cookies, querystring, path, respHeaders, errHeaders, pets, note, upload},
+		Decls:      []*gomodel.Decl{pet, problem, query, headers, cookies, path, respHeaders, errHeaders, pets, note, upload},
 		Operations: []*gomodel.Operation{list, create, del, ping},
 	}
 }

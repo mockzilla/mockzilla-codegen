@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
 
 // durationUnits are the units a duration is written in, largest first.
@@ -65,6 +67,15 @@ func NotNil(x string) string {
 // NotEmpty writes x != "".
 func NotEmpty(x string) string {
 	return x + ` != ""`
+}
+
+// Zero writes the zero value of t, a type whose underlying type is a string or one that can be
+// nil: "" or nil.
+func Zero(t gomodel.Type) string {
+	if gomodel.Underlying(t) == (gomodel.Builtin{Name: "string"}) {
+		return `""`
+	}
+	return "nil"
 }
 
 // Index writes x[key].

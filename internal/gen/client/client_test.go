@@ -100,6 +100,60 @@ func TestNewWarnsAboutPlaceholdersNoPathParameterFills(t *testing.T) {
 	}}, diags)
 }
 
+func TestNewWarnsAboutBodiesNoMethodReads(t *testing.T) {
+	t.Parallel()
+
+	pet := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Pet", Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}}
+	xml := gomodel.Content{MediaType: "application/xml", Type: pet}
+	events := gomodel.Content{MediaType: "text/event-stream", Type: pet, Item: pet}
+	tests := []struct {
+		name      string
+		responses []gomodel.Response
+		want      []diag.Diagnostic
+	}{
+		{
+			name:      "A 2xx body the client cannot decode",
+			responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{events, xml}}, {Status: "404", Contents: []gomodel.Content{xml}}},
+			want: []diag.Diagnostic{{
+				Severity: diag.Warning,
+				Code:     diag.CodeClientBodyUnread,
+				Pointer:  "/paths/~1pets/get",
+				Message:  "GetPet answers 200 as application/xml, which the client cannot decode, so GetPet returns no body for it",
+			}},
+		},
+		{
+			name:      "A body the client decodes next to it",
+			responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{xml, {MediaType: "application/json", Type: pet}}}},
+		},
+		{
+			name:      "A sequential 2xx body, which the Stream method reads",
+			responses: []gomodel.Response{{Status: "2XX", Contents: []gomodel.Content{events}}, {Status: "default", Contents: []gomodel.Content{events}}},
+		},
+		{
+			name:      "A sequential body under default alone",
+			responses: []gomodel.Response{{Status: "204"}, {Status: "400", Contents: []gomodel.Content{events}}, {Status: "default", Contents: []gomodel.Content{xml, events}}},
+			want: []diag.Diagnostic{{
+				Severity: diag.Warning,
+				Code:     diag.CodeStreamUnread,
+				Pointer:  "/paths/~1pets/get",
+				Message:  "GetPet documents text/event-stream under default alone, which never covers a 2xx, so it has no Stream method; document it under 200 or 2XX",
+			}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			op := &gomodel.Operation{Name: "GetPet", Spec: &spec.Operation{Method: "GET", Path: "/pets", Origin: spec.Origin{Pointer: "/paths/~1pets/get"}}, Responses: tc.responses}
+
+			_, diags := New(&gomodel.Model{Operations: []*gomodel.Operation{op}}, allOptions())
+
+			assert.Equal(t, tc.want, diags)
+		})
+	}
+}
+
 func TestTemplates(t *testing.T) {
 	t.Parallel()
 
@@ -319,7 +373,6 @@ func petModel() *gomodel.Model {
 	cookies := &gomodel.Decl{Name: "ListPetsCookies", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "Session", Type: str}},
 	}}
-	querystring := &gomodel.Decl{Name: "ListPetsQueryString", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}
 	path := &gomodel.Decl{Name: "DeletePetPathParams", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "ID", Type: str}},
 	}}
@@ -345,7 +398,6 @@ func petModel() *gomodel.Model {
 			{In: spec.InCookie, Decl: cookies, Params: []*spec.Parameter{
 				{Name: "session", In: spec.InCookie, Style: "form", Required: true},
 			}},
-			{In: spec.InQueryString, Decl: querystring},
 		},
 		Responses: []gomodel.Response{
 			{Status: "200", Contents: []gomodel.Content{{MediaType: "application/xml", Type: str}, {MediaType: "application/json", Type: gomodel.DeclRef{Decl: pets}}}, Headers: respHeaders},
@@ -413,7 +465,7 @@ func petModel() *gomodel.Model {
 		Responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{{MediaType: "application/x-ndjson", Type: str, Item: str}}}},
 	}
 	return &gomodel.Model{
-		Decls:      []*gomodel.Decl{pet, problem, failure, locked, query, headers, cookies, querystring, path, respHeaders, errHeaders, pets, note, upload, chunk},
+		Decls:      []*gomodel.Decl{pet, problem, failure, locked, query, headers, cookies, path, respHeaders, errHeaders, pets, note, upload, chunk},
 		Operations: []*gomodel.Operation{list, create, del, ping, queryOp, chat, tail},
 	}
 }

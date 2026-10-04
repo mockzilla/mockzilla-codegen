@@ -44,8 +44,8 @@ func response(status int, contentType string, header http.Header) *http.Response
 
 func envelopeTargets(e *envelope) []Target {
 	return []Target{
-		{Status: "200", MediaType: "application/json", Dst: &e.JSON200},
 		{Status: "200", MediaType: "text/plain", Dst: &e.Text200},
+		{Status: "200", MediaType: "application/json", Dst: &e.JSON200},
 		{Status: "200", MediaType: "application/pdf", Dst: &e.PDF200},
 		{Status: "200", MediaType: "*/*", Dst: &e.Any200},
 		{Status: "200", IsHeaders: true, Dst: &e.Headers200},
@@ -75,7 +75,7 @@ func TestDecode(t *testing.T) {
 		{name: "A binary body as it came", res: response(200, "application/pdf", nil), body: "%PDF-1.7", want: envelope{PDF200: Ptr(NewFile([]byte("%PDF-1.7"), "", "application/pdf")), Headers200: &pageHeaders{}}},
 		{name: "A JSON null leaves the pointer nil", res: response(200, "application/json", nil), body: "null", want: envelope{Headers200: &pageHeaders{}}},
 		{name: "A media type only the wildcard takes", res: response(200, "text/html", nil), body: `"x"`, want: envelope{Any200: "x", Headers200: &pageHeaders{}}},
-		{name: "No media type takes the first target", res: response(200, "", nil), body: `{"R":1}`, want: envelope{JSON200: &rgb{R: 1}, Headers200: &pageHeaders{}}},
+		{name: "No media type takes the JSON target, wherever it is listed", res: response(200, "", nil), body: `{"R":1}`, want: envelope{JSON200: &rgb{R: 1}, Headers200: &pageHeaders{}}},
 		{name: "A range takes bytes under its wildcard", res: response(201, "image/png", nil), body: "png", want: envelope{Bytes2XX: []byte("png")}},
 		{name: "A range does not take another media type", res: response(201, "text/plain", nil), body: "x"},
 		{name: "An error status with its JSON family", res: response(404, "application/json", nil), body: `{"message":"gone"}`, want: envelope{JSON404: &notFound{Message: "gone"}}},

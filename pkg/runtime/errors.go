@@ -25,4 +25,5 @@ var (
 	ErrNoResponse   = errors.New("the service returned no response")
 	ErrBaseURL      = errors.New("invalid base URL")
 	ErrFrame        = errors.New("invalid stream frame")
+	ErrFrameSize    = errors.New("stream frame too large")
 )

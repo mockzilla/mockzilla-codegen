@@ -47,14 +47,16 @@ type Event struct {
 // Stream reads the frames of a response one at a time, as bufio.Scanner does: Next reads the
 // next frame into Current, and Err reports what stopped Next. The caller owns the response and
 // closes the stream. Sentinels are frames that end the stream instead of being decoded, such as
-// the [DONE] some APIs send last; set them before the first Next. Canceling the context of the
-// request unblocks a pending Next, and Err then reports the context's error. Close, called from
-// another goroutine, unblocks it too, and Err then reports nil.
+// the [DONE] some APIs send last; MaxFrameSize is the most bytes one line of the body, or the
+// data of one event, may hold, 0 for no limit. Set both before the first Next. Canceling the
+// context of the request unblocks a pending Next, and Err then reports the context's error.
+// Close, called from another goroutine, unblocks it too, and Err then reports nil.
 type Stream[T any] struct {
-	Sentinels []string
+	Sentinels    []string
+	MaxFrameSize int
 
 	body     io.ReadCloser
-	frame    func() (Event, bool, error)
+	frame    func(limit int) (Event, bool, error)
 	current  T
 	event    Event
 	err      error
@@ -82,41 +84,49 @@ func NewEventStream[T any](res *http.Response) *Stream[T] {
 	return &Stream[T]{body: body, frame: events.next}
 }
 
-// NewLineStream reads the body of res one line at a time, skipping empty lines.
+// NewLineStream reads the body of res one line at a time, skipping lines that are empty or hold
+// only spaces.
 func NewLineStream[T any](res *http.Response) *Stream[T] {
 	body := bodyOf(res)
 	lines := bufio.NewReader(body)
-	return &Stream[T]{body: body, frame: func() (Event, bool, error) { return readLine(lines) }}
+	return &Stream[T]{body: body, frame: func(limit int) (Event, bool, error) { return readLine(lines, limit) }}
 }
 
 // Next reads the next frame into Current and reports whether there was one. It returns false at
-// the end of the stream, at a sentinel, after Close, and on an error, which Err then reports.
+// the end of the stream, at a sentinel, after Close, and on an error, which Err then reports. A
+// stream of anything but []byte skips an event whose data is empty, which no type decodes from.
 func (s *Stream[T]) Next() bool {
 	if s.isDone {
 		return false
 	}
 
-	event, ok, err := s.frame()
-	if s.isClosed.Load() {
-		s.stop(nil)
-		return false
-	}
-	if err != nil {
-		s.stop(err)
-		return false
-	}
-	if !ok || slices.Contains(s.Sentinels, string(bytes.TrimSpace(event.Data))) {
-		s.stop(nil)
-		return false
-	}
+	for {
+		event, ok, err := s.frame(s.MaxFrameSize)
+		if s.isClosed.Load() {
+			s.stop(nil)
+			return false
+		}
+		if err != nil {
+			s.stop(err)
+			return false
+		}
+		data := bytes.TrimSpace(event.Data)
+		if !ok || slices.Contains(s.Sentinels, string(data)) {
+			s.stop(nil)
+			return false
+		}
 
-	var current T
-	if err = decodeFrame(event.Data, &current); err != nil {
-		s.stop(fmt.Errorf("%w: %w", ErrFrame, err))
-		return false
+		var current T
+		if _, isRaw := any(&current).(*[]byte); !isRaw && len(data) == 0 {
+			continue
+		}
+		if err = decodeFrame(event.Data, &current); err != nil {
+			s.stop(fmt.Errorf("%w: %w", ErrFrame, err))
+			return false
+		}
+		s.current, s.event = current, event
+		return true
 	}
-	s.current, s.event = current, event
-	return true
 }
 
 // Current is the frame the last Next read.
@@ -183,12 +193,14 @@ type eventReader struct {
 
 // next reads one event with data, or reports the end of the body. A line that is not a field,
 // such as a comment, is skipped; an event without data is not dispatched. The end of the body
-// inside an event with data is io.ErrUnexpectedEOF.
-func (r *eventReader) next() (Event, bool, error) {
+// inside an event with data is io.ErrUnexpectedEOF; a line or data longer than limit, when it is
+// above 0, is ErrFrameSize.
+func (r *eventReader) next(limit int) (Event, bool, error) {
 	var e Event
 	var data [][]byte
+	size := 0
 	for {
-		line, err := readFrameLine(r.lines)
+		line, err := readFrameLine(r.lines, limit)
 		if err != nil {
 			return Event{}, false, err
 		}
@@ -214,6 +226,9 @@ func (r *eventReader) next() (Event, bool, error) {
 		switch field {
 		case "data":
 			data = append(data, value)
+			if size += len(value); limit > 0 && size+len(data)-1 > limit {
+				return Event{}, false, frameSizeError(limit)
+			}
 		case "event":
 			e.Type = string(value)
 		case "id":
@@ -304,13 +319,15 @@ func SendStream(d Doer, req *http.Request, mediaType string, timeout time.Durati
 }
 
 // OpenStream returns a stream over the frames of a response SendStream returned with its body.
-// A 2xx response in another media type is ErrContentType; a status outside 2xx is an *APIError,
-// as DecodeSuccess reports it with targets.
+// A 2xx response without a body, such as 204, is a stream without frames; one in another media
+// type is ErrContentType. A status outside 2xx is an *APIError, as DecodeSuccess reports it with
+// targets.
 func OpenStream[T any](res *http.Response, body []byte, targets []Target) (*Stream[T], error) {
-	if IsStreaming(res) {
+	isSuccess := res.StatusCode >= 200 && res.StatusCode <= 299
+	switch {
+	case IsStreaming(res), isSuccess && len(body) == 0:
 		return NewStream[T](res), nil
-	}
-	if res.StatusCode >= 200 && res.StatusCode <= 299 {
+	case isSuccess:
 		return nil, ContentTypeError(ContentType(res.Header))
 	}
 	return nil, DecodeSuccess(res, body, targets)
@@ -339,32 +356,50 @@ func bodyOf(res *http.Response) io.ReadCloser {
 	return res.Body
 }
 
-// readLine reads the next line that is not empty, or reports the end of the body.
-func readLine(r *bufio.Reader) (Event, bool, error) {
+// readLine reads the next line that holds more than spaces, or reports the end of the body.
+func readLine(r *bufio.Reader, limit int) (Event, bool, error) {
 	for {
-		line, err := readFrameLine(r)
+		line, err := readFrameLine(r, limit)
 		switch {
 		case err != nil:
 			return Event{}, false, err
 		case line == nil:
 			return Event{}, false, nil
-		case len(line) > 0:
+		case len(bytes.TrimSpace(line)) > 0:
 			return Event{Data: line}, true, nil
 		}
 	}
 }
 
 // readFrameLine reads one line without its line ending, LF or CRLF. A nil line is the end of the
-// body; a line without an ending before the end is returned as it is.
-func readFrameLine(r *bufio.Reader) ([]byte, error) {
-	line, err := r.ReadBytes('\n')
+// body; a line without an ending before the end is returned as it is. A line longer than limit,
+// when it is above 0, is ErrFrameSize, found before more than the line ending past it is read.
+func readFrameLine(r *bufio.Reader, limit int) ([]byte, error) {
+	piece, err := r.ReadSlice('\n')
+	line := slices.Clone(piece)
+	for errors.Is(err, bufio.ErrBufferFull) {
+		if limit > 0 && len(line) > limit+len("\r\n") {
+			return nil, frameSizeError(limit)
+		}
+		piece, err = r.ReadSlice('\n')
+		line = append(line, piece...)
+	}
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
+
 	if len(line) == 0 {
 		return nil, nil
 	}
-	return bytes.TrimSuffix(bytes.TrimSuffix(line, []byte("\n")), []byte("\r")), nil
+	line = bytes.TrimSuffix(bytes.TrimSuffix(line, []byte("\n")), []byte("\r"))
+	if limit > 0 && len(line) > limit {
+		return nil, frameSizeError(limit)
+	}
+	return line, nil
+}
+
+func frameSizeError(limit int) error {
+	return fmt.Errorf("%w: more than %d bytes", ErrFrameSize, limit)
 }
 
 // splitField splits a Server-Sent Events line into its field name and value, dropping the one

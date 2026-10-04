@@ -53,7 +53,8 @@ Schemas under `components` keep their own name. Everything else is named after w
 | Response | operation + `Response` + status | `GetPetResponse200`, `GetPetResponse4XX`, `GetPetResponseDefault` |
 | Response, one of several media types | operation + media type + `Response` + status | `GetPetJSONResponse200` |
 | Frame of a streamed response (`itemSchema`, or the schema of `text/event-stream` and the line-delimited JSON types) | operation + `ResponseItem` | `ListEventsResponseItem` |
-| Item of a component or a request body with `itemSchema` | parent + `Item` | `LinesItem`, `ChatRequestBodyItem` |
+| Frame of a streamed response, when the operation has more than one inline | response + `Item` | `ListEventsResponse200Item`, `ListEventsNdjsonResponse200Item` |
+| Item of a component or a request body with `itemSchema`, or the schema of a sequential request body | parent + `Item` | `LinesItem`, `ChatRequestBodyItem` |
 | Path parameters | operation + `PathParams` | `GetPetPathParams` |
 | Query parameters | operation + `Query` | `GetPetQuery` |
 | Header parameters | operation + `Headers` | `GetPetHeaders` |

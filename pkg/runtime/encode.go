@@ -38,44 +38,141 @@ func EncodeForm(v any) (url.Values, error) {
 	return out, nil
 }
 
-// EncodeMultipart writes v, a struct, as a multipart form: File fields as file parts with their
-// name and content type, application/octet-stream without one, structs, maps and lists of them as JSON parts, lists of values as
-// repeated parts, bytes as they are, and everything else as text. It returns the body and its
-// content type, which carries the boundary.
-func EncodeMultipart(v any) ([]byte, string, error) {
-	var buf bytes.Buffer
-	contentType, err := writeMultipart(&buf, v)
-	if err != nil {
-		return nil, "", err
-	}
-	return buf.Bytes(), contentType, nil
+// WriteMultipart writes v, a struct, to mw as a multipart form and closes mw, which ends the
+// form: File fields as file parts with their name and content type, application/octet-stream
+// without one, structs, maps and lists of them as JSON parts, lists of values as repeated parts,
+// bytes as they are, and everything else as text.
+func WriteMultipart(mw *multipart.Writer, v any) error {
+	return (&formWriter{mw: mw}).write(v)
 }
 
-// writeMultipart writes v, a struct, to w as a multipart form and returns the content type.
-func writeMultipart(w io.Writer, v any) (string, error) {
+// formWriter writes the parts of a multipart form. Counting, it reads no file and adds the file
+// sizes to size instead; isUnsized records a file that does not know its size.
+type formWriter struct {
+	mw         *multipart.Writer
+	isCounting bool
+	size       int64
+	isUnsized  bool
+}
+
+func (w *formWriter) write(v any) error {
 	rv := reflect.ValueOf(v)
 	for rv.Kind() == reflect.Pointer && !rv.IsNil() {
 		rv = rv.Elem()
 	}
 	if rv.Kind() != reflect.Struct {
-		return "", fmt.Errorf("%w: a multipart form needs a struct, not %T", ErrBodyValue, v)
+		return fmt.Errorf("%w: a multipart form needs a struct, not %T", ErrBodyValue, v)
 	}
 
-	mw := multipart.NewWriter(w)
 	for i := range rv.NumField() {
 		f := rv.Type().Field(i)
 		name := jsonName(f)
 		if name == "" || !f.IsExported() {
 			continue
 		}
-		if err := writePart(mw, name, rv.Field(i)); err != nil {
-			return "", err
+		if err := w.part(name, rv.Field(i)); err != nil {
+			return err
 		}
 	}
-	if err := mw.Close(); err != nil {
-		return "", err
+	return w.mw.Close()
+}
+
+// part writes one field of a multipart form, by its type.
+func (w *formWriter) part(name string, v reflect.Value) error {
+	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return nil
+		}
+		v = v.Elem()
 	}
-	return mw.FormDataContentType(), nil
+
+	t := v.Type()
+	switch {
+	case t == fileType:
+		f, _ := v.Interface().(File)
+		return w.file(name, f)
+	case t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Uint8:
+		pw, err := w.mw.CreateFormField(name)
+		if err != nil {
+			return err
+		}
+		_, err = pw.Write(v.Bytes())
+		return err
+	case t.Kind() == reflect.Slice && t.Elem() == fileType, t.Kind() == reflect.Slice && isScalar(t.Elem()):
+		for i := range v.Len() {
+			if err := w.part(name, v.Index(i)); err != nil {
+				return err
+			}
+		}
+		return nil
+	case isScalar(t):
+		s, err := text(v)
+		if err != nil {
+			return err
+		}
+		return w.mw.WriteField(name, s)
+	}
+
+	data, err := json.Marshal(v.Interface())
+	if err != nil {
+		return err
+	}
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(name)+`"`)
+	h.Set("Content-Type", "application/json")
+	pw, err := w.mw.CreatePart(h)
+	if err != nil {
+		return err
+	}
+	_, err = pw.Write(data)
+	return err
+}
+
+// file writes f as a file part, with its name and its content type when it has one. A file
+// without a name goes as blob, as browsers send a Blob: most servers read an empty filename as text.
+func (w *formWriter) file(name string, f File) error {
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(name)+`"; filename="`+quoteEscaper.Replace(cmp.Or(f.Name(), "blob"))+`"`)
+	h.Set("Content-Type", cmp.Or(f.ContentType(), "application/octet-stream"))
+	pw, err := w.mw.CreatePart(h)
+	if err != nil {
+		return err
+	}
+	if w.isCounting {
+		w.size += f.Size()
+		w.isUnsized = w.isUnsized || f.Size() < 0
+		return nil
+	}
+
+	rc, err := f.Reader()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rc.Close() }()
+	_, err = io.Copy(pw, rc)
+	return err
+}
+
+// byteCounter is a writer that counts what it is given.
+type byteCounter int64
+
+func (c *byteCounter) Write(p []byte) (int, error) {
+	*c += byteCounter(len(p))
+	return len(p), nil
+}
+
+// multipartSize writes v as a multipart form without reading its files, and returns the boundary
+// it used with the length of the form, -1 when a file does not know its size.
+func multipartSize(v any) (int64, string, error) {
+	var n byteCounter
+	w := &formWriter{mw: multipart.NewWriter(&n), isCounting: true}
+	if err := w.write(v); err != nil {
+		return 0, "", err
+	}
+	if w.isUnsized {
+		return -1, w.mw.Boundary(), nil
+	}
+	return int64(n) + w.size, w.mw.Boundary(), nil
 }
 
 // jsonObject is v as a JSON object, with numbers kept as text.
@@ -131,77 +228,6 @@ func formText(v any) string {
 	}
 	s, _ := v.(string)
 	return s
-}
-
-// writePart writes one field of a multipart form, by its type.
-func writePart(mw *multipart.Writer, name string, v reflect.Value) error {
-	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
-		if v.IsNil() {
-			return nil
-		}
-		v = v.Elem()
-	}
-
-	t := v.Type()
-	switch {
-	case t == fileType:
-		f, _ := v.Interface().(File)
-		return writeFile(mw, name, f)
-	case t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Uint8:
-		w, err := mw.CreateFormField(name)
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(v.Bytes())
-		return err
-	case t.Kind() == reflect.Slice && t.Elem() == fileType, t.Kind() == reflect.Slice && isScalar(t.Elem()):
-		for i := range v.Len() {
-			if err := writePart(mw, name, v.Index(i)); err != nil {
-				return err
-			}
-		}
-		return nil
-	case isScalar(t):
-		s, err := text(v)
-		if err != nil {
-			return err
-		}
-		return mw.WriteField(name, s)
-	}
-
-	data, err := json.Marshal(v.Interface())
-	if err != nil {
-		return err
-	}
-	h := textproto.MIMEHeader{}
-	h.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(name)+`"`)
-	h.Set("Content-Type", "application/json")
-	w, err := mw.CreatePart(h)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(data)
-	return err
-}
-
-// writeFile writes f as a file part, with its name and its content type when it has one. A file
-// without a name goes as blob, as browsers send a Blob: most servers read an empty filename as text.
-func writeFile(mw *multipart.Writer, name string, f File) error {
-	h := textproto.MIMEHeader{}
-	h.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(name)+`"; filename="`+quoteEscaper.Replace(cmp.Or(f.Name(), "blob"))+`"`)
-	h.Set("Content-Type", cmp.Or(f.ContentType(), "application/octet-stream"))
-	w, err := mw.CreatePart(h)
-	if err != nil {
-		return err
-	}
-
-	rc, err := f.Reader()
-	if err != nil {
-		return err
-	}
-	defer func() { _ = rc.Close() }()
-	_, err = io.Copy(w, rc)
-	return err
 }
 
 // isScalar reports a type written as one text: a string, a bool, a number, or one that writes

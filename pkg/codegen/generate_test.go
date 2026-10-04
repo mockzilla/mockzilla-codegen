@@ -232,6 +232,12 @@ func TestGenerateErrors(t *testing.T) {
 			wantErr: layout.ErrUnknownSelector,
 		},
 		{
+			name:    "Service and client of one name in one package",
+			cfg:     "server: {framework: chi, name: Pets}\nclient: {name: Pets}\n",
+			wantErr: ErrNameClash,
+			wantMsg: `name declared twice: server.name and client.name are both "Pets", so package api declares PetsInterface twice; name one of them differently`,
+		},
+		{
 			name:    "Template override of an unknown block",
 			cfg:     "templates: {models.struct: x}\n",
 			wantErr: config.ErrInvalid,
@@ -577,6 +583,18 @@ func TestGenerationRenderErrors(t *testing.T) {
 			assert.ErrorContains(t, err, "./gen.go: ")
 		})
 	}
+}
+
+func TestGenerateServiceAndClientOfOneNameInTwoPackages(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := config.Parse([]byte("server: {framework: chi, name: Pets}\nclient: {name: Pets}\noutput: {module: example.com/pets, files: {./client/client.go: [client]}}\n"), t.TempDir())
+	require.NoError(t, err)
+
+	res, err := Generate(context.Background(), cfg, WithSpec([]byte(petSpec)))
+
+	require.NoError(t, err)
+	assert.Len(t, res.Files, 2)
 }
 
 func TestGenerateReportsTheClientDiagnostics(t *testing.T) {

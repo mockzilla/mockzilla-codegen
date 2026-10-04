@@ -29,7 +29,8 @@ func WithRequestEditor(fns ...RequestEditor) PetClientOption
   the path of every operation goes after its path. Its query, such as `?key=abc`, comes first in
   the query of every request. Its fragment is not sent.
 - The client sends with an `http.Client`. `WithHTTPClient` replaces it with anything that has the
-  `Do` method of `*http.Client`, so retries, tracing and transports are set up there.
+  `Do` method of `*http.Client`, so retries, tracing and transports are set up there. A nil one
+  panics at once, as a nil editor given to `WithRequestEditor` does, not on the first call.
 - A call gives up after `client.timeout`, whatever sends it. `WithTimeout` sets another limit, and
   0 means none, as `timeout: 0s` does in the config. A plain method has that long for the whole
   call, the body included. A stream method has that long to get the response headers; the frames
@@ -39,8 +40,8 @@ func WithRequestEditor(fns ...RequestEditor) PetClientOption
 - Request editors run on every request before it is sent, in the order they were added, and stop
   the request when they return an error. They are the place for credentials.
 
-`PetClientInterface` lists every method of the client, so a test double can stand in for it. The
-client satisfies it, which is checked at compile time.
+`PetClientInterface` lists every method of the client but `<Op>Request`, so a test double can
+stand in for it. The client satisfies it, which is checked at compile time.
 
 ## Methods
 
@@ -57,9 +58,13 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
 
 - Every operation has the same shape, even one without parameters or body, and `opts` may be nil
   when there is nothing to send. Webhooks get no method, since they come in.
-- The method returns the body of the lowest 2xx response the spec documents with a body: its JSON
-  media type, else its first one. An operation without such a response returns the error alone
-  and takes any 2xx. Another 2xx the spec documents, or one without a body, gives the zero value.
+- The method returns the body of the lowest 2xx response the spec documents with a body the client
+  can decode: its JSON media type, else its first one. An operation without such a response
+  returns the error alone and takes any 2xx. Another 2xx the spec documents, or one without a
+  body, gives the zero value.
+- A 2xx body the client cannot decode, such as XML into a struct, is no body the method returns:
+  `GetPet(ctx, opts) error` for a spec that documents only `application/xml`. Generation warns
+  (`client-body-unread`), and `<Op>WithResponse` holds the raw body.
 - A 2xx the spec does not list, such as 202 where it documents 201 and 204, is a
   `*runtime.APIError` with the raw body and no error type: `default` never covers a 2xx.
 - A response outside 2xx is a `*runtime.APIError` with the status, the headers and the raw body.
@@ -79,7 +84,8 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
   ```
 
 - A 2xx body in a media type the method does not take, such as HTML where JSON is documented, is
-  `runtime.ErrContentType`. A response without a `Content-Type` is decoded as the documented type.
+  `runtime.ErrContentType`. A response without a `Content-Type` is decoded as the documented
+  type, the JSON one when there are several.
   A binary body (`format: binary`) comes back as a `runtime.File` that holds the body as it came,
   under the response's media type. Under a wildcard media type (`*/*`, `application/*`) a string,
   bytes or a `runtime.File` takes the body as it came whatever the response's media type, also
@@ -105,7 +111,10 @@ func (o *CreatePetRequestOptions) Validate() error
   sends none of its parameters; a required parameter that is nil is `runtime.ErrParamMissing`
   before anything is sent, and so is a path parameter, whatever the spec says.
 - Parameters are written in the style of the spec with the runtime codecs, path values escaped
-  so that the delimiters of the styles survive. An object leaves out a property that is nil or a
+  so that the delimiters of the styles survive. A path value written as nothing, such as an empty
+  string, is `runtime.ErrParamMissing`, since `/pets/` is another path. A cookie value with a byte
+  no cookie holds, such as `;` or `"`, is `runtime.ErrParamValue`, where net/http would drop the
+  byte and log it. An object leaves out a property that is nil or a
   list or map with no items. A `deepObject` writes a list inside it once per item,
   `filter[tags]=a&filter[tags]=b`, and an object inside it nested, `filter[size][x]=1`. The other
   styles have no way to write a list or object inside an object, so setting one is
@@ -121,9 +130,10 @@ func (o *CreatePetRequestOptions) Validate() error
   it (`path-param-missing`).
 - The body goes as its media type: JSON for `application/json` and `+json`,
   `application/x-www-form-urlencoded` through `EncodeForm`, `multipart/form-data` through
-  `EncodeMultipart` (a `runtime.File` streams as a file part, named `blob` when it has no name, as
-  browsers name a Blob), a `runtime.File` body streamed,
-  text and bytes as they are. With several body fields, the first one set is sent. A required body
+  `WriteMultipart`, a `runtime.File` body streamed, text and bytes as they are. A multipart form is
+  written while it is sent, so its files stream too, each as a file part named `blob` when it has
+  no name, as browsers name a Blob. It goes with a `Content-Length` when every file knows its
+  size, and chunked when one does not, such as a `runtime.NewFileReader` of size -1. With several body fields, the first one set is sent. A required body
   with none set is `runtime.ErrBodyEmpty`; a body the client cannot write, such as XML into a
   struct, is `runtime.ErrContentType`. A wildcard media type sends its field as JSON, text or bytes,
   whichever the field is.
@@ -152,6 +162,8 @@ func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobReque
 
 - `HTTPResponse` is the response with its body read and closed; `Body` holds the raw bytes, and
   `HTTPResponse.Body` reads them again.
+- A body or header that does not decode is an error, and the envelope comes back with it, so the
+  status and the raw body are still there.
 - One field per documented body the client decodes, named after the media type and the status:
   `JSON200`, `Text200`, `ProblemJSON4XX`, `JSONDefault`. Two media types with one tag at a status
   are told apart by the type, then by a number. A body the client cannot decode, such as XML into
@@ -186,18 +198,22 @@ A response is sequential when its media type is one of:
   documents `application/json` next to `text/event-stream` at one status keeps both shapes.
 - The frame type comes from `itemSchema` (OpenAPI 3.2), else from `schema`, the way specs before
   3.2 describe one event. A `$ref` reuses the component; an inline schema becomes
-  `<Op>ResponseItem` ([naming](naming.md)). Without a schema, or with one that is a bare string,
-  frames come as `[]byte`.
+  `<Op>ResponseItem` ([naming](naming.md)). Without a schema, or with one whose JSON is a string,
+  such as a bare string, a `date-time` or a string enum, frames come as `[]byte`: the data of an
+  event is text, not a JSON string.
 - `<Op>Stream` sends `Accept: <media type>` unless the request sets one. For an endpoint that
   answers either way, the server usually decides from a request field, which the caller still has
   to set: `&ChatRequestOptions{Body: &Prompt{Text: "hi", Stream: runtime.Ptr(true)}}`.
 - The timeout of the client covers the wait for the response headers only, not the frames that
   follow.
-- Only a 2xx response in a sequential media type is streamed. A 2xx response in another media
-  type is `runtime.ErrContentType` rather than a stream that yields nothing; a response outside 2xx
-  is a `*runtime.APIError`, with the error type of its status decoded, as with `<Op>`.
+- Only a 2xx response in a sequential media type is streamed. A 2xx response without a body, such
+  as 204, is a stream without frames. A 2xx response with a body in another media type is
+  `runtime.ErrContentType` rather than a stream that yields nothing; a response outside 2xx is a
+  `*runtime.APIError`, with the error type of its status decoded, as with `<Op>`.
 - Without `streaming`, generation warns (`stream-only`) about every operation whose 2xx responses
   come in sequential media types only, since its plain method blocks until the server hangs up.
+- A sequential response documented under `default` alone gets no stream method, since `default`
+  never covers a 2xx. Generation warns (`stream-unread`): document it under `200` or `2XX`.
 
 `runtime.Stream[T]` reads like `bufio.Scanner`. The caller owns the connection and closes the
 stream:
@@ -218,7 +234,8 @@ return stream.Err()
 ```
 
 - `All()` is the same loop as a range-over-func iterator, with the error that stops the stream
-  delivered as the last pair: `for event, err := range stream.All()`.
+  delivered as the last pair: `for event, err := range stream.All()`. Breaking out of the loop
+  leaves the stream open, so the caller still closes it.
 - `Err()` is nil at the end of the stream, after a sentinel and after `Close()`, else the read
   error, the decode error (`runtime.ErrFrame`) or `context.Canceled` when the request's context was
   canceled, which unblocks a pending `Next`. When an event stream ends inside an event with data,
@@ -228,11 +245,15 @@ return stream.Err()
 - `Sentinels` lists frames that end the stream instead of being decoded. APIs in the style of
   OpenAI end a stream with `data: [DONE]`, which is no JSON: set `stream.Sentinels =
   []string{"[DONE]"}` before the first `Next`.
+- `MaxFrameSize` caps one line of the body and the data of one event, in bytes. It is 0, no limit,
+  unless set before the first `Next`; a longer frame stops the stream with `runtime.ErrFrameSize`.
 - SSE comments are skipped, an event without `data` is not dispatched, and `retry` must be a whole
   number of milliseconds. A line may end in LF, CRLF or a lone CR, and a byte order mark at the
   start of the body is dropped. `Event().ID` is the last event ID: it stays from one event to the
-  next until an `id` field changes it, as in a browser. Empty lines of a line-delimited stream are
-  skipped.
+  next until an `id` field changes it, as in a browser. A stream of anything but `[]byte` skips
+  an event whose data is empty, which servers send to keep a connection alive. Lines of a
+  line-delimited stream that are empty or hold only spaces are skipped. A `Content-Type` parameter
+  without a value, such as `text/event-stream; charset`, keeps the media type.
 
 With `with-response: true`, the envelope gains a `Stream<status>` field and
 `<Op>StreamWithResponse` fills it: for a streamed response, `Body` is nil,
@@ -249,6 +270,13 @@ Limits: request bodies are not streamed, `multipart/mixed` and `application/json
 framed, and a generated server writes a sequential response as one document, since writing
 Server-Sent Events from a handler is not generated yet.
 
+## Not supported yet
+
+- `in: querystring` (OpenAPI 3.2) gets no field, on the client or the server: the parameter is
+  neither sent nor read. Generation warns (`querystring-unsupported`).
+- The `encoding` object of a body is not read: the parts of a form are written and read by their
+  schema types. Generation warns (`encoding-ignored`).
+
 ## Layout
 
 The client has four parts for `output.files`: `client.core` (the client type and its options),
@@ -263,7 +291,7 @@ Generated clients use these helpers of the runtime package, next to the codecs t
 - `RequestBuilder` puts a request together: `PathParam`, `QueryParam`, `HeaderParam`,
   `CookieParam` and the body methods, then `Build` against the base URL. The first error stops
   the rest and comes back from `Build`.
-- `EncodeForm` and `EncodeMultipart` write a struct as a form, in the shapes `DecodeForm` and
+- `EncodeForm` and `WriteMultipart` write a struct as a form, in the shapes `DecodeForm` and
   `DecodeMultipart` read.
 - `Send` sends with a `Doer` and reads the body within a timeout; `DecodeSuccess` and `Decode`
   fill the targets of the response, `DecodeHeaders` a struct of typed headers; `APIError` is the

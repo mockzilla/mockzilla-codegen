@@ -12,11 +12,13 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -52,7 +54,7 @@ func NewRequestBuilder(method, path string) *RequestBuilder {
 }
 
 // PathParam fills v into the placeholder of p. A nil value is an error, since paths need every
-// parameter.
+// parameter, and so is a value written as nothing, which would send the request to another path.
 func (b *RequestBuilder) PathParam(v any, p Param) {
 	if b.err != nil {
 		return
@@ -63,8 +65,12 @@ func (b *RequestBuilder) PathParam(v any, p Param) {
 	}
 
 	value, err := EncodePath(v, p)
-	if err != nil {
+	switch {
+	case err != nil:
 		b.err = err
+		return
+	case value == "":
+		b.err = fmt.Errorf("%w: %s is empty", ErrParamMissing, p.Name)
 		return
 	}
 	b.path = strings.ReplaceAll(b.path, "{"+p.Name+"}", escape(value, isSegmentChar))
@@ -93,7 +99,8 @@ func (b *RequestBuilder) HeaderParam(v any, p Param) {
 	b.header.Add(p.Name, value)
 }
 
-// CookieParam adds v as the cookie p. A nil value is left out, unless p is required.
+// CookieParam adds v as the cookie p. A nil value is left out, unless p is required. A value
+// with a byte no cookie holds, such as a semicolon, is an error rather than sent altered.
 func (b *RequestBuilder) CookieParam(v any, p Param) {
 	if b.err != nil || b.skip(v, p) {
 		return
@@ -103,6 +110,12 @@ func (b *RequestBuilder) CookieParam(v any, p Param) {
 	if err != nil {
 		b.err = err
 		return
+	}
+	for _, c := range cookies {
+		if err = c.Valid(); err != nil {
+			b.err = fmt.Errorf("%w: %s: %w", ErrParamValue, p.Name, err)
+			return
+		}
 	}
 	b.cookies = append(b.cookies, cookies...)
 }
@@ -129,13 +142,23 @@ func (b *RequestBuilder) FormBody(v any) {
 	b.setBody([]byte(values.Encode()), "application/x-www-form-urlencoded", nil)
 }
 
-// MultipartBody sends v as multipart/form-data, see EncodeMultipart.
+// MultipartBody sends v as multipart/form-data, see WriteMultipart. The form is written while it
+// is sent, so its files stream; its length is known up front when every file knows its size.
 func (b *RequestBuilder) MultipartBody(v any) {
 	if b.err != nil {
 		return
 	}
-	data, contentType, err := EncodeMultipart(v)
-	b.setBody(data, contentType, err)
+	size, boundary, err := multipartSize(v)
+	if err != nil {
+		b.err = err
+		return
+	}
+
+	pr, pw := io.Pipe()
+	mw := multipart.NewWriter(pw)
+	// The boundary multipartSize took from another Writer, which never makes an invalid one.
+	_ = mw.SetBoundary(boundary)
+	b.body, b.length, b.contentType = &multipartBody{value: v, writer: mw, pr: pr, pw: pw}, size, mw.FormDataContentType()
 }
 
 // TextBody sends s as it is under mediaType.
@@ -226,6 +249,27 @@ func (b *RequestBuilder) setBody(data []byte, mediaType string, err error) {
 		return
 	}
 	b.body, b.contentType = bytes.NewReader(data), mediaType
+}
+
+// multipartBody is a multipart form written as it is read: the first Read starts writing value
+// from another goroutine, and Close stops it. A body never read starts nothing.
+type multipartBody struct {
+	value   any
+	writer  *multipart.Writer
+	pr      *io.PipeReader
+	pw      *io.PipeWriter
+	started sync.Once
+}
+
+func (m *multipartBody) Read(p []byte) (int, error) {
+	m.started.Do(func() {
+		go func() { _ = m.pw.CloseWithError(WriteMultipart(m.writer, m.value)) }()
+	})
+	return m.pr.Read(p)
+}
+
+func (m *multipartBody) Close() error {
+	return m.pr.Close()
 }
 
 // ParseBaseURL parses the base URL of a client, which needs a scheme and a host.
