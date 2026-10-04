@@ -45,7 +45,12 @@ func (t *MCPTools) {{.Name}}(_ {{$.Context}}.Context, _ *{{$.MCP}}.CallToolReque
 
 // {{.Name}} handles the {{.Tool}} tool: it calls {{.Name}} of the client and answers {{if .HasResult}}{{if .Text}}with the text it returns{{else}}with what it returns as structured content{{end}}{{else}}ok{{end}}.
 // An error of the client is the error of the tool, with the body of a response outside 2xx.
-func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, _ *{{$.MCP}}.CallToolRequest, {{if .HasInput}}in{{else}}_{{end}} {{.Input}}) (*{{$.MCP}}.CallToolResult, any, error) {
+func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, {{if .IsRounded}}req{{else}}_{{end}} *{{$.MCP}}.CallToolRequest, {{if .HasInput}}in{{else}}_{{end}} {{.Input}}) (*{{$.MCP}}.CallToolResult, any, error) {
+{{- if .IsRounded}}
+	if err := {{$.Runtime}}.ToolInput(req.Params.Arguments, &in); err != nil {
+		return nil, nil, err
+	}
+{{end}}
 	opts := &{{.Options}}{
 {{- range .Groups}}
 		{{.Field}}: &{{.Type}}{

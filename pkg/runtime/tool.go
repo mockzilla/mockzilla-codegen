@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -33,6 +34,28 @@ func (r ToolResult) MarshalJSON() ([]byte, error) {
 		return data, nil
 	}
 	return json.Marshal(map[string]json.RawMessage{"result": data})
+}
+
+// ToolInput decodes the arguments of an MCP tool call into in again. The SDK reads them through
+// float64, which rounds an integer above 2^53; an integer written as plain digits keeps all of
+// them here. A key the call left out keeps what in holds, so the defaults the SDK filled in stay.
+func ToolInput(args json.RawMessage, in any) error {
+	if len(args) == 0 {
+		return nil
+	}
+
+	dec := json.NewDecoder(bytes.NewReader(args))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return err
+	}
+
+	data, err := json.Marshal(floatNumbers(v))
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, in)
 }
 
 // ToolError is err as an MCP tool reports it. The assistant reads only the message, so the
@@ -66,4 +89,25 @@ func bodyText(body []byte) string {
 		n--
 	}
 	return fmt.Sprintf("%s\n(%d more bytes left out)", body[:n], len(body)-n)
+}
+
+// floatNumbers reads each number of v written with a fraction or an exponent as a float64, as the
+// SDK does, so 1.0 and 1e3 still decode into an integer type.
+func floatNumbers(v any) any {
+	switch v := v.(type) {
+	case map[string]any:
+		for key, value := range v {
+			v[key] = floatNumbers(value)
+		}
+	case []any:
+		for i, value := range v {
+			v[i] = floatNumbers(value)
+		}
+	case json.Number:
+		if strings.ContainsAny(string(v), ".eE") {
+			f, _ := v.Float64() // out of range it is an infinity, which does not marshal
+			return f
+		}
+	}
+	return v
 }

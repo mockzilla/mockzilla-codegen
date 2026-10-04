@@ -13,6 +13,31 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
 
+func TestIsRounded(t *testing.T) {
+	t.Parallel()
+
+	str := &gomodel.Field{Type: gomodel.Builtin{Name: "string"}}
+	wide := &gomodel.Field{Type: gomodel.Builtin{Name: "int64"}}
+	tests := []struct {
+		name string
+		tool *tool
+		want bool
+	}{
+		{name: "No input is not rounded", tool: &tool{}},
+		{name: "A string parameter is not rounded", tool: &tool{params: []param{{field: str}}}},
+		{name: "An int64 parameter is rounded", tool: &tool{params: []param{{field: str}, {field: wide}}}, want: true},
+		{name: "A text body is not rounded", tool: &tool{body: &body{content: gomodel.Content{MediaType: "text/plain"}}}},
+		{name: "An int64 body is rounded", tool: &tool{body: &body{content: gomodel.Content{MediaType: "application/json", Type: wide.Type}}}, want: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, isRounded(tc.tool))
+		})
+	}
+}
+
 func TestTextResult(t *testing.T) {
 	t.Parallel()
 

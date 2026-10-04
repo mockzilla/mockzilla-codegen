@@ -463,7 +463,11 @@ func (t *MCPTools) SearchTool() *mcp.Tool {
 
 // Search handles the search tool: it calls Search of the client and answers with what it returns as structured content.
 // An error of the client is the error of the tool, with the body of a response outside 2xx.
-func (t *MCPTools) Search(ctx context.Context, _ *mcp.CallToolRequest, in SearchToolInput) (*mcp.CallToolResult, any, error) {
+func (t *MCPTools) Search(ctx context.Context, req *mcp.CallToolRequest, in SearchToolInput) (*mcp.CallToolResult, any, error) {
+	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+		return nil, nil, err
+	}
+
 	opts := &SearchRequestOptions{
 		Query: &SearchQuery{
 			Q:     in.Q,
