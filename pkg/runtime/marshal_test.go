@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,6 +48,51 @@ func TestMarshalUnion(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.JSONEq(t, tc.want, string(got))
+			assert.Equal(t, tc.want, string(got))
+		})
+	}
+}
+
+func TestMarshalUnionText(t *testing.T) {
+	t.Parallel()
+
+	errBroken := errors.New("broken")
+
+	tests := []struct {
+		name       string
+		data       string
+		err        error
+		want       string
+		wantErr    error
+		wantErrMsg string
+	}{
+		{name: "A string loses its quotes", data: `"a \"b\""`, want: `a "b"`},
+		{name: "An integer stays as it is", data: `30`, want: `30`},
+		{name: "A number stays as it is", data: `1.5e3`, want: `1.5e3`},
+		{name: "A boolean stays as it is", data: `false`, want: `false`},
+		{name: "Null has no text", data: `null`, wantErr: ErrParamValue, wantErrMsg: "invalid parameter value: cannot write null as text"},
+		{name: "An object has no text", data: `{"a":1}`, wantErr: ErrParamValue},
+		{name: "A broken string is an error", data: `"a`},
+		{name: "The marshal error is passed on", err: errBroken, wantErr: errBroken},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := MarshalUnionText([]byte(tc.data), tc.err)
+
+			if tc.want == "" {
+				require.Error(t, err)
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+				}
+				if tc.wantErrMsg != "" {
+					require.EqualError(t, err, tc.wantErrMsg)
+				}
+				return
+			}
+			require.NoError(t, err)
 			assert.Equal(t, tc.want, string(got))
 		})
 	}

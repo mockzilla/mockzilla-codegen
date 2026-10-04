@@ -89,16 +89,16 @@ Choice union models.unions
   ? Strings path= guarded minItems(1)
   ? Owner path= pointer guarded nested
 MaybeChoice union models.unions
-  | anyOf nullable
+  | anyOf nullable text
   | String *string kinds=string
   | Int *int kinds=integer
 SomeChoice union models.unions
-  | anyOf
+  | anyOf text
   | String *string kinds=string
   | Int *int kinds=integer
   ? validate count=AtLeastOne
 NullableChoice union models.unions
-  | oneOf nullable
+  | oneOf nullable text
   | String *string kinds=string
   | Int *int kinds=integer
   ? validate count=AtMostOne

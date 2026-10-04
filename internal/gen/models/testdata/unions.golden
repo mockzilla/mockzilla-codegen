@@ -93,6 +93,52 @@ func (s *Stamp) UnmarshalJSON(data []byte) error {
 	})
 }
 
+type ID struct {
+	Int    *int    `json:"-"`
+	String *string `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set.
+func (i ID) MarshalJSON() ([]byte, error) {
+	var set []any
+	if i.Int != nil {
+		set = append(set, i.Int)
+	}
+	if i.String != nil {
+		set = append(set, i.String)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets the variants data matches.
+func (i *ID) UnmarshalJSON(data []byte) error {
+	*i = ID{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name: "Int",
+				Kind: runtime.KindInteger,
+				Into: runtime.Into(&i.Int),
+			},
+			{
+				Name: "String",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&i.String),
+			},
+		},
+	})
+}
+
+// MarshalText writes the variant that is set as text.
+func (i ID) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(i.MarshalJSON())
+}
+
+// UnmarshalText sets the variants text matches.
+func (i *ID) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, i.UnmarshalJSON)
+}
+
 // A contact.
 type Contact struct {
 	ID    string  `json:"id"`

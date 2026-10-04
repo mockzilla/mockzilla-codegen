@@ -23,18 +23,18 @@ ChoiceOption1 struct models.types
 ChoiceOption1Inline struct models.types
   A *string json=a omitempty
 Multi union models.unions
-  | oneOf
+  | oneOf text
   | String *string kinds=string
   | Int *int kinds=integer
 Holder struct models.types
   Choice *HolderChoice json=choice omitempty
   List []HolderListItem json=list omitempty
 HolderChoice union models.unions
-  | anyOf
+  | anyOf text
   | String *string kinds=string
   | Int *int kinds=integer
 HolderListItem union models.unions
-  | oneOf
+  | oneOf text
   | String *string kinds=string
   | Bool *bool kinds=boolean
 Node struct models.types

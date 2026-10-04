@@ -103,8 +103,13 @@ var Params = []Request{
 	},
 	{
 		Name:     "Every query style",
-		Path:     "/query?form=1&form=2&csv=a,b&space=a%20b&pipe=a|b&deep[x]=1&deep[y]=2&flat=x,3,y,4&json={\"x\":5}&needed=yes",
-		WantBody: `{"query":{"form":[1,2],"csv":["a","b"],"space":["a","b"],"pipe":["a","b"],"deep":{"x":1,"y":2},"flat":{"x":3,"y":4},"json":{"x":5},"needed":"yes"}}`,
+		Path:     "/query?form=1&form=2&csv=a,b&space=a%20b&pipe=a|b&deep[x]=1&deep[y]=2&flat=x,3,y,4&json={\"x\":5}&id=7&needed=yes",
+		WantBody: `{"query":{"form":[1,2],"csv":["a","b"],"space":["a","b"],"pipe":["a","b"],"deep":{"x":1,"y":2},"flat":{"x":3,"y":4},"json":{"x":5},"id":7,"needed":"yes"}}`,
+	},
+	{
+		Name:     "A union query parameter that is no number is a string",
+		Path:     "/query?id=a7&needed=yes",
+		WantBody: `{"query":{"id":"a7","needed":"yes"}}`,
 	},
 	{
 		Name:     "Query parameters left out stay nil",
@@ -126,8 +131,15 @@ var Params = []Request{
 	{
 		Name:     "Header styles and formats",
 		Path:     "/header",
-		Headers:  http.Header{"X-Tags": {"a,b"}, "X-Point": {"x,1,y,2"}, "X-When": {"2026-01-02T03:04:05Z"}},
-		WantBody: `{"header":{"X-Tags":["a","b"],"X-Point":{"x":1,"y":2},"X-When":"2026-01-02T03:04:05Z"}}`,
+		Headers:  http.Header{"X-Tags": {"a,b"}, "X-Point": {"x,1,y,2"}, "X-When": {"2026-01-02T03:04:05Z"}, "X-Limit": {"true"}},
+		WantBody: `{"header":{"X-Tags":["a","b"],"X-Point":{"x":1,"y":2},"X-When":"2026-01-02T03:04:05Z","X-Limit":true}}`,
+	},
+	{
+		Name:       "A union header that no variant takes",
+		Path:       "/header",
+		Headers:    http.Header{"X-Limit": {"many"}},
+		WantStatus: 400,
+		WantBody:   `{"error":"invalid header parameter \"X-Limit\": no union variant matches for a JSON string"}`,
 	},
 	{
 		Name:     "Cookies",

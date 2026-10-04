@@ -64,12 +64,13 @@ type ConstView struct {
 
 // UnionView is what a union's variant fields and methods need. Runtime and JSON are the names
 // the packages are imported under, JSON only when shared fields are decoded. Discriminator and
-// Shared are quoted.
+// Shared are quoted. IsText adds MarshalText and UnmarshalText.
 type UnionView struct {
 	Receiver      string
 	Runtime       string
 	JSON          string
 	IsAnyOf       bool
+	IsText        bool
 	Discriminator string
 	Shared        []string
 	Variants      []VariantView
@@ -171,6 +172,7 @@ func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
 		Receiver: receiver(d.Name),
 		Runtime:  s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
 		IsAnyOf:  u.IsAnyOf,
+		IsText:   u.IsText,
 		Variants: make([]VariantView, len(u.Variants)),
 	}
 	if len(d.Struct.Fields) > 0 {

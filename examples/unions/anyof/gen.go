@@ -103,3 +103,13 @@ func (s *Stamp) UnmarshalJSON(data []byte) error {
 		},
 	})
 }
+
+// MarshalText writes the variant that is set as text.
+func (s Stamp) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(s.MarshalJSON())
+}
+
+// UnmarshalText sets the variants text matches.
+func (s *Stamp) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, s.UnmarshalJSON)
+}
