@@ -54,8 +54,11 @@ var (
 )
 
 // primitive maps a schema with at most one type to a Go type. docs/types.md has the table.
-func primitive(s *spec.Schema, intType string) Type {
+func primitive(s *spec.Schema, intType string, formats map[string]Type) Type {
 	format := strings.ToLower(s.Format)
+	if t, ok := formats[format]; ok {
+		return t
+	}
 	switch s.Types &^ spec.TypeNull {
 	case spec.TypeString:
 		if t, ok := stringFormats[format]; ok {

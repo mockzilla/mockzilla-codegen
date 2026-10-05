@@ -11,8 +11,10 @@ import (
 	"cmp"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/extension"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
@@ -93,6 +95,7 @@ type readers struct {
 	flat       *flattener
 	unions     *unionReader
 	ext        *extReader
+	formats    map[string]Type
 	hasHeaders bool
 }
 
@@ -121,6 +124,7 @@ type Options struct {
 	HasResponseHeaders bool
 	ErrorMapping       map[string]string
 	Imports            []config.Import
+	FormatTypes        map[string]Type
 }
 
 // OptionsFrom reads Options from a config. Blocks left out get their defaults.
@@ -137,6 +141,7 @@ func OptionsFrom(cfg *config.Config) Options {
 		ValidateResponse: !models.Validation.Skip && (models.Validation.Response || cfg.Server != nil && cfg.Server.Validation.Response),
 		ErrorMapping:     models.ErrorMapping,
 		Imports:          cfg.Imports,
+		FormatTypes:      formatTypes(models.FormatTypes, cfg.Imports),
 	}
 	for _, name := range slices.Sorted(maps.Keys(models.ErrorMapping)) {
 		opts.Reserved = append(opts.Reserved, "New"+name)
@@ -201,7 +206,7 @@ func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 
 	ext := newExtReader(opts.Namer, &diags)
 	flat := newFlattener(ext, &diags)
-	r := readers{flat: flat, unions: newUnionReader(opts.Namer, flat), ext: ext, hasHeaders: opts.HasResponseHeaders}
+	r := readers{flat: flat, unions: newUnionReader(opts.Namer, flat), ext: ext, formats: opts.FormatTypes, hasHeaders: opts.HasResponseHeaders}
 	c := newCollector(doc, r, &diags)
 	c.run(ops)
 	types := resolveTypes(c.pending, reserved, &diags)
@@ -217,4 +222,18 @@ func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 	planMasks(decls, patterns)
 	resolveErrors(decls, opts.ErrorMapping, &diags)
 	return &Model{Decls: decls, Patterns: patterns.named(), Operations: ops}, diags.List()
+}
+
+// formatTypes keys the types of models.format-types by format in lower case.
+func formatTypes(types map[string]config.GoType, imports []config.Import) map[string]Type {
+	if len(types) == 0 {
+		return nil
+	}
+
+	out := make(map[string]Type, len(types))
+	for _, format := range slices.Sorted(maps.Keys(types)) {
+		gt := types[format]
+		out[strings.ToLower(format)] = goType(&extension.Type{Name: gt.Type, Path: gt.Import}, imports)
+	}
+	return out
 }

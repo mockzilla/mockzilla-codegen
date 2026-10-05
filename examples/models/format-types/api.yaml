@@ -1,0 +1,22 @@
+openapi: 3.1.0
+info: {title: format-types, version: "1"}
+paths: {}
+components:
+  schemas:
+    DeviceID:
+      type: string
+      format: uuid
+    Device:
+      type: object
+      required: [id]
+      properties:
+        id: {$ref: '#/components/schemas/DeviceID'}
+        address: {type: string, format: ipv4}
+        peers:
+          type: array
+          items: {type: string, format: uuid}
+        legacyId:
+          type: string
+          format: uuid
+          x-go-type: string
+        seen: {type: string, format: date-time}

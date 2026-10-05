@@ -82,6 +82,7 @@ models:
   extra-tags: [yaml]
   validation: {response: true}
   error-mapping: {ErrorResponse: error.message}
+  format-types: {uuid: {type: uuid.UUID}}
 server:
   framework: chi
   name: PetService

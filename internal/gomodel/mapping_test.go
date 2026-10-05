@@ -13,15 +13,33 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
+func TestFormatTypes(t *testing.T) {
+	t.Parallel()
+
+	opts := testOptions()
+	opts.IsValidated = true
+	opts.FormatTypes = map[string]Type{
+		"uuid": Qualified{Import: Import{Path: "github.com/google/uuid"}, Name: "UUID"},
+		"ipv4": Qualified{Import: Import{Path: "net/netip"}, Name: "Addr"},
+	}
+	checkGolden(t, "format-types", "format-types", opts)
+}
+
 func TestPrimitive(t *testing.T) {
 	t.Parallel()
 
 	three, half, yes, list := numVal("3"), numVal("0.5"), boolVal(true), arrayVal()
+	civil := Qualified{Import: Import{Path: "cloud.google.com/go/civil"}, Name: "DateTime"}
+	decimal := Qualified{Import: Import{Path: "github.com/shopspring/decimal"}, Name: "Decimal"}
+	formats := map[string]Type{"date-time": civil, "money": decimal, "ulid": stringType}
 	tests := []struct {
 		name   string
 		schema spec.Schema
 		want   Type
 	}{
+		{name: "Mapped format over a built-in one", schema: spec.Schema{Types: spec.TypeString, Format: "Date-Time"}, want: civil},
+		{name: "Mapped format on a number", schema: spec.Schema{Types: spec.TypeNumber, Format: "money"}, want: decimal},
+		{name: "No type, mapped format", schema: spec.Schema{Format: "ulid"}, want: stringType},
 		{name: "Integer without a format", schema: spec.Schema{Types: spec.TypeInteger}, want: Builtin{Name: "int64"}},
 		{name: "Integer int8", schema: spec.Schema{Types: spec.TypeInteger, Format: "int8"}, want: Builtin{Name: "int8"}},
 		{name: "Integer uint64", schema: spec.Schema{Types: spec.TypeInteger, Format: "uint64"}, want: Builtin{Name: "uint64"}},
@@ -36,7 +54,6 @@ func TestPrimitive(t *testing.T) {
 		{name: "Boolean", schema: spec.Schema{Types: spec.TypeBoolean, Format: "flag"}, want: boolType},
 		{name: "String", schema: spec.Schema{Types: spec.TypeString}, want: stringType},
 		{name: "String date", schema: spec.Schema{Types: spec.TypeString, Format: "date"}, want: Qualified{Import: importRuntime, Name: "Date"}},
-		{name: "String date-time", schema: spec.Schema{Types: spec.TypeString, Format: "date-time"}, want: Qualified{Import: importTime, Name: "Time"}},
 		{name: "String email", schema: spec.Schema{Types: spec.TypeString, Format: "email"}, want: Qualified{Import: importRuntime, Name: "Email"}},
 		{name: "String uuid", schema: spec.Schema{Types: spec.TypeString, Format: "uuid"}, want: stringType},
 		{name: "String byte", schema: spec.Schema{Types: spec.TypeString, Format: "byte"}, want: Slice{Elem: Builtin{Name: "byte"}}},
@@ -56,7 +73,7 @@ func TestPrimitive(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tt.want, primitive(&tt.schema, "int64"))
+			assert.Equal(t, tt.want, primitive(&tt.schema, "int64", formats))
 		})
 	}
 }

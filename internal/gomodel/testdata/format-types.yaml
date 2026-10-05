@@ -1,0 +1,39 @@
+openapi: 3.1.0
+info: {title: format-types, version: "1"}
+paths:
+  /devices/{id}:
+    get:
+      operationId: getDevice
+      parameters:
+        - {name: id, in: path, required: true, schema: {$ref: '#/components/schemas/DeviceID'}}
+        - {name: near, in: query, schema: {type: string, format: IPv4}}
+        - name: pick
+          in: query
+          schema:
+            oneOf: [{type: integer}, {type: string, format: uuid}]
+        - name: X-Pick
+          in: header
+          schema:
+            oneOf: [{type: integer}, {type: string, enum: [a, b], format: uuid}]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Device'}
+components:
+  schemas:
+    DeviceID: {type: string, format: uuid}
+    Device:
+      type: object
+      required: [id]
+      properties:
+        id: {$ref: '#/components/schemas/DeviceID'}
+        address: {type: string, format: ipv4, minLength: 7}
+        legacy: {type: string, format: uuid, x-go-type: string}
+        kind: {type: string, format: uuid, enum: [a, b]}
+        merged:
+          allOf: [{type: string}, {format: uuid}]
+        untyped: {format: uuid}
+        seen: {type: string, format: date-time}
+        object: {type: object, format: uuid, properties: {a: {type: string}}}

@@ -107,7 +107,38 @@ func checkModels(m *Models) []Issue {
 	if m == nil {
 		return nil
 	}
-	return checkEnum("models.int-type", m.IntType, intTypes)
+	return slices.Concat(checkEnum("models.int-type", m.IntType, intTypes), checkFormatTypes(m.FormatTypes))
+}
+
+// checkFormatTypes wants a type for each format, and each format once in any case.
+func checkFormatTypes(types map[string]GoType) []Issue {
+	var issues []Issue
+	seen := make(map[string]string, len(types))
+	for _, format := range slices.Sorted(maps.Keys(types)) {
+		key := fmt.Sprintf("models.format-types[%q]", format)
+		lower := strings.ToLower(format)
+		if first, ok := seen[lower]; ok {
+			issues = append(issues, Issue{Key: key, Message: fmt.Sprintf("is the same format as %q", first)})
+			continue
+		}
+		seen[lower] = format
+
+		gt := types[format]
+		switch {
+		case format == "":
+			issues = append(issues, Issue{Key: key, Message: "names no format"})
+		case gt.Type == "":
+			issues = append(issues, Issue{Key: key + ".type", Message: "required"})
+		case gt.Import != "" && !isQualified(gt.Type):
+			issues = append(issues, Issue{Key: key + ".import", Message: fmt.Sprintf("needs a type named by its package, such as uuid.UUID, not %q", gt.Type)})
+		}
+	}
+	return issues
+}
+
+// isQualified reports a type of the form pkg.Name, the only form an import applies to.
+func isQualified(typ string) bool {
+	return strings.Count(typ, ".") == 1 && !strings.ContainsAny(typ, "*[]{}() ")
 }
 
 func checkServer(s *Server) []Issue {

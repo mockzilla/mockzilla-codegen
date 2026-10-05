@@ -75,6 +75,7 @@ type collector struct {
 	flat        *flattener
 	unions      *unionReader
 	ext         *extReader
+	formats     map[string]Type
 	diags       *diag.Collector
 	pending     []*pending
 	headers     map[*spec.Response]*Decl
@@ -93,6 +94,7 @@ func newCollector(doc *spec.Document, r readers, diags *diag.Collector) *collect
 		flat:        r.flat,
 		unions:      r.unions,
 		ext:         r.ext,
+		formats:     r.formats,
 		diags:       diags,
 		headers:     map[*spec.Response]*Decl{},
 		headerDecls: map[string]*Decl{},
@@ -358,7 +360,10 @@ func (c *collector) isScalar(s *spec.Schema, on map[*spec.Schema]bool) bool {
 
 	f := c.flat.flatten(s)
 	switch classify(f) {
-	case shapePrimitive, shapeEnum:
+	case shapePrimitive:
+		_, isMapped := c.formats[strings.ToLower(f.Format)]
+		return !isMapped
+	case shapeEnum:
 		return true
 	case shapeUnion:
 		u := c.unions.read(f)

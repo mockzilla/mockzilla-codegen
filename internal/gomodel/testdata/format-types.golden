@@ -1,0 +1,44 @@
+DeviceID alias uuid.UUID models.types
+Device struct models.types
+  ID DeviceID json=id required
+  Address *netip.Addr json=address omitempty
+  Legacy *string json=legacy omitempty
+  Kind *DeviceKind json=kind omitempty
+  Merged *uuid.UUID json=merged omitempty
+  Untyped *uuid.UUID json=untyped omitempty
+  Seen *time.Time json=seen omitempty
+  Object *DeviceObject json=object omitempty
+  ? validate
+  ? Legacy path=legacy pointer guarded format(uuid)
+  ? Kind path=kind pointer guarded nested
+DeviceKind enum string models.enums
+  DeviceKindA "a"
+  DeviceKindB "b"
+  ? validate
+DeviceObject struct models.types
+  A *string json=a omitempty
+GetDevicePathParams struct models.params
+  ID DeviceID json=id required
+GetDeviceQuery struct models.params
+  Near *netip.Addr json=near omitempty
+GetDeviceHeaders struct models.params
+  XPick *GetDeviceHeadersXPick json=X-Pick omitempty
+  ? validate
+  ? XPick path=X-Pick pointer guarded nested
+GetDeviceHeadersXPick union models.unions
+  | oneOf text
+  | Int *int kinds=integer
+  | Option2 *GetDeviceHeadersXPickOption2 kinds=string
+  ? validate count=ExactlyOne
+  ? Option2 path= pointer guarded nested
+GetDeviceHeadersXPickOption2 enum string models.enums
+  GetDeviceHeadersXPickOption2A "a"
+  GetDeviceHeadersXPickOption2B "b"
+  ? validate
+op GetDevice GET /devices/{id}
+  params path GetDevicePathParams
+  params query GetDeviceQuery
+  params header GetDeviceHeaders
+  response 200 application/json Device
+---
+warning param-unsupported 10:11 /paths/~1devices~1{id}/get/parameters/2: query parameter "pick" is a union of more than scalars; it gets no field and is neither sent nor read

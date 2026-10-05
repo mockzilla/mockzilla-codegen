@@ -102,7 +102,7 @@ The full list is in [extensions](../extensions.md).
 | `[]T` for an optional array | the same |
 | sum type `ID{Type IDType, String string, Int int}` with `NewStringID` | a union struct with a field per variant: `ID{String: &s}` ([unions](../types.md#unions)) |
 | `<Schema>Sum` for an inline `oneOf` | a union type named after where it sits ([names](../naming.md#names-for-types-without-a-name)) |
-| `uuid.UUID`, `url.URL`, `net.IP`, `time.Duration` for the formats | `string`, checked by `Validate`; `x-go-type` keeps a package type ([type mapping](../types.md#type-mapping)) |
+| `uuid.UUID`, `url.URL`, `net.IP`, `time.Duration` for the formats | `string`, checked by `Validate`; `models.format-types` keeps a package type for a format, `x-go-type` for one schema ([your own type for a format](../types.md#your-own-type-for-a-format)) |
 | `time.Time` for `date` | `runtime.Date` |
 | `jx` encoders, `Encode`/`Decode` methods | `encoding/json`, `MarshalJSON` only where the shape needs it |
 | `Validate() error` | the same, plain code over the runtime helpers ([validation](../validation.md)) |
