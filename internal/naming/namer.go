@@ -177,6 +177,11 @@ func (n *Namer) EnumConst(typ, value string) string {
 	return typ + n.camel(value)
 }
 
+// EnumValues names the func that returns every value of an enum: StatusValues.
+func (n *Namer) EnumValues(typ string) string {
+	return typ + "Values"
+}
+
 // Snake writes a Go name in snake case: GetPetByID gives get_pet_by_id, HTTP2Stats http2_stats.
 func (n *Namer) Snake(name string) string {
 	ws := rawWords(name, n.initialisms)

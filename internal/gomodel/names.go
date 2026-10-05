@@ -70,7 +70,7 @@ func resolveOperations(doc *spec.Document, opts Options, c *diag.Collector) []*O
 		reqs[i] = naming.Request{
 			ID:      op.Origin.Pointer,
 			Want:    opts.Namer.Exported(op.ID),
-			Methods: opts.Methods.of(op),
+			Derived: opts.Methods.of(op),
 			Rank:    naming.RankOperation,
 			Order:   i,
 			Origin:  origin(op.Origin),
@@ -131,8 +131,9 @@ func hasStream(op *spec.Operation) bool {
 
 // resolveTypes names declarations in rounds by depth, so an inline name builds on the final name
 // of its parent. Names from earlier rounds are reserved in later ones; a rename still reports the
-// declaration that holds the name. It returns every name taken.
-func resolveTypes(list []*pending, reserved []string, c *diag.Collector) []string {
+// declaration that holds the name. An enum holds the name of its values func too. It returns every
+// name taken.
+func resolveTypes(list []*pending, reserved []string, n *naming.Namer, c *diag.Collector) []string {
 	var rounds [][]*pending
 	for _, p := range list {
 		for len(rounds) <= p.depth {
@@ -151,6 +152,9 @@ func resolveTypes(list []*pending, reserved []string, c *diag.Collector) []strin
 				want = p.base.decl.Name + p.name
 			}
 			reqs[i] = naming.Request{ID: p.decl.ID, Want: want, Fallback: p.fallback, Rank: p.rank, Order: p.order, Origin: p.decl.Origin}
+			if p.shape == shapeEnum {
+				reqs[i].Derived = []string{n.EnumValues("")}
+			}
 		}
 
 		res := naming.Resolve(taken, reqs)
@@ -209,13 +213,16 @@ func resolveVariants(d *Decl, methods []string, c *diag.Collector) {
 }
 
 // resolveConstants names enum constants once every type has its name: a constant is named after
-// its type and must not take a type's name.
+// its type and must not take a type's name or that of a values func, which the type holds.
 func resolveConstants(decls []*Decl, reserved []string, opts Options, c *diag.Collector) {
 	var reqs []naming.Request
+	var funcs []string
 	for _, d := range decls {
-		if d.Kind != KindEnum {
+		if d.Kind != KindEnum || len(d.Enum.Values) == 0 {
 			continue
 		}
+		d.Enum.ValuesFunc = opts.Namer.EnumValues(d.Name)
+		funcs = append(funcs, d.Enum.ValuesFunc)
 		for i, v := range d.Enum.Values {
 			r := naming.Request{ID: constID(d, i), Want: opts.Namer.EnumConst(d.Name, valueText(v.Value)), Order: len(reqs), Origin: d.Origin}
 			switch {
@@ -237,7 +244,7 @@ func resolveConstants(decls []*Decl, reserved []string, opts Options, c *diag.Co
 		}
 	}
 
-	res := resolve(reserved, reqs, c)
+	res := resolve(slices.Concat(reserved, funcs), reqs, c)
 	for _, d := range decls {
 		if d.Kind != KindEnum {
 			continue

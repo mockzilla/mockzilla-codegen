@@ -235,6 +235,50 @@ CarMark enum string models.enums
   CarMarkY "y"
   CarMarkZ "z"
   ? validate
+Spot struct models.types
+  X *int json=x omitempty
+  ? validate
+  ? - path= enumJSON({"x":1},{"x":2})
+Span defined []int models.types
+  ? validate
+  ? - path= guarded enumJSON([1,2])
+Tagset defined map[string]any models.types
+  ? validate
+  ? - path= guarded enumJSON({"a":1})
+Pick union models.unions
+  | anyOf text
+  | String *string kinds=string
+  | Int *int kinds=integer
+  ? validate count=AtLeastOne
+  ? - path= enumJSON("a",1)
+Listed union models.unions
+  | oneOf text
+  | String *ListedString kinds=string
+  | Integer *ListedInteger kinds=integer
+  ? validate count=ExactlyOne
+  ? String path= pointer guarded nested
+  ? Integer path= pointer guarded nested
+ListedString enum string models.enums
+  ListedStringA "a"
+  ? validate
+ListedInteger enum int models.enums
+  ListedInteger1 1
+  ? validate
+Anything alias any models.types
+Shelf struct models.types
+  Spot *Spot json=spot nullable omitempty
+  Span Span json=span omitempty
+  Anything Anything json=anything omitempty
+  Inline any json=inline omitempty
+  Rows []map[string]any json=rows omitempty
+  AllNull []int json=allNull nullable omitempty
+  ? validate
+  ? Spot path=spot pointer guarded nested
+  ? Span path=span guarded nested
+  ? Anything path=anything guarded enumJSON("a",1)
+  ? Inline path=inline guarded enumJSON(true,"x")
+  ? Rows path=rows guarded
+  ?   items - path= guarded enumJSON({"r":1})
 pattern patternPetName models.types "^[A-Z]" "^[A-Z]"
 pattern patternPetTagsItem models.types "^[a-z]+$" "^[a-z]+$"
 pattern patternPetAccent models.types "^\\u00e9" "^\\xE9"

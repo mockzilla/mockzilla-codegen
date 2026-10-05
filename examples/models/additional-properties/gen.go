@@ -89,6 +89,14 @@ const (
 	UnitKg Unit = "kg"
 )
 
+// UnitValues returns the values of Unit.
+func UnitValues() []Unit {
+	return []Unit{
+		UnitCm,
+		UnitKg,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (u Unit) Validate() error {
 	return runtime.OneOf(u, UnitCm, UnitKg)

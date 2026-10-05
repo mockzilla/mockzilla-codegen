@@ -13,6 +13,7 @@ import (
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/jsonschema"
 )
 
 // ruleFuncs are the runtime checks, by rule kind.
@@ -32,6 +33,7 @@ var ruleFuncs = map[gomodel.RuleKind]string{
 	gomodel.RuleMaxProperties: "MaxProperties",
 	gomodel.RuleConst:         "Const",
 	gomodel.RuleEnum:          "OneOf",
+	gomodel.RuleEnumJSON:      "OneOfJSON",
 }
 
 // ValidateView is what the Validate methods of a declaration need. Enum lists the constants an enum
@@ -226,6 +228,10 @@ func ruleCall(r gomodel.Rule, rt, value string) string {
 	case gomodel.RuleEnum:
 		for _, v := range r.Values {
 			args = append(args, gocode.Literal(v))
+		}
+	case gomodel.RuleEnumJSON:
+		for _, v := range r.Values {
+			args = append(args, gocode.RawString(string(jsonschema.Marshal(v))))
 		}
 	case gomodel.RuleUnique, gomodel.RuleUniqueJSON:
 	case gomodel.RuleMinLength, gomodel.RuleMaxLength, gomodel.RuleMultipleOf, gomodel.RuleMinItems,

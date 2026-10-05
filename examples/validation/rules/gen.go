@@ -21,6 +21,18 @@ var (
 
 type Code = string
 
+type Corner struct {
+	X *int `json:"x,omitempty"`
+	Y *int `json:"y,omitempty"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c Corner) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.OneOfJSON(c, `{"x":0,"y":null}`, `{"x":1,"y":1}`))
+	return errs.Err()
+}
+
 type Item struct {
 	Name   string            `json:"name"`
 	Code   Code              `json:"code"`
@@ -34,6 +46,10 @@ type Item struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	Kind   *string           `json:"kind,omitempty"`
 	Size   *Size             `json:"size,omitempty"`
+	Corner *Corner           `json:"corner,omitempty"`
+	Dims   []int             `json:"dims,omitempty"`
+	Unit   *ItemUnit         `json:"unit,omitempty"`
+	Mark   any               `json:"mark,omitempty"`
 	Token  []byte            `json:"token,omitempty"`
 	Word   *string           `json:"word,omitempty"`
 	Line   *string           `json:"line,omitempty"`
@@ -92,6 +108,18 @@ func (i Item) Validate() error {
 	if i.Size != nil {
 		errs.Append("size", i.Size.Validate())
 	}
+	if i.Corner != nil {
+		errs.Append("corner", i.Corner.Validate())
+	}
+	if i.Dims != nil {
+		errs.Append("dims", runtime.OneOfJSON(i.Dims, `[1,2]`, `[2,4]`))
+	}
+	if i.Unit != nil {
+		errs.Append("unit", i.Unit.Validate())
+	}
+	if i.Mark != nil {
+		errs.Append("mark", runtime.OneOfJSON(i.Mark, `"a"`, `1`, `true`))
+	}
 	if i.Token != nil {
 		errs.Append("token", runtime.MaxLength(runtime.Base64(i.Token), 8))
 	}
@@ -120,7 +148,70 @@ const (
 	SizeL Size = "l"
 )
 
+// SizeValues returns the values of Size.
+func SizeValues() []Size {
+	return []Size{
+		SizeS,
+		SizeM,
+		SizeL,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (s Size) Validate() error {
 	return runtime.OneOf(s, SizeS, SizeM, SizeL)
+}
+
+type ItemUnit struct {
+	String *string `json:"-"`
+	Int    *int    `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set.
+func (i ItemUnit) MarshalJSON() ([]byte, error) {
+	var set []any
+	if i.String != nil {
+		set = append(set, i.String)
+	}
+	if i.Int != nil {
+		set = append(set, i.Int)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets the variants data matches.
+func (i *ItemUnit) UnmarshalJSON(data []byte) error {
+	*i = ItemUnit{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name: "String",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&i.String),
+			},
+			{
+				Name: "Int",
+				Kind: runtime.KindInteger,
+				Into: runtime.Into(&i.Int),
+			},
+		},
+	})
+}
+
+// MarshalText writes the variant that is set as text.
+func (i ItemUnit) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(i.MarshalJSON())
+}
+
+// UnmarshalText sets the variants text matches.
+func (i *ItemUnit) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, i.UnmarshalJSON)
+}
+
+// Validate checks the value against the constraints of the spec.
+func (i ItemUnit) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(i.String != nil, i.Int != nil))
+	errs.Append("", runtime.OneOfJSON(i, `"cm"`, `10`))
+	return errs.Err()
 }

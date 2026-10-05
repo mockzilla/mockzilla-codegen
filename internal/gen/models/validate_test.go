@@ -98,12 +98,16 @@ func TestViewRendersValidation(t *testing.T) {
 			{Name: "Empty", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: empty}}, Kinds: gomodel.JSONObject, Values: []string{"empty"}},
 		},
 	}, Validation: &gomodel.Validation{Count: "ExactlyOne", IsDiscriminated: true}}
+	quoted := spec.Value{Kind: spec.KindObject, Fields: []spec.Field{{Name: "a", Value: spec.Value{Kind: spec.KindString, Str: "x`y"}}}}
+	corner := &gomodel.Decl{Name: "Corner", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}, Validation: &gomodel.Validation{Checks: []*gomodel.Check{
+		{Rules: []gomodel.Rule{{Kind: gomodel.RuleEnumJSON, Values: []spec.Value{{Kind: spec.KindArray, Items: []spec.Value{{Kind: spec.KindNumber, Num: "1"}}}, quoted}}}},
+	}}}
 	problem := &gomodel.Decl{Name: "Problem", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "Message", JSONName: "message", Type: str}},
 	}, Error: &gomodel.ErrorMessage{Path: "message", HasConstructor: true}}
 
 	g := New(&gomodel.Model{
-		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, problem},
+		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, corner, problem},
 		Patterns: []*gomodel.Pattern{code},
 	})
 	checkRender(t, g, "validation")
@@ -112,7 +116,7 @@ func TestViewRendersValidation(t *testing.T) {
 func TestRuleFuncs(t *testing.T) {
 	t.Parallel()
 
-	for kind := gomodel.RuleMinLength; kind <= gomodel.RuleEnum; kind++ {
+	for kind := gomodel.RuleMinLength; kind <= gomodel.RuleEnumJSON; kind++ {
 		if ruleFuncs[kind] == "" {
 			t.Errorf("rule kind %d has no runtime function", kind)
 		}

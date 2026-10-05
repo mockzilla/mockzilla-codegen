@@ -294,6 +294,7 @@ TwinOption2 struct models.types
 info union-duplicate 63:11 /components/schemas/Duplicates/oneOf/1: member 2 has the same Go type (string) as variant String; they share its field
 info union-duplicate 65:11 /components/schemas/Duplicates/oneOf/3: member 4 has the same Go type (Cat) as variant Cat; they share its field
 warning union-ambiguous 91:7 /components/schemas/AllOfUnion: variants Option1, Option2 of AllOfUnion require no property, so {} matches each of them and fails to decode
+warning enum-value 97:7 /components/schemas/TypeList: enum value 2.5 does not fit its schema, so it is left out: it is a number, the schema wants string or integer or object or array or null
 warning union-ambiguous 109:7 /components/schemas/IfThenElseByShape: variants Then, Else of IfThenElseByShape require no property, so {} matches each of them and fails to decode
 warning union-self 139:11 /components/schemas/Self/oneOf/0: member 1 is the union itself; it is left out
 warning union-ambiguous 143:7 /components/schemas/NoIf: variants Then, Else of NoIf require no property, so {} matches each of them and fails to decode

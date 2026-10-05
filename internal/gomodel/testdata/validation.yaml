@@ -191,3 +191,26 @@ components:
             mark: {enum: [y, z]}
             name: {maxLength: 5}
             tag: {type: string, minLength: 1}
+    Spot:
+      type: object
+      properties:
+        x: {type: integer}
+      enum: [{x: 1}, {x: 2}, null]
+    Span: {type: array, items: {type: integer}, enum: [[1, 2]]}
+    Tagset: {type: object, enum: [{a: 1}]}
+    Pick:
+      anyOf: [{type: string}, {type: integer}]
+      enum: [a, 1]
+    Listed: {type: [string, integer], enum: [a, 1]}
+    Anything: {enum: [a, 1]}
+    Shelf:
+      type: object
+      properties:
+        spot: {$ref: '#/components/schemas/Spot'}
+        span: {$ref: '#/components/schemas/Span'}
+        anything: {$ref: '#/components/schemas/Anything'}
+        inline: {enum: [true, x]}
+        rows:
+          type: array
+          items: {type: object, enum: [{r: 1}]}
+        allNull: {type: array, items: {type: integer}, enum: [null]}

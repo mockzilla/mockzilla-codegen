@@ -90,6 +90,14 @@ const (
 	StatusGone   Status = "gone"
 )
 
+// StatusValues returns the values of Status.
+func StatusValues() []Status {
+	return []Status{
+		StatusActive,
+		StatusGone,
+	}
+}
+
 type Level int
 
 const (
@@ -121,7 +129,7 @@ func TestViewRendersEveryKind(t *testing.T) {
 		{Name: "Status", Part: gomodel.PartEnums, Kind: gomodel.KindEnum, Enum: &gomodel.Enum{Base: str, Values: []gomodel.EnumValue{
 			{Name: "StatusActive", Value: spec.Value{Kind: spec.KindString, Str: "active"}},
 			{Name: "StatusGone", Value: spec.Value{Kind: spec.KindString, Str: "gone"}},
-		}}},
+		}, ValuesFunc: "StatusValues"}},
 		{Name: "Level", Part: gomodel.PartEnums, Kind: gomodel.KindEnum, Enum: &gomodel.Enum{Base: gomodel.Builtin{Name: "int"}, Values: []gomodel.EnumValue{
 			{Name: "LevelLow", Value: spec.Value{Kind: spec.KindNumber, Num: json.Number("1.0")}},
 		}}},

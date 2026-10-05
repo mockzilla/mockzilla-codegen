@@ -167,7 +167,7 @@ func (b *builder) fillStruct(d *Decl, f *spec.Schema) {
 // the same Go type share one variant.
 func (b *builder) fillUnion(d *Decl, f *spec.Schema) {
 	us := b.unions.read(f)
-	u := &Union{IsAnyOf: us.isAnyOf, IsNullable: us.isNullable, Discriminator: us.discriminator}
+	u := &Union{IsAnyOf: us.isAnyOf, IsNullable: us.isNullable, Discriminator: us.discriminator, isTypeList: us.isTypeList}
 	st := &Struct{}
 	if !us.isTypeList {
 		st.Fields = b.fields(d, f)
