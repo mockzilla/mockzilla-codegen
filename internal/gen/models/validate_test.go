@@ -18,7 +18,7 @@ func TestViewRendersValidation(t *testing.T) {
 
 	str := gomodel.Builtin{Name: "string"}
 	num := gomodel.Builtin{Name: "float64"}
-	code := &gomodel.Pattern{Name: "patternPetCode", Source: `^[A-Z]+$`, Part: gomodel.PartTypes}
+	code := &gomodel.Pattern{Name: "patternPetCode", Text: `^[A-Z].$`, Source: `^[A-Z][^\n\r\x{2028}\x{2029}]$`, Part: gomodel.PartTypes}
 	owner := &gomodel.Decl{Name: "Owner", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "ID", JSONName: "id", Type: str}},
 	}, Validation: &gomodel.Validation{HasResponse: true, Checks: []*gomodel.Check{

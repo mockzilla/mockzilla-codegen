@@ -30,7 +30,7 @@ func (p Pet) Validate() error {
 	if p.Tags != nil {
 		errs.Append("tags", runtime.MinItems(p.Tags, 1))
 		for idx, item := range p.Tags {
-			errs.Append(runtime.Index("tags", idx), runtime.Pattern(item, patternPetTagsItem))
+			errs.Append(runtime.Index("tags", idx), runtime.Pattern(item, patternPetTagsItem, `^[a-z]+$`))
 		}
 	}
 	if p.Owner != nil {
@@ -53,7 +53,7 @@ that checks nothing has no `Validate`.
 | Keyword | Applies to | Check |
 |---|---|---|
 | `minLength`, `maxLength` | strings | characters, not bytes; for `format: byte` the base64 text |
-| `pattern` | strings | Go `regexp` (RE2); for `format: byte` the base64 text |
+| `pattern` | strings | ECMA-262, see [patterns](#patterns); for `format: byte` the base64 text |
 | `format` | strings | `uuid`, `uri`, `uri-reference`, `ipv4`, `ipv6`, `hostname`, `date`, `date-time`, `email` |
 | `minimum`, `maximum`, exclusive forms | numbers | the boolean and the numeric form in every version |
 | `multipleOf` | numbers | exact, on the decimal the Go type writes: a `float32` 0.07 is a multiple of 0.01 |
@@ -97,9 +97,22 @@ body before it decodes it, see [request bodies](server.md#request-bodies).
 
 ### Patterns
 
-Patterns are compiled once, into package-level variables. `\uXXXX` escapes are rewritten to the
-RE2 form `\x{XXXX}`. A pattern RE2 cannot compile, such as one with a lookahead or a
-backreference, is not checked, with a warning that names it.
+A pattern is ECMA-262, the dialect of JSON Schema. It is compiled once, into a package-level
+variable, written in Go's syntax with the meaning ECMA-262 gives it:
+
+| Spec | Go | Why |
+|---|---|---|
+| `\s`, `\S` | `[\t-\r \xA0\x{1680}...]`, `[^...]` | Go's `\s` knows ASCII spaces only |
+| `.` | `[^\n\r\x{2028}\x{2029}]` | Go's `.` matches `\r` and U+2028 |
+| `[^]`, `[]` | `[\s\S]`, `[^\s\S]` | any character, none |
+| `\cJ` | `\n` | a control character |
+| `\uXXXX` | `\xHH`, `\x{XXXX}` | Go has no `\u` |
+| `[\b]` | `\x08` | a backspace |
+| `[[:alpha:]]` | `[\[:alpha:]]` | a `[` in a class is a character, not a POSIX class |
+
+An escape ECMA-262 does not have, such as `\A` or `\z`, keeps Go's meaning. A pattern Go cannot
+compile, such as one with a lookahead or a backreference, is not checked, with a warning that
+names it. An error quotes the pattern as the spec writes it: `tags[1]: must match ^[a-z]+$`.
 
 ## Error paths
 

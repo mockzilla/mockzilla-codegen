@@ -13,6 +13,8 @@ const _ = runtime.SupportsGeneratorV2
 
 var (
 	patternItemCode = regexp.MustCompile(`^[A-Z]{3}$`)
+	patternItemWord = regexp.MustCompile(`^[^\t-\r \xA0\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+$`)
+	patternItemLine = regexp.MustCompile(`^[^\n\r\x{2028}\x{2029}]*$`)
 	patternItemRef  = regexp.MustCompile(`^[A-Z]`)
 	patternItemRef2 = regexp.MustCompile(`[0-9]$`)
 )
@@ -33,6 +35,8 @@ type Item struct {
 	Kind   *string           `json:"kind,omitempty"`
 	Size   *Size             `json:"size,omitempty"`
 	Token  []byte            `json:"token,omitempty"`
+	Word   *string           `json:"word,omitempty"`
+	Line   *string           `json:"line,omitempty"`
 	Stock  *int              `json:"stock,omitempty"`
 	Ref    *string           `json:"ref,omitempty"`
 }
@@ -42,7 +46,7 @@ func (i Item) Validate() error {
 	var errs runtime.ValidationErrors
 	errs.Append("name", runtime.MinLength(i.Name, 2))
 	errs.Append("name", runtime.MaxLength(i.Name, 10))
-	errs.Append("code", runtime.Pattern(i.Code, patternItemCode))
+	errs.Append("code", runtime.Pattern(i.Code, patternItemCode, `^[A-Z]{3}$`))
 	if i.ID != nil {
 		errs.Append("id", runtime.Format(*i.ID, "uuid"))
 	}
@@ -91,13 +95,19 @@ func (i Item) Validate() error {
 	if i.Token != nil {
 		errs.Append("token", runtime.MaxLength(runtime.Base64(i.Token), 8))
 	}
+	if i.Word != nil {
+		errs.Append("word", runtime.Pattern(*i.Word, patternItemWord, `^\S+$`))
+	}
+	if i.Line != nil {
+		errs.Append("line", runtime.Pattern(*i.Line, patternItemLine, `^.*$`))
+	}
 	if i.Stock != nil {
 		errs.Append("stock", runtime.Minimum(*i.Stock, 10, false))
 		errs.Append("stock", runtime.Maximum(*i.Stock, 100, false))
 	}
 	if i.Ref != nil {
-		errs.Append("ref", runtime.Pattern(*i.Ref, patternItemRef))
-		errs.Append("ref", runtime.Pattern(*i.Ref, patternItemRef2))
+		errs.Append("ref", runtime.Pattern(*i.Ref, patternItemRef, `^[A-Z]`))
+		errs.Append("ref", runtime.Pattern(*i.Ref, patternItemRef2, `[0-9]$`))
 	}
 	return errs.Err()
 }

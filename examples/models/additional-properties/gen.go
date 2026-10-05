@@ -66,7 +66,7 @@ func (h Headers) Validate() error {
 	var errs runtime.ValidationErrors
 	for _, key := range runtime.SortedKeys(h) {
 		errs.Append(runtime.Key("", key), runtime.MaxLength(key, 20))
-		errs.Append(runtime.Key("", key), runtime.Pattern(key, patternHeadersKey))
+		errs.Append(runtime.Key("", key), runtime.Pattern(key, patternHeadersKey, `^[a-z][a-z-]*$`))
 	}
 	return errs.Err()
 }

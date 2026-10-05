@@ -235,13 +235,13 @@ CarMark enum string models.enums
   CarMarkY "y"
   CarMarkZ "z"
   ? validate
-pattern patternPetName models.types "^[A-Z]"
-pattern patternPetTagsItem models.types "^[a-z]+$"
-pattern patternPetAccent models.types "^\\x{00e9}"
-pattern patternStrictCode models.types "^a"
-pattern patternStrictCode2 models.types "z$"
-pattern patternStrictWrapped models.types "b"
-pattern patternMergedKey models.types "b$"
+pattern patternPetName models.types "^[A-Z]" "^[A-Z]"
+pattern patternPetTagsItem models.types "^[a-z]+$" "^[a-z]+$"
+pattern patternPetAccent models.types "^\\u00e9" "^\\xE9"
+pattern patternStrictCode models.types "^a" "^a"
+pattern patternStrictCode2 models.types "z$" "z$"
+pattern patternStrictWrapped models.types "b" "b"
+pattern patternMergedKey models.types "b$" "b$"
 ---
 warning pattern-unsupported 45:16 /components/schemas/Pet/properties/ahead: pattern "^(?=a)" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?=`); it is not used
 warning keyword-unsupported 160:22 /components/schemas/Fixed/propertyNames: propertyNames is not checked: Fixed keeps no keys besides its properties

@@ -39,7 +39,7 @@ func Dump(m *Model) string {
 		dumpDecl(&b, d)
 	}
 	for _, p := range m.Patterns {
-		b.WriteString("pattern " + p.Name + " " + p.Part + " " + strconv.Quote(p.Source) + "\n")
+		b.WriteString("pattern " + p.Name + " " + p.Part + " " + strconv.Quote(p.Text) + " " + strconv.Quote(p.Source) + "\n")
 	}
 	for _, op := range m.Operations {
 		dumpOperation(&b, op)

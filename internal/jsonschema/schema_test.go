@@ -92,7 +92,7 @@ func TestSchema(t *testing.T) {
 		},
 		{name: "Exclusive minimum", schema: &spec.Schema{Limits: spec.Limits{Minimum: &spec.Bound{Value: num("1"), Exclusive: true}}}, want: `{"exclusiveMinimum":1}`},
 		{name: "Pattern after the lengths", schema: &spec.Schema{Types: spec.TypeString, Pattern: `^\d+$`, Limits: spec.Limits{MaxLength: new(int64(4))}}, want: `{"type":"string","maxLength":4,"pattern":"^\\d+$"}`},
-		{name: "Pattern with \\u escapes", schema: &spec.Schema{Pattern: `^[\u0020-\u007E\u00e9]+\u2026$`}, want: `{"pattern":"^[\\x20-\\x7E\\xE9]+…$"}`},
+		{name: "Pattern with \\u escapes", schema: &spec.Schema{Pattern: `^[\u0020-\u007E\u00e9]+\u2026$`}, want: `{"pattern":"^[ -\\x7E\\xE9]+…$"}`},
 		{name: "Extensions and discriminator are left out", schema: &spec.Schema{Extensions: []spec.Extension{{Name: "x-go-type"}}, Discriminator: &spec.Discriminator{Property: "kind"}}, want: `{}`},
 	}
 

@@ -22,12 +22,15 @@ import (
 const _ = runtime.SupportsGeneratorV2
 
 var (
-	patternTagName = regexp.MustCompile(`^[\x{0021}-\x{007E}]+$`)
+	patternTagName  = regexp.MustCompile(`^[\x21-\x7E]+$`)
+	patternTagLabel = regexp.MustCompile(`^[^\t-\r \xA0\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+$`)
 )
 
 type Tag struct {
 	// Printable characters, no space.
 	Name string `json:"name"`
+	// One word, with no space of any kind.
+	Label *string `json:"label,omitempty"`
 	// Anyone but root.
 	Owner *string `json:"owner,omitempty"`
 }
@@ -35,7 +38,10 @@ type Tag struct {
 // Validate checks the value against the constraints of the spec.
 func (t Tag) Validate() error {
 	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.Pattern(t.Name, patternTagName))
+	errs.Append("name", runtime.Pattern(t.Name, patternTagName, `^[\u0021-\u007E]+$`))
+	if t.Label != nil {
+		errs.Append("label", runtime.Pattern(*t.Label, patternTagLabel, `^\S+$`))
+	}
 	return errs.Err()
 }
 
@@ -58,7 +64,7 @@ type AddTagQuery struct {
 func (a AddTagQuery) Validate() error {
 	var errs runtime.ValidationErrors
 	if a.Color != nil {
-		errs.Append("color", runtime.Pattern(*a.Color, patternAddTagQueryColor))
+		errs.Append("color", runtime.Pattern(*a.Color, patternAddTagQueryColor, `^[0-9a-f]{6}$`))
 	}
 	return errs.Err()
 }
@@ -489,7 +495,7 @@ func (t *MCPTools) AddTagTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "add_tag",
 		Description: "Add a tag",
-		InputSchema: json.RawMessage(`{"type":"object","properties":{"color":{"type":"string","pattern":"^[0-9a-f]{6}$","description":"The color as six hex digits."},"body":{"$ref":"#/$defs/Tag"}},"required":["body"],"additionalProperties":false,"$defs":{"Tag":{"type":"object","properties":{"name":{"type":"string","description":"Printable characters, no space.","pattern":"^[\\x21-\\x7E]+$"},"owner":{"type":"string","description":"Anyone but root."}},"required":["name"]}}}`),
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"color":{"type":"string","pattern":"^[0-9a-f]{6}$","description":"The color as six hex digits."},"body":{"$ref":"#/$defs/Tag"}},"required":["body"],"additionalProperties":false,"$defs":{"Tag":{"type":"object","properties":{"name":{"type":"string","description":"Printable characters, no space.","pattern":"^[\\x21-\\x7E]+$"},"label":{"type":"string","description":"One word, with no space of any kind.","pattern":"^[^\\t-\\r \\xA0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+$"},"owner":{"type":"string","description":"Anyone but root."}},"required":["name"]}}}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: false},
 	}
 }

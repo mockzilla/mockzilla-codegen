@@ -49,6 +49,8 @@ func TestItemValidate(t *testing.T) {
 		{name: "Map value rule", edit: func(i *Item) { i.Labels = map[string]string{"a": "1", "b": ""} }, want: `labels["b"]: must be at least 1 characters long`},
 		{name: "Const", edit: func(i *Item) { i.Kind = new("thing") }, want: "kind: must be item"},
 		{name: "Enum", edit: func(i *Item) { i.Size = new(Size("xl")) }, want: "size: must be one of s, m, l"},
+		{name: "A no-break space is a space", edit: func(i *Item) { i.Word = new("a\U000000A0b") }, want: `word: must match ^\S+$`},
+		{name: "A dot is no line end", edit: func(i *Item) { i.Line = new("a\rb") }, want: "line: must match ^.*$"},
 		{name: "Bytes count their base64 text", edit: func(i *Item) { i.Token = []byte("hello!!") }, want: "token: must be at most 8 characters long"},
 		{name: "The stricter allOf minimum", edit: func(i *Item) { i.Stock = new(5) }, want: "stock: must be at least 10"},
 		{name: "Every allOf pattern", edit: func(i *Item) { i.Ref = new("A") }, want: "ref: must match [0-9]$"},

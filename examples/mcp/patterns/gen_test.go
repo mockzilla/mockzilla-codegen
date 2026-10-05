@@ -47,11 +47,11 @@ func newSession(t *testing.T) *mcp.ClientSession {
 	return session
 }
 
-// TestListTools checks that the pattern of color stays, the one of name is rewritten for Go's
-// regexp, and the lookahead of owner and the default of color, which does not match, are left out.
+// TestListTools checks which patterns and defaults the input schema keeps, and in what form.
 func TestListTools(t *testing.T) {
 	t.Parallel()
 
+	noSpace := "^[^\\t-\\r \\xA0\U00001680\U00002000-\U0000200A\U00002028\U00002029\U0000202F\U0000205F\U00003000\U0000FEFF]+$"
 	session := newSession(t)
 
 	res, err := session.ListTools(t.Context(), nil)
@@ -71,6 +71,7 @@ func TestListTools(t *testing.T) {
 			"required": []any{"name"},
 			"properties": map[string]any{
 				"name":  map[string]any{"type": "string", "pattern": `^[\x21-\x7E]+$`, "description": "Printable characters, no space."},
+				"label": map[string]any{"type": "string", "pattern": noSpace, "description": "One word, with no space of any kind."},
 				"owner": map[string]any{"type": "string", "description": "Anyone but root."},
 			},
 		}},
@@ -115,6 +116,7 @@ func TestCallToolOutsideAPattern(t *testing.T) {
 		want string
 	}{
 		{name: "A name with a space", args: map[string]any{"body": map[string]any{"name": "go lang"}}, want: `validating /$defs/Tag/properties/name: pattern: "go lang" does not match regular expression`},
+		{name: "A label with a no-break space", args: map[string]any{"body": map[string]any{"name": "go", "label": "go\U000000A0lang"}}, want: `validating /$defs/Tag/properties/label: pattern: "go`},
 		{name: "A color by name", args: map[string]any{"color": "red", "body": map[string]any{"name": "go"}}, want: `validating /properties/color: pattern: "red" does not match regular expression`},
 	}
 

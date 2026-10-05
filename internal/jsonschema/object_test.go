@@ -26,6 +26,7 @@ func TestObjectMarshalJSON(t *testing.T) {
 		{name: "A key set again keeps its place", obj: new(Object).Set("b", "1").Set("a", "2").Set("b", "3"), want: `{"b":"3","a":"2"}`},
 		{name: "Every value kind", obj: new(Object).Set("n", nil).Set("t", true).Set("f", false).Set("num", json.Number("1.50")).Set("list", []string{"x", "y"}).Set("any", []any{json.Number("1"), "s", &Object{}}).Set("obj", new(Object).Set("k", "v")), want: `{"n":null,"t":true,"f":false,"num":1.50,"list":["x","y"],"any":[1,"s",{}],"obj":{"k":"v"}}`},
 		{name: "HTML characters stay as they are", obj: new(Object).Set("a<b", "x & y"), want: `{"a<b":"x & y"}`},
+		{name: "A character Go does not print is escaped", obj: new(Object).Set("s", "\U00001680\U000000E9\U000E0001\x7F"), want: "{\"s\":\"\\u1680\U000000E9\\udb40\\udc01\\u007f\"}"},
 		{name: "A number that is no JSON is quoted", obj: new(Object).Set("n", json.Number("1e")), want: `{"n":"1e"}`},
 		{name: "A value of another kind is null", obj: new(Object).Set("n", 42), want: `{"n":null}`},
 	}
