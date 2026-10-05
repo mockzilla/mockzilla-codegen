@@ -153,9 +153,10 @@ type Rule struct {
 	Values      []spec.Value
 }
 
-// Pattern is a regular expression compiled once, in a package-level variable of its part.
+// Pattern is the Text of a spec pattern, compiled once from its Go Source into a variable of Part.
 type Pattern struct {
 	Name   string
+	Text   string
 	Source string
 	Part   string
 	Origin diag.Origin

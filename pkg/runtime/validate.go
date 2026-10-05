@@ -50,10 +50,10 @@ func MaxLength[S ~string](s S, n int) error {
 	return nil
 }
 
-// Pattern checks that re matches s.
-func Pattern[S ~string](s S, re *regexp.Regexp) error {
+// Pattern checks that re, compiled from the spec's pattern, matches s.
+func Pattern[S ~string](s S, re *regexp.Regexp, pattern string) error {
 	if !re.MatchString(string(s)) {
-		return ValidationError{Message: "must match " + re.String()}
+		return ValidationError{Message: "must match " + pattern}
 	}
 	return nil
 }

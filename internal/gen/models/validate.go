@@ -216,7 +216,7 @@ func ruleCall(r gomodel.Rule, rt, value string) string {
 	args := []string{value}
 	switch r.Kind {
 	case gomodel.RulePattern:
-		args = append(args, r.Pattern.Name)
+		args = append(args, r.Pattern.Name, gocode.RawString(r.Pattern.Text))
 	case gomodel.RuleFormat:
 		args = append(args, gocode.Quote(r.Format))
 	case gomodel.RuleMinimum, gomodel.RuleMaximum:

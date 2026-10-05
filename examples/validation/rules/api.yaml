@@ -24,6 +24,8 @@ components:
         kind: {type: string, const: item}
         size: {$ref: '#/components/schemas/Size'}
         token: {type: string, format: byte, maxLength: 8}
+        word: {type: string, pattern: '^\S+$'}
+        line: {type: string, pattern: '^.*$'}
         stock:
           allOf:
             - {type: integer, minimum: 0, maximum: 100}

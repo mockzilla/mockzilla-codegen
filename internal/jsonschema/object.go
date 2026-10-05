@@ -11,8 +11,13 @@ package jsonschema
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"slices"
 	"strconv"
+	"strings"
+	"unicode"
+	"unicode/utf16"
+	"unicode/utf8"
 )
 
 // Object is a JSON object whose keys keep the order they were first set in. Values are nil, bool,
@@ -89,12 +94,23 @@ func appendList(buf []byte, n int, item func(i int, out []byte) []byte) []byte {
 	return append(buf, ']')
 }
 
-// appendString quotes s as JSON without escaping HTML characters, which json.Marshal does.
+// appendString quotes s as JSON with HTML characters as they are and unprintable ones escaped.
 func appendString(buf []byte, s string) []byte {
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)
 	// Encoding a string cannot fail: invalid UTF-8 is replaced.
 	_ = enc.Encode(s)
-	return append(buf, bytes.TrimSuffix(b.Bytes(), []byte("\n"))...)
+
+	// gocode.RawString quotes a whole schema when one of its characters is not printable.
+	for _, r := range strings.TrimSuffix(b.String(), "\n") {
+		if unicode.IsPrint(r) {
+			buf = utf8.AppendRune(buf, r)
+			continue
+		}
+		for _, unit := range utf16.Encode([]rune{r}) {
+			buf = fmt.Appendf(buf, `\u%04x`, unit)
+		}
+	}
+	return buf
 }

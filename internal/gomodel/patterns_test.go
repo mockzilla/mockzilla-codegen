@@ -33,6 +33,6 @@ func TestPatternSet(t *testing.T) {
 	assert.NotSame(t, first, other)
 	assert.Equal(t, []*Pattern{first, other, escaped}, p.named())
 	assert.Equal(t, []string{"patternPetID", "patternPetID2", "patternAccent"}, []string{first.Name, other.Name, escaped.Name})
-	assert.Equal(t, `^\x{00e9}`, escaped.Source)
+	assert.Equal(t, []string{"^" + `\` + "u00e9", `^\xE9`}, []string{escaped.Text, escaped.Source})
 	assert.Len(t, diags.List(), 1)
 }
