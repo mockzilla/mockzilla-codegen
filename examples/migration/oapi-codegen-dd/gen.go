@@ -503,9 +503,9 @@ func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.ListPets(r.Context(), opts)
 	if err != nil {
-		if error, ok := runtime.AsError[Error](err); ok {
+		if e, ok := runtime.AsError[Error](err); ok {
 			w.Header().Set("Content-Type", "application/json")
-			a.opts.ErrorHandler.HandleError(w, r, 500, error)
+			a.opts.ErrorHandler.HandleError(w, r, 500, e)
 			return
 		}
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: err})
@@ -542,9 +542,9 @@ func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.CreatePet(r.Context(), opts)
 	if err != nil {
-		if error, ok := runtime.AsError[Error](err); ok {
+		if e, ok := runtime.AsError[Error](err); ok {
 			w.Header().Set("Content-Type", "application/json")
-			a.opts.ErrorHandler.HandleError(w, r, 500, error)
+			a.opts.ErrorHandler.HandleError(w, r, 500, e)
 			return
 		}
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreatePet", Err: err})
@@ -573,9 +573,9 @@ func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.GetPet(r.Context(), opts)
 	if err != nil {
-		if error, ok := runtime.AsError[Error](err); ok {
+		if e, ok := runtime.AsError[Error](err); ok {
 			w.Header().Set("Content-Type", "application/json")
-			a.opts.ErrorHandler.HandleError(w, r, 404, error)
+			a.opts.ErrorHandler.HandleError(w, r, 404, e)
 			return
 		}
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPet", Err: err})

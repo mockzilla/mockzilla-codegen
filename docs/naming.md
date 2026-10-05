@@ -19,7 +19,7 @@ each rename.
 | `$`, `>=`, `!=`, `_` | `Dollar`, `GreaterThanEqual`, `NotEqual`, `Underscore` | A name with no letters or digits spells out its symbols. |
 | `naïve`, `Straße` | `Naive`, `Strasse` | Latin letters with accents lose them. |
 | `日本語Name`, `名前` | `Name`, `X540D` | Other letters are dropped. When nothing is left, the name is `X` and the first character's code in hex. |
-| empty string | `Empty` | |
+| empty string | `Empty` | An enum value `""` gives `StatusEmpty`. A property, parameter or header named `""` gets no field, with a warning (`name-empty`). |
 
 Unexported names (function arguments, local variables) follow the same rules with the first word in
 lower case: `HTTPServer` gives `httpServer`. A Go keyword or predeclared name gets `Val`: `type`

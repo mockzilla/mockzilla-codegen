@@ -87,6 +87,7 @@ func TestParseGolden(t *testing.T) {
 		{name: "3.2 query, additional operations, item schemas and default mapping", fixture: "v32"},
 		{name: "3.0 values of the wrong kind, unknown locations and unused path parameters", fixture: "invalid"},
 		{name: "3.1 boolean schemas, 3.0 exclusive flags and parameters of webhooks", fixture: "invalid31"},
+		{name: "Parameters, headers and properties named \"\"", fixture: "names"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

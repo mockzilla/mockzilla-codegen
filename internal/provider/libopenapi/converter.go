@@ -284,14 +284,14 @@ func (c *converter) callbacks(m *orderedmap.Map[string, *v3.Callback], ptr strin
 	return out
 }
 
-// parameters leaves out a parameter of no known location, or a path one the path has no {name} for.
+// parameters leaves out a parameter of no name or known location, or a path one the path has no {name} for.
 func (c *converter) parameters(list []*v3.Parameter, ptr string, at site) []*spec.Parameter {
 	var out []*spec.Parameter
 	for i, p := range list {
 		usage := ptr + "/" + strconv.Itoa(i)
 		param := c.parameter(p, usage)
 		switch {
-		case !slices.Contains(locations, param.In):
+		case param.Name == "" || !slices.Contains(locations, param.In):
 			continue
 		case param.In == spec.InPath && !at.isWebhook && !at.isCallback && !strings.Contains(at.path, "{"+param.Name+"}"):
 			msg := fmt.Sprintf("path parameter %q has no {%s} in %s; it is left out", param.Name, param.Name, at.path)
@@ -328,7 +328,10 @@ func (c *converter) buildParameter(p *v3.Parameter, ptr string) *spec.Parameter 
 		Origin:          c.origin(ptr, p.GoLow().GetRootNode()),
 	}
 
-	if !slices.Contains(locations, out.In) {
+	switch {
+	case out.Name == "":
+		c.warn(diag.CodeNameEmpty, ptr, p.GoLow().GetRootNode(), "parameter has no name; it is left out")
+	case !slices.Contains(locations, out.In):
 		in := "no in"
 		if out.In != "" {
 			in = "in " + strconv.Quote(out.In) + ", which is not one of " + strings.Join(locations, ", ")
@@ -466,7 +469,12 @@ func (c *converter) response(r *v3.Response, status, ptr string) *spec.Response 
 func (c *converter) headers(m *orderedmap.Map[string, *v3.Header], ptr string) []*spec.Header {
 	var out []*spec.Header
 	for name, h := range m.FromOldest() {
-		out = append(out, c.header(h, name, ptr+"/"+oasdoc.Escape(name)))
+		at := ptr + "/" + oasdoc.Escape(name)
+		if name == "" {
+			c.warn(diag.CodeNameEmpty, at, h.GoLow().GetRootNode(), "header has no name; it is left out")
+			continue
+		}
+		out = append(out, c.header(h, name, at))
 	}
 	return out
 }
@@ -642,9 +650,14 @@ func (c *converter) notObject(n *yaml.Node, ptr string) {
 func (c *converter) properties(h *base.Schema, ptr string) []*spec.Property {
 	var out []*spec.Property
 	for name, p := range h.Properties.FromOldest() {
+		at := ptr + "/properties/" + oasdoc.Escape(name)
+		if name == "" {
+			c.warn(diag.CodeNameEmpty, at, p.GetValueNode(), `property "" cannot be a Go field; it is left out`)
+			continue
+		}
 		out = append(out, &spec.Property{
 			Name:     name,
-			Schema:   c.schema(p, ptr+"/properties/"+oasdoc.Escape(name)),
+			Schema:   c.schema(p, at),
 			Required: slices.Contains(h.Required, name),
 		})
 	}

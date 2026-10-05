@@ -10,7 +10,6 @@ package server
 
 import (
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
@@ -38,10 +37,6 @@ var (
 	fileType   = gomodel.Qualified{Import: gomodel.Import{Path: gomodel.RuntimePath}, Name: "File"}
 	anyType    = gomodel.Builtin{Name: "any"}
 )
-
-// handlerLocals are the variables a generated handler declares, c being the context of a Native
-// framework; a typed error variable never takes one of them.
-var handlerLocals = []string{"a", "c", "w", "r", "opts", "query", "res", "err", "ok", "text", "data", "file", "contentType"}
 
 // decoders are the runtime functions that read a parameter, by location.
 var decoders = map[string]string{
@@ -154,7 +149,6 @@ type conversion struct {
 
 // TypedErrorView answers an error type of the spec with its status and quoted media type.
 type TypedErrorView struct {
-	Var       string
 	Type      string
 	Status    int
 	MediaType string
@@ -357,7 +351,6 @@ func typedErrors(op *gomodel.Operation, s *gocode.Scope) []TypedErrorView {
 			}
 			seen = append(seen, d)
 			out = append(out, TypedErrorView{
-				Var:       errorVar(d.Name, len(out)),
 				Type:      s.Expr(gomodel.DeclRef{Decl: d}),
 				Status:    operation.StatusOf(r.Status),
 				MediaType: gocode.Quote(c.MediaType),
@@ -365,13 +358,4 @@ func typedErrors(op *gomodel.Operation, s *gocode.Scope) []TypedErrorView {
 		}
 	}
 	return out
-}
-
-// errorVar names the variable a typed error is caught in, clear of the handler's own locals.
-func errorVar(typeName string, i int) string {
-	name := strings.ToLower(typeName[:1]) + typeName[1:]
-	if slices.Contains(handlerLocals, name) {
-		name += strconv.Itoa(i + 1)
-	}
-	return name
 }

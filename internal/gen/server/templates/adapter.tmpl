@@ -125,9 +125,9 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 	res, err := a.svc.{{.Name}}(r.Context(), opts)
 	if err != nil {
 {{- range .Errors}}
-		if {{.Var}}, ok := {{$.Runtime}}.AsError[{{.Type}}](err); ok {
+		if e, ok := {{$.Runtime}}.AsError[{{.Type}}](err); ok {
 			w.Header().Set("Content-Type", {{.MediaType}})
-			a.opts.ErrorHandler.HandleError(w, r, {{.Status}}, {{.Var}})
+			a.opts.ErrorHandler.HandleError(w, r, {{.Status}}, e)
 			{{$.Handler.Return}}
 		}
 {{- end}}

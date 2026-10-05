@@ -1,0 +1,51 @@
+Version: 3.0
+Info:
+  Title: t
+  Version: 1
+Operations:
+  -
+    ID: getItems
+    IsIDDerived: true
+    Method: GET
+    Path: /items
+    Params:
+      -
+        Name: q
+        In: query
+        Style: form
+        Explode: true
+        Schema:
+          Types: string
+          Origin: names.yaml:8:40 /paths/~1items/get/parameters/1/schema
+        Origin: names.yaml:8:11 /paths/~1items/get/parameters/1
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Headers:
+          -
+            Name: X-Rate
+            Style: simple
+            Schema:
+              Types: integer
+              Origin: names.yaml:14:30 /paths/~1items/get/responses/200/headers/X-Rate/schema
+            Origin: names.yaml:14:21 /paths/~1items/get/responses/200/headers/X-Rate
+        Origin: names.yaml:11:11 /paths/~1items/get/responses/200
+    Origin: names.yaml:6:7 /paths/~1items/get
+Components:
+  Schemas:
+    -
+      Name: Empty
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: name
+            Schema:
+              Types: string
+              Origin: names.yaml:21:15 /components/schemas/Empty/properties/name
+        Origin: names.yaml:18:7 /components/schemas/Empty
+Diagnostics:
+  - warning name-empty names.yaml:7:11 /paths/~1items/get/parameters/0: parameter has no name; it is left out
+  - warning name-empty names.yaml:13:17 /paths/~1items/get/responses/200/headers/: header has no name; it is left out
+  - warning name-empty names.yaml:20:13 /components/schemas/Empty/properties/: property "" cannot be a Go field; it is left out

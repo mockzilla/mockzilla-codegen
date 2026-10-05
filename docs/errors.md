@@ -28,11 +28,15 @@ func NewErrorResponse(message string) ErrorResponse
   `Error` method.
 - A field of an error type that would be named `Error` is renamed, since the method takes the name.
 
-Error types work with `errors.As`:
+Error types work with `errors.As`. The client puts a pointer in the error it returns, so the target
+is a pointer too:
 
 ```go
-var e api.ErrorResponse
+var e *api.ErrorResponse
 if errors.As(err, &e) {
 	log.Print(e.Error())
 }
 ```
+
+A service may return the error type as a value or as a pointer. The server finds both and answers
+with the status the spec gives it.
