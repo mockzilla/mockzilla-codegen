@@ -235,6 +235,33 @@ func TestViewRendersUnions(t *testing.T) {
 	checkRender(t, g, "unions")
 }
 
+func TestViewRendersGetters(t *testing.T) {
+	t.Parallel()
+
+	str := gomodel.Builtin{Name: "string"}
+	sortEnum := &gomodel.Decl{Name: "Sort", Part: gomodel.PartEnums, Kind: gomodel.KindEnum, Enum: &gomodel.Enum{Base: str, Values: []gomodel.EnumValue{
+		{Name: "SortName", Value: spec.Value{Kind: spec.KindString, Str: "name"}},
+	}}}
+	long := spec.Value{Kind: spec.KindString, Str: "a default too long to quote in a doc line"}
+	query := &gomodel.Decl{Name: "ListQuery", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
+		Fields: []*gomodel.Field{
+			{Name: "Limit", JSONName: "limit", Type: gomodel.Pointer{Elem: gomodel.Builtin{Name: "int"}}, OmitEmpty: true, Getter: &gomodel.Getter{
+				Name: "GetLimit", Default: spec.Value{Kind: spec.KindNumber, Num: json.Number("20")},
+			}},
+			{Name: "Sort", JSONName: "sort", Type: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: sortEnum}}, OmitEmpty: true, Getter: &gomodel.Getter{
+				Name: "GetSort", Default: spec.Value{Kind: spec.KindString, Str: "name"},
+			}},
+			{Name: "Tags", JSONName: "tags", Type: gomodel.Slice{Elem: str}, OmitEmpty: true, Getter: &gomodel.Getter{
+				Name: "GetTags", Default: spec.Value{Kind: spec.KindArray, Items: []spec.Value{{Kind: spec.KindString, Str: "new"}}},
+			}},
+			{Name: "Note", JSONName: "note", Type: gomodel.Pointer{Elem: str}, OmitEmpty: true, Getter: &gomodel.Getter{Name: "GetNote", Default: long}},
+			{Name: "Page", JSONName: "page", Type: gomodel.Builtin{Name: "int"}},
+		},
+	}}
+	g := New(&gomodel.Model{Decls: []*gomodel.Decl{sortEnum, query}})
+	checkRender(t, g, "getters")
+}
+
 // checkRender renders every part of g into one file and compares it with testdata/<name>.golden.
 // UPDATE=1 writes the file instead.
 func checkRender(t *testing.T, g *Generator, name string) {

@@ -1,0 +1,47 @@
+package api
+
+type Sort string
+
+const (
+	SortName Sort = "name"
+)
+
+type ListQuery struct {
+	Limit *int     `json:"limit,omitempty"`
+	Sort  *Sort    `json:"sort,omitempty"`
+	Tags  []string `json:"tags,omitempty"`
+	Note  *string  `json:"note,omitempty"`
+	Page  int      `json:"page"`
+}
+
+// GetLimit returns Limit, or 20 when it is nil.
+func (l *ListQuery) GetLimit() int {
+	if l == nil || l.Limit == nil {
+		return 20
+	}
+	return *l.Limit
+}
+
+// GetSort returns Sort, or "name" when it is nil.
+func (l *ListQuery) GetSort() Sort {
+	if l == nil || l.Sort == nil {
+		return SortName
+	}
+	return *l.Sort
+}
+
+// GetTags returns Tags, or ["new"] when it is nil.
+func (l *ListQuery) GetTags() []string {
+	if l == nil || l.Tags == nil {
+		return []string{"new"}
+	}
+	return l.Tags
+}
+
+// GetNote returns Note, or its default when it is nil.
+func (l *ListQuery) GetNote() string {
+	if l == nil || l.Note == nil {
+		return "a default too long to quote in a doc line"
+	}
+	return *l.Note
+}

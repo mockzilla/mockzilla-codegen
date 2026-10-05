@@ -9,6 +9,8 @@
 package gomodel
 
 import (
+	"slices"
+
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/extension"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
@@ -244,6 +246,7 @@ type Shape struct {
 // Field is one struct field. Required, Nullable, ReadOnly and WriteOnly repeat the spec.
 // IsJSONIgnored writes the field with the JSON tag "-". Sensitive is how Masked masks it, nil for
 // a value that is not sensitive. Value and Default are what the server checks and sets in a body.
+// Getter returns the field or its default, nil when the field has none.
 type Field struct {
 	Name             string
 	JSONName         string
@@ -261,9 +264,11 @@ type Field struct {
 	Sensitive        *extension.Mask
 	Value            *BodyValue
 	Default          string
+	Getter           *Getter
 	Origin           diag.Origin
 
 	schema           *spec.Schema
+	def              *spec.Value
 	goName           string
 	isPointerSkipped bool
 }
@@ -278,6 +283,15 @@ type Tag struct {
 type Enum struct {
 	Base   Type
 	Values []EnumValue
+}
+
+// Const returns the name of the constant that holds v.
+func (e *Enum) Const(v spec.Value) (string, bool) {
+	i := slices.IndexFunc(e.Values, func(ev EnumValue) bool { return sameValue(ev.Value, v) })
+	if i < 0 {
+		return "", false
+	}
+	return e.Values[i].Name, true
 }
 
 type EnumValue struct {

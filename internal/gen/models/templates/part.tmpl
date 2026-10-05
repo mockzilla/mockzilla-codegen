@@ -16,6 +16,8 @@ var (
 {{- end}}
 {{if .Additional}}{{template "models/additional.tmpl" .}}
 {{end}}
+{{- if .Getters}}{{template "models/getters.tmpl" .}}
+{{- end}}
 {{- if .Validate}}{{template "models/validate.tmpl" .}}
 {{end}}
 {{- if .Error}}{{template "models/error.tmpl" .}}

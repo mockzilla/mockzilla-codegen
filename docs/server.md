@@ -131,7 +131,8 @@ error` for kratos, an `http.HandlerFunc` for every other framework. Each handler
 runtime codecs, decodes the body by the request's `Content-Type`, validates the options when the
 config asks for it, calls the service and writes what it returns. A query, header, cookie or
 querystring parameter that is not there takes the `default` of its schema; the field stays a
-pointer, so the client still sends only what is set. A required parameter is never filled. A
+pointer, so the client still sends only what is set. Its getter, such as `GetLimit()`, returns the
+value or the default, see [defaults](types.md#defaults). A required parameter is never filled. A
 default that does not fit its schema is left out, and generation warns (`default-ignored`). A
 property of a JSON, form or multipart body gets its default the same way, see
 [request bodies](#request-bodies).

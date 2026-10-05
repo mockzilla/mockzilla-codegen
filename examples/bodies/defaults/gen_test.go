@@ -57,3 +57,28 @@ func TestAddOrder(t *testing.T) {
 		})
 	}
 }
+
+func TestGetters(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		order    *Order
+		gift     *Gift
+		wantQty  int
+		wantWrap bool
+	}{
+		{name: "Nil values give the defaults", wantQty: 1, wantWrap: true},
+		{name: "Unset fields give the defaults", order: &Order{}, gift: &Gift{}, wantQty: 1, wantWrap: true},
+		{name: "Set fields give their values", order: &Order{Qty: new(3)}, gift: &Gift{Wrap: new(false)}, wantQty: 3},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.wantQty, tc.order.GetQty())
+			assert.Equal(t, tc.wantWrap, tc.gift.GetWrap())
+		})
+	}
+}

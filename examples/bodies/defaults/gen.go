@@ -23,9 +23,25 @@ type Order struct {
 	Buyer *Buyer  `json:"buyer,omitempty"`
 }
 
+// GetQty returns Qty, or 1 when it is nil.
+func (o *Order) GetQty() int {
+	if o == nil || o.Qty == nil {
+		return 1
+	}
+	return *o.Qty
+}
+
 type Gift struct {
 	Wrap *bool   `json:"wrap,omitempty"`
 	Card *string `json:"card,omitempty"`
+}
+
+// GetWrap returns Wrap, or true when it is nil.
+func (g *Gift) GetWrap() bool {
+	if g == nil || g.Wrap == nil {
+		return true
+	}
+	return *g.Wrap
 }
 
 type Buyer struct {

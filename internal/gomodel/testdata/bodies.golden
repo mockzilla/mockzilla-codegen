@@ -4,9 +4,9 @@ Pet struct models.types
   Name string json=name required checks=value
   Kind string json=kind required checks=value
   Tag *string json=tag nullable omitempty checks=value?
-  Age *int json=age omitempty default=1 checks=value
+  Age *int json=age omitempty default=1 checks=value getter=GetAge:1
   Count *int json=count omitempty checks=value
-  Born *string json=born omitempty readOnly checks=value
+  Born *string json=born omitempty readOnly checks=value getter=GetBorn:"today"
   Owner *Owner json=owner omitempty checks=Owner
   Tags []string json=tags omitempty checks=[]value
   Notes []*string json=notes omitempty checks=[]value?
@@ -15,7 +15,7 @@ Pet struct models.types
   Loose *PetLoose json=loose omitempty checks=PetLoose?
   Anything any json=anything omitempty checks=value?
   Pick *PetPick json=pick omitempty checks=value
-  Level *Level json=level omitempty default=3 checks=value
+  Level *Level json=level omitempty default=3 checks=value getter=GetLevel:3
 PetLoose struct models.types
   A *string json=a omitempty checks=value
 PetPick union models.unions
@@ -23,11 +23,11 @@ PetPick union models.unions
   | String *string kinds=string
   | Int *int kinds=integer
 Owner struct models.types
-  City *string json=city omitempty default="Berlin" checks=value
+  City *string json=city omitempty default="Berlin" checks=value getter=GetCity:"Berlin"
   AdditionalProperties map[string]Owner json=- checks=map[]Owner
 Level alias int models.types
 Hook struct models.types
-  Seen *bool json=seen omitempty
+  Seen *bool json=seen omitempty getter=GetSeen:true
 AddPetRequestBody alias string models.bodies
 op AddPets POST /pets
   body application/json Pets checks=[]Pet
@@ -38,4 +38,4 @@ op AddPet POST /pet
 op PostPetAdded POST petAdded
   body application/json Hook
 ---
-warning default-ignored 44:16 /components/schemas/Pet/properties/count: the default of property "count" of Pet does not fit its schema, so the server does not set it: it is a string, the schema wants integer
+warning default-ignored 44:16 /components/schemas/Pet/properties/count: the default of property "count" of Pet does not fit its schema, so it is left out: it is a string, the schema wants integer

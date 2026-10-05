@@ -1,0 +1,62 @@
+openapi: 3.1.0
+info: {title: getters, version: "1"}
+paths:
+  /pets/{id}:
+    get:
+      operationId: listPets
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, default: x}}
+        - {name: limit, in: query, schema: {type: integer, default: 20}}
+        - {name: page, in: query, required: true, schema: {type: integer, default: 1}}
+        - {name: sort, in: query, schema: {$ref: '#/components/schemas/Order'}}
+        - {name: tags, in: query, schema: {type: array, items: {type: string}, default: [new, sale]}}
+        - {name: since, in: query, schema: {type: string, format: date, default: "2026-01-01"}}
+        - {name: X-Rate, in: header, schema: {type: number, format: float, default: 1.5}}
+        - {name: debug, in: cookie, schema: {type: boolean, default: false}}
+        - {name: q, in: query}
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+components:
+  schemas:
+    Sort:
+      type: string
+      enum: [name, date]
+      default: name
+    Order:
+      $ref: '#/components/schemas/Sort'
+    Sorts:
+      type: array
+      items: {$ref: '#/components/schemas/Sort'}
+      default: [date, name]
+    Pet:
+      type: object
+      properties:
+        size: {type: [string, "null"], default: m}
+        born: {type: string, readOnly: true, default: today}
+        sorts: {$ref: '#/components/schemas/Sorts'}
+        email: {type: string, format: email, default: a@b.c}
+        owner: {$ref: '#/components/schemas/Owner', default: {name: shop}}
+        plain: {type: integer, default: 5, x-go-type-skip-optional-pointer: true}
+        age: {type: integer, default: 1}
+        get_age: {type: string}
+        photo: {type: string, format: byte, default: aGk=}
+        notes: {type: array, items: {type: [string, "null"]}, default: [a]}
+        anything: {default: 1}
+        tiny: {type: integer, format: int8, default: -128}
+    Owner:
+      type: object
+      properties:
+        name: {type: string}
+    Pick:
+      oneOf:
+        - {$ref: '#/components/schemas/GetKind'}
+        - {type: string}
+      properties:
+        kind: {type: string, default: cat}
+    GetKind:
+      type: object
+      properties:
+        x: {type: integer}

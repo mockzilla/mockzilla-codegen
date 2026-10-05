@@ -43,6 +43,7 @@ const (
 	CodeEnumNameUnexported     = "enum-name-unexported"
 	CodeEnumValue              = "enum-value"
 	CodeDefaultIgnored         = "default-ignored"
+	CodeGetterSkipped          = "getter-skipped"
 	CodeAllOfConflict          = "allof-conflict"
 	CodeAllOfCycle             = "allof-cycle"
 	CodeAliasCycle             = "alias-cycle"

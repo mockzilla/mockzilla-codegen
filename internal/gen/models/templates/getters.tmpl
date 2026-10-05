@@ -1,0 +1,9 @@
+{{- range .Getters}}
+{{comment .Doc}}
+func ({{.Receiver}} *{{$.Name}}) {{.Name}}() {{.Type}} {
+	if {{.Receiver}} == nil || {{.Receiver}}.{{.Field}} == nil {
+		return {{.Default}}
+	}
+	return {{if .IsPointer}}*{{end}}{{.Receiver}}.{{.Field}}
+}
+{{end}}
