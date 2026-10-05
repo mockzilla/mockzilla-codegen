@@ -76,13 +76,46 @@ func resolveOperations(doc *spec.Document, opts Options, c *diag.Collector) []*O
 			Origin:  origin(op.Origin),
 		}
 	}
-	res := resolve(opts.ReservedOperations, reqs, c)
+	res := naming.Resolve(opts.ReservedOperations, reqs)
+
+	// An operationId used again gets a warning with its new name in place of the rename's info.
+	firsts := firstUses(all)
+	for _, r := range res.Renames {
+		if firsts[r.ID] == nil {
+			c.Append(r.Diagnostic())
+		}
+	}
 
 	ops := make([]*Operation, len(all))
 	for i, op := range all {
 		ops[i] = &Operation{Name: res.Names[op.Origin.Pointer], Spec: op}
+		if first := firsts[op.Origin.Pointer]; first != nil {
+			c.Append(diag.Diagnostic{
+				Severity: diag.Warning,
+				Code:     diag.CodeOperationIDDuplicate,
+				Pointer:  op.Origin.Pointer + "/operationId",
+				Origin:   origin(op.Origin),
+				Message:  fmt.Sprintf("operationId %q is also used by %s %s; %s %s is %s", op.ID, first.Method, first.Path, op.Method, op.Path, ops[i].Name),
+			})
+		}
 	}
 	return ops
+}
+
+// firstUses maps each operation whose operationId an earlier one has to that earlier one.
+func firstUses(ops []*spec.Operation) map[string]*spec.Operation {
+	out := map[string]*spec.Operation{}
+	byID := map[string]*spec.Operation{}
+	for _, op := range ops {
+		switch first := byID[op.ID]; {
+		case op.IsIDDerived:
+		case first != nil:
+			out[op.Origin.Pointer] = first
+		default:
+			byID[op.ID] = op
+		}
+	}
+	return out
 }
 
 // hasStream reports an operation that answers a 2xx in a sequential media type, which the client

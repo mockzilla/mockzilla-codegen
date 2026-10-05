@@ -187,3 +187,8 @@ components:
         - {type: object, properties: {x: {type: string}}}
     Flag:
       type: [boolean, string]
+    SameRequired:
+      oneOf:
+        - {type: object, required: [id], properties: {id: {type: string}, a: {type: string}}}
+        - {type: object, required: [id], properties: {id: {type: string}, b: {type: string}}}
+        - {type: object, required: [id, c], properties: {id: {type: string}, c: {type: string}}}

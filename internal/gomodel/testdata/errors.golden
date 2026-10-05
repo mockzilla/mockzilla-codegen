@@ -36,5 +36,6 @@ warning error-mapping 0:0 : models.error-mapping names Missing, which is no gene
 warning error-mapping 0:0 : models.error-mapping names Status, which is no generated struct or union
 info name-clash 10:11 /components/schemas/ErrorResponse/properties/error: "Error" is reserved, renamed to "Error2"
 warning error-mapping 19:18 /components/schemas/DetailError/properties/details/items: DetailErrorDetailsItem has no property at text[]; it gets no Error method
+warning union-ambiguous 21:7 /components/schemas/Problem: variants Option1, Option2 of Problem require no property, so {} matches each of them and fails to decode
 warning error-mapping 23:11 /components/schemas/Problem/oneOf/1: ProblemOption2 has no property at nope; it gets no Error method
 info name-clash 27:16 /components/schemas/Plain/properties/error: "Error" is reserved, renamed to "Error2"

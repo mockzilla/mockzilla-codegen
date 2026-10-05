@@ -39,6 +39,7 @@ func TestViewRendersValidation(t *testing.T) {
 		{Name: "Owner", JSONName: "owner", Type: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: owner}}},
 		{Name: "Secret", JSONName: "secret", Type: str},
 		{Name: "Photo", JSONName: "photo", Type: gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}},
+		{Name: "Extra", JSONName: "extra", Type: gomodel.Map{Key: str, Elem: gomodel.Builtin{Name: "any"}}},
 	}}, Validation: &gomodel.Validation{HasResponse: true, Checks: []*gomodel.Check{
 		{Field: "Name", Path: "name", Rules: []gomodel.Rule{
 			{Kind: gomodel.RuleMinLength, Number: "1"},
@@ -63,13 +64,17 @@ func TestViewRendersValidation(t *testing.T) {
 		{Field: "Labels", Path: "labels", IsGuarded: true, Rules: []gomodel.Rule{
 			{Kind: gomodel.RuleMinProperties, Number: "1"},
 			{Kind: gomodel.RuleMaxProperties, Number: "2"},
-		}, Values: &gomodel.Check{Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "1"}}}},
+		}, Values: &gomodel.Check{Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "1"}}}, Keys: []gomodel.Rule{
+			{Kind: gomodel.RulePattern, Pattern: code},
+			{Kind: gomodel.RuleEnum, Values: []spec.Value{{Kind: spec.KindString, Str: "A"}, {Kind: spec.KindString, Str: "B"}}},
+		}},
 		{Field: "Owner", Path: "owner", IsPointer: true, IsGuarded: true, IsNested: true, Nested: owner},
 		{Field: "Secret", Path: "secret", Side: gomodel.SideRequest, Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "8"}}},
 		{Field: "Photo", Path: "photo", IsGuarded: true, Rules: []gomodel.Rule{
 			{Kind: gomodel.RuleMaxLength, Number: "8", IsBase64: true},
 			{Kind: gomodel.RulePattern, Pattern: code, IsBase64: true},
 		}},
+		{Field: "Extra", Path: "extra", Keys: []gomodel.Rule{{Kind: gomodel.RuleMaxLength, Number: "4"}}},
 	}}}
 	pets := &gomodel.Decl{Name: "Pets", Part: gomodel.PartTypes, Kind: gomodel.KindDefined, Target: gomodel.Slice{Elem: gomodel.DeclRef{Decl: pet}}, Validation: &gomodel.Validation{
 		HasResponse: true,
@@ -107,7 +112,7 @@ func TestViewRendersValidation(t *testing.T) {
 func TestRuleFuncs(t *testing.T) {
 	t.Parallel()
 
-	for kind := gomodel.RuleMinLength; kind <= gomodel.RuleConst; kind++ {
+	for kind := gomodel.RuleMinLength; kind <= gomodel.RuleEnum; kind++ {
 		if ruleFuncs[kind] == "" {
 			t.Errorf("rule kind %d has no runtime function", kind)
 		}

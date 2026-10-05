@@ -22,7 +22,15 @@ Order struct models.types
 OrderStatus2 enum string models.enums
   OrderStatus2Open "open"
 OrderStatus alias string models.types
+op ListThings GET /things
+op ListThings2 POST /things
+op GetStuff GET /stuff
+op GetStuff2 GET /stuff/all
+op ListThings3 POST again
 ---
-info name-clash 7:7 /components/schemas/Client: "Client" is reserved, renamed to "ClientSchema"
-info name-clash 20:7 /components/schemas/Pet: "Pet" is used by /components/schemas/pet, renamed to "PetSchema"
-info name-clash 33:17 /components/schemas/Order/properties/status: "OrderStatus" is used by /components/schemas/OrderStatus, renamed to "OrderStatus2"
+warning operation-id-duplicate 9:7 /paths/~1things/post/operationId: operationId "listThings" is also used by GET /things; POST /things is ListThings2
+info name-clash 16:7 /paths/~1stuff~1all/get: "GetStuff" is used by /paths/~1stuff/get, renamed to "GetStuff2"
+warning operation-id-duplicate 21:7 /webhooks/again/post/operationId: operationId "listThings" is also used by GET /things; POST again is ListThings3
+info name-clash 26:7 /components/schemas/Client: "Client" is reserved, renamed to "ClientSchema"
+info name-clash 39:7 /components/schemas/Pet: "Pet" is used by /components/schemas/pet, renamed to "PetSchema"
+info name-clash 52:17 /components/schemas/Order/properties/status: "OrderStatus" is used by /components/schemas/OrderStatus, renamed to "OrderStatus2"

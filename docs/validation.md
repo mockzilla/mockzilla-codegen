@@ -55,10 +55,11 @@ that checks nothing has no `Validate`.
 | `minLength`, `maxLength` | strings | characters, not bytes; for `format: byte` the base64 text |
 | `pattern` | strings | Go `regexp` (RE2); for `format: byte` the base64 text |
 | `format` | strings | `uuid`, `uri`, `uri-reference`, `ipv4`, `ipv6`, `hostname`, `date`, `date-time`, `email` |
-| `minimum`, `maximum`, exclusive forms | numbers | 3.0 boolean and 3.1 numeric forms alike |
+| `minimum`, `maximum`, exclusive forms | numbers | the boolean and the numeric form in every version |
 | `multipleOf` | numbers | |
 | `minItems`, `maxItems`, `uniqueItems` | arrays | |
 | `minProperties`, `maxProperties` | maps | |
+| `propertyNames` | maps | each key: length, `pattern`, `format`, `const` and `enum` |
 | `const` | strings, numbers, booleans | |
 | `enum` | enum types | the value is one of the constants |
 | `required` | pointers, slices, maps | not nil |
@@ -74,6 +75,16 @@ that checks nothing has no `Validate`.
   an integer.
 - Under `allOf`, every member's limits hold: the strictest of each is checked, and every `pattern`
   and `multipleOf`.
+- `exclusiveMinimum` and `exclusiveMaximum` are read by their value: a number is the bound, `true`
+  or `false` makes `minimum` or `maximum` exclusive. The form of the other version, a number in a
+  3.0 spec or a boolean in a 3.1 one, still counts, with a warning (`keyword-version`).
+- A keyword whose value is of the wrong kind, such as `minLength: abc` or `required: true` on a
+  property, is left out, with a warning (`keyword-invalid`). A schema that is no object, such as
+  `name: string`, reads as any, with a warning (`schema-invalid`).
+- `patternProperties`, `prefixItems`, `not`, `contains`, `minContains`, `maxContains`,
+  `dependentRequired`, `dependentSchemas`, `unevaluatedProperties` and `unevaluatedItems` are not
+  checked, with a warning (`keyword-unsupported`). So is `propertyNames` on a struct without
+  additional properties, which keeps no other keys to check.
 
 ### required
 
@@ -96,7 +107,8 @@ name: must be at least 1 characters long; tags[1]: must match ^[a-z]+$; labels["
 ```
 
 `errors.As` finds the `runtime.ValidationErrors` and each `runtime.ValidationError` in it. Map values
-come out in key order, so the same value gives the same error text on every run.
+come out in key order, so the same value gives the same error text on every run. A key that fails
+`propertyNames` is reported under the path of its value: `labels["Bad Key"]: must match ^[a-z]+$`.
 
 ## readOnly and writeOnly
 

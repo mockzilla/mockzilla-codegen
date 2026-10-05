@@ -1,6 +1,25 @@
 openapi: 3.1.0
 info: {title: naming, version: "1"}
-paths: {}
+paths:
+  /things:
+    get:
+      operationId: listThings
+      responses: {"200": {description: ok}}
+    post:
+      operationId: listThings
+      responses: {"200": {description: ok}}
+  /stuff:
+    get:
+      responses: {"200": {description: ok}}
+  /stuff/all:
+    get:
+      operationId: getStuff
+      responses: {"200": {description: ok}}
+webhooks:
+  again:
+    post:
+      operationId: listThings
+      responses: {"200": {description: ok}}
 components:
   schemas:
     Client:

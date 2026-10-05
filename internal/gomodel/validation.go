@@ -125,6 +125,7 @@ func (v *validator) check(d *Decl, s *spec.Schema, t Type, name string) *Check {
 		}
 	case Map:
 		c.Values = nonEmpty(v.check(d, v.valuesOf(s), u.Elem, name+"Value"))
+		c.Keys = v.keyRules(d, s, name+"Key")
 	}
 	return c
 }
@@ -135,19 +136,23 @@ func (v *validator) check(d *Decl, s *spec.Schema, t Type, name string) *Check {
 func (v *validator) keywords(s *spec.Schema) *keywordSet {
 	out := &keywordSet{}
 	for _, x := range v.chain(s) {
-		f := x
-		if m := v.flat.merged(x); m != nil {
-			f = m.schema
-			out.join(m.joint)
-		}
-		for _, part := range append([]*spec.Schema{f}, siblings(x)[1:]...) {
-			mergeLimits(&out.limits, part.Limits)
-			out.add(part)
-			out.format = cmp.Or(out.format, part.Format)
-			out.constant = cmp.Or(out.constant, part.Const)
-		}
+		v.addKeywords(out, x)
 	}
 	return out
+}
+
+func (v *validator) addKeywords(out *keywordSet, x *spec.Schema) {
+	f := x
+	if m := v.flat.merged(x); m != nil {
+		f = m.schema
+		out.join(m.joint)
+	}
+	for _, part := range append([]*spec.Schema{f}, siblings(x)[1:]...) {
+		mergeLimits(&out.limits, part.Limits)
+		out.add(part)
+		out.format = cmp.Or(out.format, part.Format)
+		out.constant = cmp.Or(out.constant, part.Const)
+	}
 }
 
 // chain is s and the schemas its plain refs lead to, stopping before a declared type that is no
@@ -166,6 +171,46 @@ func (v *validator) chain(s *spec.Schema) []*spec.Schema {
 		s = r.Target
 	}
 	return out
+}
+
+// keyRules are what propertyNames checks of each key; a key is a string, so every ref is followed.
+func (v *validator) keyRules(d *Decl, s *spec.Schema, name string) []Rule {
+	names := v.propertyNamesOf(s)
+	if names == nil {
+		return nil
+	}
+
+	kw := &keywordSet{}
+	for x, seen := names, map[*spec.Schema]bool{}; x != nil && !seen[x]; {
+		seen[x] = true
+		v.addKeywords(kw, x)
+		r := refOf(x)
+		if r == nil {
+			break
+		}
+		x = r.Target
+	}
+
+	out := v.rules(d, kw, stringType, name)
+	var values []spec.Value
+	for _, e := range v.flat.flatten(target(names)).Enum {
+		if e.Kind == spec.KindString {
+			values = append(values, e)
+		}
+	}
+	if len(values) > 0 {
+		out = append(out, Rule{Kind: RuleEnum, Values: values})
+	}
+	return out
+}
+
+func (v *validator) propertyNamesOf(s *spec.Schema) *spec.Schema {
+	for _, x := range v.chain(s) {
+		if f := v.flat.flatten(x); f.PropertyNames != nil {
+			return f.PropertyNames
+		}
+	}
+	return nil
 }
 
 func (v *validator) itemsOf(s *spec.Schema) *spec.Schema {
@@ -396,7 +441,7 @@ func isPointer(t Type) bool {
 }
 
 func isEmpty(c *Check) bool {
-	return len(c.Rules) == 0 && !c.IsNested && c.Items == nil && c.Values == nil && !c.IsRequired
+	return len(c.Rules) == 0 && !c.IsNested && c.Items == nil && c.Values == nil && len(c.Keys) == 0 && !c.IsRequired
 }
 
 func nonEmpty(c *Check) *Check {

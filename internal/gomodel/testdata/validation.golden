@@ -134,11 +134,40 @@ Tagged union models.unions
   | Cat *Cat kinds=object values=Cat known=kind
   | Dog *Dog kinds=object values=Dog known=kind
   ? validate count=ExactlyOne discriminated
+KeyLabels defined map[string]string models.types
+  ? validate
+  ? - path= guarded key minLength(2) key maxLength(10) key pattern(patternPetTagsItem)
+  ?   values - path= maxLength(5)
+Colors defined map[string]int models.types
+  ? validate
+  ? - path= guarded key enum("red","green")
+Color enum string models.enums
+  ColorRed "red"
+  ColorGreen "green"
+  ? validate
+Mixed struct models.types
+  Name *string json=name omitempty
+  AdditionalProperties map[string]any json=-
+  ? validate
+  ? AdditionalProperties path= guarded key format(uuid) key const("x")
+Fixed struct models.types
+  A *string json=a omitempty
+Merged defined map[string]string models.types
+  ? validate
+  ? - path= guarded key pattern(patternStrictCode) key pattern(patternMergedKey)
+KeyHolder struct models.types
+  Inline map[string]string json=inline omitempty
+  KeysOnly map[string]any json=keysOnly omitempty
+  ? validate
+  ? Inline path=inline guarded key minLength(1)
+  ? KeysOnly path=keysOnly guarded key maxLength(4)
 pattern patternPetName models.types "^[A-Z]"
 pattern patternPetTagsItem models.types "^[a-z]+$"
 pattern patternPetAccent models.types "^\\x{00e9}"
 pattern patternStrictCode models.types "^a"
 pattern patternStrictCode2 models.types "z$"
 pattern patternStrictWrapped models.types "b"
+pattern patternMergedKey models.types "b$"
 ---
 warning pattern-unsupported 45:16 /components/schemas/Pet/properties/ahead: pattern "^(?=a)" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?=`); it is not used
+warning keyword-unsupported 160:22 /components/schemas/Fixed/propertyNames: propertyNames is not checked: Fixed keeps no keys besides its properties
