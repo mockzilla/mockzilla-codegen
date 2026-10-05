@@ -154,6 +154,12 @@ func description(s *spec.Schema) string {
 	return ""
 }
 
+// isBare reports a schema with nothing but docs: no limits, pattern or flags either.
+func isBare(s *spec.Schema) bool {
+	return isDocOnly(s) && s.Limits == spec.Limits{} && s.Pattern == "" && !s.Nullable && !s.ReadOnly && !s.WriteOnly &&
+		!s.Deprecated && s.Default == nil && s.Not == nil && s.PropertyNames == nil && s.ContentEncoding == "" && s.ContentMediaType == ""
+}
+
 // isDocOnly reports a schema that adds nothing to a type: a description, flags or limits.
 func isDocOnly(s *spec.Schema) bool {
 	return s.Ref == nil && len(members(s)) == 0 && !hasShape(s) && s.Types == 0 && s.Format == "" && s.Const == nil

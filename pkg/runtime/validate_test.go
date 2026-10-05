@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"math"
 	"regexp"
 	"testing"
 
@@ -43,6 +44,13 @@ func TestChecksOfValues(t *testing.T) {
 		{name: "Multiple of", err: MultipleOf(0.3, 0.1)},
 		{name: "No multiple", err: MultipleOf(7, 2), want: "must be a multiple of 2"},
 		{name: "Factor that is not positive", err: MultipleOf(7, 0)},
+		{name: "Factor that is no number", err: MultipleOf(7, math.NaN())},
+		{name: "Multiple of a cent", err: MultipleOf(1234567.89, 0.01)},
+		{name: "Float32 read as written", err: MultipleOf(float32(0.07), 0.01)},
+		{name: "Unsigned multiple", err: MultipleOf(uint8(6), 3)},
+		{name: "Integer past float64", err: MultipleOf(int64(9007199254740993), 2), want: "must be a multiple of 2"},
+		{name: "Near miss as written", err: MultipleOf(0.30000000000000004, 0.01), want: "must be a multiple of 0.01"},
+		{name: "NaN is no multiple", err: MultipleOf(math.NaN(), 0.1), want: "must be a multiple of 0.1"},
 		{name: "Min items", err: MinItems([]int{1}, 1)},
 		{name: "Too few items", err: MinItems([]int{}, 1), want: "must have at least 1 items"},
 		{name: "Max items", err: MaxItems([]int{1}, 1)},

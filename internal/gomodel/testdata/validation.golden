@@ -161,6 +161,80 @@ KeyHolder struct models.types
   ? validate
   ? Inline path=inline guarded key minLength(1)
   ? KeysOnly path=keysOnly guarded key maxLength(4)
+Vehicle struct models.types
+  Kind *Kind json=kind omitempty
+  Size *VehicleSize json=size omitempty
+  Rank *VehicleRank json=rank omitempty
+  Level *VehicleLevel json=level omitempty
+  Mode *string json=mode omitempty
+  Mark *string json=mark omitempty
+  Name *string json=name omitempty
+  Tag any json=tag omitempty
+  ? validate
+  ? Kind path=kind pointer guarded nested
+  ? Size path=size pointer guarded nested
+  ? Rank path=rank pointer guarded nested
+  ? Level path=level pointer guarded nested
+  ? Mode path=mode pointer guarded const("a")
+  ? Mark path=mark pointer guarded const("x")
+  ? Name path=name pointer guarded minLength(2)
+VehicleSize enum string models.enums
+  VehicleSizeS "s"
+  VehicleSizeM "m"
+  VehicleSizeL "l"
+  ? validate
+VehicleRank enum int models.enums
+  VehicleRank1 1
+  VehicleRank2 2
+  VehicleRank3 3
+  ? validate
+VehicleLevel enum int models.enums
+  VehicleLevel1 1
+  VehicleLevel2 2
+  VehicleLevel3 3
+  ? validate
+Kind enum string models.enums
+  KindCar "car"
+  KindBike "bike"
+  ? validate
+Car struct models.types
+  Kind *CarKind json=kind omitempty
+  Size *CarSize json=size omitempty
+  Rank *CarRank json=rank omitempty
+  Level *CarLevel json=level omitempty
+  Mode *string json=mode omitempty
+  Mark *CarMark json=mark omitempty
+  Name *string json=name omitempty
+  Tag *string json=tag omitempty
+  ? validate
+  ? Kind path=kind pointer guarded nested
+  ? Size path=size pointer guarded nested
+  ? Rank path=rank pointer guarded nested
+  ? Level path=level pointer guarded nested
+  ? Mode path=mode pointer guarded const("a")
+  ? Mark path=mark pointer guarded nested
+  ? Name path=name pointer guarded minLength(2) maxLength(5)
+  ? Tag path=tag pointer guarded minLength(1) maxLength(4)
+CarKind enum string models.enums
+  CarKindCar "car"
+  ? validate
+CarSize enum string models.enums
+  CarSizeM "m"
+  CarSizeL "l"
+  ? validate
+CarRank enum int models.enums
+  CarRank2 2
+  CarRank3 3
+  ? validate
+CarLevel enum int models.enums
+  CarLevel1 1
+  CarLevel2 2
+  CarLevel3 3
+  ? validate
+CarMark enum string models.enums
+  CarMarkY "y"
+  CarMarkZ "z"
+  ? validate
 pattern patternPetName models.types "^[A-Z]"
 pattern patternPetTagsItem models.types "^[a-z]+$"
 pattern patternPetAccent models.types "^\\x{00e9}"
@@ -171,3 +245,6 @@ pattern patternMergedKey models.types "b$"
 ---
 warning pattern-unsupported 45:16 /components/schemas/Pet/properties/ahead: pattern "^(?=a)" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?=`); it is not used
 warning keyword-unsupported 160:22 /components/schemas/Fixed/propertyNames: propertyNames is not checked: Fixed keeps no keys besides its properties
+warning allof-conflict 176:16 /components/schemas/Car/allOf/properties/level: allOf members allow no value in common; keeping the enum 1, 2, 3
+warning allof-conflict 177:15 /components/schemas/Car/allOf/properties/mode: allOf members set const "a" and "b"; keeping "a"
+warning allof-conflict 178:15 /components/schemas/Car/allOf/properties/mark: allOf members allow no value in common; keeping the enum "y", "z"

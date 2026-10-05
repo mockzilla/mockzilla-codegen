@@ -10,7 +10,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
-	"math"
+	"math/big"
+	"reflect"
 	"regexp"
 	"slices"
 	"strconv"
@@ -110,14 +111,14 @@ func Maximum[T Number](v T, bound float64, isExclusive bool) error {
 	return nil
 }
 
-// MultipleOf checks that v divided by factor is a whole number. A factor that is not positive
-// passes everything.
+// MultipleOf checks that v, as the decimal JSON carries, is a whole multiple of a positive factor.
 func MultipleOf[T Number](v T, factor float64) error {
-	if factor <= 0 {
+	f, isFactor := new(big.Rat).SetString(formatFloat(factor))
+	if !isFactor || f.Sign() <= 0 {
 		return nil
 	}
-	q := float64(v) / factor
-	if math.Abs(q-math.Round(q)) > 1e-9 {
+	q, isNumber := new(big.Rat).SetString(decimal(v))
+	if !isNumber || !q.Quo(q, f).IsInt() {
 		return ValidationError{Message: "must be a multiple of " + formatFloat(factor)}
 	}
 	return nil
@@ -223,4 +224,16 @@ func SortedKeys[V any](m map[string]V) []string {
 
 func formatFloat(f float64) string {
 	return strconv.FormatFloat(f, 'g', -1, 64)
+}
+
+// decimal is the shortest text that reads back as v in its own type.
+func decimal[T Number](v T) string {
+	switch r := reflect.ValueOf(v); {
+	case r.CanInt():
+		return strconv.FormatInt(r.Int(), 10)
+	case r.CanUint():
+		return strconv.FormatUint(r.Uint(), 10)
+	default:
+		return strconv.FormatFloat(r.Float(), 'g', -1, r.Type().Bits())
+	}
 }
