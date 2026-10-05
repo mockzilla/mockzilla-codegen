@@ -55,6 +55,9 @@ func dumpDecl(b *strings.Builder, d *Decl) {
 		b.WriteString(" " + typeText(d.Target))
 	}
 	b.WriteString(" " + d.Part)
+	if d.IsForm {
+		b.WriteString(" form")
+	}
 	if d.Deprecated {
 		b.WriteString(" deprecated")
 	}

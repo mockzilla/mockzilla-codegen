@@ -117,6 +117,12 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 		if op.Spec.IsWebhook {
 			continue
 		}
+		for _, c := range op.Bodies {
+			if bodyKind(c) == bodyNone {
+				diags = append(diags, warning(op, diag.CodeServerBodyUnread, op.Name+" takes "+c.MediaType+", which the server does not decode into "+
+					gocode.Text(gomodel.Elem(operation.BodyType(c)))+"; read it from RawRequest"))
+			}
+		}
 		for _, r := range op.Responses {
 			for _, c := range r.Contents {
 				if !isWritable(c) {

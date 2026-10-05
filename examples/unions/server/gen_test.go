@@ -7,7 +7,9 @@ package server
 
 import (
 	"bytes"
+	"cmp"
 	"context"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -18,6 +20,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // service echoes the shape it read, and fails with a Fault for the name busy.
@@ -32,6 +36,19 @@ func (service) PostForm(_ context.Context, opts *PostFormServiceRequestOptions) 
 
 func (service) PostMultipart(_ context.Context, opts *PostMultipartServiceRequestOptions) (*PostMultipartResponseData, error) {
 	return NewPostMultipartResponseData(opts.Body), nil
+}
+
+// PostAttachment says which variant it read: the link, or the file with its checksum.
+func (service) PostAttachment(_ context.Context, opts *PostAttachmentServiceRequestOptions) (*PostAttachmentResponseData, error) {
+	a := cmp.Or(opts.BodyForm, opts.BodyMultipart)
+	if a.Link != nil {
+		return NewPostAttachmentResponseData(new("link " + a.Link.URL)), nil
+	}
+	data, err := a.Upload.File.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return NewPostAttachmentResponseData(new(fmt.Sprintf("file %s %s %x", a.Upload.File.Name(), data, a.Upload.Checksum))), nil
 }
 
 func newClient(t *testing.T) *Client {
@@ -53,7 +70,7 @@ func TestUnionFieldsRoundTrip(t *testing.T) {
 		name  string
 		shape Shape
 	}{
-		{name: "An object variant", shape: Shape{Vertex: &Vertex{Point: &Point{X: 1, Y: 2}}, Labels: &labels, Origin: &Point{X: 3, Y: 4}}},
+		{name: "An object variant", shape: Shape{Vertex: &Vertex{Point: &Point{X: 1, Y: 2}}, Labels: &labels, Origin: &Point{X: 3, Y: 4}, Stamp: []byte{0, 255}}},
 		{name: "A string variant", shape: Shape{Name: new("n"), Vertex: &Vertex{String: new("top")}}},
 	}
 
@@ -91,16 +108,44 @@ func TestUnionFieldsFromText(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			form := url.Values{"vertex": {tc.value}}.Encode()
-			assert.JSONEq(t, tc.want, post(t, h, "/form", "application/x-www-form-urlencoded", strings.NewReader(form)))
-
-			var b bytes.Buffer
-			mw := multipart.NewWriter(&b)
-			require.NoError(t, mw.WriteField("vertex", tc.value))
-			require.NoError(t, mw.Close())
-			assert.JSONEq(t, tc.want, post(t, h, "/multipart", mw.FormDataContentType(), &b))
+			form := url.Values{"vertex": {tc.value}}
+			assert.JSONEq(t, tc.want, post(t, h, "/form", "application/x-www-form-urlencoded", strings.NewReader(form.Encode())))
+			body, contentType := multipartForm(t, form)
+			assert.JSONEq(t, tc.want, post(t, h, "/multipart", contentType, body))
 		})
 	}
+}
+
+func TestUnionFieldsFromKeys(t *testing.T) {
+	t.Parallel()
+
+	form := url.Values{"vertex[x]": {"1"}, "vertex[y]": {"2"}, "labels[main]": {"a"}, "labels[extra]": {"b"}, "stamp": {"AP8="}}
+	want := `{"vertex":{"x":1,"y":2},"labels":{"main":"a","extra":"b"},"stamp":"AP8="}`
+
+	h := NewRouter(service{})
+	assert.JSONEq(t, want, post(t, h, "/form", "application/x-www-form-urlencoded", strings.NewReader(form.Encode())))
+	body, contentType := multipartForm(t, form)
+	assert.JSONEq(t, want, post(t, h, "/multipart", contentType, body))
+}
+
+func TestUnionBodies(t *testing.T) {
+	t.Parallel()
+
+	c := newClient(t)
+	link := &Attachment{Link: &Link{URL: "https://example.com/a.png"}}
+	upload := &Attachment{Upload: &Upload{File: runtime.NewFile([]byte("PNG"), "a.png", "image/png"), Checksum: []byte{0xca, 0xfe}}}
+
+	got, err := c.PostAttachment(t.Context(), &PostAttachmentRequestOptions{BodyForm: link})
+	require.NoError(t, err)
+	assert.Equal(t, "link https://example.com/a.png", *got)
+
+	got, err = c.PostAttachment(t.Context(), &PostAttachmentRequestOptions{BodyMultipart: link})
+	require.NoError(t, err)
+	assert.Equal(t, "link https://example.com/a.png", *got)
+
+	got, err = c.PostAttachment(t.Context(), &PostAttachmentRequestOptions{BodyMultipart: upload})
+	require.NoError(t, err)
+	assert.Equal(t, "file a.png PNG cafe", *got)
 }
 
 func TestUnionError(t *testing.T) {
@@ -112,6 +157,21 @@ func TestUnionError(t *testing.T) {
 	require.ErrorAs(t, err, &fault)
 	assert.Equal(t, Fault{Busy: &Busy{Message: "busy", Retry: 5}}, *fault)
 	assert.Equal(t, "busy", fault.Error())
+}
+
+// multipartForm writes values as text parts.
+func multipartForm(t *testing.T, values url.Values) (io.Reader, string) {
+	t.Helper()
+
+	var b bytes.Buffer
+	mw := multipart.NewWriter(&b)
+	for name, items := range values {
+		for _, item := range items {
+			require.NoError(t, mw.WriteField(name, item))
+		}
+	}
+	require.NoError(t, mw.Close())
+	return &b, mw.FormDataContentType()
 }
 
 func post(t *testing.T, h http.Handler, path, contentType string, body io.Reader) string {

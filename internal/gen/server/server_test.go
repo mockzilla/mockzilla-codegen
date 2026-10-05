@@ -104,6 +104,7 @@ func TestNew(t *testing.T) {
 		{Severity: diag.Warning, Code: "route-dropped", Pointer: "/paths/pets~1{id/get", Message: "Bad is not routed: the router rejects the path: it must begin with /"},
 		{Severity: diag.Warning, Code: "route-dropped", Pointer: "/paths/~1pets~1{petId}/delete", Message: "DeletePetAgain is not routed: names its path parameters otherwise than DeletePet at /pets/{id}"},
 		{Severity: diag.Warning, Code: "route-dropped", Pointer: "/paths/~1ping/get", Message: "PingAgain is not routed: repeats the route of Ping"},
+		{Severity: diag.Warning, Code: "server-body-unread", Message: "CreatePet takes application/xml, which the server does not decode into Pet; read it from RawRequest"},
 	}, diags)
 }
 
@@ -125,6 +126,29 @@ func TestNewWarnsOfBodiesTheServerCannotWrite(t *testing.T) {
 		Pointer:  "/paths/~1xml/get",
 		Message:  "GetXML answers 200 as application/xml, which the server cannot write Note as; set Body to a string, []byte or runtime.File",
 	}}, diags)
+}
+
+func TestNewWarnsOfBodiesTheServerCannotRead(t *testing.T) {
+	t.Parallel()
+
+	note := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Note", Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}}
+	scalars := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Scalars", Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{}}}
+	bodies := []gomodel.Content{
+		{MediaType: "application/octet-stream", Type: gomodel.Pointer{Elem: note}},
+		{MediaType: "multipart/form-data", Type: gomodel.Pointer{Elem: scalars}},
+		{MediaType: "text/plain", Type: gomodel.Builtin{Name: "string"}},
+	}
+	m := &gomodel.Model{Operations: []*gomodel.Operation{
+		{Name: "PutNote", Spec: &spec.Operation{Method: "PUT", Path: "/note", Origin: spec.Origin{Pointer: "/paths/~1note/put"}}, Bodies: bodies},
+		{Name: "Hook", Spec: &spec.Operation{Method: "POST", Path: "/hook", IsWebhook: true}, Bodies: bodies},
+	}}
+
+	_, diags := New(m, allOptions())
+
+	assert.Equal(t, []diag.Diagnostic{
+		{Severity: diag.Warning, Code: "server-body-unread", Pointer: "/paths/~1note/put", Message: "PutNote takes application/octet-stream, which the server does not decode into Note; read it from RawRequest"},
+		{Severity: diag.Warning, Code: "server-body-unread", Pointer: "/paths/~1note/put", Message: "PutNote takes multipart/form-data, which the server does not decode into Scalars; read it from RawRequest"},
+	}, diags)
 }
 
 func TestIsWritable(t *testing.T) {

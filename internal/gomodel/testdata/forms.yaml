@@ -1,0 +1,80 @@
+openapi: 3.1.0
+info: {title: forms, version: v1}
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: {$ref: '#/components/schemas/Pet'}
+          application/json:
+            schema: {$ref: '#/components/schemas/Shown'}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/x-www-form-urlencoded; charset=utf-8:
+              schema: {$ref: '#/components/schemas/Labels'}
+  /orders:
+    put:
+      operationId: putOrder
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema: {$ref: '#/components/schemas/Order'}
+      responses:
+        '204': {description: done}
+components:
+  schemas:
+    Pet:
+      oneOf:
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+    Cat:
+      type: object
+      required: [claws]
+      properties:
+        claws: {type: integer}
+        friend: {$ref: '#/components/schemas/Pet'}
+    Dog:
+      type: object
+      required: [bark]
+      properties:
+        bark: {type: string}
+    Labels:
+      type: object
+      additionalProperties: {type: string}
+      properties:
+        name: {type: string}
+    Order:
+      type: object
+      properties:
+        lines:
+          type: array
+          items: {$ref: '#/components/schemas/Line'}
+        more: {$ref: '#/components/schemas/Lines'}
+        code:
+          oneOf:
+            - {type: string}
+            - {type: integer}
+    Lines:
+      type: array
+      items: {$ref: '#/components/schemas/Extras'}
+    Extras:
+      type: object
+      properties:
+        m: {type: string}
+      additionalProperties: {type: string}
+    Line:
+      type: object
+      properties:
+        extra:
+          type: object
+          properties:
+            n: {type: integer}
+          additionalProperties: {type: integer}
+    Shown:
+      oneOf:
+        - {type: object, required: [a], properties: {a: {type: string}}}
+        - {type: object, required: [b], properties: {b: {type: string}}}

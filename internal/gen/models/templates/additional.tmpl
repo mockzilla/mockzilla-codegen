@@ -24,4 +24,12 @@ func ({{.Receiver}} *{{$.Name}}) UnmarshalJSON(data []byte) error {
 	type plain {{$.Name}}
 	return {{.Runtime}}.UnmarshalAdditional(data, (*plain)({{.Receiver}}), &{{.Receiver}}.{{.Field}}{{range .Known}}, {{.}}{{end}})
 }
+{{- if .Form}}
+
+// UnmarshalForm reads the properties, and every other name of the form into {{.Field}}.
+func ({{.Receiver}} *{{$.Name}}) UnmarshalForm(form {{.Form}}) error {
+	type plain {{$.Name}}
+	return {{.Runtime}}.UnmarshalAdditionalForm(form, (*plain)({{.Receiver}}), &{{.Receiver}}.{{.Field}}{{range .Known}}, {{.}}{{end}})
+}
+{{- end}}
 {{- end}}

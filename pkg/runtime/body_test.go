@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -68,6 +69,14 @@ type drawing struct {
 	Named    map[string]vertex `json:"named,omitempty"`
 	Origin   *point            `json:"origin,omitempty"`
 	Count    int               `json:"count,omitempty"`
+}
+
+type blob struct {
+	Data  []byte    `json:"data"`
+	Opt   *[]byte   `json:"opt"`
+	List  [][]byte  `json:"list"`
+	Lines []address `json:"lines"`
+	Tags  []string  `json:"tags"`
 }
 
 type errReader struct{}
@@ -242,6 +251,60 @@ func TestDecodeFormTextErrors(t *testing.T) {
 	}
 }
 
+func TestDecodeFormBytesAndJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		body    string
+		want    blob
+		wantErr error
+	}{
+		{
+			name: "Bytes are base64",
+			body: "data=YWJj&opt=eHl6&list=YQ%3D%3D&list=Yg%3D%3D",
+			want: blob{Data: []byte("abc"), Opt: new([]byte("xyz")), List: [][]byte{[]byte("a"), []byte("b")}},
+		},
+		{name: "Text that is no base64", body: "data=abc", wantErr: ErrParamValue},
+		{name: "A JSON array fills a list of objects", body: "lines=%5B%7B%22city%22%3A%22A%22%7D%5D", want: blob{Lines: []address{{City: "A"}}}},
+		{name: "Text in brackets that is no JSON is text", body: "tags=%5Bdraft%5D", want: blob{Tags: []string{"[draft]"}}},
+		{name: "A key that names nothing is left out", body: "=x&data=YQ%3D%3D", want: blob{Data: []byte("a")}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got blob
+			err := DecodeForm(strings.NewReader(tc.body), &got, false)
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestDecodeFormUnmarshaler(t *testing.T) {
+	t.Parallel()
+
+	var got *post
+	require.NoError(t, DecodeForm(strings.NewReader("id=1&name=Tom&meow=true"), &got, true))
+	assert.Equal(t, &post{ID: "1", Cat: &cat{Name: "Tom", Meow: true}}, got)
+
+	var feed struct {
+		Post  *post  `json:"post"`
+		Posts []post `json:"posts"`
+	}
+	body := "post[meow]=false&posts[0][image]=x&posts[0][caption]=c&posts[0][tags][0]=a&posts[0][tags][1]=b"
+	require.NoError(t, DecodeForm(strings.NewReader(body), &feed, true))
+	assert.Equal(t, &post{Cat: &cat{}}, feed.Post)
+	assert.Equal(t, []post{{Photo: &photo{Caption: "c", Tags: []string{"a", "b"}}}}, feed.Posts)
+}
+
 func multipartRequest(t *testing.T, write func(w *multipart.Writer)) *http.Request {
 	t.Helper()
 
@@ -287,6 +350,43 @@ func TestDecodeMultipart(t *testing.T) {
 	require.NotNil(t, got.Optional)
 	assert.Equal(t, "optional.txt", got.Optional.Name())
 	assert.Len(t, got.Files, 2)
+}
+
+func TestDecodeMultipartBytes(t *testing.T) {
+	t.Parallel()
+
+	r := multipartRequest(t, func(w *multipart.Writer) {
+		require.NoError(t, w.WriteField("data", "YWJj"))
+		part, err := w.CreateFormFile("opt", "raw.bin")
+		require.NoError(t, err)
+		_, err = part.Write([]byte{0, 1})
+		require.NoError(t, err)
+	})
+
+	var got blob
+	require.NoError(t, DecodeMultipart(r, &got, 0))
+	assert.Equal(t, blob{Data: []byte("abc"), Opt: new([]byte{0, 1})}, got)
+
+	_, err := setFiles(reflect.ValueOf(&got.Data).Elem(), []*multipart.FileHeader{{Filename: "gone"}})
+	require.Error(t, err)
+}
+
+func TestDecodeMultipartUnmarshaler(t *testing.T) {
+	t.Parallel()
+
+	r := multipartRequest(t, func(w *multipart.Writer) {
+		require.NoError(t, w.WriteField("id", "9"))
+		part, err := w.CreateFormFile("image", "a.png")
+		require.NoError(t, err)
+		_, err = part.Write([]byte("PNG"))
+		require.NoError(t, err)
+	})
+
+	var got post
+	require.NoError(t, DecodeMultipart(r, &got, 0))
+	assert.Equal(t, "9", got.ID)
+	require.NotNil(t, got.Photo)
+	assert.Equal(t, "a.png", got.Photo.Image.Name())
 }
 
 func TestDecodeMultipartEdges(t *testing.T) {

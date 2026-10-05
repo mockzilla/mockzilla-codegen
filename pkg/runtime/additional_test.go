@@ -6,6 +6,8 @@
 package runtime
 
 import (
+	"mime/multipart"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +17,22 @@ import (
 type withExtra struct {
 	Name  string         `json:"name,omitempty"`
 	Extra map[string]int `json:"-"`
+}
+
+// tagged stands in for a generated struct with additional properties that reads forms.
+type tagged struct {
+	Name  string         `json:"name,omitempty"`
+	Extra map[string]any `json:"-"`
+}
+
+func (g tagged) MarshalJSON() ([]byte, error) {
+	type plain tagged
+	return MarshalAdditional(plain(g), g.Extra, "name")
+}
+
+func (g *tagged) UnmarshalForm(form *multipart.Form) error {
+	type plain tagged
+	return UnmarshalAdditionalForm(form, (*plain)(g), &g.Extra, "name")
 }
 
 func TestMarshalAdditional(t *testing.T) {
@@ -177,4 +195,73 @@ func TestUnmarshalAdditionalErrors(t *testing.T) {
 			assert.EqualError(t, err, tc.wantMsg)
 		})
 	}
+}
+
+func TestUnmarshalAdditionalForm(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		values    url.Values
+		extra     map[string]int
+		want      withExtra
+		wantExtra map[string]int
+	}{
+		{
+			name:      "Other names go to extra",
+			values:    url.Values{"name": {"a"}, "b": {"2"}, "z": {"1"}},
+			want:      withExtra{Name: "a"},
+			wantExtra: map[string]int{"b": 2, "z": 1},
+		},
+		{
+			name:   "Only known names leave extra nil",
+			values: url.Values{"name": {"a"}, "": {"x"}},
+			want:   withExtra{Name: "a"},
+		},
+		{
+			name:      "Entries already in extra are kept",
+			values:    url.Values{"b": {"2"}},
+			extra:     map[string]int{"a": 1},
+			wantExtra: map[string]int{"a": 1, "b": 2},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got withExtra
+			extra := tc.extra
+			err := UnmarshalAdditionalForm(&multipart.Form{Value: tc.values}, &got, &extra, "name")
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantExtra, extra)
+		})
+	}
+}
+
+func TestUnmarshalAdditionalFormErrors(t *testing.T) {
+	t.Parallel()
+
+	var extra map[string]int
+	require.ErrorIs(t, UnmarshalAdditionalForm(&multipart.Form{}, withExtra{}, &extra), ErrParamValue)
+	require.ErrorIs(t, UnmarshalAdditionalForm(&multipart.Form{Value: url.Values{"b": {"x"}}}, &withExtra{}, &extra, "name"), ErrAdditionalProperty)
+}
+
+func TestUnmarshalAdditionalFormNested(t *testing.T) {
+	t.Parallel()
+
+	var got struct {
+		Tags *tagged `json:"tags"`
+	}
+	values := url.Values{"tags[name]": {"a"}, "tags[n]": {"1"}, "tags[list][0][k]": {"v"}, "tags[list][1][k]": {"w"}, "tags[obj][x]": {"y"}, "tags[many]": {"1", "2"}}
+	require.NoError(t, fillPointer(&multipart.Form{Value: values}, &got))
+
+	assert.Equal(t, &tagged{Name: "a", Extra: map[string]any{
+		"n":    int64(1),
+		"list": []any{map[string]any{"k": "v"}, map[string]any{"k": "w"}},
+		"obj":  map[string]any{"x": "y"},
+		"many": []any{int64(1), int64(2)},
+	}}, got.Tags)
 }

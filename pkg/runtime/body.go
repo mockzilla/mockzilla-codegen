@@ -28,6 +28,11 @@ const DefaultMultipartMemory = 32 << 20
 
 var fileType = reflect.TypeFor[File]()
 
+// FormUnmarshaler is a type that reads a form itself, as a generated union in a form body does.
+type FormUnmarshaler interface {
+	UnmarshalForm(form *multipart.Form) error
+}
+
 // ContentType is the media type of a request or response body, without its parameters. A
 // parameter that does not parse, such as a charset without a value, leaves the media type.
 func ContentType(h http.Header) string {
@@ -72,13 +77,13 @@ func DecodeForm(body io.Reader, dst any, isRequired bool) error {
 	if err != nil {
 		return err
 	}
-	return assignForm(values, dst)
+	return fillPointer(&multipart.Form{Value: values}, dst)
 }
 
 // DecodeMultipart decodes a multipart/form-data body into dst, a pointer to a struct. Fields of
 // type File, *File or []File take the files of their name; a part that holds JSON fills a field of
 // a struct, slice or map type; every other part is read as form text. maxMemory is how much stays
-// in memory, DefaultMultipartMemory when 0.
+// in memory, DefaultMultipartMemory when 0. A type with UnmarshalForm reads the form itself.
 func DecodeMultipart(r *http.Request, dst any, maxMemory int64) error {
 	if maxMemory <= 0 {
 		maxMemory = DefaultMultipartMemory
@@ -94,24 +99,7 @@ func DecodeMultipart(r *http.Request, dst any, maxMemory int64) error {
 	if target.Kind() != reflect.Struct {
 		return fmt.Errorf("%w: a multipart form needs a struct, not %s", ErrParamValue, target.Type())
 	}
-	form := r.MultipartForm
-	values := url.Values(form.Value)
-	for i := range target.NumField() {
-		f := target.Type().Field(i)
-		name := jsonName(f)
-		if name == "" || !f.IsExported() {
-			continue
-		}
-		if isFileField(f.Type) {
-			setFiles(target.Field(i), form.File[name])
-			continue
-		}
-		if err = setPart(target.Field(i), values[name]); err != nil {
-			return err
-		}
-		delete(values, name)
-	}
-	return assignForm(values, dst)
+	return fillForm(target, r.MultipartForm)
 }
 
 // DecodeText reads a text body.
@@ -151,17 +139,87 @@ func baseMediaType(mediaType string) string {
 	return strings.TrimSpace(mediaType)
 }
 
-// assignForm stores form values in dst, nesting bracketed keys.
-func assignForm(values url.Values, dst any) error {
+// fillPointer stores form in what dst points to, as fillForm does.
+func fillPointer(form *multipart.Form, dst any) error {
 	target, err := pointer(dst)
 	if err != nil {
 		return err
 	}
+	return fillForm(target, form)
+}
+
+// fillForm stores form in target: by UnmarshalForm, field by field into a struct, else by keys.
+func fillForm(target reflect.Value, form *multipart.Form) error {
+	target = allocate(target)
+	if u, ok := target.Addr().Interface().(FormUnmarshaler); ok {
+		return u.UnmarshalForm(form)
+	}
+
+	values := maps.Clone(form.Value)
+	if target.Kind() == reflect.Struct {
+		for i := range target.NumField() {
+			f := target.Type().Field(i)
+			name := jsonName(f)
+			if name == "" || !f.IsExported() {
+				continue
+			}
+			isSet, err := setFiles(target.Field(i), form.File[name])
+			if err == nil && !isSet {
+				err = setPart(target.Field(i), values[name])
+			}
+			if err != nil {
+				return err
+			}
+			delete(values, name)
+		}
+	}
+	return assigner{isLoose: true}.assign(target, listsOf(formTree(values)))
+}
+
+// formTree nests form values by the names in their keys, with lists where the names count 0, 1, 2.
+func formTree(values url.Values) map[string]any {
 	fields := map[string]any{}
 	for _, key := range slices.Sorted(maps.Keys(values)) {
 		setPath(fields, splitBrackets(key), values[key])
 	}
-	return assigner{isLoose: true}.assign(target, listsOf(fields))
+	for name, v := range fields {
+		fields[name] = listsOf(v)
+	}
+	return fields
+}
+
+// formValues writes what formTree nested back as form values, with keys relative to it.
+func formValues(nested map[string]any) url.Values {
+	out := url.Values{}
+	for name, v := range nested {
+		addValues(out, name, v)
+	}
+	return out
+}
+
+func addValues(out url.Values, key string, v any) {
+	switch v := v.(type) {
+	case string:
+		out.Add(key, v)
+	case []string:
+		out[key] = append(out[key], v...)
+	case map[string]any:
+		for name, item := range v {
+			addValues(out, key+"["+name+"]", item)
+		}
+	case []any:
+		for i, item := range v {
+			addValues(out, key+"["+strconv.Itoa(i)+"]", item)
+		}
+	}
+}
+
+// formName is the name a form key starts with: address of address[city].
+func formName(key string) string {
+	if path := splitBrackets(key); len(path) > 0 {
+		return path[0]
+	}
+	return ""
 }
 
 // listsOf turns objects whose keys are 0, 1, 2... or one empty key into lists, at every level.
@@ -194,27 +252,42 @@ func listsOf(v any) any {
 	return items
 }
 
-// setPart stores the text parts of one field. Text that holds JSON fills a struct, slice or map.
+// setPart stores the text parts of one field. A JSON object or array fills a struct, map or list.
 func setPart(field reflect.Value, texts []string) error {
 	if len(texts) == 0 {
 		return nil
 	}
-	kind := field.Type().Kind()
-	for kind == reflect.Pointer {
-		kind = field.Type().Elem().Kind()
-		field.Set(reflect.New(field.Type().Elem()))
-		field = field.Elem()
-	}
-	if trimmed := strings.TrimSpace(texts[0]); (kind == reflect.Struct || kind == reflect.Map) && strings.HasPrefix(trimmed, "{") ||
-		kind == reflect.Slice && strings.HasPrefix(trimmed, "[") {
-		return json.Unmarshal([]byte(trimmed), field.Addr().Interface())
+	field = allocate(field)
+	kind := field.Kind()
+	trimmed := []byte(strings.TrimSpace(texts[0]))
+	if ((kind == reflect.Struct || kind == reflect.Map) && bytes.HasPrefix(trimmed, []byte("{")) ||
+		kind == reflect.Slice && !isBytes(field.Type()) && bytes.HasPrefix(trimmed, []byte("["))) && json.Valid(trimmed) {
+		return assigner{}.json(field, string(trimmed))
 	}
 	return assigner{isLoose: true}.assign(field, texts)
 }
 
-func setFiles(field reflect.Value, headers []*multipart.FileHeader) {
+// setFiles fills a File field, or bytes from a file part, and reports whether it was one.
+func setFiles(field reflect.Value, headers []*multipart.FileHeader) (bool, error) {
+	t := field.Type()
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	switch {
+	case isFileField(field.Type()):
+	case isBytes(t) && len(headers) > 0:
+		data, err := NewFileFromMultipart(headers[0]).Bytes()
+		if err != nil {
+			return true, err
+		}
+		allocate(field).SetBytes(data)
+		return true, nil
+	default:
+		return false, nil
+	}
+
 	if len(headers) == 0 {
-		return
+		return true, nil
 	}
 	switch field.Kind() {
 	case reflect.Slice:
@@ -228,6 +301,7 @@ func setFiles(field reflect.Value, headers []*multipart.FileHeader) {
 	default:
 		field.Set(reflect.ValueOf(NewFileFromMultipart(headers[0])))
 	}
+	return true, nil
 }
 
 func isFileField(t reflect.Type) bool {

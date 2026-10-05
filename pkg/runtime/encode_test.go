@@ -37,12 +37,25 @@ type failAfter struct {
 	n int
 }
 
+// textForm stands in for a union that reads forms and holds a string.
+type textForm struct {
+	Text string
+}
+
 func (w *failAfter) Write(p []byte) (int, error) {
 	if len(p) > w.n {
 		return 0, io.ErrClosedPipe
 	}
 	w.n -= len(p)
 	return len(p), nil
+}
+
+func (f textForm) MarshalJSON() ([]byte, error) {
+	return json.Marshal(f.Text)
+}
+
+func (*textForm) UnmarshalForm(*multipart.Form) error {
+	return nil
 }
 
 func TestEncodeForm(t *testing.T) {
@@ -198,10 +211,60 @@ func TestWriteMultipartParts(t *testing.T) {
 	assert.Equal(t, map[string][]string{
 		"title": {`a "quoted" \ name`},
 		"when":  {"2026-01-02T03:04:05Z"},
-		"raw":   {"\x00\x01"},
+		"raw":   {"AAE="},
 		"any":   {`{"n":1}`},
 		"ptrs":  {"p"},
 	}, form.Value)
+}
+
+func TestWriteMultipartUnmarshaler(t *testing.T) {
+	t.Parallel()
+
+	p := post{ID: "1", Photo: &photo{Image: NewFileReader(strings.NewReader("PNG"), "a.png", "image/png", 3), Caption: "sun", Tags: []string{"a", "b"}}}
+	size, boundary, err := multipartSize(p)
+	require.NoError(t, err)
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	require.NoError(t, mw.SetBoundary(boundary))
+	require.NoError(t, WriteMultipart(mw, &p))
+	assert.Equal(t, int64(buf.Len()), size)
+
+	form, err := multipart.NewReader(&buf, boundary).ReadForm(1 << 20)
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]string{"id": {"1"}, "caption": {"sun"}, "tags": {"a", "b"}}, form.Value)
+	require.Len(t, form.File["image"], 1)
+	assert.Equal(t, "a.png", form.File["image"][0].Filename)
+	data, err := NewFileFromMultipart(form.File["image"][0]).Bytes()
+	require.NoError(t, err)
+	assert.Equal(t, "PNG", string(data))
+}
+
+func TestWriteMultipartMembers(t *testing.T) {
+	t.Parallel()
+
+	g := tagged{Name: "n", Extra: map[string]any{
+		"none": nil, "num": 1.5, "yes": true, "text": "t", "obj": map[string]int{"k": 1},
+		"list": []any{1, "a"}, "objs": []any{map[string]int{"k": 1}}, "lists": []any{[]int{1}},
+	}}
+	data, contentType := multipartOf(t, g)
+
+	_, params, err := mime.ParseMediaType(contentType)
+	require.NoError(t, err)
+	form, err := multipart.NewReader(bytes.NewReader(data), params["boundary"]).ReadForm(1 << 20)
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]string{
+		"name": {"n"}, "num": {"1.5"}, "yes": {"true"}, "text": {"t"}, "obj": {`{"k":1}`},
+		"list": {"1", "a"}, "objs": {`[{"k":1}]`}, "lists": {`[[1]]`},
+	}, form.Value)
+
+	list, contentType := multipartOf(t, struct {
+		List [][]byte `json:"list"`
+	}{List: [][]byte{[]byte("a"), []byte("b")}})
+	_, params, err = mime.ParseMediaType(contentType)
+	require.NoError(t, err)
+	form, err = multipart.NewReader(bytes.NewReader(list), params["boundary"]).ReadForm(1 << 20)
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]string{"list": {"YQ==", "Yg=="}}, form.Value)
 }
 
 func TestWriteMultipartErrors(t *testing.T) {
@@ -219,6 +282,9 @@ func TestWriteMultipartErrors(t *testing.T) {
 		{name: "A value that cannot be written as text", value: struct{ Bad chan int }{}, wantErr: "invalid parameter value: cannot write chan int as a parameter"},
 		{name: "A file that cannot be read", value: upload{File: NewFileReader(errReader{}, "a", "", -1)}, wantErr: "unexpected EOF"},
 		{name: "A file of a list that cannot be read", value: upload{Files: []File{NewFileReader(errReader{}, "a", "", -1)}}, wantErr: "unexpected EOF"},
+		{name: "A form type that cannot be written as JSON", value: tagged{Extra: map[string]any{"a": make(chan int)}}, wantErr: `json: error calling MarshalJSON for type runtime.tagged: invalid additional property "a": json: unsupported type: chan int`},
+		{name: "A form type that is no object", value: textForm{Text: "hello"}, wantErr: `invalid body value: a multipart form needs an object, not "\"hello\""`},
+		{name: "A file of a union that cannot be read", value: post{Photo: &photo{Image: NewFileReader(errReader{}, "a", "", -1)}}, wantErr: "unexpected EOF"},
 	}
 
 	for _, tc := range tests {
@@ -239,6 +305,7 @@ func TestWriteMultipartFailingWriter(t *testing.T) {
 	values := []any{
 		upload{Title: "Cat", File: NewFile([]byte("meow"), "cat.txt", ""), Point: address{City: "Rome"}},
 		stamped{Raw: []byte{1}},
+		tagged{Name: "n", Extra: map[string]any{"list": []int{1, 2}, "obj": map[string]int{"k": 1}}},
 	}
 	for _, v := range values {
 		data, _ := multipartOf(t, v)

@@ -107,6 +107,33 @@ func TestHeldAndValidates(t *testing.T) {
 	assert.Equal(t, str, Underlying(DeclRef{Decl: note}))
 }
 
+func TestFormDecl(t *testing.T) {
+	t.Parallel()
+
+	pet := &Decl{Name: "Pet", Kind: KindStruct}
+	alias := &Decl{Name: "Animal", Kind: KindAlias, Target: DeclRef{Decl: pet}}
+	choice := &Decl{Name: "Choice", Kind: KindUnion, IsForm: true}
+	scalars := &Decl{Name: "Scalars", Kind: KindUnion}
+	tests := []struct {
+		name string
+		typ  Type
+		want *Decl
+	}{
+		{name: "A struct behind a pointer and an alias", typ: Pointer{Elem: DeclRef{Decl: alias}}, want: pet},
+		{name: "A union that reads forms", typ: Pointer{Elem: DeclRef{Decl: choice}}, want: choice},
+		{name: "A union that does not", typ: DeclRef{Decl: scalars}},
+		{name: "A builtin", typ: Builtin{Name: "string"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, FormDecl(tc.typ))
+		})
+	}
+}
+
 func TestErrorDecl(t *testing.T) {
 	t.Parallel()
 
