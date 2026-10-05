@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../../config.schema.json
+spec: {path: api.yaml}
+package: server
+models:
+  error-mapping:
+    Fault: message
+server:
+  framework: chi
+client: {}

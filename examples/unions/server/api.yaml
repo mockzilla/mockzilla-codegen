@@ -1,0 +1,70 @@
+openapi: 3.1.0
+info: {title: unions in requests and errors, version: "1"}
+paths:
+  /form:
+    post:
+      operationId: postForm
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded: {schema: {$ref: '#/components/schemas/Shape'}}
+      responses:
+        "200":
+          description: the shape as the server read it
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Shape'}}
+        default:
+          description: a fault
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Fault'}}
+  /multipart:
+    post:
+      operationId: postMultipart
+      requestBody:
+        required: true
+        content:
+          multipart/form-data: {schema: {$ref: '#/components/schemas/Shape'}}
+      responses:
+        "200":
+          description: the shape as the server read it
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Shape'}}
+components:
+  schemas:
+    Shape:
+      type: object
+      properties:
+        name: {type: string}
+        vertex: {$ref: '#/components/schemas/Vertex'}
+        labels:
+          type: object
+          properties:
+            main: {type: string}
+          additionalProperties: {type: string}
+        origin: {$ref: '#/components/schemas/Point'}
+    Vertex:
+      oneOf:
+        - type: string
+        - $ref: '#/components/schemas/Point'
+    Point:
+      type: object
+      required: [x, y]
+      properties:
+        x: {type: integer}
+        y: {type: integer}
+    Fault:
+      oneOf:
+        - $ref: '#/components/schemas/Busy'
+        - $ref: '#/components/schemas/Invalid'
+    Busy:
+      type: object
+      required: [message, retry]
+      properties:
+        message: {type: string}
+        retry: {type: integer}
+    Invalid:
+      type: object
+      required: [message, field]
+      properties:
+        message: {type: string}
+        field: {type: string}

@@ -94,7 +94,7 @@ func (a assigner) text(dst reflect.Value, s string) error {
 	case reflect.Slice:
 		return a.list(dst, []string{s})
 	case reflect.Struct, reflect.Map:
-		return a.json(dst, s)
+		return a.jsonText(dst, s)
 	case reflect.Invalid, reflect.Complex64, reflect.Complex128, reflect.Array, reflect.Chan, reflect.Func,
 		reflect.Interface, reflect.Pointer, reflect.UnsafePointer:
 		return fmt.Errorf("%w: cannot decode text into %s", ErrParamValue, dst.Type())
@@ -111,6 +111,19 @@ func (a assigner) json(dst reflect.Value, s string) error {
 		return fmt.Errorf("%w: %w", ErrParamValue, err)
 	}
 	return nil
+}
+
+// jsonText decodes s as JSON, else as a string, so a union takes plain text for a string variant.
+func (a assigner) jsonText(dst reflect.Value, s string) error {
+	quoted, _ := json.Marshal(s)
+	if !json.Valid([]byte(s)) {
+		return a.json(dst, string(quoted))
+	}
+	err := a.json(dst, s)
+	if err != nil && isLiteral([]byte(s)) && a.json(dst, string(quoted)) == nil {
+		return nil
+	}
+	return err
 }
 
 func (a assigner) list(dst reflect.Value, items any) error {

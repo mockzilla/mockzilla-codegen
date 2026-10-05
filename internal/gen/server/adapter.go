@@ -331,8 +331,8 @@ func typedErrors(op *gomodel.Operation, s *gocode.Scope) []TypedErrorView {
 	var seen []*gomodel.Decl
 	for _, r := range op.Responses {
 		for _, c := range r.Contents {
-			d := gomodel.StructDecl(c.Type)
-			if d == nil || d.Error == nil || slices.Contains(seen, d) {
+			d := gomodel.ErrorDecl(c.Type)
+			if d == nil || slices.Contains(seen, d) {
 				continue
 			}
 			seen = append(seen, d)

@@ -208,28 +208,17 @@ func settleUnions(decls []*Decl) {
 			if v.Kinds == 0 || v.Kinds&^JSONScalar != 0 {
 				d.Union.IsText = false
 			}
-			st := structOf(v.Type)
-			if st == nil {
-				continue
-			}
-
-			v.IsClosed = st.IsClosed
-			for _, f := range st.Fields {
-				if f.Required {
-					v.Required = append(v.Required, f.JSONName)
-				}
-			}
-			if st.AdditionalProperties == nil {
-				v.Known = make([]string, 0, len(st.Fields))
-				for _, f := range st.Fields {
-					v.Known = append(v.Known, f.JSONName)
-				}
+			if st := structOf(v.Type); st != nil {
+				sh := structShape(st)
+				v.Required, v.Known, v.IsClosed = sh.Required, sh.Known, sh.IsClosed
+			} else if inner := unionOf(v.Type); inner != nil {
+				v.Shapes = unionShapes(inner, map[*Decl]bool{d: true})
 			}
 		}
 	}
 }
 
-// ambiguousUnions warns about object variants of a oneOf that require the same properties.
+// ambiguousUnions warns about oneOf variants that can be objects requiring the same properties.
 func ambiguousUnions(decls []*Decl, diags *diag.Collector) {
 	for _, d := range decls {
 		u := d.Union
@@ -240,14 +229,22 @@ func ambiguousUnions(decls []*Decl, diags *diag.Collector) {
 		var keys []string
 		byRequired := map[string][]string{}
 		for _, v := range u.Variants {
-			if v.Kinds != JSONObject {
-				continue
+			shapes := v.Shapes
+			if len(shapes) == 0 && v.Kinds == JSONObject {
+				shapes = []Shape{{Required: v.Required}}
 			}
-			key := strings.Join(slices.Sorted(slices.Values(v.Required)), ", ")
-			if _, ok := byRequired[key]; !ok {
-				keys = append(keys, key)
+			var own []string
+			for _, sh := range shapes {
+				key := strings.Join(slices.Sorted(slices.Values(sh.Required)), ", ")
+				if slices.Contains(own, key) {
+					continue
+				}
+				own = append(own, key)
+				if _, ok := byRequired[key]; !ok {
+					keys = append(keys, key)
+				}
+				byRequired[key] = append(byRequired[key], v.Name)
 			}
-			byRequired[key] = append(byRequired[key], v.Name)
 		}
 
 		for _, key := range keys {
@@ -337,6 +334,80 @@ func structOf(t Type) *Struct {
 		}
 		t = r.Decl.Target
 	}
+}
+
+// unionOf returns the union declaration a type is, through aliases, or nil.
+func unionOf(t Type) *Decl {
+	if r, ok := unalias(t).(DeclRef); ok && r.Decl.Kind == KindUnion {
+		return r.Decl
+	}
+	return nil
+}
+
+// structShape knows every field of st unless st takes additional properties.
+func structShape(st *Struct) Shape {
+	sh := Shape{IsClosed: st.IsClosed}
+	for _, f := range st.Fields {
+		if f.Required {
+			sh.Required = append(sh.Required, f.JSONName)
+		}
+	}
+	if st.AdditionalProperties == nil {
+		sh.Known = make([]string, 0, len(st.Fields))
+		for _, f := range st.Fields {
+			sh.Known = append(sh.Known, f.JSONName)
+		}
+	}
+	return sh
+}
+
+// unionShapes are the objects d can be, each with d's shared properties.
+func unionShapes(d *Decl, seen map[*Decl]bool) []Shape {
+	if seen[d] {
+		return nil
+	}
+	seen[d] = true
+	defer delete(seen, d)
+
+	shared := structShape(d.Struct)
+	if p := d.Union.Discriminator; p != "" && !slices.Contains(shared.Known, p) {
+		shared.Known = append(shared.Known, p)
+	}
+	var out []Shape
+	for _, v := range d.Union.Variants {
+		for _, sh := range objectShapes(v.Type, seen) {
+			sh.Required = appendNew(sh.Required, shared.Required)
+			if sh.Known != nil {
+				sh.Known = appendNew(sh.Known, shared.Known)
+			}
+			out = append(out, sh)
+		}
+	}
+	return out
+}
+
+// objectShapes are the objects a value of type t can be; a map or any is one that takes any key.
+func objectShapes(t Type, seen map[*Decl]bool) []Shape {
+	if st := structOf(t); st != nil {
+		return []Shape{structShape(st)}
+	}
+	if u := unionOf(t); u != nil {
+		return unionShapes(u, seen)
+	}
+	if JSONKinds(t)&JSONObject != 0 {
+		return []Shape{{}}
+	}
+	return nil
+}
+
+func appendNew(list, more []string) []string {
+	out := slices.Clone(list)
+	for _, name := range more {
+		if !slices.Contains(out, name) {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // typeName names a variant field after its type: String, Int64, Time, Pet, Pets, StringMap.

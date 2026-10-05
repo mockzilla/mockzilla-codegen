@@ -184,6 +184,11 @@ func TestViewRendersUnions(t *testing.T) {
 		Variants: []*gomodel.Variant{
 			{Name: "Cat", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: cat}}, Kinds: gomodel.JSONObject, Required: []string{"meow"}, Known: []string{"meow", "name"}},
 			{Name: "Float", FieldType: gomodel.Pointer{Elem: gomodel.Builtin{Name: "float64"}}, Kinds: gomodel.JSONInteger | gomodel.JSONNumber},
+			{Name: "Nested", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONObject, Shapes: []gomodel.Shape{
+				{Required: []string{"a"}, Known: []string{"a", "b"}},
+				{Known: []string{}, IsClosed: true},
+				{},
+			}},
 		},
 	}}
 	stamp := &gomodel.Decl{Name: "Stamp", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{

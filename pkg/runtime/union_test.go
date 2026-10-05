@@ -197,6 +197,70 @@ func TestUnmarshalUnionOpenVariant(t *testing.T) {
 	assert.Equal(t, holder{Other: map[string]any{"type": "fish"}}, h)
 }
 
+func TestUnmarshalUnionShapes(t *testing.T) {
+	t.Parallel()
+
+	shapes := func(required ...string) Shape {
+		return Shape{Required: required, Known: required}
+	}
+	tests := []struct {
+		name     string
+		data     string
+		variants func(first, second *map[string]any) []Variant
+		want     string
+		wantErr  error
+	}{
+		{name: "A key only the first variant's shapes require", data: `{"a":1}`, want: "first"},
+		{name: "Its other shape", data: `{"b":1}`, want: "first"},
+		{name: "All keys of a shape of the second", data: `{"a":1,"c":2}`, want: "second"},
+		{name: "A closed shape that fits", data: `{"d":1}`, want: "second"},
+		{
+			name: "A variant whose shapes are all closed to a key is left out",
+			data: `{"q":1}`,
+			variants: func(first, _ *map[string]any) []Variant {
+				return []Variant{{Name: "First", Kind: KindObject, Shapes: []Shape{{Known: []string{"z"}, IsClosed: true}}, Into: Into(first)}}
+			},
+			wantErr: ErrNoVariant,
+		},
+		{
+			name: "The perfect shape counts on a tie",
+			data: `{"a":1,"b":2}`,
+			variants: func(first, second *map[string]any) []Variant {
+				return []Variant{
+					{Name: "First", Kind: KindObject, Shapes: []Shape{shapes("a"), {Known: []string{"a", "b"}}}, Into: Into(first)},
+					{Name: "Second", Kind: KindObject, Into: Into(second)},
+				}
+			},
+			wantErr: ErrAmbiguous,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var first, second map[string]any
+			variants := []Variant{
+				{Name: "First", Kind: KindObject, Shapes: []Shape{shapes("a"), shapes("b")}, Into: Into(&first)},
+				{Name: "Second", Kind: KindObject, Shapes: []Shape{shapes("a", "c"), {Required: []string{"d"}, Known: []string{"d"}, IsClosed: true}}, Into: Into(&second)},
+			}
+			if tc.variants != nil {
+				variants = tc.variants(&first, &second)
+			}
+
+			err := UnmarshalUnion([]byte(tc.data), Union{Variants: variants})
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want == "first", first != nil)
+			assert.Equal(t, tc.want == "second", second != nil)
+		})
+	}
+}
+
 func TestUnmarshalUnionText(t *testing.T) {
 	t.Parallel()
 

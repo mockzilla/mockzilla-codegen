@@ -42,7 +42,10 @@ const (
 // separators join the items of a list that is written in one value, by style.
 var separators = map[Style]string{StyleSpaceDelimited: " ", StylePipeDelimited: "|"}
 
-var textMarshaler = reflect.TypeFor[encoding.TextMarshaler]()
+var (
+	textMarshaler = reflect.TypeFor[encoding.TextMarshaler]()
+	jsonMarshaler = reflect.TypeFor[json.Marshaler]()
+)
 
 // Param describes one parameter: its name, how it is written, and whether it must be there. IsJSON
 // is set for content application/json; Default is the JSON a decoder sets when it is not there.

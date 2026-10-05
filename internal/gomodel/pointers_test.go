@@ -106,3 +106,32 @@ func TestHeldAndValidates(t *testing.T) {
 	note := &Decl{Name: "Note", Kind: KindDefined, Target: DeclRef{Decl: &Decl{Name: "Text", Kind: KindAlias, Target: str}}}
 	assert.Equal(t, str, Underlying(DeclRef{Decl: note}))
 }
+
+func TestErrorDecl(t *testing.T) {
+	t.Parallel()
+
+	problem := &Decl{Name: "Problem", Kind: KindStruct, Error: &ErrorMessage{Path: "detail"}}
+	alias := &Decl{Name: "Failure", Kind: KindAlias, Target: DeclRef{Decl: problem}}
+	fault := &Decl{Name: "Fault", Kind: KindUnion, Error: &ErrorMessage{Path: "detail"}}
+	plain := &Decl{Name: "Locked", Kind: KindStruct}
+	tests := []struct {
+		name string
+		typ  Type
+		want *Decl
+	}{
+		{name: "An error type", typ: DeclRef{Decl: problem}, want: problem},
+		{name: "Behind a pointer and an alias", typ: Pointer{Elem: DeclRef{Decl: alias}}, want: problem},
+		{name: "A union", typ: Pointer{Elem: DeclRef{Decl: fault}}, want: fault},
+		{name: "A struct that is no error", typ: DeclRef{Decl: plain}},
+		{name: "A builtin", typ: Builtin{Name: "string"}},
+		{name: "No type", typ: nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, ErrorDecl(tc.typ))
+		})
+	}
+}

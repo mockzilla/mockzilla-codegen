@@ -40,6 +40,13 @@ paths:
         - name: loop
           in: cookie
           schema: {$ref: '#/components/schemas/Loop'}
+        - name: byState
+          in: query
+          schema: {type: object, additionalProperties: {oneOf: [{type: string}, {type: array, items: {type: string}}]}}
+        - name: labels
+          in: query
+          schema: {type: object, additionalProperties: {oneOf: [{type: string}, {type: integer}]}}
+        - {name: open, in: query, schema: {type: object, additionalProperties: true}}
       responses:
         "200": {description: ok}
   /search:

@@ -192,3 +192,52 @@ components:
         - {type: object, required: [id], properties: {id: {type: string}, a: {type: string}}}
         - {type: object, required: [id], properties: {id: {type: string}, b: {type: string}}}
         - {type: object, required: [id, c], properties: {id: {type: string}, c: {type: string}}}
+    Sum:
+      oneOf:
+        - $ref: '#/components/schemas/Sum1'
+        - $ref: '#/components/schemas/Sum2'
+    Sum1:
+      oneOf:
+        - {type: object, required: [common, one], properties: {common: {type: string}, one: {type: string}}}
+        - {type: object, required: [common, two], properties: {common: {type: string}, two: {type: string}}}
+    Sum2:
+      oneOf:
+        - {type: object, required: [common, three], properties: {common: {type: string}, three: {type: string}}}
+        - {type: string}
+    SumClash:
+      oneOf:
+        - $ref: '#/components/schemas/Sum1'
+        - $ref: '#/components/schemas/SumAgain'
+    SumAgain:
+      oneOf:
+        - {type: object, required: [common, one], properties: {common: {type: string}, one: {type: string}, x: {type: string}}}
+        - {type: integer}
+    Outer:
+      oneOf:
+        - $ref: '#/components/schemas/Inner'
+        - $ref: '#/components/schemas/Flyer'
+        - $ref: '#/components/schemas/Loose'
+        - {type: object, required: [z], properties: {z: {type: string}}}
+    Inner:
+      type: object
+      required: [note]
+      properties: {note: {type: string}}
+      oneOf:
+        - {type: object, required: [x], properties: {x: {type: string}}}
+        - $ref: '#/components/schemas/InnerLoop'
+    InnerLoop:
+      oneOf:
+        - $ref: '#/components/schemas/Inner'
+        - {type: object, required: [y], properties: {y: {type: string}}}
+    Loose:
+      oneOf:
+        - {type: object, additionalProperties: {type: string}}
+        - {type: boolean}
+    Dup:
+      oneOf:
+        - $ref: '#/components/schemas/Twin'
+        - {type: object, required: [w], properties: {w: {type: string}}}
+    Twin:
+      oneOf:
+        - {type: object, required: [id], properties: {id: {type: string}, a: {type: string}}}
+        - {type: object, required: [id], properties: {id: {type: string}, b: {type: string}}}

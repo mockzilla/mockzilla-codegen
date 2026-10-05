@@ -26,7 +26,7 @@ var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
 // EncodeForm writes v, a struct or a map, as form values: nested objects with bracketed keys,
 // address[city]=Berlin, lists as repeated keys, tags=a&tags=b, and lists of objects with an
 // index, lines[0][city]=Berlin. Values go through their JSON form, so json tags and marshalers
-// apply.
+// apply. A value that writes its own JSON object or array, such as a union, is one JSON value.
 func EncodeForm(v any) (url.Values, error) {
 	fields, err := jsonObject(v)
 	if err != nil {
@@ -34,7 +34,7 @@ func EncodeForm(v any) (url.Values, error) {
 	}
 
 	out := url.Values{}
-	addForm(out, "", fields)
+	addForm(out, "", jsonFields(reflect.ValueOf(v), fields))
 	return out, nil
 }
 
@@ -189,6 +189,42 @@ func jsonObject(v any) (map[string]any, error) {
 		return nil, fmt.Errorf("%w: a form needs an object, not %.20q", ErrBodyValue, data)
 	}
 	return out, nil
+}
+
+// jsonFields puts the text of jsonField into encoded, the JSON of rv, for each value of rv.
+func jsonFields(rv reflect.Value, encoded any) any {
+	v, _ := present(rv)
+	switch t := encoded.(type) {
+	case map[string]any:
+		if v.Kind() == reflect.Struct || v.Kind() == reflect.Map {
+			for name, field := range properties(v) {
+				if item, ok := t[name]; ok {
+					t[name] = jsonField(field, item)
+				}
+			}
+		}
+	case []any:
+		if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
+			for i := range min(v.Len(), len(t)) {
+				t[i] = jsonField(v.Index(i), t[i])
+			}
+		}
+	}
+	return encoded
+}
+
+// jsonField is item, the JSON of v, as text when v writes its own JSON object or array.
+func jsonField(v reflect.Value, item any) any {
+	t := v.Type()
+	if !t.Implements(jsonMarshaler) && !reflect.PointerTo(t).Implements(jsonMarshaler) {
+		return jsonFields(v, item)
+	}
+	switch item.(type) {
+	case map[string]any, []any:
+		data, _ := json.Marshal(v.Interface()) // jsonObject has marshaled it already
+		return string(data)
+	}
+	return item
 }
 
 // addForm adds v under key: an object with bracketed keys, a list as repeated keys, or as one
