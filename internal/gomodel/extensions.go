@@ -52,6 +52,10 @@ func (r *extReader) goName(set extension.Set, name string) string {
 // gives, else of the one of imports with that name, else of the standard library package the dot
 // follows; anything else is written as is.
 func goType(t *extension.Type, imports []config.Import) Type {
+	if t.Name == "[]byte" {
+		// Bodies and checks tell bytes apart by this type, not by its text.
+		return Slice{Elem: byteType}
+	}
 	qual, name, isQualified := strings.Cut(t.Name, ".")
 	if !isQualified || strings.ContainsAny(t.Name, "*[]{}() ") || strings.Contains(name, ".") {
 		return Builtin{Name: t.Name}

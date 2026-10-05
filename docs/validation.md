@@ -68,7 +68,8 @@ that checks nothing has no `Validate`.
   and union variants alike.
 - An optional value that is `nil` is absent and not checked.
 - A format that becomes its own Go type is checked by decoding: `date-time` is a `time.Time`,
-  `date` a `runtime.Date`, `email` a `runtime.Email` whose `Validate` checks the address.
+  `date` a `runtime.Date`, `email` a `runtime.Email` whose `Validate` checks the address. So is a
+  format that `models.format-types` maps to a type of your own.
 - A keyword that does not fit the Go type is left out: `minLength` on a number, a `const` of 2.5 on
   an integer.
 - Under `allOf`, every member's limits hold: the strictest of each is checked, and every `pattern`

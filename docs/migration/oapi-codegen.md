@@ -143,14 +143,15 @@ documents it, else `runtime.APIError` with the status and the body.
 | Schema | oapi-codegen | mockzilla-codegen |
 |---|---|---|
 | `number` without a format, or with an unknown one | `float32` | `float64` |
-| `string` with format `uuid` | `uuid.UUID` | `string`, checked by validation |
+| `string` with format `uuid` | `uuid.UUID` | `string`, checked by validation; `uuid.UUID` with `models.format-types` |
 | `string` with format `email` | `runtime.Email` that fails JSON encoding and decoding on a bad address | `runtime.Email` that decodes any string; `Validate` checks it |
 
 Beyond the type mapping:
 
 - `openapi_types.Date`, `File`, `Email` and `UUID` are `runtime.Date`, `runtime.File`,
-  `runtime.Email` and a validated `string`. `x-go-type: uuid.UUID` with an import keeps the
-  package type.
+  `runtime.Email` and a validated `string`. `models.format-types` keeps `uuid.UUID` for every
+  `format: uuid` ([your own type for a format](../types.md#your-own-type-for-a-format)), and
+  `x-go-type` does it for one schema.
 - A union is a struct with one field per variant, set or nil, instead of a raw `union` with
   `As<Variant>`, `From<Variant>` and `Merge<Variant>` ([unions](../types.md#unions)).
 - Enum constants are `<Type><Value>` for every enum, not only on conflict, unless

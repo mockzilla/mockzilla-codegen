@@ -58,6 +58,13 @@ type Models struct {
 	ExtraTags    []string          `yaml:"extra-tags" desc:"Struct tags added next to json, such as yaml."`
 	Validation   ModelValidation   `yaml:"validation" desc:"Generated Validate methods."`
 	ErrorMapping map[string]string `yaml:"error-mapping" desc:"Error types, mapped to the path of their message field."`
+	FormatTypes  map[string]GoType `yaml:"format-types" desc:"Go types by schema format, such as uuid, in place of the built-in ones. x-go-type on a schema wins."`
+}
+
+// GoType is a Go type and the package it comes from.
+type GoType struct {
+	Type   string `yaml:"type" desc:"Go type, such as uuid.UUID or int64."`
+	Import string `yaml:"import" desc:"Import path of the type's package, found as for x-go-type when left out."`
 }
 
 // ModelValidation controls the generated Validate methods.

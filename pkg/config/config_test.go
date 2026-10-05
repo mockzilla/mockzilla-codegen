@@ -164,6 +164,25 @@ func TestValidate(t *testing.T) {
 			issues: []Issue{{Key: "models.int-type", Message: `"uint" is not one of int, int32, int64`}},
 		},
 		{
+			name: "Format types need a type, an import only on a package type, and each format once",
+			edit: func(c *Config) {
+				c.Models.FormatTypes = map[string]GoType{
+					"":         {Type: "string"},
+					"UUID":     {Type: "uuid.UUID", Import: "github.com/google/uuid"},
+					"uuid":     {Type: "string"},
+					"money":    {},
+					"ids":      {Type: "[]uuid.UUID", Import: "github.com/google/uuid"},
+					"duration": {Type: "time.Duration"},
+				}
+			},
+			issues: []Issue{
+				{Key: `models.format-types[""]`, Message: "names no format"},
+				{Key: `models.format-types["ids"].import`, Message: `needs a type named by its package, such as uuid.UUID, not "[]uuid.UUID"`},
+				{Key: `models.format-types["money"].type`, Message: "required"},
+				{Key: `models.format-types["uuid"]`, Message: `is the same format as "UUID"`},
+			},
+		},
+		{
 			name:   "Server needs a framework",
 			edit:   func(c *Config) { c.Server = &Server{} },
 			issues: []Issue{{Key: "server.framework", Message: "required, one of beego, chi, echo, echo-v5, fasthttp, fiber, gin, go-zero, goframe, gorilla-mux, hertz, iris, kratos, std-http"}},
