@@ -79,7 +79,7 @@ The full list is in [extensions](../extensions.md).
 | the static radix router | the router of `server.framework`; `std-http` is the standard library's `ServeMux` |
 | `UnimplementedHandler` | the service scaffold |
 | `SecurityHandler` | none; check credentials in a middleware, `opts.RawRequest` has the headers |
-| `ogenerrors.DecodeParamsError` and friends | `*HandlerError` with a kind ([errors](../server.md#errors)) |
+| `ogenerrors.DecodeParamsError` and friends | `*HandlerError` with a kind; its `Body` is the mapped error type the operation documents for 400, which the default handler writes ([errors](../server.md#errors)) |
 
 ### Client
 

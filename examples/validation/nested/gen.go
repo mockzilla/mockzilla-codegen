@@ -34,7 +34,7 @@ type Owner struct {
 func (o Owner) Validate() error {
 	var errs runtime.ValidationErrors
 	if o.Pets == nil {
-		errs.Add("pets", "is required")
+		errs.Required("pets")
 	}
 	for idx, item := range o.Pets {
 		errs.Append(runtime.Index("pets", idx), item.Validate())

@@ -142,7 +142,7 @@ type PathStylesPathParams struct {
 func (p PathStylesPathParams) Validate() error {
 	var errs runtime.ValidationErrors
 	if p.List == nil {
-		errs.Add("list", "is required")
+		errs.Required("list")
 	}
 	return errs.Err()
 }

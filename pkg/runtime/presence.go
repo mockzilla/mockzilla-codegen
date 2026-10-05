@@ -135,7 +135,7 @@ func (w *walker) value(v any, p Prop, path string) {
 	switch x := v.(type) {
 	case nil:
 		if w.presence.IsChecked && !p.IsNullable {
-			w.errs.Add(path, "must not be null")
+			w.errs = append(w.errs, ValidationError{Field: path, Message: "must not be null", Rule: RuleType})
 		}
 	case map[string]any:
 		if o, isObject := w.lookup(p.Object); isObject {
@@ -163,7 +163,7 @@ func (w *walker) object(m map[string]any, o Object, path string) {
 		case isSet:
 			w.value(v, p, joinPath(path, p.Key))
 		case p.IsRequired && w.presence.IsChecked:
-			w.errs.Add(joinPath(path, p.Key), "is required")
+			w.errs.Required(joinPath(path, p.Key))
 		case p.Default != "":
 			if d, isJSON := parseJSON([]byte(p.Default)); isJSON {
 				m[p.Key], w.isChanged = d, true
@@ -177,7 +177,7 @@ func (w *walker) object(m map[string]any, o Object, path string) {
 		}
 		switch {
 		case o.IsClosed && w.presence.IsChecked:
-			w.errs.Add(joinPath(path, key), "is not allowed")
+			w.errs = append(w.errs, ValidationError{Field: joinPath(path, key), Message: "is not allowed", Rule: RuleAdditionalProperties, Limit: false})
 		case o.Extra != nil:
 			w.value(m[key], *o.Extra, Key(path, key))
 		}
@@ -207,7 +207,7 @@ func (w *walker) formObject(m map[string]any, o Object, at formAt) {
 		case isSet:
 			w.formValue(child, p, at.field(p.Key))
 		case p.IsRequired && w.presence.IsChecked:
-			w.errs.Add(joinPath(at.path, p.Key), "is required")
+			w.errs.Required(joinPath(at.path, p.Key))
 		case p.Default != "":
 			w.formDefault(at.field(p.Key), p.Default)
 		}
@@ -219,7 +219,7 @@ func (w *walker) formObject(m map[string]any, o Object, at formAt) {
 		}
 		switch {
 		case o.IsClosed && w.presence.IsChecked:
-			w.errs.Add(joinPath(at.path, key), "is not allowed")
+			w.errs = append(w.errs, ValidationError{Field: joinPath(at.path, key), Message: "is not allowed", Rule: RuleAdditionalProperties, Limit: false})
 		case o.Extra != nil:
 			w.formValue(m[key], *o.Extra, at.entry(key))
 		}

@@ -44,7 +44,7 @@ func TestValidationErrorsErr(t *testing.T) {
 	var errs ValidationErrors
 	require.NoError(t, errs.Err())
 
-	errs.Add("name", "is required")
+	errs.Required("name")
 	err := fmt.Errorf("create pet: %w", errs.Err())
 
 	var many ValidationErrors
@@ -53,7 +53,15 @@ func TestValidationErrorsErr(t *testing.T) {
 
 	var one ValidationError
 	require.ErrorAs(t, err, &one)
-	assert.Equal(t, ValidationError{Field: "name", Message: "is required"}, one)
+	assert.Equal(t, ValidationError{Field: "name", Message: "is required", Rule: RuleRequired}, one)
+}
+
+func TestValidationErrorsAdd(t *testing.T) {
+	t.Parallel()
+
+	var errs ValidationErrors
+	errs.Add("name", "is taken")
+	assert.Equal(t, ValidationErrors{{Field: "name", Message: "is taken"}}, errs)
 }
 
 func TestValidationErrorsAppend(t *testing.T) {
@@ -91,10 +99,16 @@ func TestValidationErrorsAppend(t *testing.T) {
 			want:   ValidationErrors{{Field: "pet.id", Message: "is required"}},
 		},
 		{
+			name:   "Rule and limit are kept",
+			prefix: "name",
+			err:    MinLength("", 2),
+			want:   ValidationErrors{{Field: "name", Message: "must be at least 2 characters long", Rule: RuleMinLength, Limit: 2}},
+		},
+		{
 			name:   "Other error",
-			prefix: "email",
-			err:    ErrInvalidEmail,
-			want:   ValidationErrors{{Field: "email", Message: "invalid email address"}},
+			prefix: "born",
+			err:    ErrInvalidDate,
+			want:   ValidationErrors{{Field: "born", Message: "invalid date"}},
 		},
 		{
 			name: "Other error without a prefix",

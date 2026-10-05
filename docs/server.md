@@ -286,6 +286,7 @@ type HandlerError struct {
 	ParamLocation string
 	Status        int       // 0 for the status the kind implies
 	Err           error
+	Body          error     // the error type of the spec that answers a request turned away
 }
 
 type ErrorHandler interface {
@@ -305,7 +306,24 @@ type ErrorHandler interface {
 otherwise. An error type of the spec is written as its own JSON, under the JSON media type its
 response documents, such as `application/problem+json`. An error that wraps `ErrResponseCut`
 happened once the status was out, such as a client that left a stream, and gets nothing more.
-`ErrorHandlerFunc` turns a function into an `ErrorHandler`:
+A request the handler turns away, of kind `ErrorParse`, `ErrorDecode` or `ErrorValidation`, is
+answered with the error type its operation documents for the status: under the code, else its
+range such as `4XX`, else `default`. The type must be in `models.error-mapping` and have a
+constructor. The adapter builds it with the message, puts it in `Body` and sets the media type of
+its response; `DefaultErrorHandler` writes it:
+
+```
+PUT /pets/1 {"name": ""}
+
+400 application/problem+json
+{"detail":"invalid request: body.name: must be at least 1 characters long"}
+```
+
+The other fields of the type stay empty, and the generator warns when the type requires one
+(`error-mapping`). It warns too about a documented type without a constructor, such as one whose
+message is inside a union: those requests get `{"error": "..."}`. A 415 takes only a type
+documented under 415, `4XX` or `default`. A handler set with `WithErrorHandler` gets `Body` and
+writes what it likes. `ErrorHandlerFunc` turns a function into an `ErrorHandler`:
 
 ```go
 NewRouter(svc, WithErrorHandler(ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request, status int, err error) {

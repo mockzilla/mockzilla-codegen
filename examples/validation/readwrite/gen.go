@@ -28,7 +28,7 @@ func (u User) ValidateResponse() error {
 	errs.Append("id", runtime.Format(u.ID, "uuid"))
 	errs.Append("name", runtime.MinLength(u.Name, 1))
 	if u.Roles == nil {
-		errs.Add("roles", "is required")
+		errs.Required("roles")
 	}
 	return errs.Err()
 }

@@ -192,10 +192,12 @@ type Mask struct {
 	KeepSuffix int
 }
 
-// ErrorMessage is where an error type keeps its message. HasConstructor adds a NewT function.
+// ErrorMessage is where an error type keeps its message. HasConstructor adds a NewT function;
+// Unset lists, by JSON path, the required properties it leaves empty.
 type ErrorMessage struct {
 	Path           string
 	HasConstructor bool
+	Unset          []string
 }
 
 // Struct lists its fields in spec order. AdditionalProperties, when set, holds the keys that are

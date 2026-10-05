@@ -39,4 +39,6 @@ if errors.As(err, &e) {
 ```
 
 A service may return the error type as a value or as a pointer. The server finds both and answers
-with the status the spec gives it.
+with the status the spec gives it. A request the server turns away itself, such as one that fails
+validation, is answered with the type the operation documents for 400, built by the constructor,
+see [server errors](server.md#errors).

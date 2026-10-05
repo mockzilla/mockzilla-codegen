@@ -33,3 +33,18 @@ components:
       properties:
         problems: {$ref: '#/components/schemas/Problems'}
     Status: {type: string, enum: [a, b]}
+    StrictError:
+      type: object
+      required: [error, status]
+      properties:
+        error:
+          type: object
+          required: [message, code]
+          properties: {message: {type: string}, code: {type: integer}}
+        status: {type: integer}
+    StrictList:
+      type: object
+      properties:
+        items:
+          type: array
+          items: {type: object, required: [text, kind], properties: {text: {type: string}, kind: {type: string}}}

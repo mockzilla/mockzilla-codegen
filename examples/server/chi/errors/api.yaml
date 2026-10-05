@@ -33,6 +33,10 @@ paths:
           description: ok
           content:
             application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+        "400":
+          description: bad request
+          content:
+            application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}
 components:
   schemas:
     Pet:

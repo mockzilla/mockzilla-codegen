@@ -10,8 +10,5 @@ type Email string
 
 // Validate accepts a bare address only: "a@example.com", not "A <a@example.com>".
 func (e Email) Validate() error {
-	if !IsEmail(string(e)) {
-		return ErrInvalidEmail
-	}
-	return nil
+	return Format(e, "email")
 }

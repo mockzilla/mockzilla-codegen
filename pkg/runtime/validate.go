@@ -37,7 +37,7 @@ func Base64(b []byte) string {
 // MinLength checks that s has at least n characters.
 func MinLength[S ~string](s S, n int) error {
 	if utf8.RuneCountInString(string(s)) < n {
-		return ValidationError{Message: "must be at least " + strconv.Itoa(n) + " characters long"}
+		return ValidationError{Message: "must be at least " + strconv.Itoa(n) + " characters long", Rule: RuleMinLength, Limit: n}
 	}
 	return nil
 }
@@ -45,7 +45,7 @@ func MinLength[S ~string](s S, n int) error {
 // MaxLength checks that s has at most n characters.
 func MaxLength[S ~string](s S, n int) error {
 	if utf8.RuneCountInString(string(s)) > n {
-		return ValidationError{Message: "must be at most " + strconv.Itoa(n) + " characters long"}
+		return ValidationError{Message: "must be at most " + strconv.Itoa(n) + " characters long", Rule: RuleMaxLength, Limit: n}
 	}
 	return nil
 }
@@ -53,7 +53,7 @@ func MaxLength[S ~string](s S, n int) error {
 // Pattern checks that re, compiled from the spec's pattern, matches s.
 func Pattern[S ~string](s S, re *regexp.Regexp, pattern string) error {
 	if !re.MatchString(string(s)) {
-		return ValidationError{Message: "must match " + pattern}
+		return ValidationError{Message: "must match " + pattern, Rule: RulePattern, Limit: pattern}
 	}
 	return nil
 }
@@ -84,7 +84,7 @@ func Format[S ~string](s S, format string) error {
 		return nil
 	}
 	if !isValid(string(s)) {
-		return ValidationError{Message: "must be a valid " + format}
+		return ValidationError{Message: "must be a valid " + format, Rule: RuleFormat, Limit: format}
 	}
 	return nil
 }
@@ -93,9 +93,9 @@ func Format[S ~string](s S, format string) error {
 func Minimum[T Number](v T, bound float64, isExclusive bool) error {
 	switch f := float64(v); {
 	case isExclusive && f <= bound:
-		return ValidationError{Message: "must be greater than " + formatFloat(bound)}
+		return ValidationError{Message: "must be greater than " + formatFloat(bound), Rule: RuleExclusiveMinimum, Limit: bound}
 	case f < bound:
-		return ValidationError{Message: "must be at least " + formatFloat(bound)}
+		return ValidationError{Message: "must be at least " + formatFloat(bound), Rule: RuleMinimum, Limit: bound}
 	}
 	return nil
 }
@@ -104,9 +104,9 @@ func Minimum[T Number](v T, bound float64, isExclusive bool) error {
 func Maximum[T Number](v T, bound float64, isExclusive bool) error {
 	switch f := float64(v); {
 	case isExclusive && f >= bound:
-		return ValidationError{Message: "must be less than " + formatFloat(bound)}
+		return ValidationError{Message: "must be less than " + formatFloat(bound), Rule: RuleExclusiveMaximum, Limit: bound}
 	case f > bound:
-		return ValidationError{Message: "must be at most " + formatFloat(bound)}
+		return ValidationError{Message: "must be at most " + formatFloat(bound), Rule: RuleMaximum, Limit: bound}
 	}
 	return nil
 }
@@ -119,7 +119,7 @@ func MultipleOf[T Number](v T, factor float64) error {
 	}
 	q, isNumber := new(big.Rat).SetString(decimal(v))
 	if !isNumber || !q.Quo(q, f).IsInt() {
-		return ValidationError{Message: "must be a multiple of " + formatFloat(factor)}
+		return ValidationError{Message: "must be a multiple of " + formatFloat(factor), Rule: RuleMultipleOf, Limit: factor}
 	}
 	return nil
 }
@@ -127,7 +127,7 @@ func MultipleOf[T Number](v T, factor float64) error {
 // MinItems checks that s has at least n items.
 func MinItems[T any](s []T, n int) error {
 	if len(s) < n {
-		return ValidationError{Message: "must have at least " + strconv.Itoa(n) + " items"}
+		return ValidationError{Message: "must have at least " + strconv.Itoa(n) + " items", Rule: RuleMinItems, Limit: n}
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ func MinItems[T any](s []T, n int) error {
 // MaxItems checks that s has at most n items.
 func MaxItems[T any](s []T, n int) error {
 	if len(s) > n {
-		return ValidationError{Message: "must have at most " + strconv.Itoa(n) + " items"}
+		return ValidationError{Message: "must have at most " + strconv.Itoa(n) + " items", Rule: RuleMaxItems, Limit: n}
 	}
 	return nil
 }
@@ -145,7 +145,7 @@ func Unique[T comparable](s []T) error {
 	seen := make(map[T]bool, len(s))
 	for _, v := range s {
 		if seen[v] {
-			return ValidationError{Message: "must have unique items"}
+			return ValidationError{Message: "must have unique items", Rule: RuleUniqueItems, Limit: true}
 		}
 		seen[v] = true
 	}
@@ -161,7 +161,7 @@ func UniqueJSON[T any](s []T) error {
 			continue
 		}
 		if seen[string(data)] {
-			return ValidationError{Message: "must have unique items"}
+			return ValidationError{Message: "must have unique items", Rule: RuleUniqueItems, Limit: true}
 		}
 		seen[string(data)] = true
 	}
@@ -171,7 +171,7 @@ func UniqueJSON[T any](s []T) error {
 // MinProperties checks that m has at least n keys.
 func MinProperties[V any](m map[string]V, n int) error {
 	if len(m) < n {
-		return ValidationError{Message: "must have at least " + strconv.Itoa(n) + " properties"}
+		return ValidationError{Message: "must have at least " + strconv.Itoa(n) + " properties", Rule: RuleMinProperties, Limit: n}
 	}
 	return nil
 }
@@ -179,7 +179,7 @@ func MinProperties[V any](m map[string]V, n int) error {
 // MaxProperties checks that m has at most n keys.
 func MaxProperties[V any](m map[string]V, n int) error {
 	if len(m) > n {
-		return ValidationError{Message: "must have at most " + strconv.Itoa(n) + " properties"}
+		return ValidationError{Message: "must have at most " + strconv.Itoa(n) + " properties", Rule: RuleMaxProperties, Limit: n}
 	}
 	return nil
 }
@@ -187,7 +187,7 @@ func MaxProperties[V any](m map[string]V, n int) error {
 // Const checks that v is want.
 func Const[T comparable](v, want T) error {
 	if v != want {
-		return ValidationError{Message: fmt.Sprintf("must be %v", want)}
+		return ValidationError{Message: fmt.Sprintf("must be %v", want), Rule: RuleConst, Limit: want}
 	}
 	return nil
 }
@@ -201,7 +201,7 @@ func OneOf[T comparable](v T, values ...T) error {
 	for i, value := range values {
 		texts[i] = fmt.Sprint(value)
 	}
-	return ValidationError{Message: "must be one of " + strings.Join(texts, ", ")}
+	return ValidationError{Message: "must be one of " + strings.Join(texts, ", "), Rule: RuleEnum, Limit: values}
 }
 
 // Index is the path of item i under path: items[2].

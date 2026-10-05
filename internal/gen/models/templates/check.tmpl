@@ -1,6 +1,6 @@
 {{- if .IsRequired}}
 	if {{.Value}} == nil {
-		errs.Add({{.Path}}, "is required")
+		errs.Required({{.Path}})
 	}
 {{- end}}
 {{- if .IsGuarded}}

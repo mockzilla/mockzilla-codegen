@@ -599,6 +599,10 @@ func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
+	if body, mediaType := requestError(err); body != nil {
+		err.Body = body
+		w.Header().Set("Content-Type", mediaType)
+	}
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
@@ -617,6 +621,18 @@ func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, r
 	case err != nil:
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
 	}
+}
+
+func requestError(err *runtime.HandlerError) (error, string) {
+	if err.Kind == runtime.ErrorService || err.Kind == runtime.ErrorResponse {
+		return nil, ""
+	}
+
+	switch err.OperationID {
+	case "ListPets", "CreatePet":
+		return NewError(err.Error()), "application/json"
+	}
+	return nil, ""
 }
 
 // WithRouter registers the routes on r instead of a new router.

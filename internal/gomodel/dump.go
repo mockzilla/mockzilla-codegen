@@ -120,6 +120,9 @@ func dumpDecl(b *strings.Builder, d *Decl) {
 		if e.HasConstructor {
 			b.WriteString(" constructor")
 		}
+		if len(e.Unset) > 0 {
+			b.WriteString(" unset=" + strings.Join(e.Unset, ","))
+		}
 		b.WriteString("\n")
 	}
 }
