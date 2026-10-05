@@ -99,6 +99,10 @@ answers a 2xx as a stream; `<Op>Tool` when the MCP tools keep it. Webhooks get n
 in the service, the client and the tools. The MCP tool name stays `get_cert_request`. With MCP,
 `Register` is taken.
 
+OpenAPI wants every `operationId` to be unique. One that an earlier operation already has is
+renamed with a number, `ListThings2`, and reported as a warning (`operation-id-duplicate`) that
+names both operations.
+
 Names are given in rounds: first every type named directly (components, operation types), then the
 types inside them, one level at a time. An inline type is named after the final name of its parent,
 so when `Client` is renamed to `ClientSchema`, its inline `address` becomes `ClientSchemaAddress`.

@@ -51,6 +51,9 @@ func (o *ListPetsServiceRequestOptions) Validate() error
   OpenAPI rules out. Generation warns (`querystring-unsupported`).
 - A query, header or cookie parameter whose union has an object or array variant gets no field:
   no style writes it as text. Generation warns (`param-unsupported`).
+- A parameter without `in`, or with an `in` other than `path`, `query`, `header`, `cookie` and
+  `querystring`, gets no field, and neither does a path parameter whose `{name}` is not in the
+  path: nothing could fill it. Generation warns (`param-in`, `path-param-unused`).
 - `Body` holds the request body. An operation with several media types gets one field per media
   type, named after it: `BodyJSON`, `BodyForm`, `BodyMultipart`, `BodyText`. Two media types that
   would share a name are told apart by their type: `BodyXML` for `application/xml`, `BodyTextXML`
@@ -80,7 +83,8 @@ func (r *ListPetsResponseData) ContentType() string
 
 - One constructor per response the spec documents, named after the status when there are several.
   A range such as `4XX` and `default` take the status as their first argument. A response without
-  a body takes no body.
+  a body takes no body. A response under a key that is no status, range or `default`, such as
+  `"401 "`, is left out, with a warning (`invalid-status`).
 - The body is the JSON media type of the response, else its first one; the content type is
   remembered and written with the response. A wildcard such as `*/*` sets none, so the body's Go
   type picks it.

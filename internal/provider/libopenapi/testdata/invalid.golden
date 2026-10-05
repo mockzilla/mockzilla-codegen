@@ -1,0 +1,239 @@
+Version: 3.0
+Info:
+  Title: t
+  Version: 1
+Operations:
+  -
+    ID: getItemsId
+    IsIDDerived: true
+    Method: GET
+    Path: /items/{id}
+    Params:
+      -
+        Name: id
+        In: path
+        Required: true
+        Style: simple
+        Schema:
+          Types: string
+          Origin: invalid.yaml:6:54 /paths/~1items~1{id}/parameters/0/schema
+        Origin: invalid.yaml:6:9 /paths/~1items~1{id}/parameters/0
+      -
+        Name: q
+        In: query
+        Style: form
+        Explode: true
+        Schema:
+          Types: string
+          Origin: invalid.yaml:14:40 /paths/~1items~1{id}/get/parameters/4/schema
+        Origin: invalid.yaml:14:11 /paths/~1items~1{id}/get/parameters/4
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Origin: invalid.yaml:21:26 /paths/~1items~1{id}/get/responses/200
+    Callbacks:
+      -
+        Name: done
+        Operations:
+          -
+            ID: postRequestBodyUrl
+            IsIDDerived: true
+            Method: POST
+            Path: {$request.body#/url}
+            Params:
+              -
+                Name: url
+                In: path
+                Required: true
+                Style: simple
+                Schema:
+                  Types: string
+                  Origin: invalid.yaml:19:74 /paths/~1items~1{id}/get/callbacks/done/{$request.body#~1url}/post/parameters/0/schema
+                Origin: invalid.yaml:19:28 /paths/~1items~1{id}/get/callbacks/done/{$request.body#~1url}/post/parameters/0
+            Responses:
+              -
+                Status: 200
+                Description: ok
+                Origin: invalid.yaml:20:34 /paths/~1items~1{id}/get/callbacks/done/{$request.body#~1url}/post/responses/200
+            Origin: invalid.yaml:19:15 /paths/~1items~1{id}/get/callbacks/done/{$request.body#~1url}/post
+    Origin: invalid.yaml:9:7 /paths/~1items~1{id}/get
+Components:
+  Schemas:
+    -
+      Name: Kinds
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: interval
+            Schema:
+              Origin: invalid.yaml:30:19 /components/schemas/Kinds/properties/interval
+          -
+            Name: list
+            Schema:
+              Origin: invalid.yaml:31:15 /components/schemas/Kinds/properties/list
+          -
+            Name: flag
+            Schema:
+              Origin: invalid.yaml:32:15 /components/schemas/Kinds/properties/flag
+          -
+            Name: minLength
+            Schema:
+              Types: string
+              Origin: invalid.yaml:33:20 /components/schemas/Kinds/properties/minLength
+          -
+            Name: fraction
+            Schema:
+              Types: string
+              Origin: invalid.yaml:34:19 /components/schemas/Kinds/properties/fraction
+          -
+            Name: typed
+            Schema:
+              Origin: invalid.yaml:35:16 /components/schemas/Kinds/properties/typed
+          -
+            Name: required
+            Schema:
+              Types: object
+              Origin: invalid.yaml:36:19 /components/schemas/Kinds/properties/required
+          -
+            Name: properties
+            Schema:
+              Types: object
+              Origin: invalid.yaml:37:21 /components/schemas/Kinds/properties/properties
+          -
+            Name: enum
+            Schema:
+              Types: string
+              Origin: invalid.yaml:38:15 /components/schemas/Kinds/properties/enum
+          -
+            Name: bounds
+            Schema:
+              Types: integer
+              Origin: invalid.yaml:39:17 /components/schemas/Kinds/properties/bounds
+          -
+            Name: multiple
+            Schema:
+              Types: number
+              Origin: invalid.yaml:40:19 /components/schemas/Kinds/properties/multiple
+          -
+            Name: flags
+            Schema:
+              Types: string
+              Origin: invalid.yaml:41:16 /components/schemas/Kinds/properties/flags
+        Origin: invalid.yaml:28:7 /components/schemas/Kinds
+    -
+      Name: Exclusive
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: form31
+            Schema:
+              Types: integer
+              Limits:
+                Minimum:
+                  Value: 0
+                  Exclusive: true
+              Origin: invalid.yaml:45:17 /components/schemas/Exclusive/properties/form31
+          -
+            Name: both
+            Schema:
+              Types: integer
+              Limits:
+                Minimum:
+                  Value: 5
+              Origin: invalid.yaml:46:15 /components/schemas/Exclusive/properties/both
+          -
+            Name: upper
+            Schema:
+              Types: number
+              Limits:
+                Maximum:
+                  Value: 10.5
+                  Exclusive: true
+              Origin: invalid.yaml:47:16 /components/schemas/Exclusive/properties/upper
+          -
+            Name: word
+            Schema:
+              Types: integer
+              Origin: invalid.yaml:48:15 /components/schemas/Exclusive/properties/word
+          -
+            Name: flag
+            Schema:
+              Types: integer
+              Limits:
+                Maximum:
+                  Value: 3
+                  Exclusive: true
+              Origin: invalid.yaml:49:15 /components/schemas/Exclusive/properties/flag
+        Origin: invalid.yaml:43:7 /components/schemas/Exclusive
+    -
+      Name: Unsupported
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: list
+            Schema:
+              Types: array
+              PrefixItems:
+                -
+                  Types: string
+                  Origin: invalid.yaml:56:43 /components/schemas/Unsupported/properties/list/prefixItems/0
+              Origin: invalid.yaml:56:15 /components/schemas/Unsupported/properties/list
+          -
+            Name: other
+            Schema:
+              Not:
+                Types: string
+                Origin: invalid.yaml:57:22 /components/schemas/Unsupported/properties/other/not
+              Origin: invalid.yaml:57:16 /components/schemas/Unsupported/properties/other
+        PropertyNames:
+          Pattern: ^[a-z]+$
+          Origin: invalid.yaml:53:22 /components/schemas/Unsupported/propertyNames
+        Origin: invalid.yaml:51:7 /components/schemas/Unsupported
+  Parameters:
+    -
+      Name: Bogus
+      Value:
+        Name: bogus
+        In: body
+        Schema:
+          Types: string
+          Origin: invalid.yaml:25:44 /components/parameters/Bogus/schema
+        Origin: invalid.yaml:25:12 /components/parameters/Bogus
+Diagnostics:
+  - warning path-param-unused invalid.yaml:7:9 /paths/~1items~1{id}/parameters/1: path parameter "gone" has no {gone} in /items/{id}; it is left out
+  - warning param-in invalid.yaml:10:11 /paths/~1items~1{id}/get/parameters/0: parameter "limit" has no in; it is left out
+  - warning param-in invalid.yaml:11:11 /paths/~1items~1{id}/get/parameters/1: parameter "X-Trace" has in "Header", which is not one of path, query, header, cookie, querystring; it is left out
+  - warning path-param-unused invalid.yaml:12:11 /paths/~1items~1{id}/get/parameters/2: path parameter "other" has no {other} in /items/{id}; it is left out
+  - warning param-in invalid.yaml:25:12 /components/parameters/Bogus: parameter "bogus" has in "body", which is not one of path, query, header, cookie, querystring; it is left out
+  - warning schema-invalid invalid.yaml:30:19 /components/schemas/Kinds/properties/interval: a schema must be an object, not "string"; it is read as any
+  - warning schema-invalid invalid.yaml:31:15 /components/schemas/Kinds/properties/list: a schema must be an object, not a list; it is read as any
+  - warning schema-invalid invalid.yaml:32:15 /components/schemas/Kinds/properties/flag: a schema must be an object, not true; it is read as any
+  - warning keyword-invalid invalid.yaml:33:46 /components/schemas/Kinds/properties/minLength/minLength: minLength must be a whole number of 0 or more, not "abc"; it is left out
+  - warning keyword-invalid invalid.yaml:34:45 /components/schemas/Kinds/properties/fraction/minLength: minLength must be a whole number of 0 or more, not 1.5; it is left out
+  - warning keyword-invalid invalid.yaml:34:61 /components/schemas/Kinds/properties/fraction/maxLength: maxLength must be a whole number of 0 or more, not -1; it is left out
+  - warning keyword-invalid invalid.yaml:35:23 /components/schemas/Kinds/properties/typed/type: type must be a type name or a list of them, not an object; it is left out
+  - warning keyword-invalid invalid.yaml:36:44 /components/schemas/Kinds/properties/required/required: required must be a list of property names, not true; it is left out
+  - warning keyword-invalid invalid.yaml:37:48 /components/schemas/Kinds/properties/properties/properties: properties must be an object, not a list; it is left out
+  - warning keyword-invalid invalid.yaml:38:36 /components/schemas/Kinds/properties/enum/enum: enum must be a list, not "x"; it is left out
+  - warning keyword-invalid invalid.yaml:39:42 /components/schemas/Kinds/properties/bounds/minimum: minimum must be a number, not "low"; it is left out
+  - warning keyword-invalid invalid.yaml:39:56 /components/schemas/Kinds/properties/bounds/maximum: maximum must be a number, not "10"; it is left out
+  - warning keyword-invalid invalid.yaml:40:46 /components/schemas/Kinds/properties/multiple/multipleOf: multipleOf must be a number above 0, not 0; it is left out
+  - warning keyword-invalid invalid.yaml:41:41 /components/schemas/Kinds/properties/flags/nullable: nullable must be true or false, not "yes"; it is left out
+  - warning keyword-invalid invalid.yaml:41:58 /components/schemas/Kinds/properties/flags/readOnly: readOnly must be true or false, not 1; it is left out
+  - warning keyword-invalid invalid.yaml:41:72 /components/schemas/Kinds/properties/flags/writeOnly: writeOnly must be true or false, not "no"; it is left out
+  - warning keyword-invalid invalid.yaml:41:88 /components/schemas/Kinds/properties/flags/deprecated: deprecated must be true or false, not null; it is left out
+  - warning keyword-invalid invalid.yaml:41:107 /components/schemas/Kinds/properties/flags/uniqueItems: uniqueItems must be true or false, not a list; it is left out
+  - warning keyword-version invalid.yaml:45:51 /components/schemas/Exclusive/properties/form31/exclusiveMinimum: exclusiveMinimum 0 is the 3.1 form; a 3.0 spec takes true or false
+  - warning keyword-version invalid.yaml:46:61 /components/schemas/Exclusive/properties/both/exclusiveMinimum: exclusiveMinimum 1 is the 3.1 form; a 3.0 spec takes true or false
+  - warning keyword-version invalid.yaml:47:49 /components/schemas/Exclusive/properties/upper/exclusiveMaximum: exclusiveMaximum 10.5 is the 3.1 form; a 3.0 spec takes true or false
+  - warning keyword-invalid invalid.yaml:48:49 /components/schemas/Exclusive/properties/word/exclusiveMinimum: exclusiveMinimum must be a number, true or false, not "yes"; it is left out
+  - warning keyword-unsupported invalid.yaml:52:26 /components/schemas/Unsupported/patternProperties: patternProperties is not supported; generated types do not check it
+  - warning keyword-unsupported invalid.yaml:54:26 /components/schemas/Unsupported/dependentRequired: dependentRequired is not supported; generated types do not check it
+  - warning keyword-unsupported invalid.yaml:56:42 /components/schemas/Unsupported/properties/list/prefixItems: prefixItems is not supported; generated types do not check it
+  - warning keyword-unsupported invalid.yaml:56:70 /components/schemas/Unsupported/properties/list/contains: contains is not supported; generated types do not check it
+  - warning keyword-unsupported invalid.yaml:56:99 /components/schemas/Unsupported/properties/list/minContains: minContains is not supported; generated types do not check it
+  - warning keyword-unsupported invalid.yaml:57:22 /components/schemas/Unsupported/properties/other/not: not is not supported; generated types do not check it

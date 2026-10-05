@@ -138,3 +138,32 @@ components:
         - $ref: '#/components/schemas/Cat'
         - $ref: '#/components/schemas/Dog'
       discriminator: {propertyName: kind}
+    KeyLabels:
+      type: object
+      additionalProperties: {type: string, maxLength: 5}
+      propertyNames: {pattern: '^[a-z]+$', minLength: 2, maxLength: 10}
+    Colors:
+      type: object
+      additionalProperties: {type: integer}
+      propertyNames: {$ref: '#/components/schemas/Color'}
+    Color: {type: string, enum: [red, green, null]}
+    Mixed:
+      type: object
+      properties:
+        name: {type: string}
+      additionalProperties: true
+      propertyNames: {format: uuid, const: x}
+    Fixed:
+      type: object
+      properties:
+        a: {type: string}
+      propertyNames: {maxLength: 3}
+    Merged:
+      allOf:
+        - {type: object, additionalProperties: {type: string}, propertyNames: {pattern: '^a'}}
+        - {propertyNames: {pattern: 'b$'}}
+    KeyHolder:
+      type: object
+      properties:
+        inline: {type: object, additionalProperties: {type: string}, propertyNames: {minLength: 1}}
+        keysOnly: {type: object, additionalProperties: true, propertyNames: {maxLength: 4}}

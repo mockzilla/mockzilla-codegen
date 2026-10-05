@@ -184,7 +184,26 @@ Flag union models.unions
   | oneOf text
   | String *string kinds=string
   | Bool *bool kinds=boolean
+SameRequired union models.unions
+  | oneOf
+  | Option1 *SameRequiredOption1 kinds=object required=id known=id,a
+  | Option2 *SameRequiredOption2 kinds=object required=id known=id,b
+  | Option3 *SameRequiredOption3 kinds=object required=id,c known=id,c
+SameRequiredOption1 struct models.types
+  ID string json=id required
+  A *string json=a omitempty
+SameRequiredOption2 struct models.types
+  ID string json=id required
+  B *string json=b omitempty
+SameRequiredOption3 struct models.types
+  ID string json=id required
+  C string json=c required
 ---
 info union-duplicate 63:11 /components/schemas/Duplicates/oneOf/1: member 2 has the same Go type (string) as variant String; they share its field
 info union-duplicate 65:11 /components/schemas/Duplicates/oneOf/3: member 4 has the same Go type (Cat) as variant Cat; they share its field
+warning union-ambiguous 91:7 /components/schemas/AllOfUnion: variants Option1, Option2 of AllOfUnion require no property, so {} matches each of them and fails to decode
+warning union-ambiguous 109:7 /components/schemas/IfThenElseByShape: variants Then, Else of IfThenElseByShape require no property, so {} matches each of them and fails to decode
 warning union-self 139:11 /components/schemas/Self/oneOf/0: member 1 is the union itself; it is left out
+warning union-ambiguous 143:7 /components/schemas/NoIf: variants Then, Else of NoIf require no property, so {} matches each of them and fails to decode
+warning union-ambiguous 146:7 /components/schemas/IfWithoutConst: variants Then, Else of IfWithoutConst require no property, so {} matches each of them and fails to decode
+warning union-ambiguous 191:7 /components/schemas/SameRequired: variants Option1, Option2 of SameRequired require the same properties (id), so an object with only those matches each of them and fails to decode

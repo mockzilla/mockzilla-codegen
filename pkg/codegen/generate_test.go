@@ -679,7 +679,7 @@ paths:
 	}, res.Files[0].Parts)
 }
 
-// An empty key names no status, so it is taken like default: the service gives the status.
+// An empty key names no status, so its response is left out.
 func TestGenerateWithAnEmptyResponseKey(t *testing.T) {
 	t.Parallel()
 
@@ -706,8 +706,8 @@ paths:
 		Pointer:  "/paths/~1pets/get/responses/",
 		Line:     9,
 		Col:      9,
-		Message:  `response key "" is not a status code, a range or default`,
+		Message:  `response key "" is not a status code, a range or default; the response is left out`,
 	})
 	require.Len(t, res.Files, 1)
-	assert.Contains(t, string(res.Files[0].Content), "func NewListPetsResponseDataEMPTY(status int) *ListPetsResponseData {\n")
+	assert.Contains(t, string(res.Files[0].Content), "func NewListPetsResponseData() *ListPetsResponseData {\n")
 }

@@ -46,3 +46,4 @@ GetTreeResponse200 struct models.responses
 op GetTree GET /tree
   response 200 application/json GetTreeResponse200
 ---
+warning union-ambiguous 40:7 /components/schemas/Choice: variants Option1, Late of Choice require no property, so {} matches each of them and fails to decode

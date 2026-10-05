@@ -16,8 +16,13 @@
 {{- end}}
 {{- with .Values}}
 	for _, {{.Index}} := range {{.Range}} {
-		{{.Item}} := {{.Map}}[{{.Index}}]
-{{- template "models/check.tmpl" .Check}}
+{{- with .Key}}
+{{- template "models/check.tmpl" .}}
+{{- end}}
+{{- with .Check}}
+		{{$.Values.Item}} := {{$.Values.Map}}[{{$.Values.Index}}]
+{{- template "models/check.tmpl" .}}
+{{- end}}
 	}
 {{- end}}
 {{- if .IsGuarded}}

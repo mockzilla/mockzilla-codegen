@@ -86,10 +86,6 @@ Operations:
         Description: server
         Origin: responses.yaml:9:14 /paths/~1a/get/responses/5XX
       -
-        Status: weird
-        Description: not a status
-        Origin: responses.yaml:20:16 /paths/~1a/get/responses/weird
-      -
         Status: default
         Description: error
         Origin: responses.yaml:7:18 /paths/~1a/get/responses/default
@@ -191,4 +187,4 @@ Components:
           Origin: responses.yaml:27:21 /components/headers/Limit/schema
         Origin: responses.yaml:27:12 /components/headers/Limit
 Diagnostics:
-  - warning invalid-status responses.yaml:20:16 /paths/~1a/get/responses/weird: response key "weird" is not a status code, a range or default
+  - warning invalid-status responses.yaml:20:16 /paths/~1a/get/responses/weird: response key "weird" is not a status code, a range or default; the response is left out

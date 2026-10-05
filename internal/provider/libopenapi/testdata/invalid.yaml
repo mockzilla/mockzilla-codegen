@@ -1,0 +1,57 @@
+openapi: 3.0.3
+info: {title: t, version: '1'}
+paths:
+  /items/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string}}
+      - {name: gone, in: path, required: true, schema: {type: string}}
+    get:
+      parameters:
+        - {name: limit, schema: {type: integer}}
+        - {name: X-Trace, in: Header, schema: {type: string}}
+        - {name: other, in: path, required: true, schema: {type: string}}
+        - $ref: '#/components/parameters/Bogus'
+        - {name: q, in: query, schema: {type: string}}
+      callbacks:
+        done:
+          '{$request.body#/url}':
+            post:
+              parameters: [{name: url, in: path, required: true, schema: {type: string}}]
+              responses: {'200': {description: ok}}
+      responses: {'200': {description: ok}}
+webhooks: {}
+components:
+  parameters:
+    Bogus: {name: bogus, in: body, schema: {type: string}}
+  schemas:
+    Kinds:
+      type: object
+      properties:
+        interval: string
+        list: [a]
+        flag: true
+        minLength: {type: string, minLength: abc}
+        fraction: {type: string, minLength: 1.5, maxLength: -1}
+        typed: {type: {a: b}}
+        required: {type: object, required: true}
+        properties: {type: object, properties: [x]}
+        enum: {type: string, enum: x}
+        bounds: {type: integer, minimum: low, maximum: '10'}
+        multiple: {type: number, multipleOf: 0}
+        flags: {type: string, nullable: 'yes', readOnly: 1, writeOnly: no, deprecated: null, uniqueItems: []}
+    Exclusive:
+      type: object
+      properties:
+        form31: {type: integer, exclusiveMinimum: 0}
+        both: {type: integer, minimum: 5, exclusiveMinimum: 1}
+        upper: {type: number, exclusiveMaximum: 10.5}
+        word: {type: integer, exclusiveMinimum: 'yes'}
+        flag: {type: integer, maximum: 3, exclusiveMaximum: true}
+    Unsupported:
+      type: object
+      patternProperties: {'^x-': {type: string}}
+      propertyNames: {pattern: '^[a-z]+$'}
+      dependentRequired: {a: [b]}
+      properties:
+        list: {type: array, prefixItems: [{type: string}], contains: {type: string}, minContains: 1}
+        other: {not: {type: string}}

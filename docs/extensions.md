@@ -7,16 +7,20 @@ Extensions change what mockzilla-codegen writes for one schema, property or para
 | `x-go-type` | schema | the Go type to use instead of the one mockzilla-codegen picks |
 | `x-go-type-import` | next to `x-go-type` | the package of that type: a path, or `{path, name}` to import it under a name |
 | `x-go-type-name` | schema | the name of the type the schema declares |
-| `x-go-name` | schema, property, parameter | the name of the type, field or parameter field |
+| `x-go-name` | schema, property, parameter or its schema | the name of the type, field or parameter field |
 | `x-go-name-exact` | next to `x-go-name` | use the name as written, even unexported |
-| `x-go-type-skip-optional-pointer` | property, parameter | no pointer for an optional field |
+| `x-go-type-skip-optional-pointer` | property, parameter or its schema | no pointer for an optional field |
 | `x-go-json-ignore` | property | JSON tag `-` |
 | `x-omitempty` | property | `omitempty` on (`true`) or off (`false`) |
-| `x-go-extra-tags` | property | extra struct tags; they win over `models.extra-tags` on the same key |
+| `x-go-extra-tags` | property, parameter or its schema | extra struct tags; they win over `models.extra-tags` on the same key |
 | `x-enum-names` | enum schema | constant names, in value order, used as written |
 | `x-deprecated-reason` | schema, property | the text of `// Deprecated:` when `deprecated: true` is set |
 | `x-sensitive-data` | property | masked in `Masked()` and in logs |
 | `x-mcp` | operation | MCP tool settings: `skip`, `name`, `description` ([MCP](mcp.md#x-mcp)) |
+
+A parameter's field reads `x-go-name`, `x-go-extra-tags` and `x-go-type-skip-optional-pointer` from
+the parameter and from its schema. When both set a name, or a tag of one key, the parameter's
+wins, with a warning.
 
 A value of the wrong kind is left out, with a warning. An unknown extension starting with `x-go-`
 is left out with a warning too, since it is likely a typo. Other `x-*` extensions are ignored. Booleans may be written as strings, `"true"`, as older specs do.
