@@ -6,6 +6,9 @@
 package runtime
 
 import (
+	"encoding/json"
+	"mime/multipart"
+	"net/url"
 	"testing"
 	"time"
 
@@ -42,6 +45,40 @@ type scalars struct {
 	Text *string
 
 	isNoText bool
+}
+
+type photo struct {
+	Image   File     `json:"image"`
+	Caption string   `json:"caption,omitempty"`
+	Tags    []string `json:"tags,omitempty"`
+}
+
+// post stands in for a generated union that reads forms, with a shared property.
+type post struct {
+	ID    string `json:"id,omitempty"`
+	Cat   *cat   `json:"-"`
+	Photo *photo `json:"-"`
+}
+
+func (p post) MarshalJSON() ([]byte, error) {
+	type plain post
+	var set []any
+	if p.Cat != nil {
+		set = append(set, p.Cat)
+	}
+	if p.Photo != nil {
+		set = append(set, p.Photo)
+	}
+	return MarshalUnion(plain(p), set...)
+}
+
+func (p *post) UnmarshalForm(form *multipart.Form) error {
+	*p = post{}
+	type plain post
+	return UnmarshalUnionForm(form, (*plain)(p), Union{Shared: []string{"id"}, Variants: []Variant{
+		{Name: "Cat", Kind: KindObject, Required: []string{"meow"}, Known: []string{"name", "meow"}, Into: Into(&p.Cat)},
+		{Name: "Photo", Kind: KindObject, Required: []string{"image"}, Known: []string{"image", "caption", "tags"}, Into: Into(&p.Photo)},
+	}})
 }
 
 func (h *holder) union() Union {
@@ -312,10 +349,129 @@ func TestInto(t *testing.T) {
 
 	n := 1
 	dst := &n
-	decode := Into(&dst)
+	set := Into(&dst)
 
-	require.Error(t, decode([]byte(`"a"`)))
+	require.Error(t, set.decode([]byte(`"a"`)))
 	assert.Equal(t, 1, *dst)
-	require.NoError(t, decode([]byte(`2`)))
+	require.NoError(t, set.decode([]byte(`2`)))
 	assert.Equal(t, 2, *dst)
+
+	require.Error(t, set.fill(&multipart.Form{Value: url.Values{"": {"a"}}}))
+	assert.Equal(t, 2, *dst)
+}
+
+func TestUnmarshalUnionForm(t *testing.T) {
+	t.Parallel()
+
+	r := multipartRequest(t, func(w *multipart.Writer) {
+		part, err := w.CreateFormFile("image", "a.png")
+		require.NoError(t, err)
+		_, err = part.Write([]byte("PNG"))
+		require.NoError(t, err)
+		require.NoError(t, w.WriteField("caption", "sun"))
+		require.NoError(t, w.WriteField("tags", "a"))
+		require.NoError(t, w.WriteField("tags", "b"))
+	})
+	require.NoError(t, r.ParseMultipartForm(1<<20))
+
+	var got post
+	require.NoError(t, got.UnmarshalForm(r.MultipartForm))
+	require.NotNil(t, got.Photo)
+	assert.Nil(t, got.Cat)
+	assert.Equal(t, "sun", got.Photo.Caption)
+	assert.Equal(t, []string{"a", "b"}, got.Photo.Tags)
+	data, err := got.Photo.Image.Bytes()
+	require.NoError(t, err)
+	assert.Equal(t, "PNG", string(data))
+
+	require.NoError(t, got.UnmarshalForm(&multipart.Form{Value: url.Values{"id": {"7"}, "name": {"Tom"}, "meow": {"true"}}}))
+	assert.Equal(t, post{ID: "7", Cat: &cat{Name: "Tom", Meow: true}}, got)
+}
+
+func TestUnmarshalUnionFormPicks(t *testing.T) {
+	t.Parallel()
+
+	pets := func(h *holder) Union {
+		return Union{Discriminator: "type", Variants: h.union().Variants[:2]}
+	}
+	tests := []struct {
+		name    string
+		u       func(h *holder) Union
+		values  url.Values
+		want    holder
+		wantErr error
+	}{
+		{
+			name:   "The discriminator picks",
+			u:      pets,
+			values: url.Values{"type": {"dog"}, "name": {"Rex"}, "bark": {"true"}},
+			want:   holder{Dog: &dog{Name: "Rex", Bark: true}},
+		},
+		{
+			name:    "A value no variant takes",
+			u:       pets,
+			values:  url.Values{"type": {"fish"}},
+			wantErr: ErrUnknownDiscriminator,
+		},
+		{
+			name:   "Required keys pick, nested keys count by their first name",
+			u:      (*holder).union,
+			values: url.Values{"bark": {"true"}, "extra[x]": {"a"}},
+			want:   holder{Dog: &dog{Bark: true}},
+		},
+		{
+			name:   "anyOf sets every match",
+			u:      func(h *holder) Union { u := h.union(); u.IsAnyOf = true; return u },
+			values: url.Values{"name": {"Kit"}, "meow": {"true"}, "bark": {"false"}},
+			want:   holder{Cat: &cat{Name: "Kit", Meow: true}, Dog: &dog{Name: "Kit"}},
+		},
+		{
+			name:    "A form no object variant takes",
+			u:       (*holder).union,
+			values:  url.Values{"meow": {"loud"}, "bark": {"loud"}},
+			wantErr: ErrNoVariant,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got holder
+			err := UnmarshalUnionForm(&multipart.Form{Value: tc.values}, nil, tc.u(&got))
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestUnmarshalUnionFormShared(t *testing.T) {
+	t.Parallel()
+
+	var got holder
+	err := UnmarshalUnionForm(&multipart.Form{}, holder{}, got.union())
+
+	require.ErrorIs(t, err, ErrParamValue)
+}
+
+func TestFormMembers(t *testing.T) {
+	t.Parallel()
+
+	form := &multipart.Form{
+		Value: url.Values{"type": {"dog"}, "a[b]": {"1"}, "a": {"x"}, "empty": {}, "": {"x"}, "doc": {"text"}},
+		File:  map[string][]*multipart.FileHeader{"doc": {{}}, "image": {{}}},
+	}
+
+	assert.Equal(t, map[string]json.RawMessage{
+		"type":  json.RawMessage(`"dog"`),
+		"a":     json.RawMessage(`"x"`),
+		"empty": json.RawMessage(`{}`),
+		"doc":   json.RawMessage(`"text"`),
+		"image": json.RawMessage(`{}`),
+	}, formMembers(form))
 }

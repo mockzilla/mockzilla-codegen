@@ -143,10 +143,11 @@ mux.HandleFunc("GET /pets", adapter.ListPets)
   router's middleware runs before the handler, so it does not see the name.
 - A body arrives in a media type the operation documents: JSON (`application/json` and `+json`)
   through the JSON decoder, `application/x-www-form-urlencoded` through `DecodeForm`,
-  `multipart/form-data` into a struct with `DecodeMultipart`, and any other media type into a
-  `runtime.File`, a string or bytes, whichever its field is. A `runtime.File` (`format: binary`)
-  streams the body: the service reads it once, before it returns. A documented media type that
-  does not fit its type, such as XML into a struct, is accepted and left to `RawRequest`.
+  `multipart/form-data` into a struct or a union with `DecodeMultipart`, and any other media type
+  into a `runtime.File`, a string or bytes, whichever its field is. A `runtime.File`
+  (`format: binary`) streams the body: the service reads it once, before it returns. A documented
+  media type that does not fit its type, such as XML into a struct, is accepted and left to
+  `RawRequest`, and the generator warns about it (`server-body-unread`).
 - Media types are matched without their parameters and in lower case. A wildcard such as `*/*`
   takes every media type the operation does not name, as JSON unless its field is a file, a
   string or bytes. Without a wildcard, a media type the operation does not document is answered
@@ -477,7 +478,7 @@ The runtime package holds what the generated HTTP code and clients use, standard
   and parameters with JSON content.
 - Bodies: `DecodeJSON`, `DecodeForm` (bracketed keys nest: `address[city]=Berlin`,
   `items[0]=a`; one value for a struct or map is read as JSON, else as a string), `DecodeMultipart` (files as `runtime.File`, JSON parts into structs),
-  `DecodeText`, `DecodeBytes`, `DecodeFile`. A required body that is empty gives `ErrBodyEmpty`;
+  `DecodeText`, `DecodeBytes`, `DecodeFile`. A type with `UnmarshalForm` reads a form itself. A required body that is empty gives `ErrBodyEmpty`;
   an empty optional one is left alone.
 - Responses: `Write` sends a status, headers and a body: JSON for most values, text and bytes as
   they are, a `File` streamed.

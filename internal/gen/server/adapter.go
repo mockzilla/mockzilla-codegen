@@ -270,15 +270,12 @@ func quoteDefault(value string) string {
 	return gocode.Quote(value)
 }
 
-// bodyView picks the decoder of a media type by the type of its field: JSON and forms decode into
-// anything, multipart into a struct, any other media type into a file, a string or bytes. A
-// wildcard media type into anything else decodes as JSON. Other pairs are taken in but not decoded.
+// bodyView is the body of one media type, read by its decoder.
 func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 	s := at.scope
-	mediaType := operation.BaseMediaType(c.MediaType)
 	v := BodyView{
-		Kind:        bodyNone,
-		MediaType:   gocode.Quote(mediaType),
+		Kind:        bodyKind(c),
+		MediaType:   gocode.Quote(operation.BaseMediaType(c.MediaType)),
 		Runtime:     s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
 		OperationID: at.id,
 		IsRequired:  at.isRequired,
@@ -287,29 +284,52 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 		Return:      at.ret,
 	}
 	t := operation.BodyType(c)
-	base, isPointer := t, false
-	if p, ok := t.(gomodel.Pointer); ok {
-		base, isPointer = p.Elem, true
+	base := gomodel.Elem(t)
+	_, isPointer := t.(gomodel.Pointer)
+
+	switch v.Kind {
+	case bodyJSON:
+		v.IsJSON = true
+	case bodyForm:
+		v.IsForm = true
+	case bodyMultipart:
+		v.IsMultipart, v.Type = true, s.Expr(base)
+	case bodyFile:
+		v.IsFile, v.Assign = true, convert("file", conversion{raw: fileType, target: base, isPointer: isPointer}, s)
+	case bodyText:
+		v.IsText, v.Assign = true, convert("text", conversion{raw: stringType, target: base, isPointer: isPointer}, s)
+	case bodyBytes:
+		v.IsBytes, v.Assign = true, convert("data", conversion{raw: bytesType, target: base, isPointer: isPointer}, s)
 	}
-	isWildcard := strings.Contains(mediaType, "*")
-	under := gomodel.Underlying(base)
+	return v
+}
+
+// bodyKind picks the decoder of a media type by the type of its field: JSON and forms decode into
+// anything, multipart into a struct or a union that reads forms, any other media type into a file,
+// a string or bytes. A wildcard media type into anything else decodes as JSON. Other pairs are
+// taken in but not decoded: bodyNone.
+func bodyKind(c gomodel.Content) string {
+	mediaType := operation.BaseMediaType(c.MediaType)
+	t := operation.BodyType(c)
+	_, isPointer := t.(gomodel.Pointer)
+	under := gomodel.Underlying(gomodel.Elem(t))
 	isString, isBytes, isFile := under == stringType, under == bytesType, under == fileType
 
 	switch {
-	case runtime.IsJSON(mediaType), isWildcard && !isString && !isBytes && !isFile:
-		v.Kind, v.IsJSON = bodyJSON, true
+	case runtime.IsJSON(mediaType), strings.Contains(mediaType, "*") && !isString && !isBytes && !isFile:
+		return bodyJSON
 	case mediaType == "application/x-www-form-urlencoded":
-		v.Kind, v.IsForm = bodyForm, true
-	case mediaType == "multipart/form-data" && isPointer && gomodel.StructDecl(base) != nil:
-		v.Kind, v.IsMultipart, v.Type = bodyMultipart, true, s.Expr(base)
+		return bodyForm
+	case mediaType == "multipart/form-data" && isPointer && gomodel.FormDecl(t) != nil:
+		return bodyMultipart
 	case isFile:
-		v.Kind, v.IsFile, v.Assign = bodyFile, true, convert("file", conversion{raw: fileType, target: base, isPointer: isPointer}, s)
+		return bodyFile
 	case isString:
-		v.Kind, v.IsText, v.Assign = bodyText, true, convert("text", conversion{raw: stringType, target: base, isPointer: isPointer}, s)
+		return bodyText
 	case isBytes:
-		v.Kind, v.IsBytes, v.Assign = bodyBytes, true, convert("data", conversion{raw: bytesType, target: base, isPointer: isPointer}, s)
+		return bodyBytes
 	}
-	return v
+	return bodyNone
 }
 
 // convert writes value, of the raw type, as the target type of a body field: converted when the

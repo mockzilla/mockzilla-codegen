@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"slices"
@@ -20,6 +21,7 @@ const _ = runtime.SupportsGeneratorV2
 
 type Shape struct {
 	Name   *string      `json:"name,omitempty"`
+	Stamp  []byte       `json:"stamp,omitempty"`
 	Vertex *Vertex      `json:"vertex,omitempty"`
 	Labels *ShapeLabels `json:"labels,omitempty"`
 	Origin *Point       `json:"origin,omitempty"`
@@ -65,6 +67,12 @@ func (s *ShapeLabels) UnmarshalJSON(data []byte) error {
 	return runtime.UnmarshalAdditional(data, (*plain)(s), &s.AdditionalProperties, "main")
 }
 
+// UnmarshalForm reads the properties, and every other name of the form into AdditionalProperties.
+func (s *ShapeLabels) UnmarshalForm(form *multipart.Form) error {
+	type plain ShapeLabels
+	return runtime.UnmarshalAdditionalForm(form, (*plain)(s), &s.AdditionalProperties, "main")
+}
+
 type Point struct {
 	X int `json:"x"`
 	Y int `json:"y"`
@@ -78,6 +86,15 @@ type Busy struct {
 type Invalid struct {
 	Message string `json:"message"`
 	Field   string `json:"field"`
+}
+
+type Link struct {
+	URL string `json:"url"`
+}
+
+type Upload struct {
+	File     runtime.File `json:"file"`
+	Checksum []byte       `json:"checksum,omitempty"`
 }
 
 type Vertex struct {
@@ -100,7 +117,17 @@ func (v Vertex) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON sets the variants data matches.
 func (v *Vertex) UnmarshalJSON(data []byte) error {
 	*v = Vertex{}
-	return runtime.UnmarshalUnion(data, runtime.Union{
+	return runtime.UnmarshalUnion(data, v.union())
+}
+
+// UnmarshalForm sets the variants the form matches.
+func (v *Vertex) UnmarshalForm(form *multipart.Form) error {
+	*v = Vertex{}
+	return runtime.UnmarshalUnionForm(form, nil, v.union())
+}
+
+func (v *Vertex) union() runtime.Union {
+	return runtime.Union{
 		Variants: []runtime.Variant{
 			{
 				Name: "String",
@@ -115,7 +142,7 @@ func (v *Vertex) UnmarshalJSON(data []byte) error {
 				Into:     runtime.Into(&v.Point),
 			},
 		},
-	})
+	}
 }
 
 // Validate checks the value against the constraints of the spec.
@@ -177,12 +204,73 @@ func (f Fault) Error() string {
 	return runtime.ErrorMessage(f, "message", "Fault")
 }
 
+type Attachment struct {
+	Link   *Link   `json:"-"`
+	Upload *Upload `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set.
+func (a Attachment) MarshalJSON() ([]byte, error) {
+	var set []any
+	if a.Link != nil {
+		set = append(set, a.Link)
+	}
+	if a.Upload != nil {
+		set = append(set, a.Upload)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets the variants data matches.
+func (a *Attachment) UnmarshalJSON(data []byte) error {
+	*a = Attachment{}
+	return runtime.UnmarshalUnion(data, a.union())
+}
+
+// UnmarshalForm sets the variants the form matches.
+func (a *Attachment) UnmarshalForm(form *multipart.Form) error {
+	*a = Attachment{}
+	return runtime.UnmarshalUnionForm(form, nil, a.union())
+}
+
+func (a *Attachment) union() runtime.Union {
+	return runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name:     "Link",
+				Kind:     runtime.KindObject,
+				Required: []string{"url"},
+				Known:    []string{"url"},
+				Into:     runtime.Into(&a.Link),
+			},
+			{
+				Name:     "Upload",
+				Kind:     runtime.KindObject,
+				Required: []string{"file"},
+				Known:    []string{"file", "checksum"},
+				Into:     runtime.Into(&a.Upload),
+			},
+		},
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (a Attachment) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.ExactlyOne(a.Link != nil, a.Upload != nil))
+	return errs.Err()
+}
+
+type PostAttachmentResponse200 = string
+
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// PostForm handles POST /form.
 	PostForm(ctx context.Context, opts *PostFormServiceRequestOptions) (*PostFormResponseData, error)
 	// PostMultipart handles POST /multipart.
 	PostMultipart(ctx context.Context, opts *PostMultipartServiceRequestOptions) (*PostMultipartResponseData, error)
+	// PostAttachment handles POST /attachments.
+	PostAttachment(ctx context.Context, opts *PostAttachmentServiceRequestOptions) (*PostAttachmentResponseData, error)
 }
 
 // PostFormServiceRequestOptions is what PostForm receives.
@@ -311,6 +399,73 @@ func (r *PostMultipartResponseData) Payload() any {
 
 // ContentType returns the media type of the body, empty for the default of its Go type.
 func (r *PostMultipartResponseData) ContentType() string {
+	return r.contentType
+}
+
+// PostAttachmentServiceRequestOptions is what PostAttachment receives.
+type PostAttachmentServiceRequestOptions struct {
+	// Body sent as application/x-www-form-urlencoded.
+	BodyForm *Attachment
+	// Body sent as multipart/form-data.
+	BodyMultipart *Attachment
+	RawRequest    *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *PostAttachmentServiceRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.BodyForm != nil {
+		errs.Append("body", o.BodyForm.Validate())
+	}
+	if o.BodyMultipart != nil {
+		errs.Append("body", o.BodyMultipart.Validate())
+	}
+	return errs.Err()
+}
+
+// PostAttachmentResponseData is what PostAttachment returns.
+type PostAttachmentResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewPostAttachmentResponseData returns the 200 response with its text/plain body.
+func NewPostAttachmentResponseData(body *PostAttachmentResponse200) *PostAttachmentResponseData {
+	return &PostAttachmentResponseData{Status: 200, Body: body, contentType: "text/plain"}
+}
+
+// WithStatus sets the status code.
+func (r *PostAttachmentResponseData) WithStatus(code int) *PostAttachmentResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *PostAttachmentResponseData) WithHeaders(h http.Header) *PostAttachmentResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *PostAttachmentResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *PostAttachmentResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *PostAttachmentResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType returns the media type of the body, empty for the default of its Go type.
+func (r *PostAttachmentResponseData) ContentType() string {
 	return r.contentType
 }
 
@@ -469,6 +624,42 @@ func (a *HTTPAdapter) PostMultipart(w http.ResponseWriter, r *http.Request) {
 	a.write(w, r, "PostMultipart", res)
 }
 
+// PostAttachment handles POST /attachments.
+func (a *HTTPAdapter) PostAttachment(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostAttachment"))
+	opts := &PostAttachmentServiceRequestOptions{RawRequest: r}
+	switch contentType := runtime.ContentType(r.Header); contentType {
+	case "application/x-www-form-urlencoded":
+		if err := runtime.DecodeForm(r.Body, &opts.BodyForm, true); err != nil {
+			a.failDecode(w, r, "PostAttachment", err)
+			return
+		}
+	case "multipart/form-data":
+		opts.BodyMultipart = &Attachment{}
+		if err := runtime.DecodeMultipart(r, opts.BodyMultipart, a.opts.MultipartMaxMemory); err != nil {
+			a.failDecode(w, r, "PostAttachment", err)
+			return
+		}
+	case "":
+		a.failDecode(w, r, "PostAttachment", runtime.ErrBodyEmpty)
+		return
+	default:
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PostAttachment", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return
+	}
+
+	res, err := a.svc.PostAttachment(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostAttachment", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostAttachment", Err: runtime.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "PostAttachment", res)
+}
+
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
@@ -506,6 +697,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 	register := func(r chi.Router) {
 		r.Post("/form", a.PostForm)
 		r.Post("/multipart", a.PostMultipart)
+		r.Post("/attachments", a.PostAttachment)
 	}
 
 	router, _ := o.Router.(chi.Router)
@@ -552,6 +744,26 @@ func (o *PostMultipartRequestOptions) Validate() error {
 	return errs.Err()
 }
 
+// PostAttachmentRequestOptions is what PostAttachment sends.
+type PostAttachmentRequestOptions struct {
+	// Body sent as application/x-www-form-urlencoded.
+	BodyForm *Attachment
+	// Body sent as multipart/form-data.
+	BodyMultipart *Attachment
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *PostAttachmentRequestOptions) Validate() error {
+	var errs runtime.ValidationErrors
+	if o.BodyForm != nil {
+		errs.Append("body", o.BodyForm.Validate())
+	}
+	if o.BodyMultipart != nil {
+		errs.Append("body", o.BodyMultipart.Validate())
+	}
+	return errs.Err()
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = runtime.Doer
 
@@ -564,6 +776,8 @@ type ClientInterface interface {
 	PostForm(ctx context.Context, opts *PostFormRequestOptions, editors ...RequestEditor) (*Shape, error)
 	// PostMultipart calls POST /multipart.
 	PostMultipart(ctx context.Context, opts *PostMultipartRequestOptions, editors ...RequestEditor) (*Shape, error)
+	// PostAttachment calls POST /attachments.
+	PostAttachment(ctx context.Context, opts *PostAttachmentRequestOptions, editors ...RequestEditor) (*PostAttachmentResponse200, error)
 }
 
 var _ ClientInterface = (*Client)(nil)
@@ -692,6 +906,43 @@ func (c *Client) PostMultipartRequest(ctx context.Context, opts *PostMultipartRe
 		return nil, runtime.ErrBodyEmpty
 	}
 	return c.newRequest(ctx, "PostMultipart", b, editors)
+}
+
+// PostAttachment calls POST /attachments.
+func (c *Client) PostAttachment(ctx context.Context, opts *PostAttachmentRequestOptions, editors ...RequestEditor) (*PostAttachmentResponse200, error) {
+	req, err := c.PostAttachmentRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out *PostAttachmentResponse200
+	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+		{Status: "200", MediaType: "text/plain", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PostAttachmentRequest builds the request of POST /attachments.
+func (c *Client) PostAttachmentRequest(ctx context.Context, opts *PostAttachmentRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &PostAttachmentRequestOptions{}
+	}
+	b := runtime.NewRequestBuilder(http.MethodPost, "/attachments")
+	switch {
+	case opts.BodyForm != nil:
+		b.FormBody(opts.BodyForm)
+	case opts.BodyMultipart != nil:
+		b.MultipartBody(opts.BodyMultipart)
+	default:
+		return nil, runtime.ErrBodyEmpty
+	}
+	return c.newRequest(ctx, "PostAttachment", b, editors)
 }
 
 func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {

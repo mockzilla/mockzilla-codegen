@@ -49,6 +49,8 @@ const (
 	CodeStreamOnly             = "stream-only"
 	CodePathParamMissing       = "path-param-missing"
 	CodeClientBodyUnread       = "client-body-unread"
+	CodeClientBodyUnwritable   = "client-body-unwritable"
+	CodeServerBodyUnread       = "server-body-unread"
 	CodeServerBodyUnwritable   = "server-body-unwritable"
 	CodeStreamUnread           = "stream-unread"
 	CodeQueryStringUnsupported = "querystring-unsupported"

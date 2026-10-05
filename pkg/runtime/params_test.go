@@ -255,6 +255,15 @@ func TestDecodeParamEdges(t *testing.T) {
 		{name: "Querystring target that is no pointer", decode: func(dst any) error {
 			return DecodeQueryString("a=1", Param{Name: "q"}, dst)
 		}, dst: 1, wantErr: ErrParamValue},
+		{name: "Bytes are base64", decode: func(dst any) error {
+			return DecodeQuery(url.Values{"color": {"YWJj"}}, optional, dst)
+		}, dst: new([]byte), want: []byte("abc")},
+		{name: "Bytes that are no base64", decode: func(dst any) error {
+			return DecodeHeader(http.Header{"Color": {"abc"}}, optional, dst)
+		}, dst: new([]byte), wantErr: ErrParamValue},
+		{name: "A deep object key that names nothing", decode: func(dst any) error {
+			return DecodeQuery(url.Values{"color[": {"1"}, "color[a]": {"2"}}, explode(StyleDeepObject, true), dst)
+		}, dst: new(map[string]any), want: map[string]any{"a": "2"}},
 	}
 
 	for _, tc := range tests {
@@ -304,6 +313,10 @@ func TestEncodeParamEdges(t *testing.T) {
 	require.ErrorIs(t, DecodeHeader(http.Header{}, p, 1), ErrParamValue)
 	require.ErrorIs(t, DecodeCookie(nil, p, 1), ErrParamValue)
 	require.ErrorIs(t, DecodeQuery(nil, p, 1), ErrParamValue)
+
+	bytesParam, err := EncodePath([]byte("abc"), explode(StyleSimple, false))
+	require.NoError(t, err)
+	assert.Equal(t, "YWJj", bytesParam)
 
 	for value, want := range map[any]string{true: "true", uint8(3): "3", 1.5: "1.5", (*int)(nil): "", new("x"): "x"} {
 		got, encodeErr := EncodePath(value, explode(StyleSimple, false))

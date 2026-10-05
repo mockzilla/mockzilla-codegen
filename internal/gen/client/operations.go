@@ -252,40 +252,57 @@ func groupView(g *Generator, p gomodel.ParamGroup) GroupView {
 	return v
 }
 
-// bodyView picks the encoder of a media type by the type of its field: JSON and forms take
-// anything, multipart a struct, a File streams, any other media type is sent as a string or as
-// bytes, whichever its field is. A wildcard media type sends anything else as JSON. Other pairs,
-// such as XML into a struct, cannot be sent.
+// bodyView is the body of one media type, sent by its encoder.
 func bodyView(c gomodel.Content, field string, s *gocode.Scope) BodyView {
 	t := operation.BodyType(c)
 	value := gocode.Selector("opts", field)
-	v := BodyView{IsSet: gocode.NotNil(value), Value: value, MediaType: gocode.Quote(c.MediaType)}
+	v := BodyView{IsSet: gocode.NotNil(value), Encoder: encoderOf(c), Value: value, MediaType: gocode.Quote(c.MediaType)}
 	base := gomodel.Elem(t)
-	under := gomodel.Underlying(base)
+
+	switch v.Encoder {
+	case encodeForm, encodeMultipart:
+		v.MediaType = ""
+	case encodeFile:
+		v.Value = gocode.Deref(value)
+	case encodeText:
+		v.Value = held(value, base, t, s)
+		if t == stringType {
+			v.IsSet = gocode.NotEmpty(value)
+		}
+	case encodeBytes:
+		v.Value = held(value, base, t, s)
+	}
+	if strings.Contains(operation.BaseMediaType(c.MediaType), "*") {
+		v.MediaType = gocode.Quote(wildcardMediaTypes[v.Encoder])
+	}
+	return v
+}
+
+// encoderOf picks the encoder of a media type by the type of its field: JSON and forms take
+// anything, multipart a struct or a union that reads forms, a File streams, any other media type
+// is sent as a string or as bytes, whichever its field is. A wildcard media type sends anything
+// else as JSON. Other pairs, such as XML into a struct, cannot be sent: their encoder is empty.
+func encoderOf(c gomodel.Content) string {
+	t := operation.BodyType(c)
+	under := gomodel.Underlying(gomodel.Elem(t))
 	mediaType := operation.BaseMediaType(c.MediaType)
 	isWildcard := strings.Contains(mediaType, "*")
 
 	switch {
 	case runtime.IsJSON(mediaType), isWildcard && under != stringType && under != bytesType && under != fileType:
-		v.Encoder = encodeJSON
+		return encodeJSON
 	case mediaType == "application/x-www-form-urlencoded":
-		v.Encoder, v.MediaType = encodeForm, ""
-	case mediaType == "multipart/form-data" && gomodel.StructDecl(t) != nil:
-		v.Encoder, v.MediaType = encodeMultipart, ""
+		return encodeForm
+	case mediaType == "multipart/form-data" && gomodel.FormDecl(t) != nil:
+		return encodeMultipart
 	case under == fileType:
-		v.Encoder, v.Value = encodeFile, gocode.Deref(value)
+		return encodeFile
 	case under == stringType:
-		v.Encoder, v.Value = encodeText, held(value, base, t, s)
-		if t == stringType {
-			v.IsSet = gocode.NotEmpty(value)
-		}
+		return encodeText
 	case under == bytesType:
-		v.Encoder, v.Value = encodeBytes, held(value, base, t, s)
+		return encodeBytes
 	}
-	if isWildcard {
-		v.MediaType = gocode.Quote(wildcardMediaTypes[v.Encoder])
-	}
-	return v
+	return ""
 }
 
 // isSendable says whether a request with these bodies can be built: not when the body is required

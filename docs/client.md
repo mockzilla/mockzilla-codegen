@@ -164,8 +164,8 @@ func (o *CreatePetRequestOptions) Validate() error
   no name, as browsers name a Blob. It goes with a `Content-Length` when every file knows its
   size, and chunked when one does not, such as a `runtime.NewFileReader` of size -1. With several body fields, the first one set is sent. A required body
   with none set is `runtime.ErrBodyEmpty`; a body the client cannot write, such as XML into a
-  struct, is `runtime.ErrContentType`. A wildcard media type sends its field as JSON, text or bytes,
-  whichever the field is.
+  struct, is `runtime.ErrContentType`, and generation warns about it (`client-body-unwritable`). A
+  wildcard media type sends its field as JSON, text or bytes, whichever the field is.
 - `Validate` checks the parameters and the body against the spec, like the server's; the client
   does not call it on its own.
 
@@ -319,8 +319,8 @@ Generated clients use these helpers of the runtime package, next to the codecs t
 - `RequestBuilder` puts a request together: `PathParam`, `QueryParam`, `HeaderParam`,
   `CookieParam` and the body methods, then `Build` against the base URL. The first error stops
   the rest and comes back from `Build`.
-- `EncodeForm` and `WriteMultipart` write a struct as a form, in the shapes `DecodeForm` and
-  `DecodeMultipart` read.
+- `EncodeForm` and `WriteMultipart` write a struct or a union as a form, in the shapes
+  `DecodeForm` and `DecodeMultipart` read.
 - `Send` sends with a `Doer` and reads the body within a timeout; `DecodeSuccess` and `Decode`
   fill the targets of the response, `DecodeHeaders` a struct of typed headers; `APIError` is the
   error of a status outside 2xx, or of a 2xx the spec does not list.

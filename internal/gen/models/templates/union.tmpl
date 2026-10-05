@@ -49,9 +49,22 @@ func ({{.Receiver}} *{{$.Name}}) UnmarshalJSON(data []byte) error {
 		return err
 	}
 {{- end}}
-	return {{.Runtime}}.UnmarshalUnion(data, {{if .Discriminator}}{{.Receiver}}.union(){{else}}{{template "models/variants.tmpl" .}}{{end}})
+	return {{.Runtime}}.UnmarshalUnion(data, {{if .HasUnion}}{{.Receiver}}.union(){{else}}{{template "models/variants.tmpl" .}}{{end}})
 }
-{{- if .Discriminator}}
+{{- with .Form}}
+
+// UnmarshalForm sets the variants the form matches{{if $.Union.JSON}}, and the shared properties{{end}}.
+func ({{$.Union.Receiver}} *{{$.Name}}) UnmarshalForm(form {{.}}) error {
+	*{{$.Union.Receiver}} = {{$.Name}}{}
+{{- if $.Union.JSON}}
+	type plain {{$.Name}}
+	return {{$.Union.Runtime}}.UnmarshalUnionForm(form, (*plain)({{$.Union.Receiver}}), {{$.Union.Receiver}}.union())
+{{- else}}
+	return {{$.Union.Runtime}}.UnmarshalUnionForm(form, nil, {{$.Union.Receiver}}.union())
+{{- end}}
+}
+{{- end}}
+{{- if .HasUnion}}
 
 func ({{.Receiver}} *{{$.Name}}) union() {{.Runtime}}.Union {
 	return {{template "models/variants.tmpl" .}}

@@ -12,6 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"math/bits"
+	"mime/multipart"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -29,7 +31,13 @@ type Variant struct {
 	Known     []string
 	IsClosed  bool
 	Shapes    []Shape
-	Into      func(data []byte) error
+	Into      Setter
+}
+
+// Setter sets a variant field from JSON or from a form.
+type Setter interface {
+	decode(data []byte) error
+	fill(form *multipart.Form) error
 }
 
 // Shape is one object a variant can be, with property names as Variant has them.
@@ -57,16 +65,32 @@ type candidate struct {
 	isPerfect bool
 }
 
-// Into returns a decoder that sets *dst only when data decodes.
-func Into[T any](dst *T) func(data []byte) error {
-	return func(data []byte) error {
-		var v T
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		*dst = v
-		return nil
+// into is the Setter of a variant field.
+type into[T any] struct {
+	dst *T
+}
+
+// Into returns the Setter of the variant field dst, which sets it only when a value decodes.
+func Into[T any](dst *T) Setter {
+	return into[T]{dst: dst}
+}
+
+func (t into[T]) decode(data []byte) error {
+	var v T
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
 	}
+	*t.dst = v
+	return nil
+}
+
+func (t into[T]) fill(form *multipart.Form) error {
+	var v T
+	if err := fillForm(reflect.ValueOf(&v).Elem(), form); err != nil {
+		return err
+	}
+	*t.dst = v
+	return nil
 }
 
 // UnmarshalUnion decodes data into the variants of u it matches: one for oneOf, every match for
@@ -87,27 +111,17 @@ func UnmarshalUnion(data []byte, u Union) error {
 			return err
 		}
 	}
+	return u.setVariants(obj, kind, "a JSON "+kind.String(), func(t Setter) error { return t.decode(data) })
+}
 
-	pool := make([]int, len(u.Variants))
-	for i := range pool {
-		pool[i] = i
-	}
-	if u.Discriminator != "" && obj != nil {
-		picked, rest, err := u.discriminate(obj)
-		switch {
-		case err != nil:
+// UnmarshalUnionForm reads form into the shared fields, then into the variants it matches.
+func UnmarshalUnionForm(form *multipart.Form, fields any, u Union) error {
+	if fields != nil {
+		if err := fillPointer(form, fields); err != nil {
 			return err
-		case picked >= 0:
-			return u.Variants[picked].Into(data)
 		}
-		pool = rest
 	}
-
-	cands := u.candidates(pool, kind, obj)
-	if u.IsAnyOf {
-		return u.decodeAll(data, kind, cands)
-	}
-	return u.decodeOne(data, kind, cands)
+	return u.setVariants(formMembers(form), KindObject, "a form", func(t Setter) error { return t.fill(form) })
 }
 
 // UnmarshalUnionText decodes raw with a union's UnmarshalJSON, as a number or boolean first.
@@ -122,6 +136,30 @@ func UnmarshalUnionText(raw []byte, decode func(data []byte) error) error {
 		return nil
 	}
 	return err
+}
+
+// setVariants decodes into the variants a value of kind matches; what names the value in errors.
+func (u Union) setVariants(obj map[string]json.RawMessage, kind Kind, what string, decode func(Setter) error) error {
+	pool := make([]int, len(u.Variants))
+	for i := range pool {
+		pool[i] = i
+	}
+	if u.Discriminator != "" && obj != nil {
+		picked, rest, err := u.discriminate(obj)
+		switch {
+		case err != nil:
+			return err
+		case picked >= 0:
+			return decode(u.Variants[picked].Into)
+		}
+		pool = rest
+	}
+
+	cands := u.candidates(pool, kind, obj)
+	if u.IsAnyOf {
+		return u.decodeAll(cands, what, decode)
+	}
+	return u.decodeOne(cands, what, decode)
 }
 
 // tag fills an empty discriminator value and checks that the value picks a variant of set.
@@ -262,42 +300,42 @@ func (u Union) width(c candidate) int {
 
 // decodeOne sets the first candidate that decodes. Two perfect object matches with the same score
 // are ambiguous.
-func (u Union) decodeOne(data []byte, kind Kind, cands []candidate) error {
+func (u Union) decodeOne(cands []candidate, what string, decode func(Setter) error) error {
 	if len(cands) > 1 && cands[0].isPerfect && cands[1].isPerfect && cands[0].score == cands[1].score {
 		return fmt.Errorf("%w: %s and %s", ErrAmbiguous, u.Variants[cands[0].index].Name, u.Variants[cands[1].index].Name)
 	}
-	return u.decodeFirst(data, kind, cands)
+	return u.decodeFirst(cands, what, decode)
 }
 
 // decodeAll sets every matching candidate that decodes, and falls back to the first that decodes
 // when none does.
-func (u Union) decodeAll(data []byte, kind Kind, cands []candidate) error {
+func (u Union) decodeAll(cands []candidate, what string, decode func(Setter) error) error {
 	isSet := false
 	for _, c := range cands {
-		if c.isMatch && u.Variants[c.index].Into(data) == nil {
+		if c.isMatch && decode(u.Variants[c.index].Into) == nil {
 			isSet = true
 		}
 	}
 	if isSet {
 		return nil
 	}
-	return u.decodeFirst(data, kind, cands)
+	return u.decodeFirst(cands, what, decode)
 }
 
-func (u Union) decodeFirst(data []byte, kind Kind, cands []candidate) error {
+func (u Union) decodeFirst(cands []candidate, what string, decode func(Setter) error) error {
 	var errs []error
 	for _, c := range cands {
 		v := u.Variants[c.index]
-		err := v.Into(data)
+		err := decode(v.Into)
 		if err == nil {
 			return nil
 		}
 		errs = append(errs, fmt.Errorf("%s: %w", v.Name, err))
 	}
 	if len(errs) == 0 {
-		return fmt.Errorf("%w for a JSON %s", ErrNoVariant, kind)
+		return fmt.Errorf("%w for %s", ErrNoVariant, what)
 	}
-	return fmt.Errorf("%w for a JSON %s: %w", ErrNoVariant, kind, errors.Join(errs...))
+	return fmt.Errorf("%w for %s: %w", ErrNoVariant, what, errors.Join(errs...))
 }
 
 func (c candidate) outranks(other candidate) bool {
@@ -320,4 +358,23 @@ func isLiteral(raw []byte) bool {
 	default:
 	}
 	return false
+}
+
+// formMembers are the names of form as object members, each text as a JSON string.
+func formMembers(form *multipart.Form) map[string]json.RawMessage {
+	out := map[string]json.RawMessage{}
+	for key := range form.File {
+		out[formName(key)] = json.RawMessage("{}")
+	}
+	for key, values := range form.Value {
+		name := formName(key)
+		switch {
+		case name == key && len(values) > 0:
+			out[name], _ = json.Marshal(values[0])
+		case out[name] == nil:
+			out[name] = json.RawMessage("{}")
+		}
+	}
+	delete(out, "")
+	return out
 }
