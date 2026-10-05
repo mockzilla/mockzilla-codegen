@@ -213,6 +213,7 @@ func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 
 	b := newBuilder(opts, r, &diags)
 	decls := b.build(c.pending, ops, c.headers)
+	markForms(ops)
 	resolveConstants(decls, slices.Concat(reserved, types), opts, &diags)
 
 	patterns := newPatternSet(opts.Namer, &diags)

@@ -8,6 +8,7 @@ package runtime
 import (
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -241,7 +242,7 @@ func decodeBody(body []byte, mediaType string, t *Target) error {
 		if parseErr != nil {
 			return parseErr
 		}
-		return assignForm(values, t.Dst)
+		return fillPointer(&multipart.Form{Value: values}, t.Dst)
 	}
 	return json.Unmarshal(body, t.Dst)
 }

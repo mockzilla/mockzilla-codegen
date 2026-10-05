@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"mime/multipart"
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
@@ -33,7 +34,17 @@ func (p Pet) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON sets the variants data matches.
 func (p *Pet) UnmarshalJSON(data []byte) error {
 	*p = Pet{}
-	return runtime.UnmarshalUnion(data, runtime.Union{
+	return runtime.UnmarshalUnion(data, p.union())
+}
+
+// UnmarshalForm sets the variants the form matches.
+func (p *Pet) UnmarshalForm(form *multipart.Form) error {
+	*p = Pet{}
+	return runtime.UnmarshalUnionForm(form, nil, p.union())
+}
+
+func (p *Pet) union() runtime.Union {
+	return runtime.Union{
 		Variants: []runtime.Variant{
 			{
 				Name:     "Cat",
@@ -64,7 +75,7 @@ func (p *Pet) UnmarshalJSON(data []byte) error {
 				Into: runtime.Into(&p.Nested),
 			},
 		},
-	})
+	}
 }
 
 type Stamp struct {
@@ -180,6 +191,13 @@ func (c *Contact) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return runtime.UnmarshalUnion(data, c.union())
+}
+
+// UnmarshalForm sets the variants the form matches, and the shared properties.
+func (c *Contact) UnmarshalForm(form *multipart.Form) error {
+	*c = Contact{}
+	type plain Contact
+	return runtime.UnmarshalUnionForm(form, (*plain)(c), c.union())
 }
 
 func (c *Contact) union() runtime.Union {

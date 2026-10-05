@@ -23,7 +23,7 @@ import (
 )
 
 // structMethods are generated on structs, so fields cannot take these names.
-var structMethods = []string{"Validate", "MarshalJSON", "UnmarshalJSON", "Masked", "LogValue"}
+var structMethods = []string{"Validate", "MarshalJSON", "UnmarshalJSON", "UnmarshalForm", "Masked", "LogValue"}
 
 // additionalMethods come with an AdditionalProperties field.
 var additionalMethods = []string{"AdditionalProperties", "Get", "Set"}

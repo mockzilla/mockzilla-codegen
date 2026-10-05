@@ -67,7 +67,7 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 			continue
 		}
 		g.ops = append(g.ops, op)
-		diags = append(diags, warnings(op, opts.HasStreams)...)
+		diags = append(diags, warnings(op, opts)...)
 	}
 	return g, diags
 }
@@ -150,13 +150,21 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 	}
 }
 
-// warnings are what the client cannot do for op: fill a placeholder of its path, decode a 2xx
-// body, stream a body documented under default alone, and, without hasStreams, return from a
-// method whose 2xx responses only stream, which it reads whole while the server keeps sending.
-func warnings(op *gomodel.Operation, hasStreams bool) []diag.Diagnostic {
+// warnings are what the client cannot do for op: fill a placeholder of its path, write a request
+// body, decode a 2xx body, stream a body documented under default alone, and, without HasStreams,
+// return from a method whose 2xx responses only stream, which it reads whole while the server
+// keeps sending.
+func warnings(op *gomodel.Operation, opts Options) []diag.Diagnostic {
 	var out []diag.Diagnostic
 	if names := unfilled(op); len(names) > 0 {
 		out = append(out, warning(op, diag.CodePathParamMissing, "no path parameter fills {"+strings.Join(names, "}, {")+"} in "+op.Spec.Path+", so "+op.Name+" always fails"))
+	}
+	fields := operation.BodyFields(op.Bodies, opts.Namer)
+	for i, c := range op.Bodies {
+		if encoderOf(c) == "" {
+			out = append(out, warning(op, diag.CodeClientBodyUnwritable, op.Name+" sends "+c.MediaType+", which the client cannot write "+
+				gocode.Text(gomodel.Elem(operation.BodyType(c)))+" as, so the call fails when "+fields[i]+" is set"))
+		}
 	}
 	for _, r := range op.Responses {
 		if c, ok := unreadBody(r); ok {
@@ -170,7 +178,7 @@ func warnings(op *gomodel.Operation, hasStreams bool) []diag.Diagnostic {
 		if body, ok := defaultStream(op); ok {
 			out = append(out, warning(op, diag.CodeStreamUnread, op.Name+" documents "+body.MediaType+" under default alone, which never covers a 2xx, so it has no Stream method; document it under 200 or 2XX"))
 		}
-	case !hasStreams && IsStreamOnly(op):
+	case !opts.HasStreams && IsStreamOnly(op):
 		out = append(out, warning(op, diag.CodeStreamOnly, op.Name+" answers only as "+c.MediaType+", which "+op.Name+" reads whole; set client.streaming to read it as it arrives"))
 	}
 	return out

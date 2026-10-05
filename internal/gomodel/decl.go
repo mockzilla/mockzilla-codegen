@@ -87,7 +87,7 @@ const (
 // Decl is one package-level type. ID is the JSON pointer it comes from. Struct is set for
 // KindStruct and KindUnion, Union for KindUnion, Enum for KindEnum, Target for the other kinds.
 // Validation is nil for aliases and when validation is off; Error is set for error types; Masks is
-// set for types that hold sensitive values.
+// set for types that hold sensitive values. IsForm marks the unions and objects a form body holds.
 type Decl struct {
 	ID               string
 	Name             string
@@ -96,6 +96,7 @@ type Decl struct {
 	Doc              string
 	Deprecated       bool
 	DeprecatedReason string
+	IsForm           bool
 	Struct           *Struct
 	Union            *Union
 	Enum             *Enum

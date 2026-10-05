@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"mime/multipart"
+	"reflect"
 	"slices"
 )
 
@@ -69,6 +71,29 @@ func UnmarshalAdditional[T any](data []byte, fields any, extra *map[string]T, kn
 			*extra = make(map[string]T)
 		}
 		(*extra)[key] = value
+	}
+	return nil
+}
+
+// UnmarshalAdditionalForm reads form into fields, then every name not in known into extra.
+func UnmarshalAdditionalForm[T any](form *multipart.Form, fields any, extra *map[string]T, known ...string) error {
+	if err := fillPointer(form, fields); err != nil {
+		return err
+	}
+
+	nested := formTree(form.Value)
+	for _, name := range slices.Sorted(maps.Keys(nested)) {
+		if slices.Contains(known, name) {
+			continue
+		}
+		var value T
+		if err := (assigner{isLoose: true}).assign(reflect.ValueOf(&value).Elem(), nested[name]); err != nil {
+			return fmt.Errorf("%w %q: %w", ErrAdditionalProperty, name, err)
+		}
+		if *extra == nil {
+			*extra = make(map[string]T)
+		}
+		(*extra)[name] = value
 	}
 	return nil
 }

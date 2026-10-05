@@ -64,13 +64,15 @@ type ConstView struct {
 
 // UnionView is what a union's variant fields and methods need. Runtime and JSON are the names
 // the packages are imported under, JSON only when shared fields are decoded. Discriminator and
-// Shared are quoted. IsText adds MarshalText and UnmarshalText.
+// Shared are quoted. IsText adds MarshalText and UnmarshalText; Form, the form type, UnmarshalForm.
 type UnionView struct {
 	Receiver      string
 	Runtime       string
 	JSON          string
+	Form          string
 	IsAnyOf       bool
 	IsText        bool
+	HasUnion      bool
 	Discriminator string
 	Shared        []string
 	Variants      []VariantView
@@ -102,7 +104,8 @@ type ShapeView struct {
 
 // AdditionalView is what the methods of a struct with additional properties need. Field is the
 // field that holds them and Map its type, Value the type of its values, Known the quoted JSON names
-// of the other fields and Runtime the name the runtime package is imported under.
+// of the other fields and Runtime the name the runtime package is imported under. Form, the form
+// type, adds UnmarshalForm.
 type AdditionalView struct {
 	Receiver string
 	Field    string
@@ -110,6 +113,7 @@ type AdditionalView struct {
 	Value    string
 	Known    []string
 	Runtime  string
+	Form     string
 }
 
 func declView(d *gomodel.Decl, s *gocode.Scope) DeclView {
@@ -173,6 +177,7 @@ func structView(d *gomodel.Decl, s *gocode.Scope) ([]FieldView, *AdditionalView)
 		Value:    s.Expr(m.Elem),
 		Known:    known,
 		Runtime:  s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
+		Form:     formType(d, s),
 	}
 }
 
@@ -181,8 +186,10 @@ func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
 	v := &UnionView{
 		Receiver: receiver(d.Name),
 		Runtime:  s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
+		Form:     formType(d, s),
 		IsAnyOf:  u.IsAnyOf,
 		IsText:   u.IsText,
+		HasUnion: u.Discriminator != "" || d.IsForm,
 		Variants: make([]VariantView, len(u.Variants)),
 	}
 	if len(d.Struct.Fields) > 0 {
@@ -221,6 +228,14 @@ func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
 		}
 	}
 	return v
+}
+
+// formType is the type UnmarshalForm takes, empty for a declaration that has none.
+func formType(d *gomodel.Decl, s *gocode.Scope) string {
+	if !d.IsForm {
+		return ""
+	}
+	return gocode.Deref(gocode.Selector(s.Import(gomodel.Import{Path: "mime/multipart"}), "Form"))
 }
 
 // kinds names the runtime constants of k: KindAny, or one per kind. A variant whose kinds are not

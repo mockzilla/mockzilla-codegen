@@ -56,6 +56,14 @@ func StructDecl(t Type) *Decl {
 	return nil
 }
 
+// FormDecl is the struct or the union with UnmarshalForm that a value of type t is, or nil.
+func FormDecl(t Type) *Decl {
+	if r, ok := unalias(Elem(t)).(DeclRef); ok && (r.Decl.Kind == KindStruct || r.Decl.Kind == KindUnion && r.Decl.IsForm) {
+		return r.Decl
+	}
+	return nil
+}
+
 // ErrorDecl is the error type a value of type t is, through pointers and aliases, or nil.
 func ErrorDecl(t Type) *Decl {
 	for {

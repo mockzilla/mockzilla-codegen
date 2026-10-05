@@ -29,12 +29,26 @@ paths:
           description: the shape as the server read it
           content:
             application/json: {schema: {$ref: '#/components/schemas/Shape'}}
+  /attachments:
+    post:
+      operationId: postAttachment
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded: {schema: {$ref: '#/components/schemas/Attachment'}}
+          multipart/form-data: {schema: {$ref: '#/components/schemas/Attachment'}}
+      responses:
+        "200":
+          description: what the server read
+          content:
+            text/plain: {schema: {type: string}}
 components:
   schemas:
     Shape:
       type: object
       properties:
         name: {type: string}
+        stamp: {type: string, format: byte}
         vertex: {$ref: '#/components/schemas/Vertex'}
         labels:
           type: object
@@ -68,3 +82,18 @@ components:
       properties:
         message: {type: string}
         field: {type: string}
+    Attachment:
+      oneOf:
+        - $ref: '#/components/schemas/Link'
+        - $ref: '#/components/schemas/Upload'
+    Link:
+      type: object
+      required: [url]
+      properties:
+        url: {type: string}
+    Upload:
+      type: object
+      required: [file]
+      properties:
+        file: {type: string, format: binary}
+        checksum: {type: string, format: byte}

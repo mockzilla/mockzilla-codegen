@@ -22,6 +22,7 @@ import (
 const viewWant = `package api
 
 import (
+	"mime/multipart"
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
@@ -63,6 +64,12 @@ func (p *Pet) UnmarshalJSON(data []byte) error {
 	return runtime.UnmarshalAdditional(data, (*plain)(p), &p.Extras, "id", "born", "-", "-")
 }
 
+// UnmarshalForm reads the properties, and every other name of the form into Extras.
+func (p *Pet) UnmarshalForm(form *multipart.Form) error {
+	type plain Pet
+	return runtime.UnmarshalAdditionalForm(form, (*plain)(p), &p.Extras, "id", "born", "-", "-")
+}
+
 type Closed struct{}
 
 type Odd struct {
@@ -94,7 +101,7 @@ func TestViewRendersEveryKind(t *testing.T) {
 	t.Parallel()
 
 	str := gomodel.Builtin{Name: "string"}
-	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Doc: "A pet.", Struct: &gomodel.Struct{
+	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Doc: "A pet.", IsForm: true, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{
 			{Name: "ID", JSONName: "id", Type: str, Tags: []gomodel.Tag{{Key: "yaml", Value: "id"}}},
 			{Name: "Born", JSONName: "born", Type: gomodel.Qualified{Import: gomodel.Import{Path: "time"}, Name: "Time"}, OmitEmpty: true},
@@ -180,7 +187,7 @@ func TestViewRendersUnions(t *testing.T) {
 	str := gomodel.Builtin{Name: "string"}
 	at := gomodel.Qualified{Import: gomodel.Import{Path: "time"}, Name: "Time"}
 	cat := &gomodel.Decl{Name: "Cat", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}
-	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
+	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, IsForm: true, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
 		Variants: []*gomodel.Variant{
 			{Name: "Cat", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: cat}}, Kinds: gomodel.JSONObject, Required: []string{"meow"}, Known: []string{"meow", "name"}},
 			{Name: "Float", FieldType: gomodel.Pointer{Elem: gomodel.Builtin{Name: "float64"}}, Kinds: gomodel.JSONInteger | gomodel.JSONNumber},
@@ -207,7 +214,7 @@ func TestViewRendersUnions(t *testing.T) {
 			{Name: "String", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString},
 		},
 	}}
-	contact := &gomodel.Decl{Name: "Contact", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Doc: "A contact.", Struct: &gomodel.Struct{
+	contact := &gomodel.Decl{Name: "Contact", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Doc: "A contact.", IsForm: true, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "ID", JSONName: "id", Type: str}},
 	}, Union: &gomodel.Union{
 		IsNullable:    true,

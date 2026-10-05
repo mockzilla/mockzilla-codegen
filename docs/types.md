@@ -48,6 +48,10 @@ everything else. A component that is only a `$ref` is an alias of the referenced
 
 Formats are matched in any case. A string format not in the table gives `string`.
 
+The `[]byte` of `format: byte` is base64 text wherever it goes: JSON, a form field, a multipart
+part, a parameter or a header. Text that is no base64 is a 400. A multipart file part into a
+`[]byte` field gives the bytes of the file.
+
 ### Your own type for a format
 
 `models.format-types` gives a format a Go type of your own, in place of the one the table gives:
@@ -245,6 +249,13 @@ Any other union is one field of a form or multipart body: the text of a string, 
 variant, the JSON of an object or array variant, `vertex=abc` or `vertex={"x":1,"y":2}`. The server
 reads a field that is JSON as JSON and other text as a string. An object with additional
 properties goes as JSON in a url-encoded form too, so its extra keys arrive.
+
+A union that a form body holds, as the body or as a property at any depth, gets `UnmarshalForm`.
+The server picks the variant of a form as it picks one of a JSON object, by the discriminator, then
+by the required names, and reads each field with its type, a file part as a file. A union
+property written with brackets, `vertex[x]=1&vertex[y]=2`, is read the same way. In a multipart
+body the client writes the fields of the variant that is set. An object with additional
+properties that a form holds gets `UnmarshalForm` too, which keeps the other names of the form.
 
 `Validate` checks the count: exactly one for `oneOf`, at most one when nullable, at least one for
 `anyOf`, anything for a nullable `anyOf`. With a discriminator it also checks the value, as above.

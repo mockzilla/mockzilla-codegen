@@ -7,9 +7,11 @@ package runtime
 
 import (
 	"encoding"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"iter"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -43,8 +45,9 @@ const (
 var separators = map[Style]string{StyleSpaceDelimited: " ", StylePipeDelimited: "|"}
 
 var (
-	textMarshaler = reflect.TypeFor[encoding.TextMarshaler]()
-	jsonMarshaler = reflect.TypeFor[json.Marshaler]()
+	textMarshaler   = reflect.TypeFor[encoding.TextMarshaler]()
+	jsonMarshaler   = reflect.TypeFor[json.Marshaler]()
+	formUnmarshaler = reflect.TypeFor[FormUnmarshaler]()
 )
 
 // Param describes one parameter: its name, how it is written, and whether it must be there. IsJSON
@@ -185,7 +188,7 @@ func DecodeQueryString(raw string, p Param, dst any) error {
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrParamValue, err)
 	}
-	return assignForm(values, dst)
+	return fillPointer(&multipart.Form{Value: values}, dst)
 }
 
 // EncodePath writes v as a path segment.
@@ -395,8 +398,12 @@ func splitBrackets(key string) []string {
 	return out
 }
 
-// setPath stores values at path in m: a list under the last name, or its first value alone.
+// setPath stores values at path in m: a list under the last name, or its first value alone. An
+// empty path, of a key that names nothing, stores nothing.
 func setPath(m map[string]any, path []string, values []string) {
+	if len(path) == 0 {
+		return
+	}
 	for _, name := range path[:len(path)-1] {
 		child, ok := m[name].(map[string]any)
 		if !ok {
@@ -456,12 +463,17 @@ func shapeOf(t reflect.Type) shape {
 	switch {
 	case reflect.PointerTo(t).Implements(textUnmarshaler):
 		return shapeValue
-	case t.Kind() == reflect.Slice && t.Elem().Kind() != reflect.Uint8:
+	case t.Kind() == reflect.Slice && !isBytes(t):
 		return shapeList
 	case t.Kind() == reflect.Struct || t.Kind() == reflect.Map:
 		return shapeObject
 	}
 	return shapeValue
+}
+
+// isBytes reports a slice of bytes, which text carries as base64.
+func isBytes(t reflect.Type) bool {
+	return t.Kind() == reflect.Slice && t.Elem().Kind() == reflect.Uint8
 }
 
 // encodeTree writes v as text: one string, a list of strings, or name-value pairs, which a
@@ -593,6 +605,9 @@ func text(v reflect.Value) (string, error) {
 		m, _ := v.Interface().(encoding.TextMarshaler)
 		b, err := m.MarshalText()
 		return string(b), err
+	}
+	if isBytes(v.Type()) {
+		return base64.StdEncoding.EncodeToString(v.Bytes()), nil
 	}
 
 	switch v.Kind() {

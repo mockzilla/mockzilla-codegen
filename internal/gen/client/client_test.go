@@ -45,7 +45,11 @@ func TestNew(t *testing.T) {
 		names[i] = op.Name
 	}
 	assert.Equal(t, []string{"ListPets", "CreatePet", "DeletePet", "Ping", "Query", "Chat", "Tail"}, names)
-	assert.Empty(t, diags)
+	assert.Equal(t, []diag.Diagnostic{{
+		Severity: diag.Warning,
+		Code:     diag.CodeClientBodyUnwritable,
+		Message:  "CreatePet sends application/xml, which the client cannot write Pet as, so the call fails when BodyXML is set",
+	}}, diags)
 }
 
 func TestNewWarnsAboutStreamOnlyOperationsWithoutStreams(t *testing.T) {
@@ -56,7 +60,7 @@ func TestNewWarnsAboutStreamOnlyOperationsWithoutStreams(t *testing.T) {
 
 	_, diags := New(petModel(), opts)
 
-	assert.Equal(t, []diag.Diagnostic{{
+	assert.Equal(t, []diag.Diagnostic{diags[0], {
 		Severity: diag.Warning,
 		Code:     diag.CodeStreamOnly,
 		Pointer:  "/paths/~1tail/get",
@@ -98,6 +102,30 @@ func TestNewWarnsAboutPlaceholdersNoPathParameterFills(t *testing.T) {
 		Origin:   diag.Origin{File: "api.yaml", Line: 9, Col: 5},
 		Message:  "no path parameter fills {kind}, {query} in /pets/{id}/{kind}?q={query}&k={kind}#{tag}, so Search always fails",
 	}}, diags)
+}
+
+func TestNewWarnsAboutBodiesTheClientCannotWrite(t *testing.T) {
+	t.Parallel()
+
+	robot := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Robot", Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}}
+	scalars := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Scalars", Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{}}}
+	pet := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Pet", Kind: gomodel.KindUnion, IsForm: true, Struct: &gomodel.Struct{}, Union: &gomodel.Union{}}}
+	op := &gomodel.Operation{
+		Name: "PutRobot",
+		Spec: &spec.Operation{Method: "PUT", Path: "/robot", Origin: spec.Origin{Pointer: "/paths/~1robot/put"}},
+		Bodies: []gomodel.Content{
+			{MediaType: "application/octet-stream", Type: gomodel.Pointer{Elem: robot}},
+			{MediaType: "multipart/form-data", Type: gomodel.Pointer{Elem: scalars}},
+			{MediaType: "multipart/form-data; boundary=x", Type: gomodel.Pointer{Elem: pet}},
+		},
+	}
+
+	_, diags := New(&gomodel.Model{Operations: []*gomodel.Operation{op}}, allOptions())
+
+	assert.Equal(t, []diag.Diagnostic{
+		{Severity: diag.Warning, Code: diag.CodeClientBodyUnwritable, Pointer: "/paths/~1robot/put", Message: "PutRobot sends application/octet-stream, which the client cannot write Robot as, so the call fails when BodyOctetStream is set"},
+		{Severity: diag.Warning, Code: diag.CodeClientBodyUnwritable, Pointer: "/paths/~1robot/put", Message: "PutRobot sends multipart/form-data, which the client cannot write Scalars as, so the call fails when BodyMultipart is set"},
+	}, diags)
 }
 
 func TestNewWarnsAboutBodiesNoMethodReads(t *testing.T) {

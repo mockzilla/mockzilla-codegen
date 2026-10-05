@@ -8,8 +8,10 @@ package runtime
 import (
 	"cmp"
 	"encoding"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"reflect"
 	"regexp"
 	"slices"
@@ -45,6 +47,11 @@ func (a assigner) assign(dst reflect.Value, v any) error {
 		return nil
 	default:
 	}
+	if nested, isNested := v.(map[string]any); isNested && dst.CanAddr() {
+		if u, ok := dst.Addr().Interface().(FormUnmarshaler); ok {
+			return u.UnmarshalForm(&multipart.Form{Value: formValues(nested)})
+		}
+	}
 
 	switch v := v.(type) {
 	case string:
@@ -65,6 +72,14 @@ func (a assigner) text(dst reflect.Value, s string) error {
 	if dst.CanAddr() && dst.Addr().Type().Implements(textUnmarshaler) {
 		u, _ := dst.Addr().Interface().(encoding.TextUnmarshaler)
 		return u.UnmarshalText([]byte(s))
+	}
+	if isBytes(dst.Type()) {
+		data, err := base64.StdEncoding.DecodeString(s)
+		if err != nil {
+			return fmt.Errorf("%w: %q is no base64", ErrParamValue, s)
+		}
+		dst.SetBytes(data)
+		return nil
 	}
 
 	var err error
@@ -129,8 +144,7 @@ func (a assigner) jsonText(dst reflect.Value, s string) error {
 func (a assigner) list(dst reflect.Value, items any) error {
 	values := reflect.ValueOf(items)
 	n := values.Len()
-	switch dst.Kind() {
-	case reflect.Slice:
+	if dst.Kind() == reflect.Slice && !isBytes(dst.Type()) {
 		out := reflect.MakeSlice(dst.Type(), n, n)
 		for i := range n {
 			if err := a.assign(out.Index(i), values.Index(i).Interface()); err != nil {
@@ -139,7 +153,6 @@ func (a assigner) list(dst reflect.Value, items any) error {
 		}
 		dst.Set(out)
 		return nil
-	default:
 	}
 	if n == 0 {
 		return nil
