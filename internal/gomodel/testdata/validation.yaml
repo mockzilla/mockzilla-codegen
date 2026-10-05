@@ -167,3 +167,27 @@ components:
       properties:
         inline: {type: object, additionalProperties: {type: string}, propertyNames: {minLength: 1}}
         keysOnly: {type: object, additionalProperties: true, propertyNames: {maxLength: 4}}
+    Vehicle:
+      type: object
+      properties:
+        kind: {$ref: '#/components/schemas/Kind'}
+        size: {type: string, enum: [s, m, l]}
+        rank: {type: integer, enum: [1, 2, 3]}
+        level: {type: integer, enum: [1, 2, 3]}
+        mode: {const: a}
+        mark: {type: string, const: x}
+        name: {type: string, minLength: 2}
+        tag: {maxLength: 4}
+    Kind: {type: string, enum: [car, bike]}
+    Car:
+      allOf:
+        - $ref: '#/components/schemas/Vehicle'
+        - properties:
+            kind: {const: car}
+            size: {enum: [m, l, xl]}
+            rank: {enum: [2.0, 3, 4]}
+            level: {const: 9}
+            mode: {const: b}
+            mark: {enum: [y, z]}
+            name: {maxLength: 5}
+            tag: {type: string, minLength: 1}

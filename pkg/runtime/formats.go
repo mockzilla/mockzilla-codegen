@@ -6,7 +6,6 @@
 package runtime
 
 import (
-	"net/mail"
 	"net/netip"
 	"net/url"
 	"strings"
@@ -17,6 +16,10 @@ const (
 	maxHostname = 253
 	maxLabel    = 63
 	hostChars   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"
+	maxEmail    = 254
+	maxLocal    = 64
+	atext       = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&'*+-/=?^_`{|}~"
+	ipv6Tag     = "IPv6:"
 )
 
 // IsUUID reports a UUID written as 8-4-4-4-12 hex digits.
@@ -78,10 +81,14 @@ func IsHostname(s string) bool {
 	return true
 }
 
-// IsEmail reports a bare address: "a@example.com", not "A <a@example.com>".
+// IsEmail reports an address as RFC 5321 writes it, ASCII only: a@example.com, "a b"@example.com.
 func IsEmail(s string) bool {
-	a, err := mail.ParseAddress(s)
-	return err == nil && a.Name == "" && a.Address == s
+	at := strings.LastIndexByte(s, '@')
+	if at < 1 || at > maxLocal || len(s) > maxEmail {
+		return false
+	}
+	local, domain := s[:at], s[at+1:]
+	return (isDotAtom(local) || isQuoted(local)) && (IsHostname(domain) || isAddressLiteral(domain))
 }
 
 // IsDate reports a calendar date: 2006-01-02.
@@ -94,4 +101,50 @@ func IsDate(s string) bool {
 func IsDateTime(s string) bool {
 	_, err := time.Parse(time.RFC3339, s)
 	return err == nil
+}
+
+// isDotAtom reports words of atext joined by single dots: first.last+tag.
+func isDotAtom(s string) bool {
+	for word := range strings.SplitSeq(s, ".") {
+		if word == "" || strings.Trim(word, atext) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// isQuoted reports printable ASCII in double quotes, where a backslash escapes the next character.
+func isQuoted(s string) bool {
+	inner, isOpened := strings.CutPrefix(s, `"`)
+	inner, isClosed := strings.CutSuffix(inner, `"`)
+	if !isOpened || !isClosed {
+		return false
+	}
+	isEscaped := false
+	for _, c := range []byte(inner) {
+		switch {
+		case c < ' ' || c > '~':
+			return false
+		case isEscaped:
+			isEscaped = false
+		case c == '\\':
+			isEscaped = true
+		case c == '"':
+			return false
+		}
+	}
+	return !isEscaped
+}
+
+// isAddressLiteral reports an IP address in brackets: [10.0.0.1] or [IPv6:::1].
+func isAddressLiteral(s string) bool {
+	ip, isOpened := strings.CutPrefix(s, "[")
+	ip, isClosed := strings.CutSuffix(ip, "]")
+	switch {
+	case !isOpened || !isClosed:
+		return false
+	case len(ip) > len(ipv6Tag) && strings.EqualFold(ip[:len(ipv6Tag)], ipv6Tag):
+		return IsIPv6(ip[len(ipv6Tag):])
+	}
+	return IsIPv4(ip)
 }

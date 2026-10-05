@@ -203,13 +203,7 @@ func (f *flattener) typeFrom(m *merged, parts []mergePart) {
 		default:
 			continue
 		}
-		f.diags.Append(diag.Diagnostic{
-			Severity: diag.Warning,
-			Code:     diag.CodeAllOfConflict,
-			Pointer:  m.schema.Origin.Pointer,
-			Origin:   origin(m.schema.Origin),
-			Message:  msg,
-		})
+		f.conflict(m.schema, msg)
 		return
 	}
 }
@@ -241,13 +235,7 @@ func (f *flattener) partType(p mergePart) *extension.Type {
 func (f *flattener) merge(m *merged, p mergePart) {
 	dst, s := m.schema, p.schema
 	if !mergeTypes(dst, s) && m.goType == nil {
-		f.diags.Append(diag.Diagnostic{
-			Severity: diag.Warning,
-			Code:     diag.CodeAllOfConflict,
-			Pointer:  dst.Origin.Pointer,
-			Origin:   origin(dst.Origin),
-			Message:  fmt.Sprintf("allOf members disagree on the type (%s, %s); keeping %s", typeSetText(dst.Types), typeSetText(s.Types), typeSetText(dst.Types)),
-		})
+		f.conflict(dst, fmt.Sprintf("allOf members disagree on the type (%s, %s); keeping %s", typeSetText(dst.Types), typeSetText(s.Types), typeSetText(dst.Types)))
 	}
 	isSole := soleMember(s) != nil
 	dst.Nullable = dst.Nullable || s.Nullable || s.Types == spec.TypeNull || isSole && hasNullMember(s)
@@ -295,15 +283,44 @@ func (f *flattener) merge(m *merged, p mergePart) {
 
 	dst.Not = cmp.Or(dst.Not, s.Not)
 	dst.Discriminator = cmp.Or(dst.Discriminator, s.Discriminator)
-	if len(dst.Enum) == 0 {
-		dst.Enum = s.Enum
-	}
-	dst.Const = cmp.Or(dst.Const, s.Const)
+	f.mergeValues(dst, s)
 	dst.Default = cmp.Or(dst.Default, s.Default)
 	if len(dst.Examples) == 0 {
 		dst.Examples = s.Examples
 	}
 	mergeLimits(&dst.Limits, s.Limits)
+}
+
+// mergeValues keeps the values both sides allow; with none left, the first enum stays and warns.
+func (f *flattener) mergeValues(dst, s *spec.Schema) {
+	switch {
+	case dst.Const == nil:
+		dst.Const = s.Const
+	case s.Const != nil && !sameValue(*dst.Const, *s.Const):
+		f.conflict(dst, fmt.Sprintf("allOf members set const %s and %s; keeping %s", valueLiteral(*dst.Const), valueLiteral(*s.Const), valueLiteral(*dst.Const)))
+	}
+
+	enum := dst.Enum
+	if len(enum) == 0 {
+		enum = s.Enum
+	} else if len(s.Enum) > 0 {
+		enum = kept(enum, s.Enum)
+	}
+	if dst.Const != nil && len(enum) > 0 {
+		enum = kept(enum, []spec.Value{*dst.Const})
+	}
+	if len(enum) == 0 && len(dst.Enum)+len(s.Enum) > 0 {
+		enum = dst.Enum
+		if len(enum) == 0 {
+			enum = s.Enum
+		}
+		texts := make([]string, len(enum))
+		for i, v := range enum {
+			texts[i] = valueLiteral(v)
+		}
+		f.conflict(dst, "allOf members allow no value in common; keeping the enum "+strings.Join(texts, ", "))
+	}
+	dst.Enum = enum
 }
 
 func (f *flattener) mergeProperty(m *merged, prop *spec.Property, isForeign bool) {
@@ -335,9 +352,9 @@ func (f *flattener) mergeAdditional(m *merged, p mergePart) {
 // foreign side goes in as a $ref, so the new type leaves that side's children to their owner.
 func (f *flattener) mergeChild(m *merged, a, b *spec.Schema, isForeign bool, suffix string) *spec.Schema {
 	switch {
-	case b == nil, a == b, a != nil && (isDocOnly(b) || isSameRef(a, b)):
+	case b == nil, a == b, a != nil && (isBare(b) || isSameRef(a, b)):
 		return a
-	case a == nil, isDocOnly(a):
+	case a == nil, isBare(a):
 		if isForeign {
 			m.foreign[b] = true
 		}
@@ -348,6 +365,16 @@ func (f *flattener) mergeChild(m *merged, a, b *spec.Schema, isForeign bool, suf
 		AllOf:  []*spec.Schema{f.side(a, m.foreign[a]), f.side(b, isForeign)},
 		Origin: spec.Origin{Pointer: m.schema.Origin.Pointer + suffix, File: a.Origin.File, Line: a.Origin.Line, Col: a.Origin.Col},
 	}
+}
+
+func (f *flattener) conflict(s *spec.Schema, msg string) {
+	f.diags.Append(diag.Diagnostic{
+		Severity: diag.Warning,
+		Code:     diag.CodeAllOfConflict,
+		Pointer:  s.Origin.Pointer,
+		Origin:   origin(s.Origin),
+		Message:  msg,
+	})
 }
 
 func (f *flattener) side(s *spec.Schema, isForeign bool) *spec.Schema {
@@ -407,6 +434,38 @@ func bothHold(a, b *spec.Schema) *spec.Schema {
 		return b
 	}
 	return &spec.Schema{AllOf: []*spec.Schema{a, b}, Origin: a.Origin}
+}
+
+// kept are the values that allowed lists too, in their order.
+func kept(values, allowed []spec.Value) []spec.Value {
+	var out []spec.Value
+	for _, v := range values {
+		if slices.ContainsFunc(allowed, func(a spec.Value) bool { return sameValue(v, a) }) {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// sameValue compares two JSON values; numbers by value, so 1 and 1.0 are the same.
+func sameValue(a, b spec.Value) bool {
+	if a.Kind != b.Kind {
+		return false
+	}
+	switch a.Kind {
+	case spec.KindNumber:
+		x, isX := new(big.Rat).SetString(a.Num.String())
+		y, isY := new(big.Rat).SetString(b.Num.String())
+		return isX && isY && x.Cmp(y) == 0
+	case spec.KindArray:
+		return slices.EqualFunc(a.Items, b.Items, sameValue)
+	case spec.KindObject:
+		return len(a.Fields) == len(b.Fields) && !slices.ContainsFunc(a.Fields, func(x spec.Field) bool {
+			return !slices.ContainsFunc(b.Fields, func(y spec.Field) bool { return x.Name == y.Name && sameValue(x.Value, y.Value) })
+		})
+	case spec.KindNull, spec.KindString, spec.KindBool:
+	}
+	return valueText(a) == valueText(b)
 }
 
 func isSameRef(a, b *spec.Schema) bool {
