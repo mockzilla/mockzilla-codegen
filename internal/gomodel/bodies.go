@@ -9,9 +9,7 @@ package gomodel
 
 import (
 	"cmp"
-	"fmt"
 
-	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/jsonschema"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
@@ -76,7 +74,9 @@ func (b *builder) planBodyStruct(c schemaChain, d *Decl, seen map[*Decl]bool) {
 
 	for _, f := range d.Struct.Fields {
 		f.Value = b.bodyValue(c, f.schema, f.Type, seen)
-		f.Default = b.fieldDefault(d, f)
+		if f.def != nil && !f.ReadOnly {
+			f.Default = string(jsonschema.Marshal(*f.def))
+		}
 	}
 	if ap := d.Struct.AdditionalProperties; ap != nil {
 		ap.Value = b.bodyValue(c, d.schema, ap.Type, seen)
@@ -92,26 +92,4 @@ func (b *builder) mayBeNull(s *spec.Schema, t Type) bool {
 	return !b.inChain(s, func(x *spec.Schema) bool {
 		return x.Types != 0 || len(x.OneOf) > 0 || len(x.AnyOf) > 0 || len(x.Enum) > 0 || x.Const != nil
 	})
-}
-
-// fieldDefault is the JSON default the server sets for a missing optional property, or "".
-func (b *builder) fieldDefault(d *Decl, f *Field) string {
-	if f.Required || f.ReadOnly {
-		return ""
-	}
-	def := cmp.Or(f.schema.Default, b.flat.flatten(target(f.schema)).Default)
-	if def == nil {
-		return ""
-	}
-	if why := jsonschema.Misfit(*def, f.schema); why != "" {
-		b.diags.Append(diag.Diagnostic{
-			Severity: diag.Warning,
-			Code:     diag.CodeDefaultIgnored,
-			Pointer:  f.schema.Origin.Pointer,
-			Origin:   f.Origin,
-			Message:  fmt.Sprintf("the default of property %q of %s does not fit its schema, so the server does not set it: %s", f.JSONName, d.Name, why),
-		})
-		return ""
-	}
-	return string(jsonschema.Marshal(*def))
 }

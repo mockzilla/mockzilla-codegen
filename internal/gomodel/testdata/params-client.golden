@@ -16,9 +16,9 @@ Tree defined []Tree models.types
 ListItemsPathParams struct models.params
   ID int json=id required
 ListItemsQuery struct models.params
-  Limit *int json=limit omitempty
-  Sort *Sort json=sort omitempty
-  Tags []string json=tags omitempty
+  Limit *int json=limit omitempty getter=GetLimit:20
+  Sort *Sort json=sort omitempty getter=GetSort:"asc"
+  Tags []string json=tags omitempty getter=GetTags:["a","b"]
   Page int json=page required
   Ratio *int json=ratio omitempty
   ID2 *ListItemsQueryID2 json=id2 omitempty
@@ -39,9 +39,9 @@ ListItemsQueryLabelsValue union models.unions
   | String *string kinds=string
   | Int *int kinds=integer
 ListItemsHeaders struct models.params
-  XMode *string json=X-Mode omitempty
+  XMode *string json=X-Mode omitempty getter=GetXMode:"fast"
 ListItemsCookies struct models.params
-  Session *bool json=session omitempty
+  Session *bool json=session omitempty getter=GetSession:false
   Loop *Loop json=loop omitempty
 SearchItemsFilter struct models.params
   Name *string json=name omitempty
@@ -61,6 +61,7 @@ op FindItems POST /search
   querystring q application/json; charset=utf-8 Filter
 op XMLItems PATCH /search
 ---
+warning default-ignored 13:11 /paths/~1items~1{id}/get/parameters/5: the default of query parameter "ratio" does not fit its schema, so it is left out: it is a number, the schema wants integer
 warning param-unsupported 20:11 /paths/~1items~1{id}/get/parameters/9: query parameter "shape" is or holds a union of more than scalars; it gets no field and is neither sent nor read
 warning param-unsupported 24:11 /paths/~1items~1{id}/get/parameters/10: query parameter "shapes" is or holds a union of more than scalars; it gets no field and is neither sent nor read
 warning param-unsupported 27:11 /paths/~1items~1{id}/get/parameters/11: header parameter "X-Owned" is or holds a union of more than scalars; it gets no field and is neither sent nor read

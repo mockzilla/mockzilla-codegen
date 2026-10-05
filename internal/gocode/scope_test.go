@@ -13,6 +13,7 @@ import (
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
@@ -127,4 +128,47 @@ func TestScopeRuntimeGuard(t *testing.T) {
 	s.Imports.Add("example.com/runtime", "")
 	s.Import(gomodel.Import{Path: gomodel.RuntimePath})
 	assert.Equal(t, "runtime2.SupportsGeneratorV2", s.RuntimeGuard())
+}
+
+func TestScopeValue(t *testing.T) {
+	t.Parallel()
+
+	l := twoPackages(t)
+	str := gomodel.Builtin{Name: "string"}
+	sortBy := &gomodel.Decl{Name: "Sort", Part: gomodel.PartTypes, Kind: gomodel.KindEnum, Enum: &gomodel.Enum{Base: str, Values: []gomodel.EnumValue{
+		{Name: "SortName", Value: stringValue("name")},
+		{Name: "SortDate", Value: stringValue("date")},
+	}}}
+	order := &gomodel.Decl{Name: "Order", Part: gomodel.PartParams, Kind: gomodel.KindAlias, Target: gomodel.DeclRef{Decl: sortBy}}
+	sorts := &gomodel.Decl{Name: "Sorts", Part: gomodel.PartParams, Kind: gomodel.KindDefined, Target: gomodel.Slice{Elem: gomodel.DeclRef{Decl: sortBy}}}
+	names := &gomodel.Decl{Name: "Names", Part: gomodel.PartParams, Kind: gomodel.KindAlias, Target: gomodel.DeclRef{Decl: sorts}}
+	items := spec.Value{Kind: spec.KindArray, Items: []spec.Value{stringValue("date"), stringValue("name")}}
+
+	tests := []struct {
+		name  string
+		typ   gomodel.Type
+		value spec.Value
+		want  string
+	}{
+		{name: "Constant", typ: gomodel.Builtin{Name: "int"}, value: spec.Value{Kind: spec.KindNumber, Num: "20"}, want: "20"},
+		{name: "Enum value is its constant, qualified in another folder", typ: gomodel.DeclRef{Decl: sortBy}, value: stringValue("date"), want: "models.SortDate"},
+		{name: "Alias of an enum", typ: gomodel.DeclRef{Decl: order}, value: stringValue("name"), want: "models.SortName"},
+		{name: "List", typ: gomodel.Slice{Elem: str}, value: items, want: `[]string{"date", "name"}`},
+		{name: "Defined list", typ: gomodel.DeclRef{Decl: sorts}, value: items, want: "Sorts{models.SortDate, models.SortName}"},
+		{name: "Alias of a defined list", typ: gomodel.DeclRef{Decl: names}, value: items, want: "Names{models.SortDate, models.SortName}"},
+		{name: "Empty list", typ: gomodel.Slice{Elem: str}, value: spec.Value{Kind: spec.KindArray}, want: "[]string{}"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := NewScope(l.FileOf(gomodel.PartParams), l)
+			assert.Equal(t, tc.want, s.Value(tc.typ, tc.value))
+		})
+	}
+}
+
+func stringValue(s string) spec.Value {
+	return spec.Value{Kind: spec.KindString, Str: s}
 }

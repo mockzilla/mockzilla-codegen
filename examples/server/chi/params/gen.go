@@ -159,6 +159,14 @@ type QueryStylesQuery struct {
 	Limit  *int                `json:"limit,omitempty"`
 }
 
+// GetLimit returns Limit, or 20 when it is nil.
+func (q *QueryStylesQuery) GetLimit() int {
+	if q == nil || q.Limit == nil {
+		return 20
+	}
+	return *q.Limit
+}
+
 // Validate checks the value against the constraints of the spec.
 func (q QueryStylesQuery) Validate() error {
 	var errs runtime.ValidationErrors

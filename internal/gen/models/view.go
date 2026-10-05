@@ -15,9 +15,14 @@ import (
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/jsonschema"
 )
 
-const deprecatedNote = "Deprecated: the spec marks it deprecated."
+const (
+	deprecatedNote = "Deprecated: the spec marks it deprecated."
+	// maxShown is the longest default the doc line of a getter quotes.
+	maxShown = 40
+)
 
 // kindNames are the runtime.Kind constants, one per gomodel.JSONKind bit.
 var kindNames = []string{"KindNull", "KindBool", "KindInteger", "KindNumber", "KindString", "KindArray", "KindObject"}
@@ -42,6 +47,7 @@ type DeclView struct {
 	Fields     []FieldView
 	Values     []ConstView
 	Additional *AdditionalView
+	Getters    []GetterView
 	Union      *UnionView
 	Validate   *ValidateView
 	Error      *ErrorView
@@ -54,6 +60,18 @@ type FieldView struct {
 	Name string
 	Type string
 	Tag  string
+}
+
+// GetterView is a method that returns a field, or Default when the field is nil. IsPointer
+// returns what the field points to.
+type GetterView struct {
+	Doc       string
+	Receiver  string
+	Name      string
+	Field     string
+	Type      string
+	Default   string
+	IsPointer bool
 }
 
 // ConstView is one enum constant; Value is its literal.
@@ -140,6 +158,9 @@ func declView(d *gomodel.Decl, s *gocode.Scope) DeclView {
 		v.Target = s.Expr(d.Target)
 	}
 
+	if d.Struct != nil {
+		v.Getters = getterViews(d, s)
+	}
 	if d.Validation != nil {
 		v.Validate = validateView(d, s)
 	}
@@ -228,6 +249,32 @@ func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
 		}
 	}
 	return v
+}
+
+func getterViews(d *gomodel.Decl, s *gocode.Scope) []GetterView {
+	var out []GetterView
+	for _, f := range d.Struct.Fields {
+		g := f.Getter
+		if g == nil {
+			continue
+		}
+
+		text := string(jsonschema.Marshal(g.Default))
+		if utf8.RuneCountInString(text) > maxShown {
+			text = "its default"
+		}
+		t := gomodel.Elem(f.Type)
+		out = append(out, GetterView{
+			Doc:       g.Name + " returns " + f.Name + ", or " + text + " when it is nil.",
+			Receiver:  receiver(d.Name),
+			Name:      g.Name,
+			Field:     f.Name,
+			Type:      s.Expr(t),
+			Default:   s.Value(t, g.Default),
+			IsPointer: t != f.Type,
+		})
+	}
+	return out
 }
 
 // formType is the type UnmarshalForm takes, empty for a declaration that has none.

@@ -88,8 +88,10 @@ number from 2: `PetResponse2`, `PetResponse3`.
 
 Struct fields clash with the methods the generator puts on the struct: `Validate`, `MarshalJSON`
 and `UnmarshalJSON` on every struct, plus `Get`, `Set` and the `AdditionalProperties` field on a
-struct with additional properties. A property called `validate` gives the field `Validate2`. Enum
-constants clash with every other name in the package.
+struct with additional properties. A property called `validate` gives the field `Validate2`. A
+getter (`Get` + field, see [defaults](types.md#defaults)) never renames a field: when a field has
+its name, the getter is left out with a warning (`name-clash`). Enum constants clash with every
+other name in the package.
 
 Operations become methods, so their names clash only with each other. An operation also holds the
 names of the other methods it gets: `<Op>Request` on the client, plus `<Op>WithResponse` with
