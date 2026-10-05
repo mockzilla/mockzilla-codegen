@@ -52,6 +52,14 @@ const (
 	ListEventsResponseItemKindDeleted ListEventsResponseItemKind = "deleted"
 )
 
+// ListEventsResponseItemKindValues returns the values of ListEventsResponseItemKind.
+func ListEventsResponseItemKindValues() []ListEventsResponseItemKind {
+	return []ListEventsResponseItemKind{
+		ListEventsResponseItemKindCreated,
+		ListEventsResponseItemKindDeleted,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (l ListEventsResponseItemKind) Validate() error {
 	return runtime.OneOf(l, ListEventsResponseItemKindCreated, ListEventsResponseItemKindDeleted)

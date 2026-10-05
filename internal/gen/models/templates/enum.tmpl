@@ -7,3 +7,14 @@ const (
 {{- end}}
 )
 {{- end}}
+{{- with .ValuesFunc}}
+
+// {{.}} returns the values of {{$.Name}}.
+func {{.}}() []{{$.Name}} {
+	return []{{$.Name}}{
+{{- range $.Values}}
+		{{.Name}},
+{{- end}}
+	}
+}
+{{- end}}

@@ -47,6 +47,15 @@ const (
 	StatusShipped Status = "shipped"
 )
 
+// StatusValues returns the values of Status.
+func StatusValues() []Status {
+	return []Status{
+		StatusOpen,
+		StatusPaid,
+		StatusShipped,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (s Status) Validate() error {
 	return runtime.OneOf(s, StatusOpen, StatusPaid, StatusShipped)
@@ -58,6 +67,14 @@ const (
 	GetOrderQueryExpandItems    GetOrderQueryExpand = "items"
 	GetOrderQueryExpandCustomer GetOrderQueryExpand = "customer"
 )
+
+// GetOrderQueryExpandValues returns the values of GetOrderQueryExpand.
+func GetOrderQueryExpandValues() []GetOrderQueryExpand {
+	return []GetOrderQueryExpand{
+		GetOrderQueryExpandItems,
+		GetOrderQueryExpandCustomer,
+	}
+}
 
 // Validate checks the value against the constraints of the spec.
 func (g GetOrderQueryExpand) Validate() error {

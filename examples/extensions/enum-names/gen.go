@@ -15,6 +15,15 @@ const (
 	PriorityUrgent Priority = 2
 )
 
+// PriorityValues returns the values of Priority.
+func PriorityValues() []Priority {
+	return []Priority{
+		PriorityLow,
+		PriorityNormal,
+		PriorityUrgent,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (p Priority) Validate() error {
 	return runtime.OneOf(p, PriorityLow, PriorityNormal, PriorityUrgent)
@@ -26,6 +35,14 @@ const (
 	RegionEurope  Region = "eu-west-1"
 	RegionAmerica Region = "us-east-1"
 )
+
+// RegionValues returns the values of Region.
+func RegionValues() []Region {
+	return []Region{
+		RegionEurope,
+		RegionAmerica,
+	}
+}
 
 // Validate checks the value against the constraints of the spec.
 func (r Region) Validate() error {

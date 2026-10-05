@@ -17,5 +17,5 @@ op PingTool GET /pings/tool
 op NoticeRequest GET /notices/request
 op Notice POST notice
 ---
-info name-clash 6:7 /paths/~1certs~1{id}~1request/get: "GetCertRequest" is a method of /paths/~1certs~1{id}/get, renamed to "GetCertRequest2"
-info name-clash 24:7 /paths/~1events~1stream/get: "ListEventsStream" is a method of /paths/~1events/get, renamed to "ListEventsStream2"
+info name-clash 6:7 /paths/~1certs~1{id}~1request/get: "GetCertRequest" is built from /paths/~1certs~1{id}/get, renamed to "GetCertRequest2"
+info name-clash 24:7 /paths/~1events~1stream/get: "ListEventsStream" is built from /paths/~1events/get, renamed to "ListEventsStream2"

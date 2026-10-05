@@ -35,9 +35,9 @@ type Request struct {
 	Want string
 	// Fallback is tried before numbering: Fallback2, Fallback3, or Want2 without a Fallback.
 	Fallback string
-	// Methods are the suffixes of the methods built from the name: the request holds its name
-	// plus each of them too, so a name is free only when all of these are.
-	Methods []string
+	// Derived are the suffixes of the names the generator builds from the name, such as methods:
+	// the request holds its name plus each of them too, so a name is free only when all are.
+	Derived []string
 	Rank    Rank
 	Order   int
 	Origin  diag.Origin
@@ -49,16 +49,16 @@ type Assignment struct {
 }
 
 // Rename records a lost name. From is the name that was taken: Want, or Want plus one of its
-// Methods. Holder is the ID that has From, empty when From is reserved; IsMethod says Holder has
-// it as one of its methods.
+// Derived suffixes. Holder is the ID that has From, empty when From is reserved; IsDerived says
+// Holder built it from its own name.
 type Rename struct {
-	ID       string
-	From     string
-	To       string
-	Holder   string
-	IsMethod bool
-	Rank     Rank
-	Origin   diag.Origin
+	ID        string
+	From      string
+	To        string
+	Holder    string
+	IsDerived bool
+	Rank      Rank
+	Origin    diag.Origin
 }
 
 // Diagnostic reports the rename; a lost x-go-name is a warning, anything else is info.
@@ -70,8 +70,8 @@ func (r Rename) Diagnostic() diag.Diagnostic {
 
 	msg := fmt.Sprintf("%q is reserved, renamed to %q", r.From, r.To)
 	switch {
-	case r.IsMethod:
-		msg = fmt.Sprintf("%q is a method of %s, renamed to %q", r.From, r.Holder, r.To)
+	case r.IsDerived:
+		msg = fmt.Sprintf("%q is built from %s, renamed to %q", r.From, r.Holder, r.To)
 	case r.Holder != "":
 		msg = fmt.Sprintf("%q is used by %s, renamed to %q", r.From, r.Holder, r.To)
 	}
@@ -87,8 +87,8 @@ type Result struct {
 
 // holder is the request that has a name, with an empty ID for a reserved name.
 type holder struct {
-	id       string
-	isMethod bool
+	id        string
+	isDerived bool
 }
 
 // holders maps names in lower case to who has them.
@@ -108,8 +108,8 @@ func (h holders) taken(name string, suffixes []string) (string, bool) {
 }
 
 // Resolve compares names ignoring case and goes by rank, spec order and ID, never input order. A
-// request whose Want is another one's Want plus one of its Methods goes after that one, so it is
-// the one renamed.
+// request whose Want is another one's Want plus one of its Derived suffixes goes after that one, so
+// it is the one renamed.
 func Resolve(reserved []string, reqs []Request) Result {
 	held := make(holders, len(reserved)+len(reqs))
 	for _, name := range reserved {
@@ -127,22 +127,22 @@ func Resolve(reserved []string, reqs []Request) Result {
 	for _, r := range sorted {
 		name := pick(held, next, r)
 		if name != r.Want {
-			from, _ := held.taken(r.Want, r.Methods)
+			from, _ := held.taken(r.Want, r.Derived)
 			h := held[strings.ToLower(from)]
 			res.Renames = append(res.Renames, Rename{
-				ID:       r.ID,
-				From:     from,
-				To:       name,
-				Holder:   h.id,
-				IsMethod: h.isMethod,
-				Rank:     r.Rank,
-				Origin:   r.Origin,
+				ID:        r.ID,
+				From:      from,
+				To:        name,
+				Holder:    h.id,
+				IsDerived: h.isDerived,
+				Rank:      r.Rank,
+				Origin:    r.Origin,
 			})
 		}
 
 		held[strings.ToLower(name)] = holder{id: r.ID}
-		for _, s := range r.Methods {
-			held[strings.ToLower(name+s)] = holder{id: r.ID, isMethod: true}
+		for _, s := range r.Derived {
+			held[strings.ToLower(name+s)] = holder{id: r.ID, isDerived: true}
 		}
 		res.Names[r.ID] = name
 		res.Ordered = append(res.Ordered, Assignment{ID: r.ID, Name: name})
@@ -151,8 +151,8 @@ func Resolve(reserved []string, reqs []Request) Result {
 }
 
 // depths counts, per request, the Wants its Want is built on: a Want that is another one's Want
-// plus one of its Methods is one deeper than that one. Shorter Wants go first, so every Want a
-// request is built on has its depth by then.
+// plus one of its Derived suffixes is one deeper than that one. Shorter Wants go first, so every
+// Want a request is built on has its depth by then.
 func depths(reqs []Request) map[string]int {
 	wanted := make(map[string][]string, len(reqs))
 	for _, r := range reqs {
@@ -166,7 +166,7 @@ func depths(reqs []Request) map[string]int {
 	})
 	depth := make(map[string]int, len(reqs))
 	for _, r := range byLength {
-		for _, s := range r.Methods {
+		for _, s := range r.Derived {
 			for _, id := range wanted[strings.ToLower(r.Want+s)] {
 				depth[id] = max(depth[id], depth[r.ID]+1)
 			}
@@ -177,13 +177,13 @@ func depths(reqs []Request) map[string]int {
 
 // next holds the next number per base, so many clashes on one base stay linear.
 func pick(held holders, next map[string]int, r Request) string {
-	if _, ok := held.taken(r.Want, r.Methods); !ok {
+	if _, ok := held.taken(r.Want, r.Derived); !ok {
 		return r.Want
 	}
 
 	base := r.Want
 	if r.Fallback != "" {
-		if _, ok := held.taken(r.Fallback, r.Methods); !ok {
+		if _, ok := held.taken(r.Fallback, r.Derived); !ok {
 			return r.Fallback
 		}
 		base = r.Fallback
@@ -192,7 +192,7 @@ func pick(held holders, next map[string]int, r Request) string {
 	key := strings.ToLower(base)
 	for i := max(next[key], 2); ; i++ {
 		name := base + strconv.Itoa(i)
-		if _, ok := held.taken(name, r.Methods); !ok {
+		if _, ok := held.taken(name, r.Derived); !ok {
 			next[key] = i + 1
 			return name
 		}

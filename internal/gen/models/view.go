@@ -46,6 +46,7 @@ type DeclView struct {
 	Target     string
 	Fields     []FieldView
 	Values     []ConstView
+	ValuesFunc string
 	Additional *AdditionalView
 	Getters    []GetterView
 	Union      *UnionView
@@ -147,6 +148,7 @@ func declView(d *gomodel.Decl, s *gocode.Scope) DeclView {
 	case d.Enum != nil:
 		v.IsEnum = true
 		v.Target = s.Expr(d.Enum.Base)
+		v.ValuesFunc = d.Enum.ValuesFunc
 		for _, ev := range d.Enum.Values {
 			v.Values = append(v.Values, ConstView{Name: ev.Name, Value: gocode.Literal(ev.Value)})
 		}

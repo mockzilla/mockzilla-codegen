@@ -25,7 +25,7 @@ var ruleWords = map[RuleKind]string{
 	RuleMinLength: "minLength", RuleMaxLength: "maxLength", RulePattern: "pattern", RuleFormat: "format",
 	RuleMinimum: "minimum", RuleMaximum: "maximum", RuleMultipleOf: "multipleOf", RuleMinItems: "minItems",
 	RuleMaxItems: "maxItems", RuleUnique: "unique", RuleUniqueJSON: "uniqueJSON", RuleMinProperties: "minProperties",
-	RuleMaxProperties: "maxProperties", RuleConst: "const", RuleEnum: "enum",
+	RuleMaxProperties: "maxProperties", RuleConst: "const", RuleEnum: "enum", RuleEnumJSON: "enumJSON",
 }
 
 var sideWords = map[Side]string{SideBoth: "", SideResponse: " response-only", SideRequest: " request-only"}
@@ -172,6 +172,12 @@ func ruleText(r Rule) string {
 			literals[i] = valueLiteral(v)
 		}
 		arg = strings.Join(literals, ",")
+	case RuleEnumJSON:
+		texts := make([]string, len(r.Values))
+		for i, v := range r.Values {
+			texts[i] = string(jsonschema.Marshal(v))
+		}
+		arg = strings.Join(texts, ",")
 	case RuleMinimum, RuleMaximum:
 		if r.IsExclusive {
 			arg += " exclusive"

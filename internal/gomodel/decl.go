@@ -84,6 +84,7 @@ const (
 	RuleMaxProperties
 	RuleConst
 	RuleEnum
+	RuleEnumJSON
 )
 
 // Decl is one package-level type. ID is the JSON pointer it comes from. Struct is set for
@@ -218,6 +219,8 @@ type Union struct {
 	IsText        bool
 	Discriminator string
 	Variants      []*Variant
+
+	isTypeList bool
 }
 
 // Variant is one member of a union. FieldType is a pointer to Type unless Type can be nil. The
@@ -284,8 +287,9 @@ type Tag struct {
 
 // Enum is a named type over Base with one constant per value, in spec order.
 type Enum struct {
-	Base   Type
-	Values []EnumValue
+	Base       Type
+	Values     []EnumValue
+	ValuesFunc string
 }
 
 // Const returns the name of the constant that holds v.

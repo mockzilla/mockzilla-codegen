@@ -62,12 +62,16 @@ that checks nothing has no `Validate`.
 | `propertyNames` | maps | each key: length, `pattern`, `format`, `const` and `enum` |
 | `const` | strings, numbers, booleans | |
 | `enum` | enum types | the value is one of the constants |
+| `enum` | objects, arrays, unions, `any` | the value written as JSON is one of the values, each read into the Go type and written back |
 | `required` | pointers, slices, maps | not nil |
 | `oneOf`, `anyOf` | unions | how many variants are set, the discriminator value, then each set variant |
 
 - A value of a declared type is checked by calling its `Validate`: fields, array items, map values
   and union variants alike.
 - An optional value that is `nil` is absent and not checked.
+- An enum compared as JSON matches a value as Go holds it: the value `{"x": 0, "y": null}` matches
+  `Corner{X: new(0)}`, since a nil `Y` is how Go holds `null`. Key order and number form do not
+  count. A value that does not fit the schema is left out, with a warning (`enum-value`).
 - A format that becomes its own Go type is checked by decoding: `date-time` is a `time.Time`,
   `date` a `runtime.Date`, `email` a `runtime.Email` whose `Validate` checks the address. So is a
   format that `models.format-types` maps to a type of your own.
@@ -145,7 +149,7 @@ if errors.As(err, &errs) {
 | `pattern` | the pattern as the spec writes it |
 | `format` | the name of the format |
 | `const` | the value |
-| `enum` | the values, a slice of the enum type |
+| `enum` | the values, a slice of the enum type, or of the Go type for an enum compared as JSON |
 | `uniqueItems` | `true` |
 | `additionalProperties` | `false` |
 | `required`, `type`, `oneOf`, `anyOf`, `discriminator` | nil |

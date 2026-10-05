@@ -49,6 +49,15 @@ func TestItemValidate(t *testing.T) {
 		{name: "Map value rule", edit: func(i *Item) { i.Labels = map[string]string{"a": "1", "b": ""} }, want: `labels["b"]: must be at least 1 characters long`},
 		{name: "Const", edit: func(i *Item) { i.Kind = new("thing") }, want: "kind: must be item"},
 		{name: "Enum", edit: func(i *Item) { i.Size = new(Size("xl")) }, want: "size: must be one of s, m, l"},
+		{name: "Object enum as Go holds it", edit: func(i *Item) { i.Corner = &Corner{X: new(0)} }},
+		{
+			name: "Object enum",
+			edit: func(i *Item) { i.Corner = &Corner{X: new(2)} },
+			want: `corner: must be one of {"x":0,"y":null}, {"x":1,"y":1}`,
+		},
+		{name: "Array enum", edit: func(i *Item) { i.Dims = []int{2, 1} }, want: "dims: must be one of [1,2], [2,4]"},
+		{name: "Union enum", edit: func(i *Item) { i.Unit = &ItemUnit{String: new("in")} }, want: `unit: must be one of "cm", 10`},
+		{name: "Enum of mixed kinds", edit: func(i *Item) { i.Mark = 7 }, want: `mark: must be one of "a", 1, true`},
 		{name: "A no-break space is a space", edit: func(i *Item) { i.Word = new("a\U000000A0b") }, want: `word: must match ^\S+$`},
 		{name: "A dot is no line end", edit: func(i *Item) { i.Line = new("a\rb") }, want: "line: must match ^.*$"},
 		{name: "Bytes count their base64 text", edit: func(i *Item) { i.Token = []byte("hello!!") }, want: "token: must be at most 8 characters long"},
@@ -120,6 +129,11 @@ func TestItemValidateRule(t *testing.T) {
 			name: "Enum",
 			edit: func(i *Item) { i.Size = new(Size("xl")) },
 			want: runtime.ValidationError{Field: "size", Message: "must be one of s, m, l", Rule: runtime.RuleEnum, Limit: []Size{SizeS, SizeM, SizeL}},
+		},
+		{
+			name: "Enum compared as JSON",
+			edit: func(i *Item) { i.Dims = []int{3} },
+			want: runtime.ValidationError{Field: "dims", Message: "must be one of [1,2], [2,4]", Rule: runtime.RuleEnum, Limit: [][]int{{1, 2}, {2, 4}}},
 		},
 	}
 

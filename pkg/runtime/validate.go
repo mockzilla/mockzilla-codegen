@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -204,6 +205,25 @@ func OneOf[T comparable](v T, values ...T) error {
 	return ValidationError{Message: "must be one of " + strings.Join(texts, ", "), Rule: RuleEnum, Limit: values}
 }
 
+// OneOfJSON checks that v is one of values, each read into a T, by comparing both written as JSON.
+func OneOfJSON[T any](v T, values ...string) error {
+	// A value Go cannot write as JSON is none of them.
+	got, _ := json.Marshal(v)
+	listed := make([]T, 0, len(values))
+	for _, entry := range values {
+		var want T
+		if json.Unmarshal([]byte(entry), &want) != nil {
+			continue
+		}
+		data, wantErr := json.Marshal(want)
+		if wantErr == nil && sameJSON(got, data) {
+			return nil
+		}
+		listed = append(listed, want)
+	}
+	return ValidationError{Message: "must be one of " + strings.Join(values, ", "), Rule: RuleEnum, Limit: listed}
+}
+
 // Index is the path of item i under path: items[2].
 func Index(path string, i int) string {
 	return path + "[" + strconv.Itoa(i) + "]"
@@ -235,5 +255,49 @@ func decimal[T Number](v T) string {
 		return strconv.FormatUint(r.Uint(), 10)
 	default:
 		return strconv.FormatFloat(r.Float(), 'g', -1, r.Type().Bits())
+	}
+}
+
+// sameJSON reports whether a and b hold the same JSON value; numbers are the same when equal.
+func sameJSON(a, b []byte) bool {
+	x, errX := decodeNumbers(a)
+	y, errY := decodeNumbers(b)
+	return errX == nil && errY == nil && sameValue(x, y)
+}
+
+func decodeNumbers(data []byte) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	var v any
+	err := dec.Decode(&v)
+	return v, err
+}
+
+func sameValue(x, y any) bool {
+	switch x := x.(type) {
+	case json.Number:
+		n, ok := y.(json.Number)
+		if !ok {
+			return false
+		}
+		a, isA := new(big.Rat).SetString(x.String())
+		b, isB := new(big.Rat).SetString(n.String())
+		return isA && isB && a.Cmp(b) == 0
+	case []any:
+		items, ok := y.([]any)
+		return ok && slices.EqualFunc(x, items, sameValue)
+	case map[string]any:
+		fields, ok := y.(map[string]any)
+		if !ok || len(x) != len(fields) {
+			return false
+		}
+		for key, value := range x {
+			if other, has := fields[key]; !has || !sameValue(value, other) {
+				return false
+			}
+		}
+		return true
+	default:
+		return x == y
 	}
 }

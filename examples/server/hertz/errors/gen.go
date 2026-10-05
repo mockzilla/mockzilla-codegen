@@ -68,6 +68,14 @@ const (
 	GetPetQueryFieldsItemAge  GetPetQueryFieldsItem = "age"
 )
 
+// GetPetQueryFieldsItemValues returns the values of GetPetQueryFieldsItem.
+func GetPetQueryFieldsItemValues() []GetPetQueryFieldsItem {
+	return []GetPetQueryFieldsItem{
+		GetPetQueryFieldsItemName,
+		GetPetQueryFieldsItemAge,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (g GetPetQueryFieldsItem) Validate() error {
 	return runtime.OneOf(g, GetPetQueryFieldsItemName, GetPetQueryFieldsItemAge)

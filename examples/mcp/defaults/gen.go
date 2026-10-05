@@ -33,6 +33,14 @@ const (
 	SearchQuerySortDate SearchQuerySort = "date"
 )
 
+// SearchQuerySortValues returns the values of SearchQuerySort.
+func SearchQuerySortValues() []SearchQuerySort {
+	return []SearchQuerySort{
+		SearchQuerySortName,
+		SearchQuerySortDate,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (s SearchQuerySort) Validate() error {
 	return runtime.OneOf(s, SearchQuerySortName, SearchQuerySortDate)

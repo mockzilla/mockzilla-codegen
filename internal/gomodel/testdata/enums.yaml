@@ -19,8 +19,24 @@ components:
     NoneFit: {type: integer, enum: [x, y]}
     Stamp: {type: string, format: date-time, enum: ["2026-01-01T00:00:00Z"]}
     Numbers: {type: string, enum: [1, true]}
+    Filter: {type: string, enum: [all, values]}
+    FilterValues: {type: array, items: {$ref: '#/components/schemas/Filter'}}
+    Point:
+      type: object
+      properties:
+        x: {type: integer}
+      required: [x]
+      enum: [{x: 1}, {x: "a"}, {y: 2}, null]
+    Pair: {type: array, items: {type: integer}, enum: [[1, 2], null]}
+    Either:
+      oneOf: [{type: string}, {type: integer}]
+      enum: [a, 1, true]
+    Typed: {type: [string, object], enum: [a, {k: 1}, 2]}
     Holder:
       type: object
       properties:
         status: {$ref: '#/components/schemas/Status'}
         inline: {type: string, enum: [x]}
+        mixed: {$ref: '#/components/schemas/Mixed'}
+        tags: {type: array, items: {type: string}, enum: [[a], []]}
+        point: {$ref: '#/components/schemas/Point'}

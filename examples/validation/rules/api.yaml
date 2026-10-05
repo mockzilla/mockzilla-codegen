@@ -7,6 +7,12 @@ components:
       type: string
       pattern: '^[A-Z]{3}$'
     Size: {type: string, enum: [s, m, l]}
+    Corner:
+      type: object
+      properties:
+        x: {type: integer}
+        y: {type: [integer, "null"]}
+      enum: [{x: 0, y: null}, {x: 1, y: 1}]
     Item:
       type: object
       required: [name, code, tags]
@@ -23,6 +29,10 @@ components:
         labels: {type: object, maxProperties: 2, additionalProperties: {type: string, minLength: 1}}
         kind: {type: string, const: item}
         size: {$ref: '#/components/schemas/Size'}
+        corner: {$ref: '#/components/schemas/Corner'}
+        dims: {type: array, items: {type: integer}, enum: [[1, 2], [2, 4]]}
+        unit: {oneOf: [{type: string}, {type: integer}], enum: [cm, 10]}
+        mark: {enum: [a, 1, true]}
         token: {type: string, format: byte, maxLength: 8}
         word: {type: string, pattern: '^\S+$'}
         line: {type: string, pattern: '^.*$'}
