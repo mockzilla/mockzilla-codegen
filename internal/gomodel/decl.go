@@ -215,7 +215,8 @@ type Union struct {
 }
 
 // Variant is one member of a union. FieldType is a pointer to Type unless Type can be nil. The
-// other fields tell decoding which JSON picks it; Known is nil when any key fits.
+// other fields tell decoding which JSON picks it; Known is nil when any key fits. Shapes are the
+// objects a variant that is itself a union can be, at any depth.
 type Variant struct {
 	Name      string
 	Type      Type
@@ -226,9 +227,17 @@ type Variant struct {
 	Required  []string
 	Known     []string
 	IsClosed  bool
+	Shapes    []Shape
 	Origin    diag.Origin
 
 	schema *spec.Schema
+}
+
+// Shape is one object a union variant can be.
+type Shape struct {
+	Required []string
+	Known    []string
+	IsClosed bool
 }
 
 // Field is one struct field. Required, Nullable, ReadOnly and WriteOnly repeat the spec.

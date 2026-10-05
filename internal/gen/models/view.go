@@ -88,6 +88,16 @@ type VariantView struct {
 	Known     []string
 	HasKnown  bool
 	IsClosed  bool
+	Shapes    []ShapeView
+}
+
+// ShapeView is a shape quoted as VariantView quotes it; IsEmpty takes any object.
+type ShapeView struct {
+	Required []string
+	Known    []string
+	HasKnown bool
+	IsClosed bool
+	IsEmpty  bool
 }
 
 // AdditionalView is what the methods of a struct with additional properties need. Field is the
@@ -199,6 +209,15 @@ func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
 			Known:     quoteAll(vr.Known),
 			HasKnown:  vr.Known != nil,
 			IsClosed:  vr.IsClosed,
+		}
+		for _, sh := range vr.Shapes {
+			v.Variants[i].Shapes = append(v.Variants[i].Shapes, ShapeView{
+				Required: quoteAll(sh.Required),
+				Known:    quoteAll(sh.Known),
+				HasKnown: sh.Known != nil,
+				IsClosed: sh.IsClosed,
+				IsEmpty:  len(sh.Required) == 0 && sh.Known == nil && !sh.IsClosed,
+			})
 		}
 	}
 	return v

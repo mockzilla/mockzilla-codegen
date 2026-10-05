@@ -25,6 +25,8 @@ ListItemsQuery struct models.params
   Wait *time.Duration json=wait omitempty
   Bare []any json=bare omitempty
   Tree Tree json=tree omitempty
+  Labels map[string]ListItemsQueryLabelsValue json=labels omitempty
+  Open map[string]any json=open omitempty
 ListItemsQueryID2 union models.unions
   | oneOf text
   | Int *int kinds=integer
@@ -32,6 +34,10 @@ ListItemsQueryID2 union models.unions
 ListItemsQueryID2Option2 enum string models.enums
   ListItemsQueryID2Option2A "a"
   ListItemsQueryID2Option2B "b"
+ListItemsQueryLabelsValue union models.unions
+  | oneOf text
+  | String *string kinds=string
+  | Int *int kinds=integer
 ListItemsHeaders struct models.params
   XMode *string json=X-Mode omitempty
 ListItemsCookies struct models.params
@@ -55,13 +61,14 @@ op FindItems POST /search
   querystring q application/json; charset=utf-8 Filter
 op XMLItems PATCH /search
 ---
-warning param-unsupported 20:11 /paths/~1items~1{id}/get/parameters/9: query parameter "shape" is a union of more than scalars; it gets no field and is neither sent nor read
-warning param-unsupported 24:11 /paths/~1items~1{id}/get/parameters/10: query parameter "shapes" is a union of more than scalars; it gets no field and is neither sent nor read
-warning param-unsupported 27:11 /paths/~1items~1{id}/get/parameters/11: header parameter "X-Owned" is a union of more than scalars; it gets no field and is neither sent nor read
-warning param-unsupported 32:11 /paths/~1items~1{id}/get/parameters/12: header parameter "X-Typed" is a union of more than scalars; it gets no field and is neither sent nor read
-warning param-unsupported 36:11 /paths/~1items~1{id}/get/parameters/13: query parameter "shapeRef" is a union of more than scalars; it gets no field and is neither sent nor read
-warning querystring-unsupported 59:11 /paths/~1search/get/parameters/1: querystring parameter "again" gets no field and is neither sent nor read: the operation has querystring parameter "filter" already
-warning querystring-unsupported 77:11 /paths/~1search/put/parameters/0: querystring parameter "q" gets no field and is neither sent nor read: the operation has query parameters too
-warning querystring-unsupported 84:11 /paths/~1search/patch/parameters/0: querystring parameter "q" gets no field and is neither sent nor read: application/xml is not supported yet
-warning querystring-unsupported 85:11 /paths/~1search/patch/parameters/1: querystring parameter "bare" gets no field and is neither sent nor read: it has no content
-warning union-self 93:32 /components/schemas/Loop/oneOf/1: member 2 is the union itself; it is left out
+warning param-unsupported 20:11 /paths/~1items~1{id}/get/parameters/9: query parameter "shape" is or holds a union of more than scalars; it gets no field and is neither sent nor read
+warning param-unsupported 24:11 /paths/~1items~1{id}/get/parameters/10: query parameter "shapes" is or holds a union of more than scalars; it gets no field and is neither sent nor read
+warning param-unsupported 27:11 /paths/~1items~1{id}/get/parameters/11: header parameter "X-Owned" is or holds a union of more than scalars; it gets no field and is neither sent nor read
+warning param-unsupported 32:11 /paths/~1items~1{id}/get/parameters/12: header parameter "X-Typed" is or holds a union of more than scalars; it gets no field and is neither sent nor read
+warning param-unsupported 36:11 /paths/~1items~1{id}/get/parameters/13: query parameter "shapeRef" is or holds a union of more than scalars; it gets no field and is neither sent nor read
+warning param-unsupported 43:11 /paths/~1items~1{id}/get/parameters/18: query parameter "byState" is or holds a union of more than scalars; it gets no field and is neither sent nor read
+warning querystring-unsupported 66:11 /paths/~1search/get/parameters/1: querystring parameter "again" gets no field and is neither sent nor read: the operation has querystring parameter "filter" already
+warning querystring-unsupported 84:11 /paths/~1search/put/parameters/0: querystring parameter "q" gets no field and is neither sent nor read: the operation has query parameters too
+warning querystring-unsupported 91:11 /paths/~1search/patch/parameters/0: querystring parameter "q" gets no field and is neither sent nor read: application/xml is not supported yet
+warning querystring-unsupported 92:11 /paths/~1search/patch/parameters/1: querystring parameter "bare" gets no field and is neither sent nor read: it has no content
+warning union-self 100:32 /components/schemas/Loop/oneOf/1: member 2 is the union itself; it is left out

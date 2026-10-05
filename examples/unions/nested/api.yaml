@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info: {title: nested unions, version: "1"}
+paths: {}
+components:
+  schemas:
+    Payment:
+      oneOf:
+        - $ref: '#/components/schemas/Card'
+        - $ref: '#/components/schemas/Bank'
+    Card:
+      oneOf:
+        - $ref: '#/components/schemas/Visa'
+        - $ref: '#/components/schemas/Amex'
+    Bank:
+      oneOf:
+        - $ref: '#/components/schemas/Sepa'
+        - $ref: '#/components/schemas/Domestic'
+    Domestic:
+      oneOf:
+        - $ref: '#/components/schemas/Ach'
+        - $ref: '#/components/schemas/Wire'
+    Visa:
+      type: object
+      required: [number, cvc]
+      properties:
+        number: {type: string}
+        cvc: {type: string}
+    Amex:
+      type: object
+      required: [number, cid]
+      properties:
+        number: {type: string}
+        cid: {type: string}
+    Sepa:
+      type: object
+      required: [iban]
+      properties:
+        iban: {type: string}
+    Ach:
+      type: object
+      required: [routing, account]
+      properties:
+        routing: {type: string}
+        account: {type: string}
+    Wire:
+      type: object
+      required: [swift, account]
+      properties:
+        swift: {type: string}
+        account: {type: string}

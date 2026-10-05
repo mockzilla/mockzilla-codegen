@@ -50,7 +50,8 @@ func (o *ListPetsServiceRequestOptions) Validate() error
   field, and neither does a second `querystring` parameter or one next to query parameters, which
   OpenAPI rules out. Generation warns (`querystring-unsupported`).
 - A query, header or cookie parameter whose union has an object or array variant gets no field:
-  no style writes it as text. Generation warns (`param-unsupported`).
+  no style writes it as text. The same holds for a list or map of such unions. Generation warns
+  (`param-unsupported`).
 - A parameter without `in`, or with an `in` other than `path`, `query`, `header`, `cookie` and
   `querystring`, gets no field, and neither does a path parameter whose `{name}` is not in the
   path: nothing could fill it. Generation warns (`param-in`, `path-param-unused`).
@@ -475,7 +476,7 @@ The runtime package holds what the generated HTTP code and clients use, standard
   `spaceDelimited`, `pipeDelimited`, `deepObject`), exploded or not, for values, lists and objects,
   and parameters with JSON content.
 - Bodies: `DecodeJSON`, `DecodeForm` (bracketed keys nest: `address[city]=Berlin`,
-  `items[0]=a`), `DecodeMultipart` (files as `runtime.File`, JSON parts into structs),
+  `items[0]=a`; one value for a struct or map is read as JSON, else as a string), `DecodeMultipart` (files as `runtime.File`, JSON parts into structs),
   `DecodeText`, `DecodeBytes`, `DecodeFile`. A required body that is empty gives `ErrBodyEmpty`;
   an empty optional one is left alone.
 - Responses: `Write` sends a status, headers and a body: JSON for most values, text and bytes as

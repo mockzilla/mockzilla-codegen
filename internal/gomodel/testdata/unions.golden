@@ -105,6 +105,9 @@ IfThen struct models.types
 Nested union models.unions
   | oneOf
   | Pet *Pet kinds=object
+  |   shape required=kind,meow known=kind,meow
+  |   shape required=kind known=kind,bark closed
+  |   shape known=kind,fins
   | Option2 *NestedOption2 kinds=integer|string
 NestedOption2 union models.unions
   | oneOf text
@@ -198,6 +201,95 @@ SameRequiredOption2 struct models.types
 SameRequiredOption3 struct models.types
   ID string json=id required
   C string json=c required
+Sum union models.unions
+  | oneOf
+  | Sum1 *Sum1 kinds=object
+  |   shape required=common,one known=common,one
+  |   shape required=common,two known=common,two
+  | Sum2 *Sum2 kinds=string|object
+  |   shape required=common,three known=common,three
+Sum1 union models.unions
+  | oneOf
+  | Option1 *Sum1Option1 kinds=object required=common,one known=common,one
+  | Option2 *Sum1Option2 kinds=object required=common,two known=common,two
+Sum1Option1 struct models.types
+  Common string json=common required
+  One string json=one required
+Sum1Option2 struct models.types
+  Common string json=common required
+  Two string json=two required
+Sum2 union models.unions
+  | oneOf
+  | Option1 *Sum2Option1 kinds=object required=common,three known=common,three
+  | String *string kinds=string
+Sum2Option1 struct models.types
+  Common string json=common required
+  Three string json=three required
+SumClash union models.unions
+  | oneOf
+  | Sum1 *Sum1 kinds=object
+  |   shape required=common,one known=common,one
+  |   shape required=common,two known=common,two
+  | SumAgain *SumAgain kinds=integer|object
+  |   shape required=common,one known=common,one,x
+SumAgain union models.unions
+  | oneOf
+  | Option1 *SumAgainOption1 kinds=object required=common,one known=common,one,x
+  | Int *int kinds=integer
+SumAgainOption1 struct models.types
+  Common string json=common required
+  One string json=one required
+  X *string json=x omitempty
+Outer union models.unions
+  | oneOf
+  | Inner *Inner kinds=object
+  |   shape required=x,note known=x,note
+  |   shape required=y,note known=y,note
+  | Flyer *Flyer kinds=object
+  |   shape known=wings,kind
+  |   shape required=kind,meow known=kind,meow
+  | Loose *Loose kinds=boolean|object
+  |   shape
+  | Option4 *OuterOption4 kinds=object required=z known=z
+OuterOption4 struct models.types
+  Z string json=z required
+Inner union models.unions
+  Note string json=note required
+  | oneOf
+  | Option1 *InnerOption1 kinds=object required=x known=x
+  | InnerLoop *InnerLoop kinds=object
+  |   shape required=y known=y
+InnerOption1 struct models.types
+  X string json=x required
+InnerLoop union models.unions
+  | oneOf
+  | Inner *Inner kinds=object
+  |   shape required=x,note known=x,note
+  | Option2 *InnerLoopOption2 kinds=object required=y known=y
+InnerLoopOption2 struct models.types
+  Y string json=y required
+Loose union models.unions
+  | oneOf
+  | StringMap map[string]string kinds=object
+  | Bool *bool kinds=boolean
+Dup union models.unions
+  | oneOf
+  | Twin *Twin kinds=object
+  |   shape required=id known=id,a
+  |   shape required=id known=id,b
+  | Option2 *DupOption2 kinds=object required=w known=w
+DupOption2 struct models.types
+  W string json=w required
+Twin union models.unions
+  | oneOf
+  | Option1 *TwinOption1 kinds=object required=id known=id,a
+  | Option2 *TwinOption2 kinds=object required=id known=id,b
+TwinOption1 struct models.types
+  ID string json=id required
+  A *string json=a omitempty
+TwinOption2 struct models.types
+  ID string json=id required
+  B *string json=b omitempty
 ---
 info union-duplicate 63:11 /components/schemas/Duplicates/oneOf/1: member 2 has the same Go type (string) as variant String; they share its field
 info union-duplicate 65:11 /components/schemas/Duplicates/oneOf/3: member 4 has the same Go type (Cat) as variant Cat; they share its field
@@ -207,3 +299,6 @@ warning union-self 139:11 /components/schemas/Self/oneOf/0: member 1 is the unio
 warning union-ambiguous 143:7 /components/schemas/NoIf: variants Then, Else of NoIf require no property, so {} matches each of them and fails to decode
 warning union-ambiguous 146:7 /components/schemas/IfWithoutConst: variants Then, Else of IfWithoutConst require no property, so {} matches each of them and fails to decode
 warning union-ambiguous 191:7 /components/schemas/SameRequired: variants Option1, Option2 of SameRequired require the same properties (id), so an object with only those matches each of them and fails to decode
+warning union-ambiguous 208:7 /components/schemas/SumClash: variants Sum1, SumAgain of SumClash require the same properties (common, one), so an object with only those matches each of them and fails to decode
+warning union-ambiguous 216:7 /components/schemas/Outer: variants Flyer, Loose of Outer require no property, so {} matches each of them and fails to decode
+warning union-ambiguous 241:7 /components/schemas/Twin: variants Option1, Option2 of Twin require the same properties (id), so an object with only those matches each of them and fails to decode

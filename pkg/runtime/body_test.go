@@ -7,6 +7,7 @@ package runtime
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -51,10 +52,43 @@ type upload struct {
 	hidden   string   //nolint:unused // left alone by the decoder
 }
 
+type point struct {
+	X int `json:"x"`
+}
+
+// vertex stands in for a generated union of a string and an object.
+type vertex struct {
+	Text  *string
+	Point *point
+}
+
+type drawing struct {
+	Vertex   *vertex           `json:"vertex,omitempty"`
+	Vertices []vertex          `json:"vertices,omitempty"`
+	Named    map[string]vertex `json:"named,omitempty"`
+	Origin   *point            `json:"origin,omitempty"`
+	Count    int               `json:"count,omitempty"`
+}
+
 type errReader struct{}
 
 func (errReader) Read([]byte) (int, error) {
 	return 0, io.ErrUnexpectedEOF
+}
+
+func (v vertex) MarshalJSON() ([]byte, error) {
+	if v.Point != nil {
+		return json.Marshal(v.Point)
+	}
+	return json.Marshal(v.Text)
+}
+
+func (v *vertex) UnmarshalJSON(data []byte) error {
+	*v = vertex{}
+	return UnmarshalUnion(data, Union{Variants: []Variant{
+		{Name: "Text", Kind: KindString, Into: Into(&v.Text)},
+		{Name: "Point", Kind: KindObject, Required: []string{"x"}, Known: []string{"x"}, Into: Into(&v.Point)},
+	}})
 }
 
 func TestContentType(t *testing.T) {
@@ -165,6 +199,47 @@ func TestDecodeFormEdges(t *testing.T) {
 
 	require.ErrorIs(t, DecodeForm(errReader{}, new(order), false), io.ErrUnexpectedEOF)
 	require.ErrorIs(t, DecodeForm(strings.NewReader("a=1"), order{}, false), ErrParamValue)
+}
+
+func TestDecodeFormText(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		body string
+		want drawing
+	}{
+		{name: "Plain text is the string", body: "vertex=abc", want: drawing{Vertex: &vertex{Text: new("abc")}}},
+		{name: "A number no variant takes is the string", body: "vertex=12", want: drawing{Vertex: &vertex{Text: new("12")}}},
+		{name: "A JSON string", body: "vertex=%22q%22", want: drawing{Vertex: &vertex{Text: new("q")}}},
+		{name: "A JSON object", body: "vertex=%7B%22x%22%3A7%7D", want: drawing{Vertex: &vertex{Point: &point{X: 7}}}},
+		{name: "Items and map values", body: "vertices=a&vertices=%7B%22x%22%3A1%7D&named[n]=b", want: drawing{
+			Vertices: []vertex{{Text: new("a")}, {Point: &point{X: 1}}},
+			Named:    map[string]vertex{"n": {Text: new("b")}},
+		}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got drawing
+			require.NoError(t, DecodeForm(strings.NewReader(tc.body), &got, false))
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestDecodeFormTextErrors(t *testing.T) {
+	t.Parallel()
+
+	for _, body := range []string{"origin=12", "origin=nope", "origin=%7B%22x%22%3A%22a%22%7D"} {
+		t.Run(body, func(t *testing.T) {
+			t.Parallel()
+
+			require.ErrorIs(t, DecodeForm(strings.NewReader(body), new(drawing), false), ErrParamValue)
+		})
+	}
 }
 
 func multipartRequest(t *testing.T, write func(w *multipart.Writer)) *http.Request {
