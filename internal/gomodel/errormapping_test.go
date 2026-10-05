@@ -22,6 +22,8 @@ func TestErrorsInModel(t *testing.T) {
 		"ProblemOption2":         "nope",
 		"Status":                 "x",
 		"Missing":                "x",
+		"StrictError":            "error.message",
+		"StrictList":             "items[].text",
 	}
 
 	checkGolden(t, "errors", "errors", opts)

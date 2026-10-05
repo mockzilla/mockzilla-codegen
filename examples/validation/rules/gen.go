@@ -69,7 +69,7 @@ func (i Item) Validate() error {
 		errs.Append("count", runtime.Maximum(*i.Count, 5, false))
 	}
 	if i.Tags == nil {
-		errs.Add("tags", "is required")
+		errs.Required("tags")
 	}
 	if i.Tags != nil {
 		errs.Append("tags", runtime.MinItems(i.Tags, 1))

@@ -101,6 +101,19 @@ func TestPresenceJSON(t *testing.T) {
 	}
 }
 
+func TestPresenceJSONRules(t *testing.T) {
+	t.Parallel()
+
+	b := Presence{IsChecked: true, Objects: testObjects}
+	_, err := b.JSON(strings.NewReader(`{"tag":null,"tags":[null],"x":1}`), Prop{Object: "Pet"})
+
+	assert.Equal(t, ValidationErrors{
+		{Field: "body.name", Message: "is required", Rule: RuleRequired},
+		{Field: "body.tags[0]", Message: "must not be null", Rule: RuleType},
+		{Field: "body.x", Message: "is not allowed", Rule: RuleAdditionalProperties, Limit: false},
+	}, err)
+}
+
 func TestPresenceForm(t *testing.T) {
 	t.Parallel()
 

@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestChecks(t *testing.T) {
@@ -19,30 +18,22 @@ func TestChecks(t *testing.T) {
 		name  string
 		check func(set ...bool) error
 		set   []bool
-		want  string
+		want  error
 	}{
 		{name: "Exactly one with one", check: ExactlyOne, set: []bool{false, true}},
-		{name: "Exactly one with none", check: ExactlyOne, set: []bool{false, false}, want: "exactly one variant must be set, found 0"},
-		{name: "Exactly one with two", check: ExactlyOne, set: []bool{true, true}, want: "exactly one variant must be set, found 2"},
+		{name: "Exactly one with none", check: ExactlyOne, set: []bool{false, false}, want: ValidationError{Message: "exactly one variant must be set, found 0", Rule: RuleOneOf}},
+		{name: "Exactly one with two", check: ExactlyOne, set: []bool{true, true}, want: ValidationError{Message: "exactly one variant must be set, found 2", Rule: RuleOneOf}},
 		{name: "At most one with none", check: AtMostOne, set: []bool{false, false}},
-		{name: "At most one with two", check: AtMostOne, set: []bool{true, true}, want: "at most one variant may be set, found 2"},
+		{name: "At most one with two", check: AtMostOne, set: []bool{true, true}, want: ValidationError{Message: "at most one variant may be set, found 2", Rule: RuleOneOf}},
 		{name: "At least one with two", check: AtLeastOne, set: []bool{true, true}},
-		{name: "At least one with none", check: AtLeastOne, set: []bool{false}, want: "at least one variant must be set"},
+		{name: "At least one with none", check: AtLeastOne, set: []bool{false}, want: ValidationError{Message: "at least one variant must be set", Rule: RuleAnyOf}},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := tc.check(tc.set...)
-
-			if tc.want == "" {
-				require.NoError(t, err)
-				return
-			}
-			var ve ValidationError
-			require.ErrorAs(t, err, &ve)
-			assert.Equal(t, ValidationError{Message: tc.want}, ve)
+			assert.Equal(t, tc.want, tc.check(tc.set...))
 		})
 	}
 }

@@ -34,7 +34,7 @@ func TestItemValidate(t *testing.T) {
 		{name: "UUID format", edit: func(i *Item) { i.ID = new("42") }, want: "id: must be a valid uuid"},
 		{name: "URI format", edit: func(i *Item) { i.Site = new("/shop") }, want: "site: must be a valid uri"},
 		{name: "Host name format", edit: func(i *Item) { i.Host = new("-shop") }, want: "host: must be a valid hostname"},
-		{name: "Email", edit: func(i *Item) { i.Email = new(runtime.Email("shop")) }, want: "email: invalid email address"},
+		{name: "Email", edit: func(i *Item) { i.Email = new(runtime.Email("shop")) }, want: "email: must be a valid email"},
 		{name: "Minimum", edit: func(i *Item) { i.Price = new(-1.0) }, want: "price: must be at least 0"},
 		{name: "Exclusive maximum", edit: func(i *Item) { i.Price = new(1000.0) }, want: "price: must be less than 1000"},
 		{name: "Multiple of", edit: func(i *Item) { i.Price = new(1.005) }, want: "price: must be a multiple of 0.01"},
@@ -79,6 +79,60 @@ func TestItemValidate(t *testing.T) {
 			require.EqualError(t, err, tc.want)
 			var errs runtime.ValidationErrors
 			assert.True(t, errors.As(err, &errs))
+		})
+	}
+}
+
+func TestItemValidateRule(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		edit func(i *Item)
+		want runtime.ValidationError
+	}{
+		{
+			name: "Length",
+			edit: func(i *Item) { i.Name = "L" },
+			want: runtime.ValidationError{Field: "name", Message: "must be at least 2 characters long", Rule: runtime.RuleMinLength, Limit: 2},
+		},
+		{
+			name: "Pattern as the spec writes it",
+			edit: func(i *Item) { i.Code = "lmp" },
+			want: runtime.ValidationError{Field: "code", Message: "must match ^[A-Z]{3}$", Rule: runtime.RulePattern, Limit: "^[A-Z]{3}$"},
+		},
+		{
+			name: "Exclusive bound",
+			edit: func(i *Item) { i.Price = new(1000.0) },
+			want: runtime.ValidationError{Field: "price", Message: "must be less than 1000", Rule: runtime.RuleExclusiveMaximum, Limit: 1000.0},
+		},
+		{
+			name: "Email",
+			edit: func(i *Item) { i.Email = new(runtime.Email("shop")) },
+			want: runtime.ValidationError{Field: "email", Message: "must be a valid email", Rule: runtime.RuleFormat, Limit: "email"},
+		},
+		{
+			name: "Required",
+			edit: func(i *Item) { i.Tags = nil },
+			want: runtime.ValidationError{Field: "tags", Message: "is required", Rule: runtime.RuleRequired},
+		},
+		{
+			name: "Enum",
+			edit: func(i *Item) { i.Size = new(Size("xl")) },
+			want: runtime.ValidationError{Field: "size", Message: "must be one of s, m, l", Rule: runtime.RuleEnum, Limit: []Size{SizeS, SizeM, SizeL}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			item := validItem()
+			tc.edit(&item)
+
+			var errs runtime.ValidationErrors
+			require.ErrorAs(t, item.Validate(), &errs)
+			assert.Equal(t, runtime.ValidationErrors{tc.want}, errs)
 		})
 	}
 }

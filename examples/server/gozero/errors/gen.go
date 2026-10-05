@@ -219,9 +219,14 @@ type PutPetResponseData struct {
 	contentType string
 }
 
-// NewPutPetResponseData returns the 200 response with its application/json body.
-func NewPutPetResponseData(body *Pet) *PutPetResponseData {
+// NewPutPetResponseData200 returns the 200 response with its application/json body.
+func NewPutPetResponseData200(body *Pet) *PutPetResponseData {
 	return &PutPetResponseData{Status: 200, Body: body, contentType: "application/json"}
+}
+
+// NewPutPetResponseData400 returns the 400 response with its application/problem+json body.
+func NewPutPetResponseData400(body *Problem) *PutPetResponseData {
+	return &PutPetResponseData{Status: 400, Body: body, contentType: "application/problem+json"}
 }
 
 // WithStatus sets the status code.
@@ -435,6 +440,11 @@ func (a *HTTPAdapter) PutPet(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.PutPet(r.Context(), opts)
 	if err != nil {
+		if e, ok := runtime.AsError[Problem](err); ok {
+			w.Header().Set("Content-Type", "application/problem+json")
+			a.opts.ErrorHandler.HandleError(w, r, 400, e)
+			return
+		}
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutPet", Err: err})
 		return
 	}
@@ -448,6 +458,10 @@ func (a *HTTPAdapter) PutPet(w http.ResponseWriter, r *http.Request) {
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
+	if body, mediaType := requestError(err); body != nil {
+		err.Body = body
+		w.Header().Set("Content-Type", mediaType)
+	}
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
@@ -478,6 +492,20 @@ func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, r
 	case err != nil:
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
 	}
+}
+
+func requestError(err *runtime.HandlerError) (error, string) {
+	if err.Kind == runtime.ErrorService || err.Kind == runtime.ErrorResponse {
+		return nil, ""
+	}
+
+	switch err.OperationID {
+	case "PutPet":
+		if err.StatusCode() == 400 {
+			return NewProblem(err.Error()), "application/problem+json"
+		}
+	}
+	return nil, ""
 }
 
 // WithRouter registers the routes on r instead of a new Router.

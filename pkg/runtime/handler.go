@@ -33,6 +33,8 @@ var kindTexts = []string{"parse", "decode", "validation", "service", "response"}
 
 // HandlerError is what a generated handler passes to the error handler when a request cannot be
 // served. Status is the code to answer with, 0 for the one the kind implies. Err is the cause.
+// Body is the error type of the spec that answers a request turned away, holding the message,
+// when the operation documents one for the status.
 type HandlerError struct {
 	Kind          ErrorKind
 	OperationID   string
@@ -40,6 +42,7 @@ type HandlerError struct {
 	ParamLocation string
 	Status        int
 	Err           error
+	Body          error
 }
 
 // ErrorHandler writes the response of a failed request. err is a *HandlerError, or an error type
@@ -52,7 +55,7 @@ type ErrorHandler interface {
 type ErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, status int, err error)
 
 // DefaultErrorHandler writes an error as {"error": "..."}, or an error type of the spec as its own
-// JSON, when the request accepts JSON, and as text otherwise.
+// JSON, the Body of a HandlerError too, when the request accepts JSON, and as text otherwise.
 type DefaultErrorHandler struct{}
 
 func (k ErrorKind) String() string {
@@ -109,8 +112,12 @@ func (DefaultErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, s
 	}
 
 	var herr *HandlerError
-	data, jsonErr := json.Marshal(err)
-	if errors.As(err, &herr) || jsonErr != nil || string(data) == "{}" {
+	var body any = err
+	if errors.As(err, &herr) {
+		body = herr.Body
+	}
+	data, jsonErr := json.Marshal(body)
+	if body == nil || jsonErr != nil || string(data) == "{}" {
 		data, _ = json.Marshal(map[string]string{"error": err.Error()}) // strings always marshal
 	}
 	if !IsJSON(w.Header().Get("Content-Type")) {

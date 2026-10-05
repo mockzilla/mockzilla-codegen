@@ -132,7 +132,7 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 			}
 		}
 	}
-	return g, diags
+	return g, append(diags, rejectWarnings(m.Operations)...)
 }
 
 // Framework is the framework the router is generated for.

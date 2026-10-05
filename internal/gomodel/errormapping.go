@@ -48,6 +48,9 @@ func resolveErrors(decls []*Decl, mapping map[string]string, c *diag.Collector) 
 			continue
 		}
 		d.Error = &ErrorMessage{Path: path, HasConstructor: isSettable}
+		if isSettable {
+			d.Error.Unset = unsetRequired(DeclRef{Decl: d}, strings.Split(path, "."))
+		}
 	}
 }
 
@@ -84,6 +87,30 @@ func errorPath(t Type, segs []string) (isFound, isSettable bool) {
 		}
 	}
 	return true, !isThroughUnion && groupOf(t) == groupString
+}
+
+// unsetRequired lists the required properties next to each step of segs, a path through structs
+// alone, which a message set at segs leaves empty.
+func unsetRequired(t Type, segs []string) []string {
+	var out []string
+	prefix := ""
+	for _, seg := range segs {
+		name, isFirst := strings.CutSuffix(seg, "[]")
+		st := structOf(t)
+		for _, f := range st.Fields {
+			if f.Required && f.JSONName != name {
+				out = append(out, prefix+f.JSONName)
+			}
+		}
+
+		prefix += seg + "."
+		t = Elem(fieldNamed(st, name).Type)
+		if isFirst {
+			s, _ := sliceOf(t)
+			t = Elem(s.Elem)
+		}
+	}
+	return out
 }
 
 func fieldNamed(st *Struct, name string) *Field {

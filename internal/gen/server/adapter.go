@@ -53,7 +53,8 @@ type ErrorsView struct {
 
 // AdapterView is the data of the adapter part. Service is the interface, as the file writes it;
 // Handler is the shape of the handlers the framework takes. Presence is the table the handlers
-// check bodies against, nil when none does.
+// check bodies against, nil when none does. Rejects are the error types of the spec that answer
+// the requests the handlers turn away.
 type AdapterView struct {
 	Service             string
 	Runtime             string
@@ -66,6 +67,7 @@ type AdapterView struct {
 	Handler             framework.Handler
 	Operations          []HandlerView
 	Presence            *PresenceView
+	Rejects             []RejectView
 }
 
 // HandlerView is one handler method. ID is the operation name as a string literal. Bodies are
@@ -183,6 +185,7 @@ func adapterView(g *Generator, s *gocode.Scope) *AdapterView {
 		v.Operations = append(v.Operations, handlerView(g, op, s, table))
 	}
 	v.Presence = table.view()
+	v.Rejects = rejectViews(g.ops, s)
 	return v
 }
 

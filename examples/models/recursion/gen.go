@@ -21,7 +21,7 @@ func (n Node) Validate() error {
 		errs.Append("parent", n.Parent.Validate())
 	}
 	if n.Children == nil {
-		errs.Add("children", "is required")
+		errs.Required("children")
 	}
 	for idx, item := range n.Children {
 		errs.Append(runtime.Index("children", idx), item.Validate())
@@ -39,7 +39,7 @@ type Item struct {
 func (i Item) Validate() error {
 	var errs runtime.ValidationErrors
 	if i.Next == nil {
-		errs.Add("next", "is required")
+		errs.Required("next")
 	}
 	if i.Next != nil {
 		errs.Append("next", i.Next.Validate())
@@ -56,7 +56,7 @@ type Author struct {
 func (a Author) Validate() error {
 	var errs runtime.ValidationErrors
 	if a.Book == nil {
-		errs.Add("book", "is required")
+		errs.Required("book")
 	}
 	if a.Book != nil {
 		errs.Append("book", a.Book.Validate())
@@ -73,7 +73,7 @@ type Book struct {
 func (b Book) Validate() error {
 	var errs runtime.ValidationErrors
 	if b.Author == nil {
-		errs.Add("author", "is required")
+		errs.Required("author")
 	}
 	if b.Author != nil {
 		errs.Append("author", b.Author.Validate())
