@@ -1,0 +1,55 @@
+Sort enum string models.enums
+  SortName "name"
+  SortDate "date"
+Order alias Sort models.types
+Sorts defined []Sort models.types
+Pet struct models.types
+  Size *string json=size nullable omitempty getter=GetSize:"m"
+  Born *string json=born omitempty readOnly getter=GetBorn:"today"
+  Sorts Sorts json=sorts omitempty getter=GetSorts:["date","name"]
+  Email *runtime.Email json=email omitempty getter=GetEmail:"a@b.c"
+  Owner *Owner json=owner omitempty
+  Plain int json=plain omitempty
+  Age *int json=age omitempty
+  GetAge *string json=get_age omitempty
+  Photo []byte json=photo omitempty
+  Notes []*string json=notes omitempty
+  Anything any json=anything omitempty
+  Tiny *int8 json=tiny omitempty getter=GetTiny:-128
+Owner struct models.types
+  Name *string json=name omitempty
+Pick union models.unions
+  Kind *string json=kind omitempty
+  | oneOf
+  | GetKind *GetKind kinds=object known=x
+  | String *string kinds=string
+GetKind struct models.types
+  X *int json=x omitempty
+ListPetsPathParams struct models.params
+  ID string json=id required
+ListPetsQuery struct models.params
+  Limit *int json=limit omitempty getter=GetLimit:20
+  Page int json=page required
+  Sort *Order json=sort omitempty getter=GetSort:"name"
+  Tags []string json=tags omitempty getter=GetTags:["new","sale"]
+  Since *runtime.Date json=since omitempty
+  Q *string json=q omitempty
+ListPetsHeaders struct models.params
+  XRate *float32 json=X-Rate omitempty getter=GetXRate:1.5
+ListPetsCookies struct models.params
+  Debug *bool json=debug omitempty getter=GetDebug:false
+op ListPets GET /pets/{id}
+  params path ListPetsPathParams
+  params query ListPetsQuery
+  params header ListPetsHeaders
+  params cookie ListPetsCookies
+  response 200 application/json Pet
+---
+info getter-skipped 0:0 /components/schemas/Pet/properties/owner: Pet.Owner gets no getter: Go has no constant of type Owner for its default
+info getter-skipped 13:11 /paths/~1pets~1{id}/get/parameters/5/schema: ListPetsQuery.Since gets no getter: Go has no constant of type runtime.Date for its default
+info getter-skipped 42:16 /components/schemas/Pet/properties/plain: Pet.Plain gets no getter: x-go-type-skip-optional-pointer makes it a plain value, which is never nil
+warning name-clash 43:14 /components/schemas/Pet/properties/age: Pet.Age gets no getter: Pet has a field named GetAge
+info getter-skipped 45:16 /components/schemas/Pet/properties/photo: Pet.Photo gets no getter: Go has no constant of type []byte for its default
+info getter-skipped 46:16 /components/schemas/Pet/properties/notes: Pet.Notes gets no getter: Go has no constant of type []*string for its default
+info getter-skipped 47:19 /components/schemas/Pet/properties/anything: Pet.Anything gets no getter: Go has no constant of type any for its default
+warning name-clash 58:15 /components/schemas/Pick/properties/kind: Pick.Kind gets no getter: Pick has a field named GetKind

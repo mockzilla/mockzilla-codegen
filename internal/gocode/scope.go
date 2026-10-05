@@ -10,9 +10,11 @@ package gocode
 import (
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
 // generatorLevel is the runtime API level generated code needs. Raise it when generated code
@@ -85,7 +87,35 @@ func (s *Scope) RuntimeGuard() string {
 	return name + ".SupportsGeneratorV" + strconv.Itoa(generatorLevel)
 }
 
+// Value returns v as a value of type t: an enum constant, a list, or a constant.
+func (s *Scope) Value(t gomodel.Type, v spec.Value) string {
+	r, ok := t.(gomodel.DeclRef)
+	switch {
+	case ok && r.Decl.Kind == gomodel.KindEnum:
+		name, _ := r.Decl.Enum.Const(v)
+		return s.Symbol(layout.PartID(r.Decl.Part), name)
+	case ok && (r.Decl.Kind == gomodel.KindAlias || r.Decl.Kind == gomodel.KindDefined):
+		if l, isList := gomodel.Underlying(t).(gomodel.Slice); isList {
+			return s.list(t, l.Elem, v)
+		}
+		return s.Value(r.Decl.Target, v)
+	}
+	if l, isList := t.(gomodel.Slice); isList {
+		return s.list(t, l.Elem, v)
+	}
+	return Literal(v)
+}
+
 // decl qualifies a declaration placed in another folder with that folder's package.
 func (s *Scope) decl(d *gomodel.Decl) string {
 	return s.Symbol(layout.PartID(d.Part), d.Name)
+}
+
+// list writes the items of v as values of elem, in a composite literal of t.
+func (s *Scope) list(t, elem gomodel.Type, v spec.Value) string {
+	items := make([]string, len(v.Items))
+	for i, item := range v.Items {
+		items[i] = s.Value(elem, item)
+	}
+	return s.Expr(t) + "{" + strings.Join(items, ", ") + "}"
 }

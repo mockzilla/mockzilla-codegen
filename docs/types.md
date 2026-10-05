@@ -110,6 +110,30 @@ Optional fields get `omitempty` in their JSON tag. Required fields do not, apart
 `writeOnly` ones. A field with `omitempty` that holds a struct or a type from another package by
 value, such as `time.Time`, also gets `omitzero`: `omitempty` alone never leaves out a struct.
 
+### Defaults
+
+An optional parameter or property with a `default` gets a getter. It returns the field, or the
+default when the field is `nil`, and works on a nil receiver too. Client, server and models alone
+get the same getters.
+
+```go
+// GetLimit returns Limit, or 20 when it is nil.
+func (l *ListPetsQuery) GetLimit() int {
+	if l == nil || l.Limit == nil {
+		return 20
+	}
+	return *l.Limit
+}
+```
+
+The default has to be something Go writes as a constant: a string, number or boolean, an enum
+value, which comes back as its constant, or a list of these, which is a new slice on each call.
+Any other default, such as an object, a date or an `x-go-type`, gets no getter, and `-v` says why
+(`getter-skipped`). A required field, a path parameter, and a field that
+`x-go-type-skip-optional-pointer` makes a plain value get none either. A nullable field is `nil`
+when it is absent and when it is `null`, so its getter returns the default for both. A default
+that does not fit its schema is left out, and generation warns (`default-ignored`).
+
 ## Recursion
 
 A struct cannot hold itself by value. When a type reaches itself through fields that are not

@@ -25,9 +25,33 @@ type Pet struct {
 	Toys  []Toy    `json:"toys,omitempty"`
 }
 
+// GetAge returns Age, or 1 when it is nil.
+func (p *Pet) GetAge() int {
+	if p == nil || p.Age == nil {
+		return 1
+	}
+	return *p.Age
+}
+
+// GetSize returns Size, or "m" when it is nil.
+func (p *Pet) GetSize() string {
+	if p == nil || p.Size == nil {
+		return "m"
+	}
+	return *p.Size
+}
+
 type Owner struct {
 	ID   int     `json:"id"`
 	City *string `json:"city,omitempty"`
+}
+
+// GetCity returns City, or "Berlin" when it is nil.
+func (o *Owner) GetCity() string {
+	if o == nil || o.City == nil {
+		return "Berlin"
+	}
+	return *o.City
 }
 
 type Toy struct {
@@ -35,9 +59,25 @@ type Toy struct {
 	Color *string `json:"color,omitempty"`
 }
 
+// GetColor returns Color, or "red" when it is nil.
+func (t *Toy) GetColor() string {
+	if t == nil || t.Color == nil {
+		return "red"
+	}
+	return *t.Color
+}
+
 type Upload struct {
 	Photo runtime.File `json:"photo"`
 	Note  *string      `json:"note,omitempty"`
+}
+
+// GetNote returns Note, or "none" when it is nil.
+func (u *Upload) GetNote() string {
+	if u == nil || u.Note == nil {
+		return "none"
+	}
+	return *u.Note
 }
 
 type UploadResponse200 = string

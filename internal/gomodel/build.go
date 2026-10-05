@@ -75,19 +75,26 @@ func (b *builder) build(list []*pending, ops []*Operation, headers map[*spec.Res
 	settleUnions(decls)
 	ambiguousUnions(decls, b.diags)
 
+	planGetters(decls, b.diags)
+
 	for _, op := range ops {
 		for i := range op.Params {
 			g := &op.Params[i]
 			g.Defaults = map[string]string{}
-			for _, p := range g.Params {
-				if d := b.paramDefault(p, paramSchema(p)); d != "" {
-					g.Defaults[p.Name] = d
+			for j, p := range g.Params {
+				if d := g.Decl.Struct.Fields[j].def; d != nil && b.opts.IsServer {
+					g.Defaults[p.Name] = string(jsonschema.Marshal(*d))
 				}
 			}
 		}
 		if qs := op.QueryString; qs != nil {
 			mt := qs.Param.Contents[0]
-			qs.Content, qs.Default = b.contents([]*spec.MediaType{mt})[0], b.paramDefault(qs.Param, mt.Schema)
+			qs.Content = b.contents([]*spec.MediaType{mt})[0]
+			if b.opts.IsServer && !qs.Param.Required {
+				if d := b.paramDefault(qs.Param, mt.Schema); d != nil {
+					qs.Default = string(jsonschema.Marshal(*d))
+				}
+			}
 		}
 		if op.Spec.Body != nil {
 			op.Bodies = b.contents(op.Spec.Body.Contents)
@@ -233,6 +240,9 @@ func (b *builder) fields(d *Decl, f *spec.Schema) []*Field {
 		if b.opts.Descriptions {
 			fd.Doc = description(p.Schema)
 		}
+		if !fd.Required {
+			fd.def = b.propertyDefault(d, fd)
+		}
 		fd.OmitEmpty = !fd.Required || fd.ReadOnly || fd.WriteOnly
 		b.applyExtensions(fd, set)
 		b.plan(d, fd, b.typeOf(p.Schema))
@@ -258,6 +268,9 @@ func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
 		if b.opts.Descriptions {
 			fd.Doc = p.Description
 		}
+		if p.In != spec.InPath && !p.Required {
+			fd.def = b.paramDefault(p, s)
+		}
 		b.applyExtensions(fd, b.ext.ofParam(p, s))
 
 		t := Type(stringType)
@@ -270,14 +283,14 @@ func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
 	resolveFields(d, b.opts.Namer, b.methods(d), b.diags)
 }
 
-// paramDefault is the JSON of the default the server sets for p when it is not there, or "".
-func (b *builder) paramDefault(p *spec.Parameter, s *spec.Schema) string {
-	if !b.opts.IsServer || p.In == spec.InPath || p.Required || s == nil {
-		return ""
+// paramDefault is the default of p when it is not there, nil when it has none that fits.
+func (b *builder) paramDefault(p *spec.Parameter, s *spec.Schema) *spec.Value {
+	if s == nil {
+		return nil
 	}
 	d := cmp.Or(s.Default, b.flat.flatten(target(s)).Default)
 	if d == nil {
-		return ""
+		return nil
 	}
 	if why := jsonschema.Misfit(*d, s); why != "" {
 		b.diags.Append(diag.Diagnostic{
@@ -285,11 +298,30 @@ func (b *builder) paramDefault(p *spec.Parameter, s *spec.Schema) string {
 			Code:     diag.CodeDefaultIgnored,
 			Pointer:  p.Origin.Pointer,
 			Origin:   origin(p.Origin),
-			Message:  fmt.Sprintf("the default of %s parameter %q does not fit its schema, so the server does not set it: %s", p.In, p.Name, why),
+			Message:  fmt.Sprintf("the default of %s parameter %q does not fit its schema, so it is left out: %s", p.In, p.Name, why),
 		})
-		return ""
+		return nil
 	}
-	return string(jsonschema.Marshal(*d))
+	return d
+}
+
+// propertyDefault is the default of f when it is not there, nil when it has none that fits.
+func (b *builder) propertyDefault(d *Decl, f *Field) *spec.Value {
+	def := cmp.Or(f.schema.Default, b.flat.flatten(target(f.schema)).Default)
+	if def == nil {
+		return nil
+	}
+	if why := jsonschema.Misfit(*def, f.schema); why != "" {
+		b.diags.Append(diag.Diagnostic{
+			Severity: diag.Warning,
+			Code:     diag.CodeDefaultIgnored,
+			Pointer:  f.schema.Origin.Pointer,
+			Origin:   f.Origin,
+			Message:  fmt.Sprintf("the default of property %q of %s does not fit its schema, so it is left out: %s", f.JSONName, d.Name, why),
+		})
+		return nil
+	}
+	return def
 }
 
 // applyExtensions sets what the extensions of a field ask for, then its tags.

@@ -47,6 +47,14 @@ type SearchQuery struct {
 	Limit *int `json:"limit,omitempty"`
 }
 
+// GetSort returns Sort, or "name" when it is nil.
+func (s *SearchQuery) GetSort() SearchQuerySort {
+	if s == nil || s.Sort == nil {
+		return SearchQuerySortName
+	}
+	return *s.Sort
+}
+
 // Validate checks the value against the constraints of the spec.
 func (s SearchQuery) Validate() error {
 	var errs runtime.ValidationErrors

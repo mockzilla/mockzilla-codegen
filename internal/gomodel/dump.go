@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/jsonschema"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
@@ -270,6 +271,9 @@ func dumpField(b *strings.Builder, f *Field) {
 	}
 	if f.Value != nil {
 		b.WriteString(" checks=" + bodyText(f.Value))
+	}
+	if g := f.Getter; g != nil {
+		b.WriteString(" getter=" + g.Name + ":" + string(jsonschema.Marshal(g.Default)))
 	}
 	if f.Doc != "" {
 		b.WriteString(" doc=" + strconv.Quote(f.Doc))
