@@ -228,21 +228,25 @@ decoder or `DecodeForm` reads it:
 ```go
 var requestBodies = runtime.Bodies{
 	IsChecked: true,
-	Objects: map[string]runtime.Object{
-		"Owner": {Props: map[string]runtime.Prop{
-			"city": {Default: `"Berlin"`},
-			"id":   {IsRequired: true},
+	Objects: []runtime.Object{
+		{Name: "Owner", Props: []runtime.Prop{
+			{Key: "city", Default: `"Berlin"`},
+			{Key: "id", IsRequired: true},
 		}},
-		"Pet": {IsClosed: true, Props: map[string]runtime.Prop{
-			"age":   {Default: "1"},
-			"name":  {IsRequired: true},
-			"owner": {IsRequired: true, Object: "Owner"},
-			"tag":   {IsNullable: true},
-			"tags":  {Items: &runtime.Prop{}},
+		{Name: "Pet", IsClosed: true, Props: []runtime.Prop{
+			{Key: "age", Default: "1"},
+			{Key: "name", IsRequired: true},
+			{Key: "owner", IsRequired: true, Object: "Owner"},
+			{Key: "tag", IsNullable: true},
+			{Key: "tags", Items: &runtime.Prop{}},
 		}},
 	},
 }
 ```
+
+Objects are sorted by name and properties by key, and the runtime finds them by binary search.
+The table is a slice, not a map, so it is plain data with no code that runs at start. A spec with
+thousands of body properties compiles about as fast as without the table.
 
 Without `validation.request` the table holds only the objects that lead to a default. Without a
 default, nothing is generated. `examples/bodies/checked` and `examples/bodies/defaults` show both.

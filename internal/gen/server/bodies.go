@@ -8,8 +8,8 @@
 package server
 
 import (
-	"cmp"
 	"slices"
+	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
@@ -22,23 +22,18 @@ type BodiesView struct {
 	Objects   []ObjectView
 }
 
-// ObjectView is one object of the table, with its name and property keys quoted.
+// ObjectView is one object of the table, with its name quoted.
 type ObjectView struct {
 	Name     string
-	Props    []PropEntry
+	Props    []*PropView
 	Extra    *PropView
 	IsClosed bool
 }
 
-// PropEntry is one property of an object under its quoted key.
-type PropEntry struct {
-	Key   string
-	Value *PropView
-}
-
-// PropView is a runtime.Prop. Default and Object are quoted.
+// PropView is a runtime.Prop. Key, Default and Object are quoted.
 type PropView struct {
 	Runtime    string
+	Key        string
 	IsRequired bool
 	IsNullable bool
 	Default    string
@@ -103,24 +98,32 @@ func (t *bodyTable) view() *BodiesView {
 	if !t.hasRoots {
 		return nil
 	}
-	v := &BodiesView{Runtime: t.runtime, IsChecked: t.isChecked}
+	objects := map[*gomodel.Decl]ObjectView{}
 	// object adds the objects it names to used, so the loop reads used as it grows.
 	for i := 0; i < len(t.used); i++ {
-		v.Objects = append(v.Objects, t.object(t.used[i]))
+		objects[t.used[i]] = t.object(t.used[i])
 	}
-	slices.SortFunc(v.Objects, func(a, b ObjectView) int { return cmp.Compare(a.Name, b.Name) })
+
+	// The runtime finds an object by binary search, so the order is that of the names unquoted.
+	slices.SortFunc(t.used, func(a, b *gomodel.Decl) int { return strings.Compare(a.Name, b.Name) })
+	v := &BodiesView{Runtime: t.runtime, IsChecked: t.isChecked}
+	for _, d := range t.used {
+		v.Objects = append(v.Objects, objects[d])
+	}
 	return v
 }
 
 func (t *bodyTable) object(d *gomodel.Decl) ObjectView {
 	o := ObjectView{Name: gocode.Quote(d.Name), IsClosed: t.isChecked && d.Struct.IsClosed}
-	for _, f := range d.Struct.Fields {
+	fields := slices.SortedFunc(slices.Values(d.Struct.Fields), func(a, b *gomodel.Field) int { return strings.Compare(a.JSONName, b.JSONName) })
+	for _, f := range fields {
 		if f.Value == nil || !t.isChecked && f.Default == "" && !t.leads(f.Value) {
 			continue
 		}
-		o.Props = append(o.Props, PropEntry{Key: gocode.Quote(f.JSONName), Value: t.prop(f.Value, f.Required && !f.ReadOnly, f.Default)})
+		p := t.prop(f.Value, f.Required && !f.ReadOnly, f.Default)
+		p.Key = gocode.Quote(f.JSONName)
+		o.Props = append(o.Props, p)
 	}
-	slices.SortFunc(o.Props, func(a, b PropEntry) int { return cmp.Compare(a.Key, b.Key) })
 
 	if ap := d.Struct.AdditionalProperties; ap != nil && ap.Value != nil && t.keeps(ap.Value.Values) {
 		o.Extra = t.prop(ap.Value.Values, false, "")

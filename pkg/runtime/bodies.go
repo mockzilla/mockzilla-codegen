@@ -20,21 +20,23 @@ import (
 	"strings"
 )
 
-// Bodies are the objects of request bodies by name; IsChecked adds the checks to the defaults.
+// Bodies are the objects of request bodies, sorted by name; IsChecked adds checks to the defaults.
 type Bodies struct {
 	IsChecked bool
-	Objects   map[string]Object
+	Objects   []Object
 }
 
-// Object is an object schema: its properties, what other keys hold, and whether they are errors.
+// Object is an object schema: its properties sorted by key, what other keys hold, and IsClosed.
 type Object struct {
-	Props    map[string]Prop
+	Name     string
+	Props    []Prop
 	Extra    *Prop
 	IsClosed bool
 }
 
-// Prop is one value of a body: a property, a list item, a map value or the whole body.
+// Prop is one value of a body: a property under its Key, a list item, a map value or the body.
 type Prop struct {
+	Key        string
 	IsRequired bool
 	IsNullable bool
 	Default    string
@@ -127,7 +129,7 @@ func (w *walker) value(v any, p Prop, path string) {
 			w.errs.Add(path, "must not be null")
 		}
 	case map[string]any:
-		if o, isObject := w.bodies.Objects[p.Object]; isObject {
+		if o, isObject := w.lookup(p.Object); isObject {
 			w.object(x, o, path)
 			return
 		}
@@ -146,23 +148,22 @@ func (w *walker) value(v any, p Prop, path string) {
 }
 
 func (w *walker) object(m map[string]any, o Object, path string) {
-	for _, name := range SortedKeys(o.Props) {
-		p := o.Props[name]
-		v, isSet := m[name]
+	for _, p := range o.Props {
+		v, isSet := m[p.Key]
 		switch {
 		case isSet:
-			w.value(v, p, joinPath(path, name))
+			w.value(v, p, joinPath(path, p.Key))
 		case p.IsRequired && w.bodies.IsChecked:
-			w.errs.Add(joinPath(path, name), "is required")
+			w.errs.Add(joinPath(path, p.Key), "is required")
 		case p.Default != "":
 			if d, isJSON := parseJSON([]byte(p.Default)); isJSON {
-				m[name], w.isChanged = d, true
+				m[p.Key], w.isChanged = d, true
 			}
 		}
 	}
 
 	for _, key := range SortedKeys(m) {
-		if _, isProp := o.Props[key]; isProp {
+		if isProp(o, key) {
 			continue
 		}
 		switch {
@@ -176,7 +177,7 @@ func (w *walker) object(m map[string]any, o Object, path string) {
 
 // form checks a form against the object p names; a file part counts as its field.
 func (w *walker) form(values url.Values, files map[string][]*multipart.FileHeader, p Prop) {
-	o, isObject := w.bodies.Objects[p.Object]
+	o, isObject := w.lookup(p.Object)
 	if !isObject {
 		return
 	}
@@ -191,21 +192,20 @@ func (w *walker) form(values url.Values, files map[string][]*multipart.FileHeade
 }
 
 func (w *walker) formObject(m map[string]any, o Object, at formAt) {
-	for _, name := range SortedKeys(o.Props) {
-		p := o.Props[name]
-		child, isSet := m[name]
+	for _, p := range o.Props {
+		child, isSet := m[p.Key]
 		switch {
 		case isSet:
-			w.formValue(child, p, at.field(name))
+			w.formValue(child, p, at.field(p.Key))
 		case p.IsRequired && w.bodies.IsChecked:
-			w.errs.Add(joinPath(at.path, name), "is required")
+			w.errs.Add(joinPath(at.path, p.Key), "is required")
 		case p.Default != "":
-			w.formDefault(at.field(name), p.Default)
+			w.formDefault(at.field(p.Key), p.Default)
 		}
 	}
 
 	for _, key := range SortedKeys(m) {
-		if _, isProp := o.Props[key]; isProp {
+		if isProp(o, key) {
 			continue
 		}
 		switch {
@@ -222,7 +222,7 @@ func (w *walker) formValue(node any, p Prop, at formAt) {
 	case string:
 		w.formJSON(n, p, at)
 	case map[string]any:
-		if o, isObject := w.bodies.Objects[p.Object]; isObject {
+		if o, isObject := w.lookup(p.Object); isObject {
 			w.formObject(n, o, at)
 			return
 		}
@@ -284,6 +284,15 @@ func (w *walker) formDefault(at formAt, def string) {
 	w.isChanged = true
 }
 
+// lookup finds the object of a name by binary search, as Objects is sorted by name.
+func (w *walker) lookup(name string) (Object, bool) {
+	i, isFound := slices.BinarySearchFunc(w.bodies.Objects, name, func(o Object, target string) int { return strings.Compare(o.Name, target) })
+	if !isFound {
+		return Object{}, false
+	}
+	return w.bodies.Objects[i], true
+}
+
 func (a formAt) field(name string) formAt {
 	return formAt{path: joinPath(a.path, name), key: a.nested(name), values: a.values}
 }
@@ -318,6 +327,12 @@ func parseJSON(data []byte) (any, bool) {
 func encodeJSON(v any) []byte {
 	data, _ := json.Marshal(v) // what parseJSON reads always marshals
 	return data
+}
+
+// isProp reports whether key is a property of o, whose Props are sorted by key.
+func isProp(o Object, key string) bool {
+	_, isFound := slices.BinarySearchFunc(o.Props, key, func(p Prop, target string) int { return strings.Compare(p.Key, target) })
+	return isFound
 }
 
 func isComposite(v any) bool {

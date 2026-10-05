@@ -1,4 +1,5 @@
-{ {{- if .IsRequired}}IsRequired: true, {{end -}}
+{ {{- with .Key}}Key: {{.}}, {{end -}}
+{{if .IsRequired}}IsRequired: true, {{end -}}
 {{if .IsNullable}}IsNullable: true, {{end -}}
 {{with .Default}}Default: {{.}}, {{end -}}
 {{with .Object}}Object: {{.}}, {{end -}}

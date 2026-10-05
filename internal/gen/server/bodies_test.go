@@ -28,6 +28,8 @@ func TestBodyTable(t *testing.T) {
 		{JSONName: "tags", Value: &gomodel.BodyValue{Items: &gomodel.BodyValue{}}},
 		{JSONName: "notes", Value: &gomodel.BodyValue{Items: &gomodel.BodyValue{IsNullable: true}}},
 		{JSONName: "friends", Value: &gomodel.BodyValue{Values: &gomodel.BodyValue{Object: owner}}},
+		{JSONName: "a#", Value: &gomodel.BodyValue{}},
+		{JSONName: `a"`, Value: &gomodel.BodyValue{}},
 		{JSONName: "unplanned"},
 	}}}
 
@@ -78,19 +80,21 @@ func TestBodyTable(t *testing.T) {
 			want: &BodiesView{Runtime: "runtime", IsChecked: true, Objects: []ObjectView{
 				{
 					Name:  `"Owner"`,
-					Props: []PropEntry{{Key: `"city"`, Value: prop(PropView{Default: "`\"Berlin\"`"})}},
+					Props: []*PropView{prop(PropView{Key: `"city"`, Default: "`\"Berlin\"`"})},
 					Extra: prop(PropView{Object: `"Owner"`}),
 				},
 				{
 					Name: `"Pet"`,
-					Props: []PropEntry{
-						{Key: `"friends"`, Value: prop(PropView{Values: prop(PropView{Object: `"Owner"`})})},
-						{Key: `"id"`, Value: prop(PropView{})},
-						{Key: `"name"`, Value: prop(PropView{IsRequired: true})},
-						{Key: `"notes"`, Value: prop(PropView{})},
-						{Key: `"owner"`, Value: prop(PropView{Object: `"Owner"`})},
-						{Key: `"tag"`, Value: prop(PropView{IsNullable: true})},
-						{Key: `"tags"`, Value: prop(PropView{Items: prop(PropView{})})},
+					Props: []*PropView{
+						prop(PropView{Key: `"a\""`}),
+						prop(PropView{Key: `"a#"`}),
+						prop(PropView{Key: `"friends"`, Values: prop(PropView{Object: `"Owner"`})}),
+						prop(PropView{Key: `"id"`}),
+						prop(PropView{Key: `"name"`, IsRequired: true}),
+						prop(PropView{Key: `"notes"`}),
+						prop(PropView{Key: `"owner"`, Object: `"Owner"`}),
+						prop(PropView{Key: `"tag"`, IsNullable: true}),
+						prop(PropView{Key: `"tags"`, Items: prop(PropView{})}),
 					},
 					IsClosed: true,
 				},
@@ -106,17 +110,17 @@ func TestBodyTable(t *testing.T) {
 			want: &BodiesView{Runtime: "runtime", Objects: []ObjectView{
 				{
 					Name: `"Gift"`,
-					Props: []PropEntry{
-						{Key: `"order"`, Value: prop(PropView{Object: `"Order"`})},
-						{Key: `"wrap"`, Value: prop(PropView{Default: `"true"`})},
+					Props: []*PropView{
+						prop(PropView{Key: `"order"`, Object: `"Order"`}),
+						prop(PropView{Key: `"wrap"`, Default: `"true"`}),
 					},
 					Extra: prop(PropView{Object: `"Gift"`}),
 				},
 				{
 					Name: `"Order"`,
-					Props: []PropEntry{
-						{Key: `"gift"`, Value: prop(PropView{Object: `"Gift"`})},
-						{Key: `"gifts"`, Value: prop(PropView{Items: prop(PropView{Object: `"Gift"`})})},
+					Props: []*PropView{
+						prop(PropView{Key: `"gift"`, Object: `"Gift"`}),
+						prop(PropView{Key: `"gifts"`, Items: prop(PropView{Object: `"Gift"`})}),
 					},
 				},
 			}},

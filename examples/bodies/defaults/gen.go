@@ -117,13 +117,13 @@ const (
 )
 
 var requestBodies = runtime.Bodies{
-	Objects: map[string]runtime.Object{
-		"Gift": {Props: map[string]runtime.Prop{
-			"wrap": {Default: "true"},
+	Objects: []runtime.Object{
+		{Name: "Gift", Props: []runtime.Prop{
+			{Key: "wrap", Default: "true"},
 		}},
-		"Order": {Props: map[string]runtime.Prop{
-			"gift": {Object: "Gift"},
-			"qty":  {Default: "1"},
+		{Name: "Order", Props: []runtime.Prop{
+			{Key: "gift", Object: "Gift"},
+			{Key: "qty", Default: "1"},
 		}},
 	},
 }

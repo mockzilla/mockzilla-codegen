@@ -21,29 +21,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testObjects = map[string]Object{
-	"Owner": {Props: map[string]Prop{
-		"city": {Default: `"Berlin"`},
-		"id":   {IsRequired: true},
+var testObjects = []Object{
+	{Name: "Meta", Extra: &Prop{IsNullable: true}},
+	{Name: "Owner", Props: []Prop{
+		{Key: "city", Default: `"Berlin"`},
+		{Key: "id", IsRequired: true},
 	}},
-	"Pet": {IsClosed: true, Props: map[string]Prop{
-		"age":    {Default: `1`},
-		"bad":    {Default: `{`},
-		"byName": {Values: &Prop{Object: "Owner"}},
-		"meta":   {Object: "Meta", Default: `{"k":"v"}`},
-		"name":   {IsRequired: true},
-		"none":   {Default: `null`},
-		"owner":  {Object: "Owner"},
-		"strict": {Object: "Strict"},
-		"tag":    {IsNullable: true},
-		"tags":   {Items: &Prop{}, Default: `["a",2,true]`},
-		"toys":   {Items: &Prop{Object: "Owner"}, Default: `[{"id":1}]`},
+	{Name: "Pet", IsClosed: true, Props: []Prop{
+		{Key: "age", Default: `1`},
+		{Key: "bad", Default: `{`},
+		{Key: "byName", Values: &Prop{Object: "Owner"}},
+		{Key: "meta", Object: "Meta", Default: `{"k":"v"}`},
+		{Key: "name", IsRequired: true},
+		{Key: "none", Default: `null`},
+		{Key: "owner", Object: "Owner"},
+		{Key: "strict", Object: "Strict"},
+		{Key: "tag", IsNullable: true},
+		{Key: "tags", Items: &Prop{}, Default: `["a",2,true]`},
+		{Key: "toys", Items: &Prop{Object: "Owner"}, Default: `[{"id":1}]`},
 	}},
-	"Meta":   {Extra: &Prop{IsNullable: true}},
-	"Strict": {Extra: &Prop{}},
-	"Upload": {Props: map[string]Prop{
-		"note":  {Default: `"none"`},
-		"photo": {IsRequired: true},
+	{Name: "Strict", Extra: &Prop{}},
+	{Name: "Upload", Props: []Prop{
+		{Key: "note", Default: `"none"`},
+		{Key: "photo", IsRequired: true},
 	}},
 }
 

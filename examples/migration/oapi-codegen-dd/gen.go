@@ -413,11 +413,11 @@ const (
 
 var requestBodies = runtime.Bodies{
 	IsChecked: true,
-	Objects: map[string]runtime.Object{
-		"NewPet": {Props: map[string]runtime.Prop{
-			"name":   {IsRequired: true},
-			"status": {},
-			"tag":    {IsNullable: true},
+	Objects: []runtime.Object{
+		{Name: "NewPet", Props: []runtime.Prop{
+			{Key: "name", IsRequired: true},
+			{Key: "status"},
+			{Key: "tag", IsNullable: true},
 		}},
 	},
 }

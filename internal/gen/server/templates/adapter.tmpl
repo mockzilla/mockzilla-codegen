@@ -4,12 +4,12 @@ var requestBodies = {{.Runtime}}.Bodies{
 	IsChecked: true,
 {{- end}}
 {{- with .Objects}}
-	Objects: map[string]{{$.Runtime}}.Object{
+	Objects: []{{$.Runtime}}.Object{
 {{- range .}}
-		{{.Name}}: { {{- if .IsClosed}}IsClosed: true, {{end}}{{with .Extra}}Extra: &{{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, {{end -}}
-{{- with .Props}}Props: map[string]{{$.Runtime}}.Prop{
+		{Name: {{.Name}}, {{if .IsClosed}}IsClosed: true, {{end}}{{with .Extra}}Extra: &{{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, {{end -}}
+{{- with .Props}}Props: []{{$.Runtime}}.Prop{
 {{- range .}}
-			{{.Key}}: {{template "server/prop.tmpl" .Value}},
+			{{template "server/prop.tmpl" .}},
 {{- end}}
 		}{{end -}} },
 {{- end}}

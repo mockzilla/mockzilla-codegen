@@ -188,27 +188,27 @@ const (
 
 var requestBodies = runtime.Bodies{
 	IsChecked: true,
-	Objects: map[string]runtime.Object{
-		"Owner": {Props: map[string]runtime.Prop{
-			"city": {Default: `"Berlin"`},
-			"id":   {IsRequired: true},
+	Objects: []runtime.Object{
+		{Name: "Owner", Props: []runtime.Prop{
+			{Key: "city", Default: `"Berlin"`},
+			{Key: "id", IsRequired: true},
 		}},
-		"Pet": {IsClosed: true, Props: map[string]runtime.Prop{
-			"age":   {Default: "1"},
-			"name":  {IsRequired: true},
-			"owner": {IsRequired: true, Object: "Owner"},
-			"size":  {IsNullable: true, Default: `"m"`},
-			"tag":   {IsNullable: true},
-			"tags":  {Items: &runtime.Prop{}},
-			"toys":  {Items: &runtime.Prop{Object: "Toy"}},
+		{Name: "Pet", IsClosed: true, Props: []runtime.Prop{
+			{Key: "age", Default: "1"},
+			{Key: "name", IsRequired: true},
+			{Key: "owner", IsRequired: true, Object: "Owner"},
+			{Key: "size", IsNullable: true, Default: `"m"`},
+			{Key: "tag", IsNullable: true},
+			{Key: "tags", Items: &runtime.Prop{}},
+			{Key: "toys", Items: &runtime.Prop{Object: "Toy"}},
 		}},
-		"Toy": {Props: map[string]runtime.Prop{
-			"color": {Default: `"red"`},
-			"name":  {IsRequired: true},
+		{Name: "Toy", Props: []runtime.Prop{
+			{Key: "color", Default: `"red"`},
+			{Key: "name", IsRequired: true},
 		}},
-		"Upload": {Props: map[string]runtime.Prop{
-			"note":  {Default: `"none"`},
-			"photo": {IsRequired: true},
+		{Name: "Upload", Props: []runtime.Prop{
+			{Key: "note", Default: `"none"`},
+			{Key: "photo", IsRequired: true},
 		}},
 	},
 }
