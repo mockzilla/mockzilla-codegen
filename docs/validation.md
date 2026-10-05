@@ -56,7 +56,7 @@ that checks nothing has no `Validate`.
 | `pattern` | strings | Go `regexp` (RE2); for `format: byte` the base64 text |
 | `format` | strings | `uuid`, `uri`, `uri-reference`, `ipv4`, `ipv6`, `hostname`, `date`, `date-time`, `email` |
 | `minimum`, `maximum`, exclusive forms | numbers | the boolean and the numeric form in every version |
-| `multipleOf` | numbers | |
+| `multipleOf` | numbers | exact, on the decimal the Go type writes: a `float32` 0.07 is a multiple of 0.01 |
 | `minItems`, `maxItems`, `uniqueItems` | arrays | |
 | `minProperties`, `maxProperties` | maps | |
 | `propertyNames` | maps | each key: length, `pattern`, `format`, `const` and `enum` |
@@ -71,10 +71,12 @@ that checks nothing has no `Validate`.
 - A format that becomes its own Go type is checked by decoding: `date-time` is a `time.Time`,
   `date` a `runtime.Date`, `email` a `runtime.Email` whose `Validate` checks the address. So is a
   format that `models.format-types` maps to a type of your own.
+- An email address is checked as RFC 5321 writes it: `a@example.com`, `"a b"@example.com`,
+  `a@[10.0.0.1]`. Only ASCII: `josé@example.com` is no `email`.
 - A keyword that does not fit the Go type is left out: `minLength` on a number, a `const` of 2.5 on
   an integer.
 - Under `allOf`, every member's limits hold: the strictest of each is checked, and every `pattern`
-  and `multipleOf`.
+  and `multipleOf`. An `enum` or `const` keeps the values all members allow.
 - `exclusiveMinimum` and `exclusiveMaximum` are read by their value: a number is the bound, `true`
   or `false` makes `minimum` or `maximum` exclusive. The form of the other version, a number in a
   3.0 spec or a boolean in a 3.1 one, still counts, with a warning (`keyword-version`).

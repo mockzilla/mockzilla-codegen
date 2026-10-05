@@ -163,7 +163,11 @@ type Dog struct {
 - A number and an integer give an integer.
 - Limits keep the strictest value: the largest minimum, the smallest maximum, and the same for
   lengths, items and properties. On a tie the exclusive bound wins. Every `pattern` and every
-  `multipleOf` is checked.
+  `multipleOf` is checked. A member without a type counts too: `name: {maxLength: 5}` limits the
+  `name` its `$ref` brings.
+- `enum` and `const` keep the values every member allows. `enum: [car, bike]` in one member and
+  `const: car` in another give an enum of `car` alone; two enums keep the values both list. With no
+  value in common, the first enum stays, with a warning (`allof-conflict`).
 - A member with `x-go-type` makes the type an alias of that type. When another member adds
   properties, items, variants or another type, that is not generated, with a warning.
 - An `allOf` that includes itself is an error; the loop is left out.
