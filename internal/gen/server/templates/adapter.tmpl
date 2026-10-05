@@ -183,6 +183,12 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 func (a *HTTPAdapter) fail(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, err *{{.Runtime}}.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
+{{- if .Rejects}}
+	if body, mediaType := requestError(err); body != nil {
+		err.Body = body
+		w.Header().Set("Content-Type", mediaType)
+	}
+{{- end}}
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
@@ -218,3 +224,27 @@ func (a *HTTPAdapter) write(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id
 		a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorService, OperationID: id, Err: err})
 	}
 }
+{{- with .Rejects}}
+
+func requestError(err *{{$.Runtime}}.HandlerError) (error, string) {
+	if err.Kind == {{$.Runtime}}.ErrorService || err.Kind == {{$.Runtime}}.ErrorResponse {
+		return nil, ""
+	}
+
+	switch err.OperationID {
+{{- range .}}
+	case {{range $i, $id := .IDs}}{{if $i}}, {{end}}{{$id}}{{end}}:
+{{- range .Cases}}
+{{- if .Status}}
+		if err.StatusCode() == {{.Status}} {
+			return {{.New}}(err.Error()), {{.MediaType}}
+		}
+{{- else}}
+		return {{.New}}(err.Error()), {{.MediaType}}
+{{- end}}
+{{- end}}
+{{- end}}
+	}
+	return nil, ""
+}
+{{- end}}

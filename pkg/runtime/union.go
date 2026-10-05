@@ -194,7 +194,7 @@ func (u Union) tag(data []byte, set []int) ([]byte, error) {
 	default:
 		msg = subject + " picks no variant"
 	}
-	return nil, ValidationError{Field: u.Discriminator, Message: msg}
+	return nil, ValidationError{Field: u.Discriminator, Message: msg, Rule: RuleDiscriminator}
 }
 
 func (u Union) names(set []int) string {

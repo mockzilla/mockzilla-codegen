@@ -89,7 +89,7 @@ type CreateOrderRequestBody struct {
 func (c CreateOrderRequestBody) Validate() error {
 	var errs runtime.ValidationErrors
 	if c.Items == nil {
-		errs.Add("items", "is required")
+		errs.Required("items")
 	}
 	for idx, item := range c.Items {
 		errs.Append(runtime.Index("items", idx), item.Validate())

@@ -59,7 +59,7 @@ func (p Pet) Validate() error {
 	errs.Append("weight", runtime.Maximum(p.Weight, 9.5, false))
 	errs.Append("weight", runtime.MultipleOf(p.Weight, 0.5))
 	if p.Tags == nil {
-		errs.Add("tags", "is required")
+		errs.Required("tags")
 	}
 	if p.Tags != nil {
 		errs.Append("tags", runtime.MinItems(p.Tags, 1))
@@ -111,7 +111,7 @@ func (p Pet) ValidateResponse() error {
 	errs.Append("weight", runtime.Maximum(p.Weight, 9.5, false))
 	errs.Append("weight", runtime.MultipleOf(p.Weight, 0.5))
 	if p.Tags == nil {
-		errs.Add("tags", "is required")
+		errs.Required("tags")
 	}
 	if p.Tags != nil {
 		errs.Append("tags", runtime.MinItems(p.Tags, 1))

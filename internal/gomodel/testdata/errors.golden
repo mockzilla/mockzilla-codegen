@@ -31,6 +31,19 @@ ListedError struct models.types
 Status enum string models.enums
   StatusA "a"
   StatusB "b"
+StrictError struct models.types
+  Error2 StrictErrorError json=error required
+  Status int json=status required
+  ! error error.message constructor unset=status,error.code
+StrictErrorError struct models.types
+  Message string json=message required
+  Code int json=code required
+StrictList struct models.types
+  Items []StrictListItemsItem json=items omitempty
+  ! error items[].text constructor unset=items[].kind
+StrictListItemsItem struct models.types
+  Text string json=text required
+  Kind string json=kind required
 ---
 warning error-mapping 0:0 : models.error-mapping names Missing, which is no generated struct or union
 warning error-mapping 0:0 : models.error-mapping names Status, which is no generated struct or union
@@ -39,3 +52,4 @@ warning error-mapping 19:18 /components/schemas/DetailError/properties/details/i
 warning union-ambiguous 21:7 /components/schemas/Problem: variants Option1, Option2 of Problem require no property, so {} matches each of them and fails to decode
 warning error-mapping 23:11 /components/schemas/Problem/oneOf/1: ProblemOption2 has no property at nope; it gets no Error method
 info name-clash 27:16 /components/schemas/Plain/properties/error: "Error" is reserved, renamed to "Error2"
+info name-clash 41:11 /components/schemas/StrictError/properties/error: "Error" is reserved, renamed to "Error2"

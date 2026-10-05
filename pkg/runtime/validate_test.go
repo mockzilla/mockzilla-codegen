@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type level string
@@ -23,62 +22,58 @@ func TestChecksOfValues(t *testing.T) {
 	tests := []struct {
 		name string
 		err  error
-		want string
+		want error
 	}{
 		{name: "Min length counts characters", err: MinLength("éé", 2)},
-		{name: "Too short", err: MinLength(level("a"), 2), want: "must be at least 2 characters long"},
+		{name: "Too short", err: MinLength(level("a"), 2), want: ValidationError{Message: "must be at least 2 characters long", Rule: RuleMinLength, Limit: 2}},
 		{name: "Max length", err: MaxLength("abc", 3)},
-		{name: "Too long", err: MaxLength("abcd", 3), want: "must be at most 3 characters long"},
-		{name: "Base64 counts the encoded text", err: MaxLength(Base64([]byte("hello!!")), 8), want: "must be at most 8 characters long"},
+		{name: "Too long", err: MaxLength("abcd", 3), want: ValidationError{Message: "must be at most 3 characters long", Rule: RuleMaxLength, Limit: 3}},
+		{name: "Base64 counts the encoded text", err: MaxLength(Base64([]byte("hello!!")), 8), want: ValidationError{Message: "must be at most 8 characters long", Rule: RuleMaxLength, Limit: 8}},
 		{name: "Pattern matches", err: Pattern("abc", letters, `^\p{Ll}+$`)},
-		{name: "Pattern fails with the spec's text", err: Pattern("ab1", letters, `^\p{Ll}+$`), want: `must match ^\p{Ll}+$`},
+		{name: "Pattern fails with the spec's text", err: Pattern("ab1", letters, `^\p{Ll}+$`), want: ValidationError{Message: `must match ^\p{Ll}+$`, Rule: RulePattern, Limit: `^\p{Ll}+$`}},
 		{name: "Format passes", err: Format("0f8fad5b-d9cb-469f-a165-70867728950e", "uuid")},
-		{name: "Format fails", err: Format("x", "UUID"), want: "must be a valid UUID"},
+		{name: "Format fails", err: Format("x", "UUID"), want: ValidationError{Message: "must be a valid UUID", Rule: RuleFormat, Limit: "UUID"}},
 		{name: "Unknown format passes", err: Format("x", "color")},
 		{name: "Minimum", err: Minimum(3, 3, false)},
-		{name: "Below minimum", err: Minimum(int8(2), 2.5, false), want: "must be at least 2.5"},
-		{name: "At exclusive minimum", err: Minimum(3.0, 3, true), want: "must be greater than 3"},
+		{name: "Below minimum", err: Minimum(int8(2), 2.5, false), want: ValidationError{Message: "must be at least 2.5", Rule: RuleMinimum, Limit: 2.5}},
+		{name: "At exclusive minimum", err: Minimum(3.0, 3, true), want: ValidationError{Message: "must be greater than 3", Rule: RuleExclusiveMinimum, Limit: 3.0}},
 		{name: "Maximum", err: Maximum(uint(3), 3, false)},
-		{name: "Above maximum", err: Maximum(4, 3, false), want: "must be at most 3"},
-		{name: "At exclusive maximum", err: Maximum(3, 3, true), want: "must be less than 3"},
+		{name: "Above maximum", err: Maximum(4, 3, false), want: ValidationError{Message: "must be at most 3", Rule: RuleMaximum, Limit: 3.0}},
+		{name: "At exclusive maximum", err: Maximum(3, 3, true), want: ValidationError{Message: "must be less than 3", Rule: RuleExclusiveMaximum, Limit: 3.0}},
 		{name: "Multiple of", err: MultipleOf(0.3, 0.1)},
-		{name: "No multiple", err: MultipleOf(7, 2), want: "must be a multiple of 2"},
+		{name: "No multiple", err: MultipleOf(7, 2), want: ValidationError{Message: "must be a multiple of 2", Rule: RuleMultipleOf, Limit: 2.0}},
 		{name: "Factor that is not positive", err: MultipleOf(7, 0)},
 		{name: "Factor that is no number", err: MultipleOf(7, math.NaN())},
 		{name: "Multiple of a cent", err: MultipleOf(1234567.89, 0.01)},
 		{name: "Float32 read as written", err: MultipleOf(float32(0.07), 0.01)},
 		{name: "Unsigned multiple", err: MultipleOf(uint8(6), 3)},
-		{name: "Integer past float64", err: MultipleOf(int64(9007199254740993), 2), want: "must be a multiple of 2"},
-		{name: "Near miss as written", err: MultipleOf(0.30000000000000004, 0.01), want: "must be a multiple of 0.01"},
-		{name: "NaN is no multiple", err: MultipleOf(math.NaN(), 0.1), want: "must be a multiple of 0.1"},
+		{name: "Integer past float64", err: MultipleOf(int64(9007199254740993), 2), want: ValidationError{Message: "must be a multiple of 2", Rule: RuleMultipleOf, Limit: 2.0}},
+		{name: "Near miss as written", err: MultipleOf(0.30000000000000004, 0.01), want: ValidationError{Message: "must be a multiple of 0.01", Rule: RuleMultipleOf, Limit: 0.01}},
+		{name: "NaN is no multiple", err: MultipleOf(math.NaN(), 0.1), want: ValidationError{Message: "must be a multiple of 0.1", Rule: RuleMultipleOf, Limit: 0.1}},
 		{name: "Min items", err: MinItems([]int{1}, 1)},
-		{name: "Too few items", err: MinItems([]int{}, 1), want: "must have at least 1 items"},
+		{name: "Too few items", err: MinItems([]int{}, 1), want: ValidationError{Message: "must have at least 1 items", Rule: RuleMinItems, Limit: 1}},
 		{name: "Max items", err: MaxItems([]int{1}, 1)},
-		{name: "Too many items", err: MaxItems([]int{1, 2}, 1), want: "must have at most 1 items"},
+		{name: "Too many items", err: MaxItems([]int{1, 2}, 1), want: ValidationError{Message: "must have at most 1 items", Rule: RuleMaxItems, Limit: 1}},
 		{name: "Unique", err: Unique([]string{"a", "b"})},
-		{name: "Repeated item", err: Unique([]string{"a", "a"}), want: "must have unique items"},
+		{name: "Repeated item", err: Unique([]string{"a", "a"}), want: ValidationError{Message: "must have unique items", Rule: RuleUniqueItems, Limit: true}},
 		{name: "Unique by JSON", err: UniqueJSON([][]int{{1}, {2}})},
-		{name: "Repeated item by JSON", err: UniqueJSON([][]int{{1}, {1}}), want: "must have unique items"},
+		{name: "Repeated item by JSON", err: UniqueJSON([][]int{{1}, {1}}), want: ValidationError{Message: "must have unique items", Rule: RuleUniqueItems, Limit: true}},
 		{name: "Item that has no JSON is skipped", err: UniqueJSON([]any{func() {}, func() {}})},
 		{name: "Min properties", err: MinProperties(map[string]int{"a": 1}, 1)},
-		{name: "Too few properties", err: MinProperties(map[string]int{}, 1), want: "must have at least 1 properties"},
+		{name: "Too few properties", err: MinProperties(map[string]int{}, 1), want: ValidationError{Message: "must have at least 1 properties", Rule: RuleMinProperties, Limit: 1}},
 		{name: "Max properties", err: MaxProperties(map[string]int{"a": 1}, 1)},
-		{name: "Too many properties", err: MaxProperties(map[string]int{"a": 1, "b": 2}, 1), want: "must have at most 1 properties"},
+		{name: "Too many properties", err: MaxProperties(map[string]int{"a": 1, "b": 2}, 1), want: ValidationError{Message: "must have at most 1 properties", Rule: RuleMaxProperties, Limit: 1}},
 		{name: "Const", err: Const("a", "a")},
-		{name: "Not the const", err: Const(2, 3), want: "must be 3"},
+		{name: "Not the const", err: Const(2, 3), want: ValidationError{Message: "must be 3", Rule: RuleConst, Limit: 3}},
 		{name: "One of", err: OneOf(level("b"), "a", "b")},
-		{name: "None of", err: OneOf(level("c"), "a", "b"), want: "must be one of a, b"},
+		{name: "None of", err: OneOf(level("c"), "a", "b"), want: ValidationError{Message: "must be one of a, b", Rule: RuleEnum, Limit: []level{"a", "b"}}},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			if tc.want == "" {
-				require.NoError(t, tc.err)
-				return
-			}
-			assert.Equal(t, ValidationError{Message: tc.want}, tc.err)
+			assert.Equal(t, tc.want, tc.err)
 		})
 	}
 }

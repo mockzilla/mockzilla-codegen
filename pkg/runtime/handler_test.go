@@ -97,6 +97,8 @@ func TestDefaultErrorHandler(t *testing.T) {
 		{name: "Under the JSON media type set", contentType: "application/problem+json", err: notFound{Message: "gone"}, wantContentType: "application/problem+json", wantBody: `{"message":"gone"}`},
 		{name: "A media type set that is no JSON", contentType: "application/xml", err: notFound{Message: "gone"}, wantContentType: "application/json", wantBody: `{"message":"gone"}`},
 		{name: "Handler error as JSON", err: &HandlerError{Kind: ErrorDecode, Err: errors.New("bad")}, wantContentType: "application/json", wantBody: `{"error":"invalid request body: bad"}`},
+		{name: "Handler error with a body", contentType: "application/problem+json", err: &HandlerError{Kind: ErrorDecode, Err: errors.New("bad"), Body: notFound{Message: "invalid request body: bad"}}, wantContentType: "application/problem+json", wantBody: `{"message":"invalid request body: bad"}`},
+		{name: "Handler error with a body as text", accept: "text/plain", err: &HandlerError{Kind: ErrorDecode, Err: errors.New("bad"), Body: notFound{Message: "gone"}}, wantContentType: "text/plain; charset=utf-8", wantBody: "invalid request body: bad"},
 		{name: "Typed error as its own JSON", accept: "application/json", err: notFound{Message: "gone"}, wantContentType: "application/json", wantBody: `{"message":"gone"}`},
 		{name: "Wildcard accept", accept: "text/html, */*;q=0.1", err: notFound{Message: "gone"}, wantContentType: "application/json", wantBody: `{"message":"gone"}`},
 		{name: "Text", accept: "text/plain", err: notFound{Message: "gone"}, wantContentType: "text/plain; charset=utf-8", wantBody: "gone"},

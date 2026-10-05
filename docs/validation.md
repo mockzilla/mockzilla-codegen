@@ -25,7 +25,7 @@ func (p Pet) Validate() error {
 		errs.Append("age", runtime.Minimum(*p.Age, 0, false))
 	}
 	if p.Tags == nil {
-		errs.Add("tags", "is required")
+		errs.Required("tags")
 	}
 	if p.Tags != nil {
 		errs.Append("tags", runtime.MinItems(p.Tags, 1))
@@ -125,6 +125,34 @@ name: must be at least 1 characters long; tags[1]: must match ^[a-z]+$; labels["
 `errors.As` finds the `runtime.ValidationErrors` and each `runtime.ValidationError` in it. Map values
 come out in key order, so the same value gives the same error text on every run. A key that fails
 `propertyNames` is reported under the path of its value: `labels["Bad Key"]: must match ^[a-z]+$`.
+
+Each error also names the keyword that failed, `Rule`, and its value in the spec, `Limit`, so a
+service can write messages of its own:
+
+```go
+var errs runtime.ValidationErrors
+if errors.As(err, &errs) {
+	for _, e := range errs {
+		// e.Field "name", e.Rule runtime.RuleMinLength, e.Limit 2
+	}
+}
+```
+
+| Rule | Limit |
+|---|---|
+| `minLength`, `maxLength`, `minItems`, `maxItems`, `minProperties`, `maxProperties` | the number, an `int` |
+| `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf` | the number, a `float64` |
+| `pattern` | the pattern as the spec writes it |
+| `format` | the name of the format |
+| `const` | the value |
+| `enum` | the values, a slice of the enum type |
+| `uniqueItems` | `true` |
+| `additionalProperties` | `false` |
+| `required`, `type`, `oneOf`, `anyOf`, `discriminator` | nil |
+
+`type` and `additionalProperties` come from the server's check of a request body: a `null` the
+schema does not take, a key a closed object does not take. A key that fails `propertyNames` has
+the rule of the check it failed. An error added with `Add` has no rule.
 
 ## readOnly and writeOnly
 

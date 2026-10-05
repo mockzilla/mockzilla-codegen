@@ -35,7 +35,7 @@ func (service) GetPet(_ context.Context, opts *GetPetServiceRequestOptions) (*Ge
 }
 
 func (service) PutPet(_ context.Context, opts *PutPetServiceRequestOptions) (*PutPetResponseData, error) {
-	return NewPutPetResponseData(opts.Body), nil
+	return NewPutPetResponseData200(opts.Body), nil
 }
 
 func TestErrors(t *testing.T) {

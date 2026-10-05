@@ -10,7 +10,7 @@ import "strconv"
 // ExactlyOne is the check of a oneOf union: one variant set.
 func ExactlyOne(set ...bool) error {
 	if n := count(set); n != 1 {
-		return ValidationError{Message: "exactly one variant must be set, found " + strconv.Itoa(n)}
+		return ValidationError{Message: "exactly one variant must be set, found " + strconv.Itoa(n), Rule: RuleOneOf}
 	}
 	return nil
 }
@@ -18,7 +18,7 @@ func ExactlyOne(set ...bool) error {
 // AtMostOne is the check of a nullable oneOf union, where nothing set is null.
 func AtMostOne(set ...bool) error {
 	if n := count(set); n > 1 {
-		return ValidationError{Message: "at most one variant may be set, found " + strconv.Itoa(n)}
+		return ValidationError{Message: "at most one variant may be set, found " + strconv.Itoa(n), Rule: RuleOneOf}
 	}
 	return nil
 }
@@ -26,7 +26,7 @@ func AtMostOne(set ...bool) error {
 // AtLeastOne is the check of an anyOf union.
 func AtLeastOne(set ...bool) error {
 	if count(set) == 0 {
-		return ValidationError{Message: "at least one variant must be set"}
+		return ValidationError{Message: "at least one variant must be set", Rule: RuleAnyOf}
 	}
 	return nil
 }
