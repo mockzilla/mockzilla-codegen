@@ -3,6 +3,7 @@
 package additional
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
@@ -10,6 +11,10 @@ import (
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV2
+
+var (
+	patternHeadersKey = regexp.MustCompile(`^[a-z][a-z-]*$`)
+)
 
 // Only additional properties, so a plain map.
 type Labels map[string]string
@@ -51,4 +56,40 @@ func (m Metrics) MarshalJSON() ([]byte, error) {
 func (m *Metrics) UnmarshalJSON(data []byte) error {
 	type plain Metrics
 	return runtime.UnmarshalAdditional(data, (*plain)(m), &m.AdditionalProperties, "host", "at")
+}
+
+// Every key must match propertyNames.
+type Headers map[string]string
+
+// Validate checks the value against the constraints of the spec.
+func (h Headers) Validate() error {
+	var errs runtime.ValidationErrors
+	for _, key := range runtime.SortedKeys(h) {
+		errs.Append(runtime.Key("", key), runtime.MaxLength(key, 20))
+		errs.Append(runtime.Key("", key), runtime.Pattern(key, patternHeadersKey))
+	}
+	return errs.Err()
+}
+
+type Units map[string]int
+
+// Validate checks the value against the constraints of the spec.
+func (u Units) Validate() error {
+	var errs runtime.ValidationErrors
+	for _, key := range runtime.SortedKeys(u) {
+		errs.Append(runtime.Key("", key), runtime.OneOf(key, "cm", "kg"))
+	}
+	return errs.Err()
+}
+
+type Unit string
+
+const (
+	UnitCm Unit = "cm"
+	UnitKg Unit = "kg"
+)
+
+// Validate checks the value against the constraints of the spec.
+func (u Unit) Validate() error {
+	return runtime.OneOf(u, UnitCm, UnitKg)
 }

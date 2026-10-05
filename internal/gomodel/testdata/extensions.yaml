@@ -7,6 +7,9 @@ paths:
       parameters:
         - {name: id, in: path, required: true, x-go-name: AccountRef, schema: {type: string}}
         - {name: page, in: query, x-go-type-skip-optional-pointer: true, schema: {type: integer}}
+        - {name: size, in: query, schema: {type: integer, x-go-name: PageSize, x-go-type-skip-optional-pointer: true, x-go-extra-tags: {validate: max=50}}}
+        - {name: sort, in: query, x-go-name: SortBy, x-go-extra-tags: {db: sort, form: s}, schema: {type: string, x-go-name: Order, x-go-name-exact: true, x-go-extra-tags: {db: order, xml: o}}}
+        - $ref: '#/components/parameters/Cursor'
       responses:
         "200":
           description: ok
@@ -14,6 +17,8 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/Account'}
 components:
+  parameters:
+    Cursor: {name: cursor, in: query, x-go-name: After, schema: {type: string, x-go-name: Before}}
   schemas:
     Account:
       type: object

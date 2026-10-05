@@ -6,7 +6,10 @@
 package libopenapi
 
 import (
+	"cmp"
 	"context"
+	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/pb33f/libopenapi/datamodel"
@@ -66,11 +69,18 @@ func TestParseErrors(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		src     string
-		wantErr error
+		name     string
+		src      string
+		wantErr  error
+		wantText string
 	}{
 		{name: "Invalid YAML", src: "a: [b\n", wantErr: provider.ErrParse},
+		{
+			name:     "JSON syntax error at its line and column",
+			src:      "{\n  \"openapi\": \"3.1.0\",\n  \"info\": {\"title\": \"t\", \"version\": \"1\"},\n  \"paths\": {\"a\": 1,}\n}\n",
+			wantErr:  provider.ErrParse,
+			wantText: "spec.yaml:4:20: failed to unmarshal JSON",
+		},
 		{name: "Not an OpenAPI document", src: "a: b\n", wantErr: provider.ErrParse},
 		{name: "Swagger 2.0", src: "swagger: '2.0'\ninfo: {title: t, version: '1'}\npaths: {}\n", wantErr: provider.ErrUnsupportedVersion},
 		{
@@ -85,7 +95,30 @@ func TestParseErrors(t *testing.T) {
 
 			_, _, err := New().Parse(context.Background(), []byte(tt.src), provider.ParseOptions{File: "spec.yaml"})
 			require.ErrorIs(t, err, tt.wantErr)
-			assert.ErrorContains(t, err, "spec.yaml")
+			assert.ErrorContains(t, err, cmp.Or(tt.wantText, "spec.yaml"))
+		})
+	}
+}
+
+func TestSyntaxAt(t *testing.T) {
+	t.Parallel()
+
+	syntaxError := func(data string) error { return json.Unmarshal([]byte(data), new(any)) }
+	tests := []struct {
+		name string
+		data string
+		err  error
+		want string
+	}{
+		{name: "Bad byte on a later line", data: "{\n  \"a\": 1,}", err: syntaxError("{\n  \"a\": 1,}"), want: "spec.json:2:10"},
+		{name: "Bad byte on the first line", data: "{,}", err: syntaxError("{,}"), want: "spec.json:1:2"},
+		{name: "Error of another kind", data: "{}", err: errors.New("other"), want: "spec.json"},
+		{name: "Offset outside the data", data: "{}", err: &json.SyntaxError{Offset: 9}, want: "spec.json"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, syntaxAt("spec.json", []byte(tt.data), tt.err))
 		})
 	}
 }

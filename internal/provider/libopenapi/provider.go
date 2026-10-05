@@ -7,9 +7,13 @@
 package libopenapi
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi/datamodel"
@@ -64,7 +68,7 @@ func (p *Provider) Parse(ctx context.Context, data []byte, opts provider.ParseOp
 
 	d, err := libopenapi.NewDocumentWithConfiguration(data, p.config())
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: %s: %w", provider.ErrParse, opts.File, err)
+		return nil, nil, fmt.Errorf("%w: %s: %w", provider.ErrParse, syntaxAt(opts.File, data, err), err)
 	}
 	version, err := specVersion(d.GetSpecInfo())
 	if err != nil {
@@ -100,6 +104,19 @@ func specVersion(info *datamodel.SpecInfo) (spec.Version, error) {
 	default:
 		return 0, fmt.Errorf("%w: %s", provider.ErrUnsupportedVersion, info.Version)
 	}
+}
+
+// syntaxAt is file with the line and column of a JSON syntax error in data, from its byte offset.
+func syntaxAt(file string, data []byte, err error) string {
+	var se *json.SyntaxError
+	if !errors.As(err, &se) || se.Offset < 1 || se.Offset > int64(len(data)) {
+		return file
+	}
+
+	read := data[:se.Offset]
+	line := bytes.Count(read, []byte("\n")) + 1
+	col := len(read) - 1 - bytes.LastIndexByte(read, '\n')
+	return file + ":" + strconv.Itoa(line) + ":" + strconv.Itoa(col)
 }
 
 func recoverPanic(err *error, file string) {

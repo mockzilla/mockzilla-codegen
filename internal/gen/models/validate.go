@@ -31,6 +31,7 @@ var ruleFuncs = map[gomodel.RuleKind]string{
 	gomodel.RuleMinProperties: "MinProperties",
 	gomodel.RuleMaxProperties: "MaxProperties",
 	gomodel.RuleConst:         "Const",
+	gomodel.RuleEnum:          "OneOf",
 }
 
 // ValidateView is what the Validate methods of a declaration need. Enum lists the constants an enum
@@ -65,14 +66,15 @@ type CheckView struct {
 	Values     *LoopView
 }
 
-// LoopView checks each item of a slice, or each value of a map in key order. Range is what the loop
-// ranges over, Index and Item its variables; for a map, Map is the map and Index the key.
+// LoopView checks each item of a slice, or each key and value of a map in key order. Range is what
+// the loop ranges over, Index and Item its variables, Map the map; Key or Check is nil when unused.
 type LoopView struct {
 	Index string
 	Item  string
 	Range string
 	Map   string
-	Check CheckView
+	Key   *CheckView
+	Check *CheckView
 }
 
 // ErrorView is what the Error method and the constructor of an error type need.
@@ -185,18 +187,23 @@ func checkView(c *gomodel.Check, at checkAt, rt string, side methodSide) CheckVi
 			Index: index,
 			Item:  item,
 			Range: deref,
-			Check: checkView(c.Items, checkAt{value: item, path: gocode.Call(gocode.Selector(rt, "Index"), path, index), depth: at.depth + 1}, rt, side),
+			Check: new(checkView(c.Items, checkAt{value: item, path: gocode.Call(gocode.Selector(rt, "Index"), path, index), depth: at.depth + 1}, rt, side)),
 		}
 	}
-	if c.Values != nil {
+	if c.Values != nil || len(c.Keys) > 0 {
 		key, item := "key"+suffix, "item"+suffix
-		cv.Values = &LoopView{
-			Index: key,
-			Item:  item,
-			Range: gocode.Call(gocode.Selector(rt, "SortedKeys"), deref),
-			Map:   deref,
-			Check: checkView(c.Values, checkAt{value: item, path: gocode.Call(gocode.Selector(rt, "Key"), path, key), depth: at.depth + 1}, rt, side),
+		keyPath := gocode.Call(gocode.Selector(rt, "Key"), path, key)
+		loop := &LoopView{Index: key, Item: item, Range: gocode.Call(gocode.Selector(rt, "SortedKeys"), deref), Map: deref}
+		if len(c.Keys) > 0 {
+			loop.Key = &CheckView{Path: keyPath, Value: key, Deref: key}
+			for _, r := range c.Keys {
+				loop.Key.Calls = append(loop.Key.Calls, ruleCall(r, rt, key))
+			}
 		}
+		if c.Values != nil {
+			loop.Check = new(checkView(c.Values, checkAt{value: item, path: keyPath, depth: at.depth + 1}, rt, side))
+		}
+		cv.Values = loop
 	}
 	return cv
 }
@@ -216,6 +223,10 @@ func ruleCall(r gomodel.Rule, rt, value string) string {
 		args = append(args, r.Number, strconv.FormatBool(r.IsExclusive))
 	case gomodel.RuleConst:
 		args = append(args, gocode.Literal(r.Const))
+	case gomodel.RuleEnum:
+		for _, v := range r.Values {
+			args = append(args, gocode.Literal(v))
+		}
 	case gomodel.RuleUnique, gomodel.RuleUniqueJSON:
 	case gomodel.RuleMinLength, gomodel.RuleMaxLength, gomodel.RuleMultipleOf, gomodel.RuleMinItems,
 		gomodel.RuleMaxItems, gomodel.RuleMinProperties, gomodel.RuleMaxProperties:

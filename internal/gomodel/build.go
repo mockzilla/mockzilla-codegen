@@ -73,6 +73,7 @@ func (b *builder) build(list []*pending, ops []*Operation, headers map[*spec.Res
 	breakAliasCycles(decls, b.diags)
 	b.settleFields(decls)
 	settleUnions(decls)
+	ambiguousUnions(decls, b.diags)
 
 	for _, op := range ops {
 		for i := range op.Params {
@@ -143,6 +144,16 @@ func (b *builder) fillStruct(d *Decl, f *spec.Schema) {
 	}
 	d.Struct = st
 	resolveFields(d, b.opts.Namer, b.methods(d), b.diags)
+
+	if f.PropertyNames != nil && st.AdditionalProperties == nil {
+		b.diags.Append(diag.Diagnostic{
+			Severity: diag.Warning,
+			Code:     diag.CodeKeywordUnsupported,
+			Pointer:  f.PropertyNames.Origin.Pointer,
+			Origin:   origin(f.PropertyNames.Origin),
+			Message:  fmt.Sprintf("propertyNames is not checked: %s keeps no keys besides its properties", d.Name),
+		})
+	}
 }
 
 // fillUnion makes one variant per member, next to the properties every member shares. Members of
@@ -247,7 +258,7 @@ func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
 		if b.opts.Descriptions {
 			fd.Doc = p.Description
 		}
-		b.applyExtensions(fd, b.ext.of(p.Extensions, p.Origin))
+		b.applyExtensions(fd, b.ext.ofParam(p, s))
 
 		t := Type(stringType)
 		if s != nil {

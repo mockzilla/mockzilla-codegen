@@ -9,9 +9,11 @@
 package gomodel
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
@@ -223,6 +225,41 @@ func settleUnions(decls []*Decl) {
 					v.Known = append(v.Known, f.JSONName)
 				}
 			}
+		}
+	}
+}
+
+// ambiguousUnions warns about object variants of a oneOf that require the same properties.
+func ambiguousUnions(decls []*Decl, diags *diag.Collector) {
+	for _, d := range decls {
+		u := d.Union
+		if u == nil || u.IsAnyOf || u.Discriminator != "" {
+			continue
+		}
+
+		var keys []string
+		byRequired := map[string][]string{}
+		for _, v := range u.Variants {
+			if v.Kinds != JSONObject {
+				continue
+			}
+			key := strings.Join(slices.Sorted(slices.Values(v.Required)), ", ")
+			if _, ok := byRequired[key]; !ok {
+				keys = append(keys, key)
+			}
+			byRequired[key] = append(byRequired[key], v.Name)
+		}
+
+		for _, key := range keys {
+			names := byRequired[key]
+			if len(names) < 2 {
+				continue
+			}
+			msg := fmt.Sprintf("variants %s of %s require the same properties (%s), so an object with only those matches each of them and fails to decode", strings.Join(names, ", "), d.Name, key)
+			if key == "" {
+				msg = fmt.Sprintf("variants %s of %s require no property, so {} matches each of them and fails to decode", strings.Join(names, ", "), d.Name)
+			}
+			diags.Append(diag.Diagnostic{Severity: diag.Warning, Code: diag.CodeUnionAmbiguous, Pointer: d.ID, Origin: d.Origin, Message: msg})
 		}
 	}
 }

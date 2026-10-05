@@ -8,6 +8,7 @@
 package gomodel
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -21,13 +22,14 @@ import (
 // extReader parses the extensions of each place once, so its warnings come out once. Places are
 // told apart by their JSON pointer.
 type extReader struct {
-	namer *naming.Namer
-	diags *diag.Collector
-	memo  map[string]extension.Set
+	namer  *naming.Namer
+	diags  *diag.Collector
+	memo   map[string]extension.Set
+	params map[string]extension.Set
 }
 
 func newExtReader(n *naming.Namer, diags *diag.Collector) *extReader {
-	return &extReader{namer: n, diags: diags, memo: map[string]extension.Set{}}
+	return &extReader{namer: n, diags: diags, memo: map[string]extension.Set{}, params: map[string]extension.Set{}}
 }
 
 func (r *extReader) of(exts []spec.Extension, at spec.Origin) extension.Set {
@@ -38,6 +40,55 @@ func (r *extReader) of(exts []spec.Extension, at spec.Origin) extension.Set {
 	r.diags.Append(diags...)
 	r.memo[at.Pointer] = s
 	return s
+}
+
+// ofParam reads the field extensions of p and of its schema s; p wins a clash, with a warning.
+func (r *extReader) ofParam(p *spec.Parameter, s *spec.Schema) extension.Set {
+	if set, ok := r.params[p.Origin.Pointer]; ok {
+		return set
+	}
+
+	set := r.of(p.Extensions, p.Origin)
+	if s != nil {
+		set = r.merge(p, set, r.of(s.Extensions, s.Origin))
+	}
+	r.params[p.Origin.Pointer] = set
+	return set
+}
+
+// merge adds to outer, the set of p, the field extensions of inner, the set of its schema.
+func (r *extReader) merge(p *spec.Parameter, outer, inner extension.Set) extension.Set {
+	out := outer
+	switch {
+	case inner.Name == "":
+	case outer.Name == "":
+		out.Name, out.IsExactName = inner.Name, outer.IsExactName || inner.IsExactName
+	case outer.Name != inner.Name:
+		r.clash(p, extension.GoName, outer.Name, inner.Name)
+	}
+
+	out.Tags = slices.Clone(outer.Tags)
+	for _, t := range inner.Tags {
+		i := slices.IndexFunc(out.Tags, func(o extension.Tag) bool { return o.Key == t.Key })
+		switch {
+		case i < 0:
+			out.Tags = append(out.Tags, t)
+		case out.Tags[i].Value != t.Value:
+			r.clash(p, extension.ExtraTags+" "+t.Key, out.Tags[i].Value, t.Value)
+		}
+	}
+	out.IsPointerSkipped = outer.IsPointerSkipped || inner.IsPointerSkipped
+	return out
+}
+
+func (r *extReader) clash(p *spec.Parameter, name, outer, inner string) {
+	r.diags.Append(diag.Diagnostic{
+		Severity: diag.Warning,
+		Code:     diag.CodeExtensionValue,
+		Pointer:  p.Origin.Pointer,
+		Origin:   origin(p.Origin),
+		Message:  fmt.Sprintf("%s of %s parameter %q is %q, and %q in its schema; the parameter's is used", name, p.In, p.Name, outer, inner),
+	})
 }
 
 // goName is the Go name x-go-name asks for: as written with x-go-name-exact, else exported.

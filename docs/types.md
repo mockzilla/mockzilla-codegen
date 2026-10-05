@@ -217,7 +217,9 @@ Decoding, in `UnmarshalJSON`:
    integer goes to integer variants before float ones.
 3. Objects are ranked by required properties present less unknown keys. A variant with
    `additionalProperties: false` is ruled out by an unknown key. For `oneOf`, two variants that
-   match exactly with the same rank are an error.
+   match exactly with the same rank are an error. Generation warns (`union-ambiguous`) when object
+   variants of a `oneOf` without a discriminator require the same properties, or none: an object
+   with only those always hits this error.
 4. The first variant in that order that decodes is set. For `anyOf`, every variant whose required
    properties are present and that decodes is set.
 

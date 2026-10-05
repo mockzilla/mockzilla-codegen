@@ -47,6 +47,7 @@ type Schema struct {
 	Required             []string
 	Properties           []*Property
 	AdditionalProperties Additional
+	PropertyNames        *Schema
 	Items                *Schema
 	PrefixItems          []*Schema
 	AllOf                []*Schema

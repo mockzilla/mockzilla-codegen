@@ -280,6 +280,7 @@ func (f *flattener) merge(m *merged, p mergePart) {
 		f.mergeProperty(m, prop, p.isForeign)
 	}
 	f.mergeAdditional(m, p)
+	dst.PropertyNames = bothHold(dst.PropertyNames, s.PropertyNames)
 	dst.Items = f.mergeChild(m, dst.Items, s.Items, p.isForeign, "/allOf/items")
 	if len(dst.PrefixItems) == 0 {
 		dst.PrefixItems = s.PrefixItems
@@ -395,6 +396,17 @@ func allOfCycle(root, through *spec.Schema) diag.Diagnostic {
 		Origin:   origin(root.Origin),
 		Message:  "allOf includes itself through " + through.Origin.Pointer + "; the loop is left out",
 	}
+}
+
+// bothHold checks what a and b both check; unlike mergeChild it keeps a side with only checks.
+func bothHold(a, b *spec.Schema) *spec.Schema {
+	switch {
+	case b == nil, a == b:
+		return a
+	case a == nil:
+		return b
+	}
+	return &spec.Schema{AllOf: []*spec.Schema{a, b}, Origin: a.Origin}
 }
 
 func isSameRef(a, b *spec.Schema) bool {

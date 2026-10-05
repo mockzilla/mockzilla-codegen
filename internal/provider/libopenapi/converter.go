@@ -29,6 +29,8 @@ import (
 
 var lowerMethods = []string{"get", "put", "post", "delete", "options", "head", "patch", "trace", "query"}
 
+var locations = []string{spec.InPath, spec.InQuery, spec.InHeader, spec.InCookie, spec.InQueryString}
+
 const (
 	styleSimple = "simple"
 	styleForm   = "form"
@@ -36,11 +38,12 @@ const (
 
 // site is where an operation sits; path is a webhook name or callback expression for those.
 type site struct {
-	method    string
-	path      string
-	ptr       string
-	isWebhook bool
-	shared    []*spec.Parameter
+	method     string
+	path       string
+	ptr        string
+	isWebhook  bool
+	isCallback bool
+	shared     []*spec.Parameter
 }
 
 // converter memoizes by JSON pointer, so a $ref and its target share IR values and cycles end.
@@ -213,7 +216,7 @@ func (c *converter) webhooks(m *orderedmap.Map[string, *v3.PathItem]) []*spec.Op
 // pathItem takes at.ptr as the path item's pointer.
 func (c *converter) pathItem(item *v3.PathItem, at site) []*spec.Operation {
 	itemPtr := at.ptr
-	at.shared = c.parameters(item.Parameters, itemPtr+"/parameters")
+	at.shared = c.parameters(item.Parameters, itemPtr+"/parameters", at)
 
 	fixed := []*v3.Operation{item.Get, item.Put, item.Post, item.Delete, item.Options, item.Head, item.Patch, item.Trace, item.Query}
 	var out []*spec.Operation
@@ -245,7 +248,7 @@ func (c *converter) operation(o *v3.Operation, at site) *spec.Operation {
 		Description: o.Description,
 		Deprecated:  o.Deprecated != nil && *o.Deprecated,
 		Tags:        slices.Clone(o.Tags),
-		Params:      mergeParameters(at.shared, c.parameters(o.Parameters, at.ptr+"/parameters")),
+		Params:      mergeParameters(at.shared, c.parameters(o.Parameters, at.ptr+"/parameters", at)),
 		Body:        c.requestBody(o.RequestBody, at.ptr+"/requestBody"),
 		Responses:   c.responses(o.Responses, at.ptr+"/responses"),
 		Callbacks:   c.callbacks(o.Callbacks, at.ptr+"/callbacks"),
@@ -274,17 +277,28 @@ func (c *converter) callbacks(m *orderedmap.Map[string, *v3.Callback], ptr strin
 			item.Ref = componentRef(cbPtr)
 		}
 		for expr, pi := range cb.Expression.FromOldest() {
-			item.Operations = append(item.Operations, c.pathItem(pi, site{path: expr, ptr: cbPtr + "/" + oasdoc.Escape(expr)})...)
+			item.Operations = append(item.Operations, c.pathItem(pi, site{path: expr, ptr: cbPtr + "/" + oasdoc.Escape(expr), isCallback: true})...)
 		}
 		out = append(out, item)
 	}
 	return out
 }
 
-func (c *converter) parameters(list []*v3.Parameter, ptr string) []*spec.Parameter {
+// parameters leaves out a parameter of no known location, or a path one the path has no {name} for.
+func (c *converter) parameters(list []*v3.Parameter, ptr string, at site) []*spec.Parameter {
 	var out []*spec.Parameter
 	for i, p := range list {
-		out = append(out, c.parameter(p, ptr+"/"+strconv.Itoa(i)))
+		usage := ptr + "/" + strconv.Itoa(i)
+		param := c.parameter(p, usage)
+		switch {
+		case !slices.Contains(locations, param.In):
+			continue
+		case param.In == spec.InPath && !at.isWebhook && !at.isCallback && !strings.Contains(at.path, "{"+param.Name+"}"):
+			msg := fmt.Sprintf("path parameter %q has no {%s} in %s; it is left out", param.Name, param.Name, at.path)
+			c.warn(diag.CodePathParamUnused, usage, p.GoLow().GetRootNode(), msg)
+			continue
+		}
+		out = append(out, param)
 	}
 	return out
 }
@@ -312,6 +326,14 @@ func (c *converter) buildParameter(p *v3.Parameter, ptr string) *spec.Parameter 
 		Contents:        c.contents(p.Content, ptr+"/content"),
 		Extensions:      extensions(p.Extensions),
 		Origin:          c.origin(ptr, p.GoLow().GetRootNode()),
+	}
+
+	if !slices.Contains(locations, out.In) {
+		in := "no in"
+		if out.In != "" {
+			in = "in " + strconv.Quote(out.In) + ", which is not one of " + strings.Join(locations, ", ")
+		}
+		c.warn(diag.CodeParamIn, ptr, p.GoLow().GetRootNode(), fmt.Sprintf("parameter %q has %s; it is left out", out.Name, in))
 	}
 
 	if out.Style == "" {
@@ -408,8 +430,9 @@ func (c *converter) responses(r *v3.Responses, ptr string) []*spec.Response {
 				Code:     diag.CodeInvalidStatus,
 				Pointer:  at,
 				Origin:   c.position(at, resp.GoLow().GetRootNode()),
-				Message:  "response key " + strconv.Quote(code) + " is not a status code, a range or default",
+				Message:  "response key " + strconv.Quote(code) + " is not a status code, a range or default; the response is left out",
 			})
+			continue
 		}
 		out = append(out, c.response(resp, code, at))
 	}
@@ -555,7 +578,17 @@ func (c *converter) fill(s *spec.Schema, p *base.SchemaProxy, ptr string, n *yam
 		return
 	}
 
-	s.Types, s.Nullable = c.types(h, ptr)
+	k := keywords{c: c, node: h.GoLow().RootNode, ptr: ptr}
+	if k.node != nil && k.node.Kind != yaml.MappingNode {
+		c.notObject(k.node, ptr)
+	}
+	// libopenapi leaves these out when they are of the wrong kind; read only reports them.
+	k.read("type", "a type name or a list of them", isTypeName)
+	k.read("required", "a list of property names", isList)
+	k.read("properties", "an object", isObject)
+	k.read("enum", "a list", isList)
+
+	s.Types, s.Nullable = c.types(h, k.flag("nullable"), ptr)
 	s.Format = h.Format
 	s.Title = h.Title
 	s.Description = h.Description
@@ -565,6 +598,7 @@ func (c *converter) fill(s *spec.Schema, p *base.SchemaProxy, ptr string, n *yam
 	s.Required = slices.Clone(h.Required)
 	s.Properties = c.properties(h, ptr)
 	s.AdditionalProperties = c.additional(h.AdditionalProperties, ptr+"/additionalProperties")
+	s.PropertyNames = c.schema(h.PropertyNames, ptr+"/propertyNames")
 	if h.Items != nil && h.Items.IsA() {
 		s.Items = c.schema(h.Items.A, ptr+"/items")
 	}
@@ -581,12 +615,28 @@ func (c *converter) fill(s *spec.Schema, p *base.SchemaProxy, ptr string, n *yam
 	s.Const = optionalValue(h.Const)
 	s.Default = optionalValue(h.Default)
 	s.Examples = examples(h)
-	s.Limits = limits(h)
-	s.ReadOnly = h.ReadOnly != nil && *h.ReadOnly
-	s.WriteOnly = h.WriteOnly != nil && *h.WriteOnly
-	s.Deprecated = h.Deprecated != nil && *h.Deprecated
+	s.Limits = k.limits()
+	s.ReadOnly = k.flag("readOnly")
+	s.WriteOnly = k.flag("writeOnly")
+	s.Deprecated = k.flag("deprecated")
 	s.Extensions = extensions(h.Extensions)
 	s.Origin = c.origin(ptr, h.GoLow().RootNode)
+	k.unsupported()
+}
+
+// notObject reports a schema that is no object, which reads as any; since 3.1 true is a schema.
+func (c *converter) notObject(n *yaml.Node, ptr string) {
+	v := value(n)
+	switch {
+	case c.version == spec.V30 || !isBool(v):
+		want := "an object"
+		if c.version != spec.V30 {
+			want = "an object or a boolean"
+		}
+		c.warn(diag.CodeSchemaInvalid, ptr, n, fmt.Sprintf("a schema must be %s, not %s; it is read as any", want, written(v, n)))
+	case !v.Bool:
+		c.warn(diag.CodeSchemaInvalid, ptr, n, "schema false allows no value, which no Go type can hold; it is read as any")
+	}
 }
 
 func (c *converter) properties(h *base.Schema, ptr string) []*spec.Property {
@@ -615,7 +665,7 @@ func (c *converter) additional(d *base.DynamicValue[*base.SchemaProxy, bool], pt
 }
 
 // types folds "null" in a type list into Nullable, keeping it only when it is the sole type.
-func (c *converter) types(h *base.Schema, ptr string) (spec.TypeSet, bool) {
+func (c *converter) types(h *base.Schema, isNullable bool, ptr string) (spec.TypeSet, bool) {
 	var set spec.TypeSet
 	for _, name := range h.Type {
 		t := typeOf(name)
@@ -631,7 +681,6 @@ func (c *converter) types(h *base.Schema, ptr string) (spec.TypeSet, bool) {
 		set |= t
 	}
 
-	isNullable := h.Nullable != nil && *h.Nullable
 	if set.Has(spec.TypeNull) {
 		isNullable = true
 		if set != spec.TypeNull {
@@ -682,6 +731,10 @@ func (c *converter) mappingRef(target, ptr string, n *yaml.Node) *spec.Ref {
 func (c *converter) origin(ptr string, n *yaml.Node) spec.Origin {
 	at := c.position(ptr, n)
 	return spec.Origin{Pointer: ptr, File: at.File, Line: at.Line, Col: at.Col}
+}
+
+func (c *converter) warn(code, ptr string, n *yaml.Node, msg string) {
+	c.diags.Append(diag.Diagnostic{Severity: diag.Warning, Code: code, Pointer: ptr, Origin: c.position(ptr, n), Message: msg})
 }
 
 func (c *converter) position(ptr string, n *yaml.Node) diag.Origin {

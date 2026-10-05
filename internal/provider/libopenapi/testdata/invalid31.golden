@@ -1,0 +1,83 @@
+Version: 3.1
+Info:
+  Title: t
+  Version: 1
+Webhooks:
+  -
+    ID: postPing
+    IsIDDerived: true
+    Method: POST
+    Path: ping
+    IsWebhook: true
+    Params:
+      -
+        Name: id
+        In: path
+        Required: true
+        Style: simple
+        Schema:
+          Types: string
+          Origin: invalid31.yaml:7:65 /webhooks/ping/post/parameters/0/schema
+        Origin: invalid31.yaml:7:20 /webhooks/ping/post/parameters/0
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Origin: invalid31.yaml:8:26 /webhooks/ping/post/responses/200
+    Origin: invalid31.yaml:7:7 /webhooks/ping/post
+Components:
+  Schemas:
+    -
+      Name: Forms
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: any
+            Schema:
+              Origin: invalid31.yaml:14:14 /components/schemas/Forms/properties/any
+          -
+            Name: none
+            Schema:
+              Origin: invalid31.yaml:15:15 /components/schemas/Forms/properties/none
+          -
+            Name: word
+            Schema:
+              Origin: invalid31.yaml:16:15 /components/schemas/Forms/properties/word
+          -
+            Name: flag
+            Schema:
+              Types: integer
+              Limits:
+                Minimum:
+                  Value: 0
+                  Exclusive: true
+              Origin: invalid31.yaml:17:15 /components/schemas/Forms/properties/flag
+          -
+            Name: alone
+            Schema:
+              Types: integer
+              Origin: invalid31.yaml:18:16 /components/schemas/Forms/properties/alone
+          -
+            Name: number
+            Schema:
+              Types: integer
+              Limits:
+                Minimum:
+                  Value: 0
+                  Exclusive: true
+              Origin: invalid31.yaml:19:17 /components/schemas/Forms/properties/number
+          -
+            Name: rest
+            Schema:
+              Origin: invalid31.yaml:20:15 /components/schemas/Forms/properties/rest
+        Origin: invalid31.yaml:12:7 /components/schemas/Forms
+Diagnostics:
+  - warning schema-invalid invalid31.yaml:15:15 /components/schemas/Forms/properties/none: schema false allows no value, which no Go type can hold; it is read as any
+  - warning schema-invalid invalid31.yaml:16:15 /components/schemas/Forms/properties/word: a schema must be an object or a boolean, not "string"; it is read as any
+  - warning keyword-version invalid31.yaml:17:61 /components/schemas/Forms/properties/flag/exclusiveMinimum: exclusiveMinimum true is the 3.0 form; a 3.1 spec takes a number
+  - warning keyword-version invalid31.yaml:18:50 /components/schemas/Forms/properties/alone/exclusiveMaximum: exclusiveMaximum false is the 3.0 form; a 3.1 spec takes a number
+  - warning keyword-unsupported invalid31.yaml:20:39 /components/schemas/Forms/properties/rest/unevaluatedProperties: unevaluatedProperties is not supported; generated types do not check it
+  - warning keyword-unsupported invalid31.yaml:20:73 /components/schemas/Forms/properties/rest/unevaluatedItems: unevaluatedItems is not supported; generated types do not check it
+  - warning keyword-unsupported invalid31.yaml:20:107 /components/schemas/Forms/properties/rest/dependentSchemas: dependentSchemas is not supported; generated types do not check it
+  - warning keyword-unsupported invalid31.yaml:20:129 /components/schemas/Forms/properties/rest/maxContains: maxContains is not supported; generated types do not check it

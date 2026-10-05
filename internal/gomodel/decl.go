@@ -81,6 +81,7 @@ const (
 	RuleMinProperties
 	RuleMaxProperties
 	RuleConst
+	RuleEnum
 )
 
 // Decl is one package-level type. ID is the JSON pointer it comes from. Struct is set for
@@ -134,6 +135,7 @@ type Check struct {
 	Nested     *Decl
 	Items      *Check
 	Values     *Check
+	Keys       []Rule
 }
 
 // Rule is one keyword check. Number is a bound, length, count or factor as the spec writes it.
@@ -145,6 +147,7 @@ type Rule struct {
 	Format      string
 	Pattern     *Pattern
 	Const       spec.Value
+	Values      []spec.Value
 }
 
 // Pattern is a regular expression compiled once, in a package-level variable of its part.

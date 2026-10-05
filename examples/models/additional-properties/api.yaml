@@ -23,3 +23,13 @@ components:
         host: {type: string}
         at: {type: string, format: date-time}
       additionalProperties: {type: number}
+    Headers:
+      type: object
+      description: Every key must match propertyNames.
+      additionalProperties: {type: string}
+      propertyNames: {pattern: '^[a-z][a-z-]*$', maxLength: 20}
+    Units:
+      type: object
+      additionalProperties: {type: integer}
+      propertyNames: {$ref: '#/components/schemas/Unit'}
+    Unit: {type: string, enum: [cm, kg]}

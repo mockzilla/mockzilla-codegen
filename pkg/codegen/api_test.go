@@ -334,9 +334,9 @@ func TestDescribeResponses(t *testing.T) {
 			want: []Response{{Status: "2xx", Code: 200, Constructor: constructor("NewPingResponseData"), HasStatusArg: true}},
 		},
 		{
-			name:        "Key that is no status names no code",
+			name:        "Key that is no status is left out",
 			keys:        []string{"ok"},
-			want:        []Response{{Status: "ok", Constructor: constructor("NewPingResponseData"), HasStatusArg: true}},
+			want:        []Response{},
 			wantSuccess: -1,
 		},
 	}

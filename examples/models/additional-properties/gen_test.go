@@ -47,3 +47,31 @@ func TestMetricsGetSet(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, `{"host":"","cpu":0.5}`, string(out))
 }
+
+func TestPropertyNames(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   interface{ Validate() error }
+		wantErr string
+	}{
+		{name: "Keys that match", value: Headers{"content-type": "a", "x-trace": "b"}},
+		{name: "Key that does not match the pattern", value: Headers{"Bad Key": "a"}, wantErr: "Bad Key: must match ^[a-z][a-z-]*$"},
+		{name: "Key that is too long", value: Headers{"a-very-long-header-name": "a"}, wantErr: "a-very-long-header-name: must be at most 20 characters long"},
+		{name: "Key from the enum", value: Units{"cm": 3}},
+		{name: "Key outside the enum", value: Units{"lb": 3}, wantErr: "lb: must be one of cm, kg"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.value.Validate()
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.EqualError(t, err, tt.wantErr)
+		})
+	}
+}

@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info: {title: t, version: '1'}
+paths: {}
+webhooks:
+  ping:
+    post:
+      parameters: [{name: id, in: path, required: true, schema: {type: string}}]
+      responses: {'200': {description: ok}}
+components:
+  schemas:
+    Forms:
+      type: object
+      properties:
+        any: true
+        none: false
+        word: string
+        flag: {type: integer, minimum: 0, exclusiveMinimum: true}
+        alone: {type: integer, exclusiveMaximum: false}
+        number: {type: integer, exclusiveMinimum: 0}
+        rest: {unevaluatedProperties: {type: string}, unevaluatedItems: {type: string}, dependentSchemas: {a: {}}, maxContains: 2}
