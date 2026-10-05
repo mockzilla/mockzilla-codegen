@@ -1,3 +1,23 @@
+{{- with .Presence}}
+var bodyPresence = {{.Runtime}}.Presence{
+{{- if .IsChecked}}
+	IsChecked: true,
+{{- end}}
+{{- with .Objects}}
+	Objects: []{{$.Runtime}}.Object{
+{{- range .}}
+		{Name: {{.Name}}, {{if .IsClosed}}IsClosed: true, {{end}}{{with .Extra}}Extra: &{{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, {{end -}}
+{{- with .Props}}Props: []{{$.Runtime}}.Prop{
+{{- range .}}
+			{{template "server/prop.tmpl" .}},
+{{- end}}
+		}{{end -}} },
+{{- end}}
+	},
+{{- end}}
+}
+
+{{end -}}
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
@@ -5,6 +25,9 @@ type ServerOptions struct {
 	ErrorHandler       {{.Runtime}}.ErrorHandler
 	JSONDecoder        func(body {{.IO}}.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
+{{- if .Presence}}
+	Presence           {{.Runtime}}.PresenceChecker
+{{- end}}
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -16,6 +39,9 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 		ErrorHandler:       {{.Runtime}}.DefaultErrorHandler{},
 		JSONDecoder:        {{.Runtime}}.DecodeJSON,
 		MultipartMaxMemory: {{.MaxMemory}},
+{{- if .Presence}}
+		Presence:           bodyPresence,
+{{- end}}
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -50,6 +76,15 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 		o.MultipartMaxMemory = n
 	}
 }
+{{- if .Presence}}
+
+// WithPresence sets what checks the keys of request bodies and fills their defaults.
+func WithPresence(p {{.Runtime}}.PresenceChecker) ServerOption {
+	return func(o *ServerOptions) {
+		o.Presence = p
+	}
+}
+{{- end}}
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
@@ -154,6 +189,16 @@ func (a *HTTPAdapter) fail(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, err
 func (a *HTTPAdapter) failDecode(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, err error) {
 	a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorDecode, OperationID: id, Err: err})
 }
+{{- if .Presence}}
+
+func (a *HTTPAdapter) failBody(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, err error) {
+	kind := {{.Runtime}}.ErrorDecode
+	if {{.Runtime}}.IsValidation(err) {
+		kind = {{.Runtime}}.ErrorValidation
+	}
+	a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: kind, OperationID: id, Err: err})
+}
+{{- end}}
 
 func (a *HTTPAdapter) write(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, res responseData) {
 {{- if .IsResponseValidated}}

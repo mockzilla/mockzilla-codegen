@@ -1,5 +1,5 @@
 Pet struct models.types
-  Name *string json=name omitempty
+  Name *string json=name omitempty checks=value
 Problem struct models.types
   Detail *string json=detail omitempty
 NewListPetsResponseData200Schema alias string models.types
@@ -20,7 +20,7 @@ op ListPets GET /pets
   response default application/json Problem
   response default headers ErrorHeaders
 op CreatePet POST /pets
-  body application/json Pet
+  body application/json Pet checks=Pet
   response default application/json Problem
   response default headers ErrorHeaders
 op GetClash GET /clash

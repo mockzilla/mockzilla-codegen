@@ -1,0 +1,8 @@
+{ {{- with .Key}}Key: {{.}}, {{end -}}
+{{if .IsRequired}}IsRequired: true, {{end -}}
+{{if .IsNullable}}IsNullable: true, {{end -}}
+{{with .Default}}Default: {{.}}, {{end -}}
+{{with .Object}}Object: {{.}}, {{end -}}
+{{with .Items}}Items: &{{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, {{end -}}
+{{with .Values}}Values: &{{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, {{end -}}
+}

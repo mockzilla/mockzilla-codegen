@@ -92,7 +92,8 @@ that checks nothing has no `Validate`.
 
 `required` on a pointer, slice or map field means it is not `nil`. A required field that is a plain
 value, such as `Name string`, gets no presence check: after JSON decoding, a missing name and an
-empty one look the same.
+empty one look the same. A server with `validation.request` checks that the key is in the request
+body before it decodes it, see [request bodies](server.md#request-bodies).
 
 ### Patterns
 

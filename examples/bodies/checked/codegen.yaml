@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=../../../config.schema.json
+spec: {path: api.yaml}
+package: checked
+server:
+  framework: chi
+  validation: {request: true}

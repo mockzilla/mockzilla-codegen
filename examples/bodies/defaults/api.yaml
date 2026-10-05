@@ -1,0 +1,37 @@
+openapi: 3.1.0
+info: {title: body defaults, version: "1"}
+paths:
+  /orders:
+    post:
+      operationId: addOrder
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Order'}}
+          application/x-www-form-urlencoded: {schema: {$ref: '#/components/schemas/Order'}}
+      responses:
+        "200":
+          description: the order as the service got it
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Order'}}
+components:
+  schemas:
+    Order:
+      type: object
+      additionalProperties: false
+      required: [item]
+      properties:
+        item: {type: string}
+        qty: {type: integer, default: 1}
+        note: {type: string}
+        gift: {$ref: '#/components/schemas/Gift'}
+        buyer: {$ref: '#/components/schemas/Buyer'}
+    Gift:
+      type: object
+      properties:
+        wrap: {type: boolean, default: true}
+        card: {type: string}
+    Buyer:
+      type: object
+      properties:
+        name: {type: string}

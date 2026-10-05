@@ -132,7 +132,9 @@ runtime codecs, decodes the body by the request's `Content-Type`, validates the 
 config asks for it, calls the service and writes what it returns. A query, header, cookie or
 querystring parameter that is not there takes the `default` of its schema; the field stays a
 pointer, so the client still sends only what is set. A required parameter is never filled. A
-default that does not fit its schema is left out, and generation warns (`default-ignored`).
+default that does not fit its schema is left out, and generation warns (`default-ignored`). A
+property of a JSON, form or multipart body gets its default the same way, see
+[request bodies](#request-bodies).
 
 ```go
 adapter := NewHTTPAdapter(svc, opts...)
@@ -176,6 +178,7 @@ Options are set with `ServerOption` functions on the adapter and on the router a
 | `WithMiddleware(mw...)` | `func(http.Handler) http.Handler` wrappers, outermost first |
 | `WithErrorHandler(h)` | what writes failed requests, `DefaultErrorHandler{}` by default |
 | `WithJSONDecoder(fn)` | what reads JSON bodies, `runtime.DecodeJSON` by default |
+| `WithPresence(p)` | what checks the keys of request bodies and fills their defaults, see [request bodies](#request-bodies) |
 | `WithMultipartMaxMemory(n)` | memory for multipart forms, `server.multipart-max-memory` by default |
 | `WithRouter(r)` | the router the routes go on, one of the framework's |
 
@@ -190,6 +193,83 @@ server:
 
 `server.validation.response` also turns on `models.validation.response`, so the response types
 get their `ValidateResponse` methods.
+
+### Request bodies
+
+A decoded struct no longer tells a missing key from an empty value, or `null` from a missing
+key. So the adapter reads a JSON, form or multipart body once more before it decodes it. With
+`validation.request` it answers these bodies of `Pet` with a 400 of kind `ErrorValidation`:
+
+| Body | Error |
+|---|---|
+| `{"owner":{}}` | `body.name: is required; body.owner.id: is required` |
+| `{"name":null,"owner":{"id":1}}` | `body.name: must not be null` |
+| `{"name":"Rex","owner":{"id":1},"tags":["a",null]}` | `body.tags[1]: must not be null` |
+| `null` | `body: must not be null` |
+| `{"name":"Rex","owner":{"id":1},"x":1}` | `body.x: is not allowed` |
+
+- A required key must be there. An empty value passes. A `readOnly` property is not required in
+  a request.
+- `null` fails where the schema does not allow it: in a property, a list item, a map value or the
+  whole body. A schema without a `type`, such as `{}`, allows it.
+- A key that is no property fails when the object has `additionalProperties: false`.
+- A form has no `null`. Its fields are checked for presence and unknown names, and a file part
+  counts as its field. A field that holds a JSON object or array is checked as JSON.
+- Unions are not looked into. Decoding picks their variant by its required keys.
+
+A missing optional property with a `default` gets it, with or without `validation.request`: in
+the body, in nested objects and in list items that are sent. An object that is not sent is not
+built for its defaults, and a sent `null` stays `null`. The field stays a pointer. A required or
+`readOnly` property gets no default. A default that does not fit its schema is left out, and
+generation warns (`default-ignored`).
+
+The adapter keeps what it checks in one table, `bodyPresence`, and checks a body before the JSON
+decoder or `DecodeForm` reads it. The table holds facts about keys only: which are required, which
+may be null, which are unknown and which get a default. Value rules, such as `minLength` or
+`pattern`, stay in `Validate`.
+
+```go
+var bodyPresence = runtime.Presence{
+	IsChecked: true,
+	Objects: []runtime.Object{
+		{Name: "Owner", Props: []runtime.Prop{
+			{Key: "city", Default: `"Berlin"`},
+			{Key: "id", IsRequired: true},
+		}},
+		{Name: "Pet", IsClosed: true, Props: []runtime.Prop{
+			{Key: "age", Default: "1"},
+			{Key: "name", IsRequired: true},
+			{Key: "owner", IsRequired: true, Object: "Owner"},
+			{Key: "tag", IsNullable: true},
+			{Key: "tags", Items: &runtime.Prop{}},
+		}},
+	},
+}
+```
+
+Objects are sorted by name and properties by key, and the runtime finds them by binary search.
+The table is a slice, not a map, so it is plain data with no code that runs at start. A spec with
+thousands of body properties compiles about as fast as without the table.
+
+Without `validation.request` the table holds only the objects that lead to a default. Without a
+default, nothing is generated. `examples/bodies/checked` and `examples/bodies/defaults` show both.
+
+`WithPresence` replaces the table with any `runtime.PresenceChecker`. `WithPresence(runtime.Presence{})`
+turns the checks and the defaults off. A wrapper can log or skip what the table finds:
+
+```go
+type presence struct{ next runtime.PresenceChecker }
+
+func (p presence) JSON(body io.Reader, prop runtime.Prop) (io.Reader, error) {
+	out, err := p.next.JSON(body, prop)
+	if err != nil {
+		slog.Info("body rejected", "err", err)
+	}
+	return out, err
+}
+```
+
+The option exists only when the server has a table.
 
 ## Errors
 
@@ -480,7 +560,8 @@ The runtime package holds what the generated HTTP code and clients use, standard
 - Bodies: `DecodeJSON`, `DecodeForm` (bracketed keys nest: `address[city]=Berlin`,
   `items[0]=a`; one value for a struct or map is read as JSON, else as a string), `DecodeMultipart` (files as `runtime.File`, JSON parts into structs),
   `DecodeText`, `DecodeBytes`, `DecodeFile`. A type with `UnmarshalForm` reads a form itself. A required body that is empty gives `ErrBodyEmpty`;
-  an empty optional one is left alone.
+  an empty optional one is left alone. `Presence` with its methods `JSON`, `Form` and `Multipart`
+  checks the keys of a body and fills its defaults before it is decoded.
 - Responses: `Write` sends a status, headers and a body: JSON for most values, text and bytes as
   they are, a `File` streamed.
 - Clients: `RequestBuilder`, `EncodeForm`, `WriteMultipart`, `Send`, `Decode`, `DecodeSuccess`,
