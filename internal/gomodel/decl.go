@@ -243,7 +243,7 @@ type Shape struct {
 
 // Field is one struct field. Required, Nullable, ReadOnly and WriteOnly repeat the spec.
 // IsJSONIgnored writes the field with the JSON tag "-". Sensitive is how Masked masks it, nil for
-// a value that is not sensitive.
+// a value that is not sensitive. Value and Default are what the server checks and sets in a body.
 type Field struct {
 	Name             string
 	JSONName         string
@@ -259,6 +259,8 @@ type Field struct {
 	Doc              string
 	Tags             []Tag
 	Sensitive        *extension.Mask
+	Value            *BodyValue
+	Default          string
 	Origin           diag.Origin
 
 	schema           *spec.Schema

@@ -1,0 +1,69 @@
+openapi: 3.1.0
+info: {title: bodies, version: "1"}
+paths:
+  /pets:
+    post:
+      operationId: addPets
+      requestBody:
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Pets'}}
+          application/octet-stream: {}
+      responses:
+        "204": {description: added}
+  /pet:
+    post:
+      operationId: addPet
+      requestBody:
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+          text/plain: {schema: {type: [string, "null"]}}
+      responses:
+        "204": {description: added}
+webhooks:
+  petAdded:
+    post:
+      requestBody:
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Hook'}}
+      responses:
+        "204": {description: seen}
+components:
+  schemas:
+    Pets:
+      type: array
+      items: {$ref: '#/components/schemas/Pet'}
+    Pet:
+      type: object
+      required: [name, kind, id]
+      properties:
+        id: {type: integer, readOnly: true}
+        name: {type: string}
+        kind: {type: string, default: cat}
+        tag: {type: [string, "null"]}
+        age: {type: integer, default: 1}
+        count: {type: integer, default: many}
+        born: {type: string, readOnly: true, default: today}
+        owner: {$ref: '#/components/schemas/Owner'}
+        tags: {type: array, items: {type: string}}
+        notes: {type: array, items: {type: [string, "null"]}}
+        photo: {type: string, format: byte}
+        friends: {type: object, additionalProperties: {$ref: '#/components/schemas/Owner'}}
+        loose: {properties: {a: {type: string}}}
+        anything: {}
+        pick:
+          oneOf:
+            - {type: string}
+            - {type: integer}
+        level: {$ref: '#/components/schemas/Level'}
+    Owner:
+      type: object
+      additionalProperties: {$ref: '#/components/schemas/Owner'}
+      properties:
+        city: {type: string, default: Berlin}
+    Level:
+      type: integer
+      default: 3
+    Hook:
+      type: object
+      properties:
+        seen: {type: boolean, default: true}

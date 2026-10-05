@@ -1,3 +1,23 @@
+{{- with .Bodies}}
+var requestBodies = {{.Runtime}}.Bodies{
+{{- if .IsChecked}}
+	IsChecked: true,
+{{- end}}
+{{- with .Objects}}
+	Objects: map[string]{{$.Runtime}}.Object{
+{{- range .}}
+		{{.Name}}: { {{- if .IsClosed}}IsClosed: true, {{end}}{{with .Extra}}Extra: &{{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, {{end -}}
+{{- with .Props}}Props: map[string]{{$.Runtime}}.Prop{
+{{- range .}}
+			{{.Key}}: {{template "server/prop.tmpl" .Value}},
+{{- end}}
+		}{{end -}} },
+{{- end}}
+	},
+{{- end}}
+}
+
+{{end -}}
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
@@ -154,6 +174,16 @@ func (a *HTTPAdapter) fail(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, err
 func (a *HTTPAdapter) failDecode(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, err error) {
 	a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorDecode, OperationID: id, Err: err})
 }
+{{- if .Bodies}}
+
+func (a *HTTPAdapter) failBody(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, err error) {
+	kind := {{.Runtime}}.ErrorDecode
+	if {{.Runtime}}.IsValidation(err) {
+		kind = {{.Runtime}}.ErrorValidation
+	}
+	a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: kind, OperationID: id, Err: err})
+}
+{{- end}}
 
 func (a *HTTPAdapter) write(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, res responseData) {
 {{- if .IsResponseValidated}}

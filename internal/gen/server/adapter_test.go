@@ -114,7 +114,7 @@ func TestBodyView(t *testing.T) {
 			t.Parallel()
 
 			// bodyView imports into the scope, so each subtest has its own.
-			at := bodyAt{id: `"Op"`, isRequired: true, ret: "return", scope: fixture{m: m, g: g, cfg: scaffoldConfig}.scope(t, PartAdapter)}
+			at := bodyAt{id: `"Op"`, isRequired: true, ret: "return", scope: fixture{m: m, g: g, cfg: scaffoldConfig}.scope(t, PartAdapter), table: newBodyTable(nil, true, "runtime")}
 
 			assert.Equal(t, tc.want, bodyView(tc.content, "Body", at))
 		})
@@ -140,7 +140,7 @@ func TestHandlerViewBodies(t *testing.T) {
 	m := &gomodel.Model{Decls: []*gomodel.Decl{pet}, Operations: []*gomodel.Operation{op}}
 	g, _ := New(m, allOptions())
 
-	v := handlerView(g, op, fixture{m: m, g: g, cfg: scaffoldConfig}.scope(t, PartAdapter))
+	v := handlerView(g, op, fixture{m: m, g: g, cfg: scaffoldConfig}.scope(t, PartAdapter), newBodyTable(nil, true, "runtime"))
 
 	fields := func(bodies []BodyView) []string {
 		out := make([]string, len(bodies))

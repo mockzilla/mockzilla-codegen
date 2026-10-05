@@ -274,6 +274,16 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
+var requestBodies = runtime.Bodies{
+	IsChecked: true,
+	Objects: map[string]runtime.Object{
+		"Pet": {Props: map[string]runtime.Prop{
+			"age":  {},
+			"name": {IsRequired: true},
+		}},
+	},
+}
+
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
@@ -393,7 +403,12 @@ func (a *HTTPAdapter) PutPet(w http.ResponseWriter, r *http.Request) {
 	}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
-		if err := a.opts.JSONDecoder(r.Body, &opts.Body, true); err != nil {
+		body, err := requestBodies.JSON(r.Body, runtime.Prop{Object: "Pet"})
+		if err != nil {
+			a.failBody(w, r, "PutPet", err)
+			return
+		}
+		if err = a.opts.JSONDecoder(body, &opts.Body, true); err != nil {
 			a.failDecode(w, r, "PutPet", err)
 			return
 		}
@@ -429,6 +444,14 @@ func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.
 
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
+}
+
+func (a *HTTPAdapter) failBody(w http.ResponseWriter, r *http.Request, id string, err error) {
+	kind := runtime.ErrorDecode
+	if runtime.IsValidation(err) {
+		kind = runtime.ErrorValidation
+	}
+	a.fail(w, r, &runtime.HandlerError{Kind: kind, OperationID: id, Err: err})
 }
 
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {

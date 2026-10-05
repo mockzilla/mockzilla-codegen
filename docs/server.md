@@ -132,7 +132,9 @@ runtime codecs, decodes the body by the request's `Content-Type`, validates the 
 config asks for it, calls the service and writes what it returns. A query, header, cookie or
 querystring parameter that is not there takes the `default` of its schema; the field stays a
 pointer, so the client still sends only what is set. A required parameter is never filled. A
-default that does not fit its schema is left out, and generation warns (`default-ignored`).
+default that does not fit its schema is left out, and generation warns (`default-ignored`). A
+property of a JSON, form or multipart body gets its default the same way, see
+[request bodies](#request-bodies).
 
 ```go
 adapter := NewHTTPAdapter(svc, opts...)
@@ -190,6 +192,60 @@ server:
 
 `server.validation.response` also turns on `models.validation.response`, so the response types
 get their `ValidateResponse` methods.
+
+### Request bodies
+
+A decoded struct no longer tells a missing key from an empty value, or `null` from a missing
+key. So the adapter reads a JSON, form or multipart body once more before it decodes it. With
+`validation.request` it answers these bodies of `Pet` with a 400 of kind `ErrorValidation`:
+
+| Body | Error |
+|---|---|
+| `{"owner":{}}` | `body.name: is required; body.owner.id: is required` |
+| `{"name":null,"owner":{"id":1}}` | `body.name: must not be null` |
+| `{"name":"Rex","owner":{"id":1},"tags":["a",null]}` | `body.tags[1]: must not be null` |
+| `null` | `body: must not be null` |
+| `{"name":"Rex","owner":{"id":1},"x":1}` | `body.x: is not allowed` |
+
+- A required key must be there. An empty value passes. A `readOnly` property is not required in
+  a request.
+- `null` fails where the schema does not allow it: in a property, a list item, a map value or the
+  whole body. A schema without a `type`, such as `{}`, allows it.
+- A key that is no property fails when the object has `additionalProperties: false`.
+- A form has no `null`. Its fields are checked for presence and unknown names, and a file part
+  counts as its field. A field that holds a JSON object or array is checked as JSON.
+- Unions are not looked into. Decoding picks their variant by its required keys.
+
+A missing optional property with a `default` gets it, with or without `validation.request`: in
+the body, in nested objects and in list items that are sent. An object that is not sent is not
+built for its defaults, and a sent `null` stays `null`. The field stays a pointer. A required or
+`readOnly` property gets no default. A default that does not fit its schema is left out, and
+generation warns (`default-ignored`).
+
+The adapter keeps what it checks in one table, `requestBodies`, and checks a body before the JSON
+decoder or `DecodeForm` reads it:
+
+```go
+var requestBodies = runtime.Bodies{
+	IsChecked: true,
+	Objects: map[string]runtime.Object{
+		"Owner": {Props: map[string]runtime.Prop{
+			"city": {Default: `"Berlin"`},
+			"id":   {IsRequired: true},
+		}},
+		"Pet": {IsClosed: true, Props: map[string]runtime.Prop{
+			"age":   {Default: "1"},
+			"name":  {IsRequired: true},
+			"owner": {IsRequired: true, Object: "Owner"},
+			"tag":   {IsNullable: true},
+			"tags":  {Items: &runtime.Prop{}},
+		}},
+	},
+}
+```
+
+Without `validation.request` the table holds only the objects that lead to a default. Without a
+default, nothing is generated. `examples/bodies/checked` and `examples/bodies/defaults` show both.
 
 ## Errors
 
@@ -480,7 +536,8 @@ The runtime package holds what the generated HTTP code and clients use, standard
 - Bodies: `DecodeJSON`, `DecodeForm` (bracketed keys nest: `address[city]=Berlin`,
   `items[0]=a`; one value for a struct or map is read as JSON, else as a string), `DecodeMultipart` (files as `runtime.File`, JSON parts into structs),
   `DecodeText`, `DecodeBytes`, `DecodeFile`. A type with `UnmarshalForm` reads a form itself. A required body that is empty gives `ErrBodyEmpty`;
-  an empty optional one is left alone.
+  an empty optional one is left alone. `Bodies` with its methods `JSON`, `Form` and `Multipart`
+  checks a body and fills its defaults before it is decoded.
 - Responses: `Write` sends a status, headers and a body: JSON for most values, text and bytes as
   they are, a `File` streamed.
 - Clients: `RequestBuilder`, `EncodeForm`, `WriteMultipart`, `Send`, `Decode`, `DecodeSuccess`,
