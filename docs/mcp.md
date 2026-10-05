@@ -129,10 +129,10 @@ validates every call against:
 - A default that does not fit its own schema, such as `default: "20"` on an integer, is left out
   with a `default-ignored` warning. The SDK checks every default when a tool is added and panics
   on one that does not fit.
-- A pattern comes over when Go's regexp, which the SDK checks it with, compiles it. A `\uXXXX`
-  escape, which Go does not read, is written as `\xHH` up to U+00FF and as the character itself
-  above, so Go and an ECMA-262 engine read the pattern the same. A pattern Go cannot compile,
-  such as one with a lookahead or a repeat count above 1000, is left out with a
+- A pattern comes over when Go's regexp, which the SDK checks it with, compiles it. It is
+  written as for [validation](validation.md#patterns), with `\xHH` up to U+00FF and the
+  character itself above, so Go and an ECMA-262 engine read the pattern the same. A pattern Go
+  cannot compile, such as one with a lookahead or a repeat count above 1000, is left out with a
   `pattern-unsupported` warning, since the SDK panics on it too. A default that does not match
   its pattern is left out as above.
 - No other property is allowed, so a misspelled parameter is an error the assistant sees, not a

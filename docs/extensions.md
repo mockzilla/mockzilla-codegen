@@ -93,4 +93,5 @@ A type with a sensitive value gets two methods:
 - `LogValue()` makes `log/slog` log the masked copy.
 
 JSON encoding stays raw: `json.Marshal(user)` sends the real values, `json.Marshal(user.Masked())`
-the masked ones. A regex pattern RE2 cannot compile falls back to the full mask, with a warning.
+the masked ones. A regex pattern is ECMA-262 and read as for [validation](validation.md#patterns).
+One Go cannot compile falls back to the full mask, with a warning.

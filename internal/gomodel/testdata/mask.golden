@@ -38,7 +38,7 @@ Clash struct models.types
   Masked2 *string json=masked omitempty sensitive
   LogValue2 *string json=logValue omitempty
   * mask Masked2 full pointer
-pattern patternUserSsn models.types "\\d"
+pattern patternUserSsn models.types "\\d" "\\d"
 ---
 warning pattern-unsupported 16:14 /components/schemas/User/properties/odd: pattern "(?=x)" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?=`); it is not used
 info name-clash 43:17 /components/schemas/Clash/properties/masked: "Masked" is reserved, renamed to "Masked2"

@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	patternPetCode = regexp.MustCompile(`^[A-Z]+$`)
+	patternPetCode = regexp.MustCompile(`^[A-Z][^\n\r\x{2028}\x{2029}]$`)
 )
 
 type Owner struct {
@@ -53,7 +53,7 @@ func (p Pet) Validate() error {
 	errs.Append("name", runtime.MaxLength(p.Name, 9))
 	errs.Append("name", runtime.Const(p.Name, "Rex"))
 	if p.Code != nil {
-		errs.Append("code", runtime.Pattern(*p.Code, patternPetCode))
+		errs.Append("code", runtime.Pattern(*p.Code, patternPetCode, `^[A-Z].$`))
 	}
 	errs.Append("weight", runtime.Minimum(p.Weight, 0, true))
 	errs.Append("weight", runtime.Maximum(p.Weight, 9.5, false))
@@ -78,7 +78,7 @@ func (p Pet) Validate() error {
 		errs.Append("labels", runtime.MinProperties(p.Labels, 1))
 		errs.Append("labels", runtime.MaxProperties(p.Labels, 2))
 		for _, key := range runtime.SortedKeys(p.Labels) {
-			errs.Append(runtime.Key("labels", key), runtime.Pattern(key, patternPetCode))
+			errs.Append(runtime.Key("labels", key), runtime.Pattern(key, patternPetCode, `^[A-Z].$`))
 			errs.Append(runtime.Key("labels", key), runtime.OneOf(key, "A", "B"))
 			item := p.Labels[key]
 			errs.Append(runtime.Key("labels", key), runtime.MinLength(item, 1))
@@ -90,7 +90,7 @@ func (p Pet) Validate() error {
 	errs.Append("secret", runtime.MinLength(p.Secret, 8))
 	if p.Photo != nil {
 		errs.Append("photo", runtime.MaxLength(runtime.Base64(p.Photo), 8))
-		errs.Append("photo", runtime.Pattern(runtime.Base64(p.Photo), patternPetCode))
+		errs.Append("photo", runtime.Pattern(runtime.Base64(p.Photo), patternPetCode, `^[A-Z].$`))
 	}
 	for _, key := range runtime.SortedKeys(p.Extra) {
 		errs.Append(runtime.Key("extra", key), runtime.MaxLength(key, 4))
@@ -105,7 +105,7 @@ func (p Pet) ValidateResponse() error {
 	errs.Append("name", runtime.MaxLength(p.Name, 9))
 	errs.Append("name", runtime.Const(p.Name, "Rex"))
 	if p.Code != nil {
-		errs.Append("code", runtime.Pattern(*p.Code, patternPetCode))
+		errs.Append("code", runtime.Pattern(*p.Code, patternPetCode, `^[A-Z].$`))
 	}
 	errs.Append("weight", runtime.Minimum(p.Weight, 0, true))
 	errs.Append("weight", runtime.Maximum(p.Weight, 9.5, false))
@@ -130,7 +130,7 @@ func (p Pet) ValidateResponse() error {
 		errs.Append("labels", runtime.MinProperties(p.Labels, 1))
 		errs.Append("labels", runtime.MaxProperties(p.Labels, 2))
 		for _, key := range runtime.SortedKeys(p.Labels) {
-			errs.Append(runtime.Key("labels", key), runtime.Pattern(key, patternPetCode))
+			errs.Append(runtime.Key("labels", key), runtime.Pattern(key, patternPetCode, `^[A-Z].$`))
 			errs.Append(runtime.Key("labels", key), runtime.OneOf(key, "A", "B"))
 			item := p.Labels[key]
 			errs.Append(runtime.Key("labels", key), runtime.MinLength(item, 1))
@@ -141,7 +141,7 @@ func (p Pet) ValidateResponse() error {
 	}
 	if p.Photo != nil {
 		errs.Append("photo", runtime.MaxLength(runtime.Base64(p.Photo), 8))
-		errs.Append("photo", runtime.Pattern(runtime.Base64(p.Photo), patternPetCode))
+		errs.Append("photo", runtime.Pattern(runtime.Base64(p.Photo), patternPetCode, `^[A-Z].$`))
 	}
 	for _, key := range runtime.SortedKeys(p.Extra) {
 		errs.Append(runtime.Key("extra", key), runtime.MaxLength(key, 4))

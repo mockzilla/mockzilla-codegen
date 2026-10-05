@@ -30,6 +30,10 @@ components:
           description: Printable characters, no space.
           type: string
           pattern: '^[\u0021-\u007E]+$'
+        label:
+          description: One word, with no space of any kind.
+          type: string
+          pattern: '^\S+$'
         owner:
           description: Anyone but root.
           type: string

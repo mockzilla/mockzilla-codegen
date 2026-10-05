@@ -129,7 +129,7 @@ func (o OwnerContact) Validate() error {
 		errs.Append("", o.Email.Validate())
 	}
 	if o.String != nil {
-		errs.Append("", runtime.Pattern(*o.String, patternOwnerContactString))
+		errs.Append("", runtime.Pattern(*o.String, patternOwnerContactString, `^\+[0-9]+$`))
 	}
 	return errs.Err()
 }

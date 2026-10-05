@@ -13,21 +13,18 @@ import (
 	"strconv"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/ecma"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
-// unicodeEscape is \uXXXX, which RE2 writes as \x{XXXX}.
-var unicodeEscape = regexp.MustCompile(`\\u([0-9a-fA-F]{4})`)
-
 // patternKey finds the variable of a pattern within one part.
 type patternKey struct {
-	part   string
-	source string
+	part string
+	text string
 }
 
-// patternSet holds the regular expressions generated code compiles, one variable per source and
-// part, named once every one is known.
+// patternSet holds one variable per pattern and part, named once every one is known.
 type patternSet struct {
 	namer  *naming.Namer
 	diags  *diag.Collector
@@ -41,10 +38,9 @@ func newPatternSet(n *naming.Namer, diags *diag.Collector) *patternSet {
 	return &patternSet{namer: n, diags: diags, byKey: map[patternKey]*Pattern{}, warned: map[string]bool{}}
 }
 
-// add returns the variable of pattern in part, wanting the name want. A pattern RE2 cannot compile
-// gives nil and a warning, once per place.
+// add returns the variable of pattern in part, or nil with a warning when Go cannot compile it.
 func (p *patternSet) add(part, pattern string, at spec.Origin, want string) *Pattern {
-	source := unicodeEscape.ReplaceAllString(pattern, `\x{$1}`)
+	source := ecma.RE2(pattern)
 	if _, err := regexp.Compile(source); err != nil {
 		if key := at.Pointer + "\x00" + pattern; !p.warned[key] {
 			p.warned[key] = true
@@ -59,11 +55,11 @@ func (p *patternSet) add(part, pattern string, at spec.Origin, want string) *Pat
 		return nil
 	}
 
-	key := patternKey{part: part, source: source}
+	key := patternKey{part: part, text: pattern}
 	if found, ok := p.byKey[key]; ok {
 		return found
 	}
-	found := &Pattern{Source: source, Part: part, Origin: origin(at)}
+	found := &Pattern{Text: pattern, Source: source, Part: part, Origin: origin(at)}
 	p.byKey[key] = found
 	p.list = append(p.list, found)
 	p.wants = append(p.wants, p.namer.Unexported("pattern", want))
