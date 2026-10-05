@@ -75,6 +75,15 @@ const (
 	StatusSold      Status = "sold"
 )
 
+// StatusValues returns the values of Status.
+func StatusValues() []Status {
+	return []Status{
+		StatusAvailable,
+		StatusPending,
+		StatusSold,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (s Status) Validate() error {
 	return runtime.OneOf(s, StatusAvailable, StatusPending, StatusSold)

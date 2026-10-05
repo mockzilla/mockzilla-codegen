@@ -6,6 +6,8 @@
 package runtime
 
 import (
+	"encoding/json"
+	"errors"
 	"math"
 	"regexp"
 	"testing"
@@ -14,6 +16,17 @@ import (
 )
 
 type level string
+
+type shade struct {
+	R int  `json:"r"`
+	G *int `json:"g,omitempty"`
+}
+
+type noJSON struct{}
+
+func (noJSON) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("no JSON")
+}
 
 func TestChecksOfValues(t *testing.T) {
 	t.Parallel()
@@ -67,6 +80,34 @@ func TestChecksOfValues(t *testing.T) {
 		{name: "Not the const", err: Const(2, 3), want: ValidationError{Message: "must be 3", Rule: RuleConst, Limit: 3}},
 		{name: "One of", err: OneOf(level("b"), "a", "b")},
 		{name: "None of", err: OneOf(level("c"), "a", "b"), want: ValidationError{Message: "must be one of a, b", Rule: RuleEnum, Limit: []level{"a", "b"}}},
+		{name: "One of by JSON as Go holds it", err: OneOfJSON(shade{R: 255}, `{"r":255,"g":null}`, `{"r":0,"g":255}`)},
+		{name: "Key order does not count", err: OneOfJSON(shade{G: new(255)}, `{"g":255,"r":0}`)},
+		{name: "Numbers in any compare by value", err: OneOfJSON[any](map[string]any{"a": []any{json.Number("1.50")}}, `{"a":[1.5]}`)},
+		{
+			name: "None of by JSON leaves out what Go cannot read",
+			err:  OneOfJSON(shade{R: 1}, `{"r":255}`, `{"r":"x"}`),
+			want: ValidationError{Message: `must be one of {"r":255}, {"r":"x"}`, Rule: RuleEnum, Limit: []shade{{R: 255}}},
+		},
+		{
+			name: "Objects differ by keys and values",
+			err:  OneOfJSON[any](map[string]any{"a": 1}, `[1]`, `{"a":1,"b":2}`, `{"b":1}`, `{"a":2}`),
+			want: ValidationError{
+				Message: `must be one of [1], {"a":1,"b":2}, {"b":1}, {"a":2}`,
+				Rule:    RuleEnum,
+				Limit:   []any{[]any{1.0}, map[string]any{"a": 1.0, "b": 2.0}, map[string]any{"b": 1.0}, map[string]any{"a": 2.0}},
+			},
+		},
+		{
+			name: "A number is no string and a list no object",
+			err:  OneOfJSON[any]([]any{json.Number("1")}, `["1"]`, `{"a":1}`),
+			want: ValidationError{Message: `must be one of ["1"], {"a":1}`, Rule: RuleEnum, Limit: []any{[]any{"1"}, map[string]any{"a": 1.0}}},
+		},
+		{name: "Strings compare as written", err: OneOfJSON[any]("a", `1`, `"a"`)},
+		{
+			name: "A value with no JSON is none of them",
+			err:  OneOfJSON(noJSON{}, `{}`),
+			want: ValidationError{Message: "must be one of {}", Rule: RuleEnum, Limit: []noJSON{{}}},
+		},
 	}
 
 	for _, tc := range tests {

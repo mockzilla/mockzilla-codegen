@@ -35,6 +35,15 @@ const (
 	StatusDelivered Status = "delivered"
 )
 
+// StatusValues returns the values of Status.
+func StatusValues() []Status {
+	return []Status{
+		StatusPlaced,
+		StatusInTransit,
+		StatusDelivered,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (s Status) Validate() error {
 	return runtime.OneOf(s, StatusPlaced, StatusInTransit, StatusDelivered)
@@ -48,6 +57,15 @@ const (
 	Priority3 Priority = 3
 )
 
+// PriorityValues returns the values of Priority.
+func PriorityValues() []Priority {
+	return []Priority{
+		Priority1,
+		Priority2,
+		Priority3,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (p Priority) Validate() error {
 	return runtime.OneOf(p, Priority1, Priority2, Priority3)
@@ -60,6 +78,14 @@ const (
 	Ratio1Dot5 Ratio = 1.5
 )
 
+// RatioValues returns the values of Ratio.
+func RatioValues() []Ratio {
+	return []Ratio{
+		Ratio0Dot5,
+		Ratio1Dot5,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (r Ratio) Validate() error {
 	return runtime.OneOf(r, Ratio0Dot5, Ratio1Dot5)
@@ -71,6 +97,14 @@ const (
 	OrderChannelWeb   OrderChannel = "web"
 	OrderChannelPhone OrderChannel = "phone"
 )
+
+// OrderChannelValues returns the values of OrderChannel.
+func OrderChannelValues() []OrderChannel {
+	return []OrderChannel{
+		OrderChannelWeb,
+		OrderChannelPhone,
+	}
+}
 
 // Validate checks the value against the constraints of the spec.
 func (o OrderChannel) Validate() error {

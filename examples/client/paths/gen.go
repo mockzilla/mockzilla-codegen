@@ -21,6 +21,13 @@ const (
 	ListUsersQueryActionListUsers ListUsersQueryAction = "ListUsers"
 )
 
+// ListUsersQueryActionValues returns the values of ListUsersQueryAction.
+func ListUsersQueryActionValues() []ListUsersQueryAction {
+	return []ListUsersQueryAction{
+		ListUsersQueryActionListUsers,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (l ListUsersQueryAction) Validate() error {
 	return runtime.OneOf(l, ListUsersQueryActionListUsers)

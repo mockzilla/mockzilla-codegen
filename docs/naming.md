@@ -91,7 +91,8 @@ and `UnmarshalJSON` on every struct, plus `Get`, `Set` and the `AdditionalProper
 struct with additional properties. A property called `validate` gives the field `Validate2`. A
 getter (`Get` + field, see [defaults](types.md#defaults)) never renames a field: when a field has
 its name, the getter is left out with a warning (`name-clash`). Enum constants clash with every
-other name in the package.
+other name in the package. An enum holds the name of its values func, `<Enum>Values`: a constant
+or a type that wants it is renamed, so the value `values` of `Status` gives `StatusValues2`.
 
 Operations become methods, so their names clash only with each other. An operation also holds the
 names of the other methods it gets: `<Op>Request` on the client, plus `<Op>WithResponse` with

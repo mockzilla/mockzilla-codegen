@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/jsonschema"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
@@ -517,10 +518,24 @@ func (c *collector) unionChildren(f *spec.Schema) []childSchema {
 	return out
 }
 
-// checkEnum reports an enum that cannot become constants, such as one on an object.
+// checkEnum warns of a scalar enum that gets no constants, and of other enum values that misfit.
 func (c *collector) checkEnum(f *spec.Schema, sh shape) {
 	isNotNull := func(v spec.Value) bool { return v.Kind != spec.KindNull }
-	if sh == shapeEnum || sh == shapeUnion || !slices.ContainsFunc(f.Enum, isNotNull) {
+	if sh == shapeEnum || !slices.ContainsFunc(f.Enum, isNotNull) {
+		return
+	}
+	if sh != shapePrimitive {
+		for _, v := range f.Enum {
+			if why := jsonschema.Misfit(v, f); v.Kind != spec.KindNull && why != "" {
+				c.diags.Append(diag.Diagnostic{
+					Severity: diag.Warning,
+					Code:     diag.CodeEnumValue,
+					Pointer:  f.Origin.Pointer,
+					Origin:   origin(f.Origin),
+					Message:  fmt.Sprintf("enum value %s does not fit its schema, so it is left out: %s", jsonschema.Marshal(v), why),
+				})
+			}
+		}
 		return
 	}
 

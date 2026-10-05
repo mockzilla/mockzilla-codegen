@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/jsonschema"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
@@ -35,9 +36,10 @@ var checkedFormats = []string{"uuid", "uri", "uri-reference", "ipv4", "ipv6", "h
 // keywordSet holds the keywords that constrain a value where it is used.
 type keywordSet struct {
 	jointChecks
-	limits   spec.Limits
-	format   string
-	constant *spec.Value
+	limits     spec.Limits
+	format     string
+	constant   *spec.Value
+	enumSchema *spec.Schema
 }
 
 // schemaChain follows a schema where it is used through its plain refs.
@@ -76,9 +78,9 @@ func (v *validator) validation(d *Decl) *Validation {
 	case KindEnum:
 		return &Validation{}
 	case KindStruct:
-		return &Validation{Checks: v.structChecks(d)}
+		return &Validation{Checks: slices.Concat(v.ownChecks(d), v.structChecks(d))}
 	case KindUnion:
-		checks := v.structChecks(d)
+		checks := slices.Concat(v.ownChecks(d), v.structChecks(d))
 		for _, vr := range d.Union.Variants {
 			c := v.check(d, vr.schema, vr.FieldType, d.Name+vr.Name)
 			c.Field = vr.Name
@@ -88,6 +90,14 @@ func (v *validator) validation(d *Decl) *Validation {
 	default:
 		return &Validation{Checks: appendCheck(nil, v.check(d, d.schema, d.Target, d.Name))}
 	}
+}
+
+// ownChecks compare a struct or union with its own enum; a type list leaves it to its variants.
+func (v *validator) ownChecks(d *Decl) []*Check {
+	if d.Union != nil && d.Union.isTypeList {
+		return nil
+	}
+	return appendCheck(nil, &Check{Rules: enumRules(v.keywords(d.schema).enumSchema)})
 }
 
 // structChecks checks each field, then the values of additional properties.
@@ -157,6 +167,9 @@ func (v *validator) addKeywords(out *keywordSet, x *spec.Schema) {
 		out.add(part)
 		out.format = cmp.Or(out.format, part.Format)
 		out.constant = cmp.Or(out.constant, part.Const)
+		if out.enumSchema == nil && len(part.Enum) > 0 {
+			out.enumSchema = part
+		}
 	}
 }
 
@@ -234,6 +247,9 @@ func (v *validator) rules(d *Decl, kw *keywordSet, t Type, name string) []Rule {
 		out = appendCount(out, RuleMinProperties, lim.MinProperties)
 		out = appendCount(out, RuleMaxProperties, lim.MaxProperties)
 	case groupOther:
+	}
+	if isJSONValue(t) {
+		out = append(out, enumRules(kw.enumSchema)...)
 	}
 	return out
 }
@@ -313,11 +329,11 @@ func keepChecked(decls []*Decl) {
 			d.Validation = nil
 			continue
 		}
-		var kept []*Check
+		var live []*Check
 		for _, c := range d.Validation.Checks {
-			kept = appendCheck(kept, dropUnchecked(c, checked))
+			live = appendCheck(live, dropUnchecked(c, checked))
 		}
-		d.Validation.Checks = kept
+		d.Validation.Checks = live
 	}
 }
 
@@ -424,6 +440,19 @@ func groupOf(t Type) ruleGroup {
 	return groupOther
 }
 
+// isJSONValue reports a list, map or any, whose enum is checked where it is used.
+func isJSONValue(t Type) bool {
+	switch t := unalias(t).(type) {
+	case Slice:
+		return t.Elem != byteType
+	case Map:
+		return true
+	case Builtin:
+		return t == anyType
+	}
+	return false
+}
+
 func isInteger(t Type) bool {
 	b, ok := unalias(t).(Builtin)
 	return ok && builtinKinds(b.Name) == JSONInteger
@@ -475,6 +504,23 @@ func appendBound(out []Rule, kind RuleKind, b *spec.Bound) []Rule {
 		return out
 	}
 	return append(out, Rule{Kind: kind, Number: b.Value.String(), IsExclusive: b.Exclusive})
+}
+
+// enumRules compare a value as JSON with the values of the enum of s that fit s, but null.
+func enumRules(s *spec.Schema) []Rule {
+	if s == nil {
+		return nil
+	}
+	var values []spec.Value
+	for _, e := range s.Enum {
+		if e.Kind != spec.KindNull && jsonschema.Misfit(e, s) == "" {
+			values = append(values, e)
+		}
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	return []Rule{{Kind: RuleEnumJSON, Values: values}}
 }
 
 func appendConst(out []Rule, c *spec.Value, isFit bool) []Rule {

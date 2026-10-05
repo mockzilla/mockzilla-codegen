@@ -61,6 +61,15 @@ const (
 	PetKindBird PetKind = "bird"
 )
 
+// PetKindValues returns the values of PetKind.
+func PetKindValues() []PetKind {
+	return []PetKind{
+		PetKindDog,
+		PetKindCat,
+		PetKindBird,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (p PetKind) Validate() error {
 	return runtime.OneOf(p, PetKindDog, PetKindCat, PetKindBird)

@@ -20,8 +20,8 @@ import (
 const commentWidth = 100
 
 // Comment turns text into // lines at most 100 columns wide. Long lines wrap at spaces; the
-// line breaks and indentation of text stay, runs of blank lines become one. Characters Go source
-// cannot hold are dropped. Blank text gives "".
+// line breaks, indentation and spacing of text stay, runs of blank lines become one. Characters
+// Go source cannot hold are dropped. Blank text gives "".
 func Comment(text string) string {
 	var out []string
 	isBlank := false
@@ -76,26 +76,38 @@ func Literal(v spec.Value) string {
 	}
 }
 
-// wrap splits one line into comment lines, keeping its indentation on each. A word longer than
-// the width, such as a URL, gets a line of its own.
+// wrap splits one line into comment lines at spaces, keeping its indentation on each and the
+// spaces between words. A word longer than the width, such as a URL, gets a line of its own.
 func wrap(line string) []string {
 	rest := strings.TrimLeftFunc(line, unicode.IsSpace)
 	prefix := "// " + line[:len(line)-len(rest)]
 
 	var out []string
 	cur := prefix
-	for _, word := range strings.Fields(rest) {
+	for rest != "" {
+		word := strings.TrimLeftFunc(rest, isBreak)
+		gap := rest[:len(rest)-len(word)]
+		end := strings.IndexFunc(word, isBreak)
+		if end < 0 {
+			end = len(word)
+		}
+		word, rest = word[:end], word[end:]
 		switch {
 		case cur == prefix:
 			cur += word
-		case utf8.RuneCountInString(cur)+1+utf8.RuneCountInString(word) > commentWidth:
+		case utf8.RuneCountInString(cur)+utf8.RuneCountInString(gap)+utf8.RuneCountInString(word) > commentWidth:
 			out = append(out, cur)
 			cur = prefix + word
 		default:
-			cur += " " + word
+			cur += gap + word
 		}
 	}
 	return append(out, cur)
+}
+
+// isBreak reports a space a comment line may break at: any but a no-break space.
+func isBreak(r rune) bool {
+	return unicode.IsSpace(r) && r != '\u00A0' && r != '\u2007' && r != '\u202F'
 }
 
 // sourceSafe drops what Go source cannot hold: invalid UTF-8, NUL and other control characters

@@ -171,6 +171,15 @@ func (p Pets) ValidateResponse() error {
 	return errs.Err()
 }
 
+type Corner struct{}
+
+// Validate checks the value against the constraints of the spec.
+func (c Corner) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.OneOfJSON(c, `[1]`, "{\"a\":\"x`y\"}"))
+	return errs.Err()
+}
+
 type Problem struct {
 	Message string `json:"message"`
 }

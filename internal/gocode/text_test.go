@@ -46,6 +46,17 @@ func TestComment(t *testing.T) {
 		{name: "A word longer than the width gets its own line", text: "see " + url + " now", want: "// see\n// " + url + "\n// now"},
 		{name: "Characters Go source cannot hold are dropped", text: "a\x00b\r\nc\ufeffd\xffe\x7f", want: "// ab\n// cde"},
 		{name: "Tabs stay", text: "\tcode", want: "// \tcode"},
+		{name: "Spacing inside a line stays", text: "a  b\t c   d", want: "// a  b\t c   d"},
+		{
+			name: "A line breaks at a run of spaces and drops it",
+			text: strings.Repeat("x", 95) + "   yy  zz",
+			want: "// " + strings.Repeat("x", 95) + "\n// yy  zz",
+		},
+		{
+			name: "A no-break space never breaks a line",
+			text: strings.Repeat("x", 95) + "\xc2\xa0yy zz",
+			want: "// " + strings.Repeat("x", 95) + "\xc2\xa0yy\n// zz",
+		},
 	}
 
 	for _, tc := range tests {

@@ -322,7 +322,8 @@ branch, its properties join the type as optional fields.
 
 ## Enums
 
-An enum is a named type over its base type with one constant per value, in spec order:
+An enum is a named type over its base type with one constant per value, in spec order, and a
+func that returns them:
 
 ```go
 type Status string
@@ -331,6 +332,14 @@ const (
 	StatusActive     Status = "active"
 	StatusInProgress Status = "in_progress"
 )
+
+// StatusValues returns the values of Status.
+func StatusValues() []Status {
+	return []Status{
+		StatusActive,
+		StatusInProgress,
+	}
+}
 ```
 
 - The base type comes from `type`, or from the values when there is none.
@@ -339,7 +348,11 @@ const (
   booleans become strings.
 - Repeated values get one constant.
 - A `date-time` string with an enum stays a `string`, since constants cannot be `time.Time`.
-- An enum on an object or an array, or with values of different kinds, is left out, with a warning.
+- An enum on an object, an array or a union, or with values of different kinds, gets no type of
+  its own. `Validate` compares the value with its values as JSON, see
+  [validation](validation.md#checks).
+- `<Enum>Values` belongs to the enum: a constant or a type that wants the name gets a number. The
+  value `values` of `Status` gives the constant `StatusValues2`.
 - `naming.enum-prefix: false` drops the type name from constants, unless the short name is taken.
 - `x-enum-names` names the constants as written. A name that is not exported gets a warning.
 

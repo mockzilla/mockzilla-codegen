@@ -17,4 +17,4 @@ op PingTool GET /pings/tool
 op NoticeRequest GET /notices/request
 op Notice POST notice
 ---
-info name-clash 56:7 /paths/~1reports~1tool/get: "ReportTool" is a method of /paths/~1reports/get, renamed to "ReportTool2"
+info name-clash 56:7 /paths/~1reports~1tool/get: "ReportTool" is built from /paths/~1reports/get, renamed to "ReportTool2"

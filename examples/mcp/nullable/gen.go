@@ -47,6 +47,14 @@ const (
 	AdoptionPriorityLow  AdoptionPriority = "low"
 )
 
+// AdoptionPriorityValues returns the values of AdoptionPriority.
+func AdoptionPriorityValues() []AdoptionPriority {
+	return []AdoptionPriority{
+		AdoptionPriorityHigh,
+		AdoptionPriorityLow,
+	}
+}
+
 // Validate checks the value against the constraints of the spec.
 func (a AdoptionPriority) Validate() error {
 	return runtime.OneOf(a, AdoptionPriorityHigh, AdoptionPriorityLow)

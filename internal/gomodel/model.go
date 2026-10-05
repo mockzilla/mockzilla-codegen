@@ -211,7 +211,7 @@ func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 	r := readers{flat: flat, unions: newUnionReader(opts.Namer, flat), ext: ext, formats: opts.FormatTypes, hasHeaders: opts.HasResponseHeaders}
 	c := newCollector(doc, r, &diags)
 	c.run(ops)
-	types := resolveTypes(c.pending, reserved, &diags)
+	types := resolveTypes(c.pending, reserved, opts.Namer, &diags)
 
 	b := newBuilder(opts, r, &diags)
 	decls := b.build(c.pending, ops, c.headers)

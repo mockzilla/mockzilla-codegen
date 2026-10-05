@@ -34,9 +34,29 @@ Stamp enum string models.enums
 Numbers enum string models.enums
   Numbers1 "1"
   NumbersTrue "true"
+Filter enum string models.enums
+  All "all"
+  Values "values"
+FilterValuesSchema defined []Filter models.types
+Point struct models.types
+  X int json=x required
+Pair defined []int models.types
+Either union models.unions
+  | oneOf text
+  | String *string kinds=string
+  | Int *int kinds=integer
+Typed union models.unions
+  | oneOf
+  | String *TypedString kinds=string
+  | AnyMap map[string]any kinds=object
+TypedString enum string models.enums
+  TypedStringA "a"
 Holder struct models.types
   Status *Status json=status nullable omitempty
   Inline *HolderInline json=inline omitempty
+  Mixed Mixed json=mixed omitempty
+  Tags []string json=tags omitempty
+  Point *Point json=point nullable omitempty
 HolderInline enum string models.enums
   X "x"
 ---
@@ -44,9 +64,12 @@ warning enum-value 8:12 /components/schemas/Level: enum value 2.5 does not fit t
 warning enum-value 8:12 /components/schemas/Level: enum value 3 does not fit type integer; it is left out
 info name-clash 11:12 /components/schemas/Guess/enum/0: "N1" is used by /components/schemas/Ratio/enum/1, renamed to "Guess1"
 info name-clash 12:15 /components/schemas/GuessInt/enum/0: "N1" is used by /components/schemas/Ratio/enum/1, renamed to "GuessInt1"
-warning enum-ignored 15:12 /components/schemas/Mixed: enum values have no common constant type; the enum is left out
-warning enum-ignored 16:10 /components/schemas/Bad: enum values have no common constant type; the enum is left out
-warning enum-ignored 17:15 /components/schemas/OnObject: enum values do not fit type object; the enum is left out
 warning enum-ignored 19:14 /components/schemas/NoneFit: enum values do not fit type integer; the enum is left out
 info name-clash 21:14 /components/schemas/Numbers/enum/0: "N1" is used by /components/schemas/Ratio/enum/1, renamed to "Numbers1"
 info name-clash 21:14 /components/schemas/Numbers/enum/1: "True" is used by /components/schemas/Flag/enum/0, renamed to "NumbersTrue"
+info name-clash 23:19 /components/schemas/FilterValues: "FilterValues" is built from /components/schemas/Filter, renamed to "FilterValuesSchema"
+warning enum-value 25:7 /components/schemas/Point: enum value {"x":"a"} does not fit its schema, so it is left out: /x is a string, the schema wants integer
+warning enum-value 25:7 /components/schemas/Point: enum value {"y":2} does not fit its schema, so it is left out: it lacks the required property "x"
+warning enum-value 32:7 /components/schemas/Either: enum value true does not fit its schema, so it is left out: it fits none of oneOf
+warning enum-value 34:12 /components/schemas/Typed: enum value 2 does not fit its schema, so it is left out: it is an integer, the schema wants string or object
+info name-clash 34:12 /components/schemas/Typed/type/string/enum/0: "A" is used by /components/schemas/GuessText/enum/0, renamed to "TypedStringA"
