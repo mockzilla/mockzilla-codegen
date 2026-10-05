@@ -265,6 +265,12 @@ func dumpField(b *strings.Builder, f *Field) {
 	for _, t := range f.Tags {
 		b.WriteString(" " + t.Key + "=" + t.Value)
 	}
+	if f.Default != "" {
+		b.WriteString(" default=" + f.Default)
+	}
+	if f.Value != nil {
+		b.WriteString(" checks=" + bodyText(f.Value))
+	}
 	if f.Doc != "" {
 		b.WriteString(" doc=" + strconv.Quote(f.Doc))
 	}
@@ -288,7 +294,11 @@ func dumpOperation(b *strings.Builder, op *Operation) {
 		}
 	}
 	for _, c := range op.Bodies {
-		b.WriteString("  body " + c.MediaType + " " + typeText(c.Type) + itemText(c) + "\n")
+		b.WriteString("  body " + c.MediaType + " " + typeText(c.Type) + itemText(c))
+		if c.Body != nil {
+			b.WriteString(" checks=" + bodyText(c.Body))
+		}
+		b.WriteString("\n")
 	}
 	for _, r := range op.Responses {
 		for _, c := range r.Contents {
@@ -298,6 +308,23 @@ func dumpOperation(b *strings.Builder, op *Operation) {
 			b.WriteString("  response " + r.Status + " headers " + r.Headers.Name + "\n")
 		}
 	}
+}
+
+// bodyText writes what the server checks: [] items, map[] values, a struct, and ? where null fits.
+func bodyText(v *BodyValue) string {
+	out := "value"
+	switch {
+	case v.Items != nil:
+		out = "[]" + bodyText(v.Items)
+	case v.Values != nil:
+		out = "map[]" + bodyText(v.Values)
+	case v.Object != nil:
+		out = v.Object.Name
+	}
+	if v.IsNullable {
+		out += "?"
+	}
+	return out
 }
 
 func typeText(t Type) string {

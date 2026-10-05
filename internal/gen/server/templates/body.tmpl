@@ -1,5 +1,25 @@
-{{- if .IsJSON}}
+{{- if and .IsJSON .Check}}
+		body, err := a.opts.Presence.JSON(r.Body, {{.Runtime}}.Prop{{template "server/prop.tmpl" .Check}})
+		if err != nil {
+			a.failBody(w, r, {{.OperationID}}, err)
+			{{.Return}}
+		}
+		if err = a.opts.JSONDecoder(body, {{.Target}}, {{.IsRequired}}); err != nil {
+			a.failDecode(w, r, {{.OperationID}}, err)
+			{{.Return}}
+		}
+{{- else if .IsJSON}}
 		if err := a.opts.JSONDecoder(r.Body, {{.Target}}, {{.IsRequired}}); err != nil {
+			a.failDecode(w, r, {{.OperationID}}, err)
+			{{.Return}}
+		}
+{{- else if and .IsForm .Check}}
+		body, err := a.opts.Presence.Form(r.Body, {{.Runtime}}.Prop{{template "server/prop.tmpl" .Check}})
+		if err != nil {
+			a.failBody(w, r, {{.OperationID}}, err)
+			{{.Return}}
+		}
+		if err = {{.Runtime}}.DecodeForm(body, {{.Target}}, {{.IsRequired}}); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
 			{{.Return}}
 		}
@@ -9,6 +29,12 @@
 			{{.Return}}
 		}
 {{- else if .IsMultipart}}
+{{- with .Check}}
+		if err := a.opts.Presence.Multipart(r, {{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, a.opts.MultipartMaxMemory); err != nil {
+			a.failBody(w, r, {{$.OperationID}}, err)
+			{{$.Return}}
+		}
+{{- end}}
 		opts.{{.Field}} = &{{.Type}}{}
 		if err := {{.Runtime}}.DecodeMultipart(r, opts.{{.Field}}, a.opts.MultipartMaxMemory); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)

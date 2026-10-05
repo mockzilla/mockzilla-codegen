@@ -40,17 +40,22 @@ type keywordSet struct {
 	constant *spec.Value
 }
 
+// schemaChain follows a schema where it is used through its plain refs.
+type schemaChain struct {
+	flat  *flattener
+	decls map[*spec.Schema]*Decl
+}
+
 // validator plans the Validate methods once every type is settled. A declaration gets them when
 // it checks something, itself or through the types it holds.
 type validator struct {
+	schemaChain
 	opts       Options
-	flat       *flattener
-	decls      map[*spec.Schema]*Decl
 	patternSet *patternSet
 }
 
 func newValidator(opts Options, flat *flattener, decls map[*spec.Schema]*Decl, patterns *patternSet) *validator {
-	return &validator{opts: opts, flat: flat, decls: decls, patternSet: patterns}
+	return &validator{schemaChain: schemaChain{flat: flat, decls: decls}, opts: opts, patternSet: patterns}
 }
 
 // plan sets the Validation of every declaration.
@@ -155,24 +160,6 @@ func (v *validator) addKeywords(out *keywordSet, x *spec.Schema) {
 	}
 }
 
-// chain is s and the schemas its plain refs lead to, stopping before a declared type that is no
-// alias.
-func (v *validator) chain(s *spec.Schema) []*spec.Schema {
-	var out []*spec.Schema
-	for s != nil && !slices.Contains(out, s) {
-		if d := v.decls[s]; d != nil && d.Kind != KindAlias && len(out) > 0 {
-			break
-		}
-		out = append(out, s)
-		r := refOf(s)
-		if r == nil {
-			break
-		}
-		s = r.Target
-	}
-	return out
-}
-
 // keyRules are what propertyNames checks of each key; a key is a string, so every ref is followed.
 func (v *validator) keyRules(d *Decl, s *spec.Schema, name string) []Rule {
 	names := v.propertyNamesOf(s)
@@ -202,33 +189,6 @@ func (v *validator) keyRules(d *Decl, s *spec.Schema, name string) []Rule {
 		out = append(out, Rule{Kind: RuleEnum, Values: values})
 	}
 	return out
-}
-
-func (v *validator) propertyNamesOf(s *spec.Schema) *spec.Schema {
-	for _, x := range v.chain(s) {
-		if f := v.flat.flatten(x); f.PropertyNames != nil {
-			return f.PropertyNames
-		}
-	}
-	return nil
-}
-
-func (v *validator) itemsOf(s *spec.Schema) *spec.Schema {
-	for _, x := range v.chain(s) {
-		if f := v.flat.flatten(x); f.Items != nil {
-			return f.Items
-		}
-	}
-	return nil
-}
-
-func (v *validator) valuesOf(s *spec.Schema) *spec.Schema {
-	for _, x := range v.chain(s) {
-		if f := v.flat.flatten(x); f.AdditionalProperties.Mode == spec.AdditionalSchema {
-			return f.AdditionalProperties.Schema
-		}
-	}
-	return nil
 }
 
 // rules are the keyword checks that fit a value of type t.
@@ -287,6 +247,51 @@ func (v *validator) patterns(d *Decl, kw *keywordSet, name string) []Rule {
 		}
 	}
 	return out
+}
+
+// chain is s and the schemas its plain refs lead to, stopping before a declared type that is no
+// alias.
+func (c schemaChain) chain(s *spec.Schema) []*spec.Schema {
+	var out []*spec.Schema
+	for s != nil && !slices.Contains(out, s) {
+		if d := c.decls[s]; d != nil && d.Kind != KindAlias && len(out) > 0 {
+			break
+		}
+		out = append(out, s)
+		r := refOf(s)
+		if r == nil {
+			break
+		}
+		s = r.Target
+	}
+	return out
+}
+
+func (c schemaChain) propertyNamesOf(s *spec.Schema) *spec.Schema {
+	for _, x := range c.chain(s) {
+		if f := c.flat.flatten(x); f.PropertyNames != nil {
+			return f.PropertyNames
+		}
+	}
+	return nil
+}
+
+func (c schemaChain) itemsOf(s *spec.Schema) *spec.Schema {
+	for _, x := range c.chain(s) {
+		if f := c.flat.flatten(x); f.Items != nil {
+			return f.Items
+		}
+	}
+	return nil
+}
+
+func (c schemaChain) valuesOf(s *spec.Schema) *spec.Schema {
+	for _, x := range c.chain(s) {
+		if f := c.flat.flatten(x); f.AdditionalProperties.Mode == spec.AdditionalSchema {
+			return f.AdditionalProperties.Schema
+		}
+	}
+	return nil
 }
 
 // keepChecked drops the Validation of declarations that check nothing, and the nested calls to

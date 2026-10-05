@@ -411,6 +411,17 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
+var bodyPresence = runtime.Presence{
+	IsChecked: true,
+	Objects: []runtime.Object{
+		{Name: "NewPet", Props: []runtime.Prop{
+			{Key: "name", IsRequired: true},
+			{Key: "status"},
+			{Key: "tag", IsNullable: true},
+		}},
+	},
+}
+
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
@@ -418,6 +429,7 @@ type ServerOptions struct {
 	ErrorHandler       runtime.ErrorHandler
 	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
+	Presence           runtime.PresenceChecker
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -429,6 +441,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 		ErrorHandler:       runtime.DefaultErrorHandler{},
 		JSONDecoder:        runtime.DecodeJSON,
 		MultipartMaxMemory: 67108864,
+		Presence:           bodyPresence,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -461,6 +474,13 @@ func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error
 func WithMultipartMaxMemory(n int64) ServerOption {
 	return func(o *ServerOptions) {
 		o.MultipartMaxMemory = n
+	}
+}
+
+// WithPresence sets what checks the keys of request bodies and fills their defaults.
+func WithPresence(p runtime.PresenceChecker) ServerOption {
+	return func(o *ServerOptions) {
+		o.Presence = p
 	}
 }
 
@@ -524,7 +544,12 @@ func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
 	opts := &CreatePetServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
-		if err := a.opts.JSONDecoder(r.Body, &opts.Body, true); err != nil {
+		body, err := a.opts.Presence.JSON(r.Body, runtime.Prop{Object: "NewPet"})
+		if err != nil {
+			a.failBody(w, r, "CreatePet", err)
+			return
+		}
+		if err = a.opts.JSONDecoder(body, &opts.Body, true); err != nil {
 			a.failDecode(w, r, "CreatePet", err)
 			return
 		}
@@ -622,6 +647,14 @@ func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.
 
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
 	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
+}
+
+func (a *HTTPAdapter) failBody(w http.ResponseWriter, r *http.Request, id string, err error) {
+	kind := runtime.ErrorDecode
+	if runtime.IsValidation(err) {
+		kind = runtime.ErrorValidation
+	}
+	a.fail(w, r, &runtime.HandlerError{Kind: kind, OperationID: id, Err: err})
 }
 
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {

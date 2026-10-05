@@ -52,7 +52,8 @@ type ErrorsView struct {
 }
 
 // AdapterView is the data of the adapter part. Service is the interface, as the file writes it;
-// Handler is the shape of the handlers the framework takes.
+// Handler is the shape of the handlers the framework takes. Presence is the table the handlers
+// check bodies against, nil when none does.
 type AdapterView struct {
 	Service             string
 	Runtime             string
@@ -64,6 +65,7 @@ type AdapterView struct {
 	IsResponseValidated bool
 	Handler             framework.Handler
 	Operations          []HandlerView
+	Presence            *PresenceView
 }
 
 // HandlerView is one handler method. ID is the operation name as a string literal. Bodies are
@@ -111,7 +113,8 @@ type ParamView struct {
 // BodyView is one media type of the request body. MediaType is quoted, in lower case and without
 // parameters; OperationID is quoted; Target is the address of the options field; Type is the
 // struct a multipart form fills; Assign is the expression that turns text, data or file, the
-// decoded body, into the field's type; Return is the statement that leaves the handler.
+// decoded body, into the field's type; Return is the statement that leaves the handler. Check is
+// what the body is checked against before it is decoded, nil when it is not.
 type BodyView struct {
 	Kind        string
 	MediaType   string
@@ -129,15 +132,17 @@ type BodyView struct {
 	Type        string
 	Assign      string
 	Return      string
+	Check       *PropView
 }
 
-// bodyAt is what the bodies of one operation share: the operation, and the statement that leaves
-// its handler.
+// bodyAt is what the bodies of one operation share: the operation, the statement that leaves its
+// handler, and the table its bodies are checked against.
 type bodyAt struct {
 	id         string
 	isRequired bool
 	ret        string
 	scope      *gocode.Scope
+	table      *presenceTable
 }
 
 // conversion is how a decoded body of the raw type lands in a field of the target type.
@@ -173,13 +178,15 @@ func adapterView(g *Generator, s *gocode.Scope) *AdapterView {
 	if v.MaxMemory <= 0 {
 		v.MaxMemory = runtime.DefaultMultipartMemory
 	}
+	table := newPresenceTable(g.ops, g.opts.ValidateRequest, v.Runtime)
 	for _, op := range g.ops {
-		v.Operations = append(v.Operations, handlerView(g, op, s))
+		v.Operations = append(v.Operations, handlerView(g, op, s, table))
 	}
+	v.Presence = table.view()
 	return v
 }
 
-func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope) HandlerView {
+func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope, table *presenceTable) HandlerView {
 	v := HandlerView{
 		Name:    op.Name,
 		ID:      gocode.Quote(op.Name),
@@ -204,7 +211,7 @@ func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope) HandlerVi
 	}
 
 	v.IsBodyRequired = op.Spec.Body != nil && op.Spec.Body.Required
-	at := bodyAt{id: v.ID, isRequired: v.IsBodyRequired, ret: g.opts.Framework.Handler(s).Return, scope: s}
+	at := bodyAt{id: v.ID, isRequired: v.IsBodyRequired, ret: g.opts.Framework.Handler(s).Return, scope: s, table: table}
 	fields := operation.BodyFields(op.Bodies, g.opts.Namer)
 	seen := []string{""}
 	for i, c := range op.Bodies {
@@ -283,11 +290,11 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 
 	switch v.Kind {
 	case bodyJSON:
-		v.IsJSON = true
+		v.IsJSON, v.Check = true, at.table.root(c, v.Kind)
 	case bodyForm:
-		v.IsForm = true
+		v.IsForm, v.Check = true, at.table.root(c, v.Kind)
 	case bodyMultipart:
-		v.IsMultipart, v.Type = true, s.Expr(base)
+		v.IsMultipart, v.Type, v.Check = true, s.Expr(base), at.table.root(c, v.Kind)
 	case bodyFile:
 		v.IsFile, v.Assign = true, convert("file", conversion{raw: fileType, target: base, isPointer: isPointer}, s)
 	case bodyText:
