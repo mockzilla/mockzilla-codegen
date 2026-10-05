@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info: {title: t, version: '1'}
+paths:
+  /items:
+    get:
+      parameters:
+        - {name: '', in: query, schema: {type: string}}
+        - {name: q, in: query, schema: {type: string}}
+      responses:
+        '200':
+          description: ok
+          headers:
+            '': {schema: {type: string}}
+            X-Rate: {schema: {type: integer}}
+components:
+  schemas:
+    Empty:
+      type: object
+      properties:
+        '': {type: string}
+        name: {type: string}

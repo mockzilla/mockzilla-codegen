@@ -54,7 +54,8 @@ func (o *ListPetsServiceRequestOptions) Validate() error
   (`param-unsupported`).
 - A parameter without `in`, or with an `in` other than `path`, `query`, `header`, `cookie` and
   `querystring`, gets no field, and neither does a path parameter whose `{name}` is not in the
-  path: nothing could fill it. Generation warns (`param-in`, `path-param-unused`).
+  path: nothing could fill it. Generation warns (`param-in`, `path-param-unused`). So does a
+  parameter or response header named `""` (`name-empty`).
 - `Body` holds the request body. An operation with several media types gets one field per media
   type, named after it: `BodyJSON`, `BodyForm`, `BodyMultipart`, `BodyText`. Two media types that
   would share a name are told apart by their type: `BodyXML` for `application/xml`, `BodyTextXML`

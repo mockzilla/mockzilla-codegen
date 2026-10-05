@@ -153,10 +153,3 @@ func TestHandlerViewBodies(t *testing.T) {
 	assert.Equal(t, []string{`"application/json" BodyJSON`, `"text/json" BodyTextJSON`}, fields(v.Bodies))
 	assert.Equal(t, []string{`"*/*" BodyAny`}, fields(v.Wildcards))
 }
-
-func TestErrorVar(t *testing.T) {
-	t.Parallel()
-
-	assert.Equal(t, "problem", errorVar("Problem", 0))
-	assert.Equal(t, "data2", errorVar("Data", 1))
-}

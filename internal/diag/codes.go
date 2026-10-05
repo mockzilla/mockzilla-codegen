@@ -20,6 +20,7 @@ const (
 	CodeOptionalPathParam      = "optional-path-param"
 	CodeParamIn                = "param-in"
 	CodePathParamUnused        = "path-param-unused"
+	CodeNameEmpty              = "name-empty"
 	CodeDuplicateParam         = "duplicate-param"
 	CodeOperationIDDuplicate   = "operation-id-duplicate"
 	CodeOverlayTarget          = "overlay-target"
