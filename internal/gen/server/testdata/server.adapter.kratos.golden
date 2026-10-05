@@ -112,9 +112,9 @@ func (a *HTTPAdapter) ListPets(c khttp.Context) error {
 
 	res, err := a.svc.ListPets(r.Context(), opts)
 	if err != nil {
-		if problem, ok := runtime.AsError[Problem](err); ok {
+		if e, ok := runtime.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/json")
-			a.opts.ErrorHandler.HandleError(w, r, 500, problem)
+			a.opts.ErrorHandler.HandleError(w, r, 500, e)
 			return nil
 		}
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: err})
@@ -186,9 +186,9 @@ func (a *HTTPAdapter) CreatePet(c khttp.Context) error {
 
 	res, err := a.svc.CreatePet(r.Context(), opts)
 	if err != nil {
-		if problem, ok := runtime.AsError[Problem](err); ok {
+		if e, ok := runtime.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/problem+json")
-			a.opts.ErrorHandler.HandleError(w, r, 400, problem)
+			a.opts.ErrorHandler.HandleError(w, r, 400, e)
 			return nil
 		}
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreatePet", Err: err})
@@ -234,9 +234,9 @@ func (a *HTTPAdapter) DeletePet(c khttp.Context) error {
 
 	res, err := a.svc.DeletePet(r.Context(), opts)
 	if err != nil {
-		if problem, ok := runtime.AsError[Problem](err); ok {
+		if e, ok := runtime.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/json")
-			a.opts.ErrorHandler.HandleError(w, r, 404, problem)
+			a.opts.ErrorHandler.HandleError(w, r, 404, e)
 			return nil
 		}
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "DeletePet", Err: err})

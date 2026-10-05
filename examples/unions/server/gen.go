@@ -578,9 +578,9 @@ func (a *HTTPAdapter) PostForm(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.PostForm(r.Context(), opts)
 	if err != nil {
-		if fault, ok := runtime.AsError[Fault](err); ok {
+		if e, ok := runtime.AsError[Fault](err); ok {
 			w.Header().Set("Content-Type", "application/json")
-			a.opts.ErrorHandler.HandleError(w, r, 500, fault)
+			a.opts.ErrorHandler.HandleError(w, r, 500, e)
 			return
 		}
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostForm", Err: err})

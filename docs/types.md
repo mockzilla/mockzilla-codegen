@@ -334,6 +334,9 @@ methods write its keys next to the properties, and `Get` and `Set` read and writ
 `MarshalJSON` writes the properties first, then the additional keys sorted; a key that has the
 name of a property is left out. The helpers live in the runtime package.
 
+A property named `""` gets no field, since no JSON tag can spell an empty key. Generation warns
+(`name-empty`). When the object takes additional properties, the `""` key lands in their map.
+
 ## readOnly and writeOnly
 
 A `readOnly` or `writeOnly` field keeps its `required` flag but gets `omitempty`, since one struct

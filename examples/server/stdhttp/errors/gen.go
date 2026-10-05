@@ -364,9 +364,9 @@ func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.GetPet(r.Context(), opts)
 	if err != nil {
-		if problem, ok := runtime.AsError[Problem](err); ok {
+		if e, ok := runtime.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/problem+json")
-			a.opts.ErrorHandler.HandleError(w, r, 404, problem)
+			a.opts.ErrorHandler.HandleError(w, r, 404, e)
 			return
 		}
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPet", Err: err})
