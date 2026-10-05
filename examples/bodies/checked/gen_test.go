@@ -18,6 +18,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // service answers with the body as it got it.
@@ -163,4 +165,19 @@ func TestUpload(t *testing.T) {
 			assert.Equal(t, tc.want, string(data))
 		})
 	}
+}
+
+func TestWithPresence(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(NewRouter(service{}, WithPresence(runtime.Presence{})))
+	t.Cleanup(srv.Close)
+	res, err := http.Post(srv.URL+"/pets", "application/json", strings.NewReader(`{"name":"Rex","owner":{"id":1},"x":1}`))
+	require.NoError(t, err)
+	defer res.Body.Close()
+	data, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	assert.Equal(t, http.StatusOK, res.StatusCode, "an empty table checks nothing")
+	assert.JSONEq(t, `{"name":"Rex","owner":{"id":1}}`, string(data), "and sets no default")
 }

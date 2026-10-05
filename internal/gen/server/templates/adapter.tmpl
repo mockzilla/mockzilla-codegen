@@ -1,5 +1,5 @@
-{{- with .Bodies}}
-var requestBodies = {{.Runtime}}.Bodies{
+{{- with .Presence}}
+var bodyPresence = {{.Runtime}}.Presence{
 {{- if .IsChecked}}
 	IsChecked: true,
 {{- end}}
@@ -25,6 +25,9 @@ type ServerOptions struct {
 	ErrorHandler       {{.Runtime}}.ErrorHandler
 	JSONDecoder        func(body {{.IO}}.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
+{{- if .Presence}}
+	Presence           {{.Runtime}}.PresenceChecker
+{{- end}}
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -36,6 +39,9 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 		ErrorHandler:       {{.Runtime}}.DefaultErrorHandler{},
 		JSONDecoder:        {{.Runtime}}.DecodeJSON,
 		MultipartMaxMemory: {{.MaxMemory}},
+{{- if .Presence}}
+		Presence:           bodyPresence,
+{{- end}}
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -70,6 +76,15 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 		o.MultipartMaxMemory = n
 	}
 }
+{{- if .Presence}}
+
+// WithPresence sets what checks the keys of request bodies and fills their defaults.
+func WithPresence(p {{.Runtime}}.PresenceChecker) ServerOption {
+	return func(o *ServerOptions) {
+		o.Presence = p
+	}
+}
+{{- end}}
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
@@ -174,7 +189,7 @@ func (a *HTTPAdapter) fail(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, err
 func (a *HTTPAdapter) failDecode(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, err error) {
 	a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorDecode, OperationID: id, Err: err})
 }
-{{- if .Bodies}}
+{{- if .Presence}}
 
 func (a *HTTPAdapter) failBody(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, err error) {
 	kind := {{.Runtime}}.ErrorDecode

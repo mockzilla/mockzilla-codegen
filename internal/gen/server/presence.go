@@ -3,7 +3,7 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// The data of the requestBodies table, which the adapter checks and fills request bodies from.
+// The data of the bodyPresence table, which the adapter checks and fills request bodies from.
 
 package server
 
@@ -15,8 +15,8 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
 
-// BodiesView is the requestBodies table. IsChecked adds the checks of validation.request.
-type BodiesView struct {
+// PresenceView is the bodyPresence table. IsChecked adds the checks of validation.request.
+type PresenceView struct {
 	Runtime   string
 	IsChecked bool
 	Objects   []ObjectView
@@ -42,8 +42,8 @@ type PropView struct {
 	Values     *PropView
 }
 
-// bodyTable collects the objects the handlers check bodies against, and those with defaults.
-type bodyTable struct {
+// presenceTable collects the objects the handlers check bodies against, and those with defaults.
+type presenceTable struct {
 	runtime    string
 	isChecked  bool
 	hasRoots   bool
@@ -52,8 +52,8 @@ type bodyTable struct {
 	used       []*gomodel.Decl
 }
 
-func newBodyTable(ops []*gomodel.Operation, isChecked bool, runtime string) *bodyTable {
-	t := &bodyTable{runtime: runtime, isChecked: isChecked, hasDefault: map[*gomodel.Decl]bool{}, isUsed: map[*gomodel.Decl]bool{}}
+func newPresenceTable(ops []*gomodel.Operation, isChecked bool, runtime string) *presenceTable {
+	t := &presenceTable{runtime: runtime, isChecked: isChecked, hasDefault: map[*gomodel.Decl]bool{}, isUsed: map[*gomodel.Decl]bool{}}
 	if isChecked {
 		return t
 	}
@@ -77,7 +77,7 @@ func newBodyTable(ops []*gomodel.Operation, isChecked bool, runtime string) *bod
 }
 
 // root is the Prop a body of the given kind is checked against, nil when there is nothing to do.
-func (t *bodyTable) root(c gomodel.Content, kind string) *PropView {
+func (t *presenceTable) root(c gomodel.Content, kind string) *PropView {
 	v := c.Body
 	switch {
 	case v == nil, !t.keeps(v):
@@ -94,7 +94,7 @@ func (t *bodyTable) root(c gomodel.Content, kind string) *PropView {
 }
 
 // view is the table, nil when no handler checks a body.
-func (t *bodyTable) view() *BodiesView {
+func (t *presenceTable) view() *PresenceView {
 	if !t.hasRoots {
 		return nil
 	}
@@ -106,14 +106,14 @@ func (t *bodyTable) view() *BodiesView {
 
 	// The runtime finds an object by binary search, so the order is that of the names unquoted.
 	slices.SortFunc(t.used, func(a, b *gomodel.Decl) int { return strings.Compare(a.Name, b.Name) })
-	v := &BodiesView{Runtime: t.runtime, IsChecked: t.isChecked}
+	v := &PresenceView{Runtime: t.runtime, IsChecked: t.isChecked}
 	for _, d := range t.used {
 		v.Objects = append(v.Objects, objects[d])
 	}
 	return v
 }
 
-func (t *bodyTable) object(d *gomodel.Decl) ObjectView {
+func (t *presenceTable) object(d *gomodel.Decl) ObjectView {
 	o := ObjectView{Name: gocode.Quote(d.Name), IsClosed: t.isChecked && d.Struct.IsClosed}
 	fields := slices.SortedFunc(slices.Values(d.Struct.Fields), func(a, b *gomodel.Field) int { return strings.Compare(a.JSONName, b.JSONName) })
 	for _, f := range fields {
@@ -131,7 +131,7 @@ func (t *bodyTable) object(d *gomodel.Decl) ObjectView {
 	return o
 }
 
-func (t *bodyTable) prop(v *gomodel.BodyValue, isRequired bool, def string) *PropView {
+func (t *presenceTable) prop(v *gomodel.BodyValue, isRequired bool, def string) *PropView {
 	p := &PropView{Runtime: t.runtime, Default: quoteDefault(def)}
 	if t.isChecked {
 		p.IsRequired, p.IsNullable = isRequired, v.IsNullable
@@ -153,7 +153,7 @@ func (t *bodyTable) prop(v *gomodel.BodyValue, isRequired bool, def string) *Pro
 }
 
 // keeps reports a value the table writes: one that checks something, or leads to a default.
-func (t *bodyTable) keeps(v *gomodel.BodyValue) bool {
+func (t *presenceTable) keeps(v *gomodel.BodyValue) bool {
 	switch {
 	case v == nil:
 		return false
@@ -164,11 +164,11 @@ func (t *bodyTable) keeps(v *gomodel.BodyValue) bool {
 }
 
 // leads reports a value that holds a struct with a default, at any depth.
-func (t *bodyTable) leads(v *gomodel.BodyValue) bool {
+func (t *presenceTable) leads(v *gomodel.BodyValue) bool {
 	return v != nil && (v.Object != nil && t.hasDefault[v.Object] || t.leads(v.Items) || t.leads(v.Values))
 }
 
-func (t *bodyTable) declLeads(d *gomodel.Decl) bool {
+func (t *presenceTable) declLeads(d *gomodel.Decl) bool {
 	for _, f := range d.Struct.Fields {
 		if f.Default != "" || t.leads(f.Value) {
 			return true

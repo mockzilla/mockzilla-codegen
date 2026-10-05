@@ -186,7 +186,7 @@ const (
 	ErrorResponse   = runtime.ErrorResponse
 )
 
-var requestBodies = runtime.Bodies{
+var bodyPresence = runtime.Presence{
 	IsChecked: true,
 	Objects: []runtime.Object{
 		{Name: "Owner", Props: []runtime.Prop{
@@ -220,6 +220,7 @@ type ServerOptions struct {
 	ErrorHandler       runtime.ErrorHandler
 	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
+	Presence           runtime.PresenceChecker
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -231,6 +232,7 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 		ErrorHandler:       runtime.DefaultErrorHandler{},
 		JSONDecoder:        runtime.DecodeJSON,
 		MultipartMaxMemory: 33554432,
+		Presence:           bodyPresence,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -266,6 +268,13 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 	}
 }
 
+// WithPresence sets what checks the keys of request bodies and fills their defaults.
+func WithPresence(p runtime.PresenceChecker) ServerOption {
+	return func(o *ServerOptions) {
+		o.Presence = p
+	}
+}
+
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
 	svc  ServiceInterface
@@ -290,7 +299,7 @@ func (a *HTTPAdapter) AddPet(w http.ResponseWriter, r *http.Request) {
 	opts := &AddPetServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
-		body, err := requestBodies.JSON(r.Body, runtime.Prop{Object: "Pet"})
+		body, err := a.opts.Presence.JSON(r.Body, runtime.Prop{Object: "Pet"})
 		if err != nil {
 			a.failBody(w, r, "AddPet", err)
 			return
@@ -300,7 +309,7 @@ func (a *HTTPAdapter) AddPet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case "application/x-www-form-urlencoded":
-		body, err := requestBodies.Form(r.Body, runtime.Prop{Object: "Pet"})
+		body, err := a.opts.Presence.Form(r.Body, runtime.Prop{Object: "Pet"})
 		if err != nil {
 			a.failBody(w, r, "AddPet", err)
 			return
@@ -339,7 +348,7 @@ func (a *HTTPAdapter) Upload(w http.ResponseWriter, r *http.Request) {
 	opts := &UploadServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "multipart/form-data":
-		if err := requestBodies.Multipart(r, runtime.Prop{Object: "Upload"}, a.opts.MultipartMaxMemory); err != nil {
+		if err := a.opts.Presence.Multipart(r, runtime.Prop{Object: "Upload"}, a.opts.MultipartMaxMemory); err != nil {
 			a.failBody(w, r, "Upload", err)
 			return
 		}

@@ -23,7 +23,7 @@ import (
 // serverNames are what the server parts declare next to the models.
 var serverNames = []string{
 	"NewRouter", "HTTPAdapter", "NewHTTPAdapter", "ServerOption", "ServerOptions", "NewServerOptions",
-	"WithRouter", "WithMiddleware", "WithErrorHandler", "WithJSONDecoder", "WithMultipartMaxMemory",
+	"WithRouter", "WithMiddleware", "WithErrorHandler", "WithJSONDecoder", "WithMultipartMaxMemory", "WithPresence",
 	"ErrorKind", "HandlerError", "ErrorHandler", "ErrorHandlerFunc", "DefaultErrorHandler",
 	"ErrorParse", "ErrorDecode", "ErrorValidation", "ErrorService", "ErrorResponse",
 }

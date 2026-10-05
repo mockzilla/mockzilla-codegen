@@ -47,7 +47,7 @@ var testObjects = []Object{
 	}},
 }
 
-func TestBodiesJSON(t *testing.T) {
+func TestPresenceJSON(t *testing.T) {
 	t.Parallel()
 
 	pet := Prop{Object: "Pet"}
@@ -82,7 +82,7 @@ func TestBodiesJSON(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			b := Bodies{IsChecked: tc.isChecked, Objects: testObjects}
+			b := Presence{IsChecked: tc.isChecked, Objects: testObjects}
 			got, err := b.JSON(strings.NewReader(tc.body), tc.p)
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)
@@ -101,7 +101,7 @@ func TestBodiesJSON(t *testing.T) {
 	}
 }
 
-func TestBodiesForm(t *testing.T) {
+func TestPresenceForm(t *testing.T) {
 	t.Parallel()
 
 	pet := Prop{Object: "Pet"}
@@ -141,7 +141,7 @@ func TestBodiesForm(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			b := Bodies{IsChecked: true, Objects: testObjects}
+			b := Presence{IsChecked: true, Objects: testObjects}
 			got, err := b.Form(strings.NewReader(tc.body), tc.p)
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)
@@ -161,7 +161,7 @@ func TestBodiesForm(t *testing.T) {
 	}
 }
 
-func TestBodiesMultipart(t *testing.T) {
+func TestPresenceMultipart(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -193,7 +193,7 @@ func TestBodiesMultipart(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/", &buf)
 			r.Header.Set("Content-Type", mw.FormDataContentType())
 
-			err := Bodies{IsChecked: true, Objects: testObjects}.Multipart(r, Prop{Object: "Upload"}, 0)
+			err := Presence{IsChecked: true, Objects: testObjects}.Multipart(r, Prop{Object: "Upload"}, 0)
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)
 				return
@@ -204,10 +204,10 @@ func TestBodiesMultipart(t *testing.T) {
 	}
 }
 
-func TestBodiesReadErrors(t *testing.T) {
+func TestPresenceReadErrors(t *testing.T) {
 	t.Parallel()
 
-	b := Bodies{Objects: testObjects}
+	b := Presence{Objects: testObjects}
 	broken := errors.New("broken")
 	_, err := b.JSON(iotest.ErrReader(broken), Prop{})
 	require.ErrorIs(t, err, broken)

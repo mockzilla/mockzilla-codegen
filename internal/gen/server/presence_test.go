@@ -13,7 +13,7 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
 
-func TestBodyTable(t *testing.T) {
+func TestPresenceTable(t *testing.T) {
 	t.Parallel()
 
 	owner := &gomodel.Decl{Name: "Owner", Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
@@ -62,7 +62,7 @@ func TestBodyTable(t *testing.T) {
 		isChecked bool
 		bodies    []body
 		wantRoots []*PropView
-		want      *BodiesView
+		want      *PresenceView
 	}{
 		{
 			name:      "Checks list every object a body holds",
@@ -77,7 +77,7 @@ func TestBodyTable(t *testing.T) {
 				{kind: bodyJSON},
 			},
 			wantRoots: []*PropView{prop(PropView{Object: `"Pet"`}), prop(PropView{Object: `"Pet"`}), prop(PropView{}), nil, nil, nil, nil},
-			want: &BodiesView{Runtime: "runtime", IsChecked: true, Objects: []ObjectView{
+			want: &PresenceView{Runtime: "runtime", IsChecked: true, Objects: []ObjectView{
 				{
 					Name:  `"Owner"`,
 					Props: []*PropView{prop(PropView{Key: `"city"`, Default: "`\"Berlin\"`"})},
@@ -107,7 +107,7 @@ func TestBodyTable(t *testing.T) {
 				{kind: bodyJSON, content: gomodel.Content{Body: &gomodel.BodyValue{Object: plain}}},
 			},
 			wantRoots: []*PropView{prop(PropView{Object: `"Order"`}), nil},
-			want: &BodiesView{Runtime: "runtime", Objects: []ObjectView{
+			want: &PresenceView{Runtime: "runtime", Objects: []ObjectView{
 				{
 					Name: `"Gift"`,
 					Props: []*PropView{
@@ -139,7 +139,7 @@ func TestBodyTable(t *testing.T) {
 			for _, b := range tc.bodies {
 				op.Bodies = append(op.Bodies, b.content)
 			}
-			table := newBodyTable([]*gomodel.Operation{op}, tc.isChecked, "runtime")
+			table := newPresenceTable([]*gomodel.Operation{op}, tc.isChecked, "runtime")
 			roots := make([]*PropView, len(tc.bodies))
 			for i, b := range tc.bodies {
 				roots[i] = table.root(b.content, b.kind)

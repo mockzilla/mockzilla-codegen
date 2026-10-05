@@ -178,6 +178,7 @@ Options are set with `ServerOption` functions on the adapter and on the router a
 | `WithMiddleware(mw...)` | `func(http.Handler) http.Handler` wrappers, outermost first |
 | `WithErrorHandler(h)` | what writes failed requests, `DefaultErrorHandler{}` by default |
 | `WithJSONDecoder(fn)` | what reads JSON bodies, `runtime.DecodeJSON` by default |
+| `WithPresence(p)` | what checks the keys of request bodies and fills their defaults, see [request bodies](#request-bodies) |
 | `WithMultipartMaxMemory(n)` | memory for multipart forms, `server.multipart-max-memory` by default |
 | `WithRouter(r)` | the router the routes go on, one of the framework's |
 
@@ -222,11 +223,13 @@ built for its defaults, and a sent `null` stays `null`. The field stays a pointe
 `readOnly` property gets no default. A default that does not fit its schema is left out, and
 generation warns (`default-ignored`).
 
-The adapter keeps what it checks in one table, `requestBodies`, and checks a body before the JSON
-decoder or `DecodeForm` reads it:
+The adapter keeps what it checks in one table, `bodyPresence`, and checks a body before the JSON
+decoder or `DecodeForm` reads it. The table holds facts about keys only: which are required, which
+may be null, which are unknown and which get a default. Value rules, such as `minLength` or
+`pattern`, stay in `Validate`.
 
 ```go
-var requestBodies = runtime.Bodies{
+var bodyPresence = runtime.Presence{
 	IsChecked: true,
 	Objects: []runtime.Object{
 		{Name: "Owner", Props: []runtime.Prop{
@@ -250,6 +253,23 @@ thousands of body properties compiles about as fast as without the table.
 
 Without `validation.request` the table holds only the objects that lead to a default. Without a
 default, nothing is generated. `examples/bodies/checked` and `examples/bodies/defaults` show both.
+
+`WithPresence` replaces the table with any `runtime.PresenceChecker`. `WithPresence(runtime.Presence{})`
+turns the checks and the defaults off. A wrapper can log or skip what the table finds:
+
+```go
+type presence struct{ next runtime.PresenceChecker }
+
+func (p presence) JSON(body io.Reader, prop runtime.Prop) (io.Reader, error) {
+	out, err := p.next.JSON(body, prop)
+	if err != nil {
+		slog.Info("body rejected", "err", err)
+	}
+	return out, err
+}
+```
+
+The option exists only when the server has a table.
 
 ## Errors
 
@@ -540,8 +560,8 @@ The runtime package holds what the generated HTTP code and clients use, standard
 - Bodies: `DecodeJSON`, `DecodeForm` (bracketed keys nest: `address[city]=Berlin`,
   `items[0]=a`; one value for a struct or map is read as JSON, else as a string), `DecodeMultipart` (files as `runtime.File`, JSON parts into structs),
   `DecodeText`, `DecodeBytes`, `DecodeFile`. A type with `UnmarshalForm` reads a form itself. A required body that is empty gives `ErrBodyEmpty`;
-  an empty optional one is left alone. `Bodies` with its methods `JSON`, `Form` and `Multipart`
-  checks a body and fills its defaults before it is decoded.
+  an empty optional one is left alone. `Presence` with its methods `JSON`, `Form` and `Multipart`
+  checks the keys of a body and fills its defaults before it is decoded.
 - Responses: `Write` sends a status, headers and a body: JSON for most values, text and bytes as
   they are, a `File` streamed.
 - Clients: `RequestBuilder`, `EncodeForm`, `WriteMultipart`, `Send`, `Decode`, `DecodeSuccess`,

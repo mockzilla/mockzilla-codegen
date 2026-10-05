@@ -52,8 +52,8 @@ type ErrorsView struct {
 }
 
 // AdapterView is the data of the adapter part. Service is the interface, as the file writes it;
-// Handler is the shape of the handlers the framework takes. Bodies is the table the handlers check
-// bodies against, nil when none does.
+// Handler is the shape of the handlers the framework takes. Presence is the table the handlers
+// check bodies against, nil when none does.
 type AdapterView struct {
 	Service             string
 	Runtime             string
@@ -65,7 +65,7 @@ type AdapterView struct {
 	IsResponseValidated bool
 	Handler             framework.Handler
 	Operations          []HandlerView
-	Bodies              *BodiesView
+	Presence            *PresenceView
 }
 
 // HandlerView is one handler method. ID is the operation name as a string literal. Bodies are
@@ -142,7 +142,7 @@ type bodyAt struct {
 	isRequired bool
 	ret        string
 	scope      *gocode.Scope
-	table      *bodyTable
+	table      *presenceTable
 }
 
 // conversion is how a decoded body of the raw type lands in a field of the target type.
@@ -178,15 +178,15 @@ func adapterView(g *Generator, s *gocode.Scope) *AdapterView {
 	if v.MaxMemory <= 0 {
 		v.MaxMemory = runtime.DefaultMultipartMemory
 	}
-	table := newBodyTable(g.ops, g.opts.ValidateRequest, v.Runtime)
+	table := newPresenceTable(g.ops, g.opts.ValidateRequest, v.Runtime)
 	for _, op := range g.ops {
 		v.Operations = append(v.Operations, handlerView(g, op, s, table))
 	}
-	v.Bodies = table.view()
+	v.Presence = table.view()
 	return v
 }
 
-func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope, table *bodyTable) HandlerView {
+func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope, table *presenceTable) HandlerView {
 	v := HandlerView{
 		Name:    op.Name,
 		ID:      gocode.Quote(op.Name),

@@ -1,5 +1,5 @@
 {{- if and .IsJSON .Check}}
-		body, err := requestBodies.JSON(r.Body, {{.Runtime}}.Prop{{template "server/prop.tmpl" .Check}})
+		body, err := a.opts.Presence.JSON(r.Body, {{.Runtime}}.Prop{{template "server/prop.tmpl" .Check}})
 		if err != nil {
 			a.failBody(w, r, {{.OperationID}}, err)
 			{{.Return}}
@@ -14,7 +14,7 @@
 			{{.Return}}
 		}
 {{- else if and .IsForm .Check}}
-		body, err := requestBodies.Form(r.Body, {{.Runtime}}.Prop{{template "server/prop.tmpl" .Check}})
+		body, err := a.opts.Presence.Form(r.Body, {{.Runtime}}.Prop{{template "server/prop.tmpl" .Check}})
 		if err != nil {
 			a.failBody(w, r, {{.OperationID}}, err)
 			{{.Return}}
@@ -30,7 +30,7 @@
 		}
 {{- else if .IsMultipart}}
 {{- with .Check}}
-		if err := requestBodies.Multipart(r, {{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, a.opts.MultipartMaxMemory); err != nil {
+		if err := a.opts.Presence.Multipart(r, {{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, a.opts.MultipartMaxMemory); err != nil {
 			a.failBody(w, r, {{$.OperationID}}, err)
 			{{$.Return}}
 		}

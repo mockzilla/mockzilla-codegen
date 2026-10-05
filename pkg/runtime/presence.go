@@ -20,8 +20,15 @@ import (
 	"strings"
 )
 
-// Bodies are the objects of request bodies, sorted by name; IsChecked adds checks to the defaults.
-type Bodies struct {
+// PresenceChecker checks which keys a request body has and fills its defaults before decoding.
+type PresenceChecker interface {
+	JSON(body io.Reader, p Prop) (io.Reader, error)
+	Form(body io.Reader, p Prop) (io.Reader, error)
+	Multipart(r *http.Request, p Prop, maxMemory int64) error
+}
+
+// Presence holds the objects of request bodies, sorted by name; IsChecked adds checks to defaults.
+type Presence struct {
 	IsChecked bool
 	Objects   []Object
 }
@@ -45,8 +52,10 @@ type Prop struct {
 	Values     *Prop
 }
 
+var _ PresenceChecker = Presence{}
+
 type walker struct {
-	bodies    Bodies
+	presence  Presence
 	errs      ValidationErrors
 	isChanged bool
 }
@@ -59,7 +68,7 @@ type formAt struct {
 }
 
 // JSON checks a JSON body against p, sets the defaults it lacks and returns the body to decode.
-func (b Bodies) JSON(body io.Reader, p Prop) (io.Reader, error) {
+func (pr Presence) JSON(body io.Reader, p Prop) (io.Reader, error) {
 	data, err := io.ReadAll(body)
 	if err != nil {
 		return nil, err
@@ -69,7 +78,7 @@ func (b Bodies) JSON(body io.Reader, p Prop) (io.Reader, error) {
 		return bytes.NewReader(data), nil // the decoder reports what is empty or no JSON
 	}
 
-	w := &walker{bodies: b}
+	w := &walker{presence: pr}
 	w.value(v, p, "body")
 	if len(w.errs) > 0 {
 		return nil, w.errs
@@ -81,7 +90,7 @@ func (b Bodies) JSON(body io.Reader, p Prop) (io.Reader, error) {
 }
 
 // Form checks a url-encoded form against the object p names and returns the form to decode.
-func (b Bodies) Form(body io.Reader, p Prop) (io.Reader, error) {
+func (pr Presence) Form(body io.Reader, p Prop) (io.Reader, error) {
 	data, err := io.ReadAll(body)
 	if err != nil {
 		return nil, err
@@ -91,7 +100,7 @@ func (b Bodies) Form(body io.Reader, p Prop) (io.Reader, error) {
 		return bytes.NewReader(data), nil
 	}
 
-	w := &walker{bodies: b}
+	w := &walker{presence: pr}
 	w.form(values, nil, p)
 	if len(w.errs) > 0 {
 		return nil, w.errs
@@ -103,7 +112,7 @@ func (b Bodies) Form(body io.Reader, p Prop) (io.Reader, error) {
 }
 
 // Multipart parses the multipart form of r, checks it against the object p names and fills it.
-func (b Bodies) Multipart(r *http.Request, p Prop, maxMemory int64) error {
+func (pr Presence) Multipart(r *http.Request, p Prop, maxMemory int64) error {
 	if maxMemory <= 0 {
 		maxMemory = DefaultMultipartMemory
 	}
@@ -111,7 +120,7 @@ func (b Bodies) Multipart(r *http.Request, p Prop, maxMemory int64) error {
 		return err
 	}
 
-	w := &walker{bodies: b}
+	w := &walker{presence: pr}
 	w.form(r.MultipartForm.Value, r.MultipartForm.File, p)
 	return w.errs.Err()
 }
@@ -125,7 +134,7 @@ func IsValidation(err error) bool {
 func (w *walker) value(v any, p Prop, path string) {
 	switch x := v.(type) {
 	case nil:
-		if w.bodies.IsChecked && !p.IsNullable {
+		if w.presence.IsChecked && !p.IsNullable {
 			w.errs.Add(path, "must not be null")
 		}
 	case map[string]any:
@@ -153,7 +162,7 @@ func (w *walker) object(m map[string]any, o Object, path string) {
 		switch {
 		case isSet:
 			w.value(v, p, joinPath(path, p.Key))
-		case p.IsRequired && w.bodies.IsChecked:
+		case p.IsRequired && w.presence.IsChecked:
 			w.errs.Add(joinPath(path, p.Key), "is required")
 		case p.Default != "":
 			if d, isJSON := parseJSON([]byte(p.Default)); isJSON {
@@ -167,7 +176,7 @@ func (w *walker) object(m map[string]any, o Object, path string) {
 			continue
 		}
 		switch {
-		case o.IsClosed && w.bodies.IsChecked:
+		case o.IsClosed && w.presence.IsChecked:
 			w.errs.Add(joinPath(path, key), "is not allowed")
 		case o.Extra != nil:
 			w.value(m[key], *o.Extra, Key(path, key))
@@ -197,7 +206,7 @@ func (w *walker) formObject(m map[string]any, o Object, at formAt) {
 		switch {
 		case isSet:
 			w.formValue(child, p, at.field(p.Key))
-		case p.IsRequired && w.bodies.IsChecked:
+		case p.IsRequired && w.presence.IsChecked:
 			w.errs.Add(joinPath(at.path, p.Key), "is required")
 		case p.Default != "":
 			w.formDefault(at.field(p.Key), p.Default)
@@ -209,7 +218,7 @@ func (w *walker) formObject(m map[string]any, o Object, at formAt) {
 			continue
 		}
 		switch {
-		case o.IsClosed && w.bodies.IsChecked:
+		case o.IsClosed && w.presence.IsChecked:
 			w.errs.Add(joinPath(at.path, key), "is not allowed")
 		case o.Extra != nil:
 			w.formValue(m[key], *o.Extra, at.entry(key))
@@ -251,7 +260,7 @@ func (w *walker) formJSON(text string, p Prop, at formAt) {
 		return
 	}
 
-	inner := &walker{bodies: w.bodies}
+	inner := &walker{presence: w.presence}
 	inner.value(v, p, at.path)
 	w.errs = append(w.errs, inner.errs...)
 	if inner.isChanged {
@@ -286,11 +295,11 @@ func (w *walker) formDefault(at formAt, def string) {
 
 // lookup finds the object of a name by binary search, as Objects is sorted by name.
 func (w *walker) lookup(name string) (Object, bool) {
-	i, isFound := slices.BinarySearchFunc(w.bodies.Objects, name, func(o Object, target string) int { return strings.Compare(o.Name, target) })
+	i, isFound := slices.BinarySearchFunc(w.presence.Objects, name, func(o Object, target string) int { return strings.Compare(o.Name, target) })
 	if !isFound {
 		return Object{}, false
 	}
-	return w.bodies.Objects[i], true
+	return w.presence.Objects[i], true
 }
 
 func (a formAt) field(name string) formAt {
