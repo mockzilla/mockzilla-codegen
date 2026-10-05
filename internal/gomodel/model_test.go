@@ -71,13 +71,19 @@ func TestOptionsFrom(t *testing.T) {
 		{
 			name: "Models and naming settings",
 			cfg: &config.Config{
-				Naming: config.Naming{Initialisms: []string{"PSP"}, EnumPrefix: new(false)},
+				Naming:  config.Naming{Initialisms: []string{"PSP"}, EnumPrefix: new(false)},
+				Imports: []config.Import{{Package: "github.com/shopspring/decimal"}},
 				Models: &config.Models{
 					IntType:      "int64",
 					Descriptions: new(false),
 					ExtraTags:    []string{"yaml"},
 					Validation:   config.ModelValidation{Response: true},
 					ErrorMapping: map[string]string{"Problem": "detail", "Error": "message"},
+					FormatTypes: map[string]config.GoType{
+						"UUID":  {Type: "uuid.UUID", Import: "github.com/google/uuid"},
+						"money": {Type: "decimal.Decimal"},
+						"ulid":  {Type: "string"},
+					},
 				},
 			},
 			want: Options{
@@ -87,7 +93,13 @@ func TestOptionsFrom(t *testing.T) {
 				IsValidated:      true,
 				ValidateResponse: true,
 				ErrorMapping:     map[string]string{"Problem": "detail", "Error": "message"},
-				Reserved:         []string{"NewError", "NewProblem"},
+				Imports:          []config.Import{{Package: "github.com/shopspring/decimal"}},
+				FormatTypes: map[string]Type{
+					"uuid":  Qualified{Import: Import{Path: "github.com/google/uuid"}, Name: "UUID"},
+					"money": Qualified{Import: Import{Path: "github.com/shopspring/decimal", Alias: "decimal"}, Name: "Decimal"},
+					"ulid":  stringType,
+				},
+				Reserved: []string{"NewError", "NewProblem"},
 			},
 		},
 		{

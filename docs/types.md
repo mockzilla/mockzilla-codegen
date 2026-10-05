@@ -48,6 +48,36 @@ everything else. A component that is only a `$ref` is an alias of the referenced
 
 Formats are matched in any case. A string format not in the table gives `string`.
 
+### Your own type for a format
+
+`models.format-types` gives a format a Go type of your own, in place of the one the table gives:
+
+```yaml
+models:
+  format-types:
+    uuid: {type: uuid.UUID, import: github.com/google/uuid}
+    ipv4: {type: netip.Addr, import: net/netip}
+```
+
+```go
+type DeviceID = uuid.UUID
+
+type Device struct {
+	ID      DeviceID    `json:"id"`
+	Address *netip.Addr `json:"address,omitempty"`
+}
+```
+
+- `type` is read as [`x-go-type`](extensions.md#x-go-type) reads it. Without `import`, the package
+  comes from the config's `imports`, else from the standard library package before the dot.
+- It applies where the table does: a string, integer, number or boolean schema, or one without a
+  type. An enum keeps its base type and an object stays a struct.
+- `x-go-type` on a schema wins.
+- The type is not validated, so `minLength` or `pattern` next to such a format are not checked, and
+  a union takes any JSON for it.
+- A parameter or header of such a type needs one that implements `encoding.TextMarshaler` and
+  `encoding.TextUnmarshaler`. A union parameter with such a member gets no field, with a warning.
+
 A schema without `type` is read from its other keywords: `properties` or `additionalProperties`
 make an object, `items` makes an array, a known format picks the type the table gives it
 (`format: binary` gives `runtime.File`), and a `const` picks the type of its value.

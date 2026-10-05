@@ -105,6 +105,24 @@
           },
           "type": "array"
         },
+        "format-types": {
+          "additionalProperties": {
+            "additionalProperties": false,
+            "properties": {
+              "import": {
+                "description": "Import path of the type's package, found as for x-go-type when left out.",
+                "type": "string"
+              },
+              "type": {
+                "description": "Go type, such as uuid.UUID or int64.",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "description": "Go types by schema format, such as uuid, in place of the built-in ones. x-go-type on a schema wins.",
+          "type": "object"
+        },
         "int-type": {
           "description": "Go type for integers without a format. Defaults to int.",
           "enum": [

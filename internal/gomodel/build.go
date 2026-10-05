@@ -339,7 +339,7 @@ func (b *builder) inline(f *spec.Schema, sh shape) Type {
 	case shapeArray:
 		return Slice{Elem: b.elem(f.Items)}
 	case shapePrimitive:
-		return primitive(f, b.opts.IntType)
+		return primitive(f, b.opts.IntType, b.opts.FormatTypes)
 	default:
 		return anyType
 	}

@@ -13,6 +13,7 @@ require (
 	github.com/go-kratos/kratos/v2 v2.9.2
 	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/gogf/gf/v2 v2.10.3
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/kataras/iris/v12 v12.2.11
 	github.com/labstack/echo/v4 v4.16.0
@@ -60,7 +61,6 @@ require (
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/gomarkdown/markdown v0.0.0-20240328165702-4d01890c35c0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grokify/html-strip-tags-go v0.1.0 // indirect

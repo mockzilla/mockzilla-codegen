@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=../../../config.schema.json
+spec: {path: api.yaml}
+package: formattypes
+models:
+  format-types:
+    uuid: {type: uuid.UUID, import: github.com/google/uuid}
+    ipv4: {type: netip.Addr, import: net/netip}

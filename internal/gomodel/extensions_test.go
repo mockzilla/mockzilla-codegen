@@ -34,6 +34,7 @@ func TestGoType(t *testing.T) {
 		want    Type
 	}{
 		{name: "Builtin", typ: extension.Type{Name: "int64"}, want: Builtin{Name: "int64"}},
+		{name: "Bytes", typ: extension.Type{Name: "[]byte"}, want: Slice{Elem: byteType}},
 		{name: "Standard library type", typ: extension.Type{Name: "time.Duration"}, want: Qualified{Import: Import{Path: "time"}, Name: "Duration"}},
 		{
 			name: "Type of an imported package",
