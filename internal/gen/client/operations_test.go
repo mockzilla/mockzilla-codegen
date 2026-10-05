@@ -139,33 +139,6 @@ func TestSuccessBody(t *testing.T) {
 	}
 }
 
-func TestErrorDecl(t *testing.T) {
-	t.Parallel()
-
-	problem := &gomodel.Decl{Name: "Problem", Kind: gomodel.KindStruct, Error: &gomodel.ErrorMessage{Path: "detail"}}
-	alias := &gomodel.Decl{Name: "Failure", Kind: gomodel.KindAlias, Target: gomodel.DeclRef{Decl: problem}}
-	plain := &gomodel.Decl{Name: "Locked", Kind: gomodel.KindStruct}
-	tests := []struct {
-		name string
-		typ  gomodel.Type
-		want *gomodel.Decl
-	}{
-		{name: "An error type", typ: gomodel.DeclRef{Decl: problem}, want: problem},
-		{name: "Behind a pointer and an alias", typ: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: alias}}, want: problem},
-		{name: "A struct that is no error", typ: gomodel.DeclRef{Decl: plain}},
-		{name: "A builtin", typ: gomodel.Builtin{Name: "string"}},
-		{name: "No type", typ: nil},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			assert.Equal(t, tc.want, errorDecl(tc.typ))
-		})
-	}
-}
-
 func TestMethodExpr(t *testing.T) {
 	t.Parallel()
 

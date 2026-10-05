@@ -204,16 +204,25 @@ func dumpUnion(b *strings.Builder, u *Union) {
 		if v.IsDefault {
 			b.WriteString(" default")
 		}
-		if len(v.Required) > 0 {
-			b.WriteString(" required=" + strings.Join(v.Required, ","))
-		}
-		if v.Known != nil {
-			b.WriteString(" known=" + strings.Join(v.Known, ","))
-		}
-		if v.IsClosed {
-			b.WriteString(" closed")
-		}
+		dumpShape(b, Shape{Required: v.Required, Known: v.Known, IsClosed: v.IsClosed})
 		b.WriteString("\n")
+		for _, sh := range v.Shapes {
+			b.WriteString("  |   shape")
+			dumpShape(b, sh)
+			b.WriteString("\n")
+		}
+	}
+}
+
+func dumpShape(b *strings.Builder, sh Shape) {
+	if len(sh.Required) > 0 {
+		b.WriteString(" required=" + strings.Join(sh.Required, ","))
+	}
+	if sh.Known != nil {
+		b.WriteString(" known=" + strings.Join(sh.Known, ","))
+	}
+	if sh.IsClosed {
+		b.WriteString(" closed")
 	}
 }
 

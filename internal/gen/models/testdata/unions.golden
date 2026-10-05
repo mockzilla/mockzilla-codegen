@@ -10,8 +10,9 @@ import (
 type Cat struct{}
 
 type Pet struct {
-	Cat   *Cat     `json:"-"`
-	Float *float64 `json:"-"`
+	Cat    *Cat     `json:"-"`
+	Float  *float64 `json:"-"`
+	Nested *string  `json:"-"`
 }
 
 // MarshalJSON writes the variants that are set.
@@ -22,6 +23,9 @@ func (p Pet) MarshalJSON() ([]byte, error) {
 	}
 	if p.Float != nil {
 		set = append(set, p.Float)
+	}
+	if p.Nested != nil {
+		set = append(set, p.Nested)
 	}
 	return runtime.MarshalUnion(nil, set...)
 }
@@ -42,6 +46,22 @@ func (p *Pet) UnmarshalJSON(data []byte) error {
 				Name: "Float",
 				Kind: runtime.KindInteger | runtime.KindNumber,
 				Into: runtime.Into(&p.Float),
+			},
+			{
+				Name: "Nested",
+				Kind: runtime.KindObject,
+				Shapes: []runtime.Shape{
+					{
+						Required: []string{"a"},
+						Known:    []string{"a", "b"},
+					},
+					{
+						Known:    []string{},
+						IsClosed: true,
+					},
+					{},
+				},
+				Into: runtime.Into(&p.Nested),
 			},
 		},
 	})

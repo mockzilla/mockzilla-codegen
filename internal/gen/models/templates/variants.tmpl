@@ -28,6 +28,27 @@
 {{- if .IsClosed}}
 				IsClosed: true,
 {{- end}}
+{{- with .Shapes}}
+				Shapes: []{{$.Runtime}}.Shape{
+{{- range .}}
+{{- if .IsEmpty}}
+					{},
+{{- else}}
+					{
+{{- with .Required}}
+						Required: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },
+{{- end}}
+{{- if .HasKnown}}
+						Known: []string{ {{- range $i, $v := .Known}}{{if $i}}, {{end}}{{$v}}{{end -}} },
+{{- end}}
+{{- if .IsClosed}}
+						IsClosed: true,
+{{- end}}
+					},
+{{- end}}
+{{- end}}
+				},
+{{- end}}
 				Into: {{$.Runtime}}.Into(&{{$.Receiver}}.{{.Name}}),
 			},
 {{- end}}

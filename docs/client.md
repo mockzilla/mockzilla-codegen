@@ -157,7 +157,8 @@ func (o *CreatePetRequestOptions) Validate() error
   `query` is a query parameter, is `runtime.ErrParamMissing` on every call. Generation warns about
   it (`path-param-missing`).
 - The body goes as its media type: JSON for `application/json` and `+json`,
-  `application/x-www-form-urlencoded` through `EncodeForm`, `multipart/form-data` through
+  `application/x-www-form-urlencoded` through `EncodeForm` (a union or an object with additional
+  properties in it goes as one JSON value), `multipart/form-data` through
   `WriteMultipart`, a `runtime.File` body streamed, text and bytes as they are. A multipart form is
   written while it is sent, so its files stream too, each as a file part named `blob` when it has
   no name, as browsers name a Blob. It goes with a `Content-Length` when every file knows its

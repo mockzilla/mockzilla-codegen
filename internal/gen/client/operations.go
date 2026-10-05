@@ -397,7 +397,7 @@ func errorTargets(op *gomodel.Operation, s *gocode.Scope) []TargetView {
 			continue
 		}
 		for _, c := range r.Contents {
-			d := errorDecl(c.Type)
+			d := gomodel.ErrorDecl(c.Type)
 			if d == nil || !isDecodable(c) {
 				continue
 			}
@@ -405,26 +405,6 @@ func errorTargets(op *gomodel.Operation, s *gocode.Scope) []TargetView {
 		}
 	}
 	return out
-}
-
-// errorDecl is the error type a value of type t is, through pointers and aliases, or nil.
-func errorDecl(t gomodel.Type) *gomodel.Decl {
-	for {
-		switch x := t.(type) {
-		case gomodel.Pointer:
-			t = x.Elem
-		case gomodel.DeclRef:
-			if x.Decl.Error != nil {
-				return x.Decl
-			}
-			if x.Decl.Kind != gomodel.KindAlias && x.Decl.Kind != gomodel.KindDefined {
-				return nil
-			}
-			t = x.Decl.Target
-		default:
-			return nil
-		}
-	}
 }
 
 // methodExpr is the net/http constant of an HTTP method, or the method quoted when it has none.

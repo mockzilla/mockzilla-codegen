@@ -19,6 +19,7 @@ import (
 
 // Variant describes one member of a union to UnmarshalUnion: the JSON kinds it takes, the
 // discriminator values that pick it, and for objects its property names (Known nil takes any key).
+// A member that is itself a union lists the objects it can be in Shapes and ranks by the best one.
 type Variant struct {
 	Name      string
 	Kind      Kind
@@ -27,7 +28,15 @@ type Variant struct {
 	Required  []string
 	Known     []string
 	IsClosed  bool
+	Shapes    []Shape
 	Into      func(data []byte) error
+}
+
+// Shape is one object a variant can be, with property names as Variant has them.
+type Shape struct {
+	Required []string
+	Known    []string
+	IsClosed bool
 }
 
 // Union describes a union to UnmarshalUnion. Shared are the property names the union holds next
@@ -200,27 +209,23 @@ func (u Union) candidates(pool []int, kind Kind, obj map[string]json.RawMessage)
 			continue
 		}
 
-		c := candidate{index: i, isMatch: true}
+		c := candidate{isMatch: true}
 		if kind == KindObject {
-			missing := 0
-			for _, name := range v.Required {
-				if _, found := obj[name]; !found {
-					missing++
+			shapes := v.Shapes
+			if len(shapes) == 0 {
+				shapes = []Shape{{Required: v.Required, Known: v.Known, IsClosed: v.IsClosed}}
+			}
+			isFit := false
+			for _, sh := range shapes {
+				if fc, ok := u.fit(sh, obj); ok && (!isFit || fc.outranks(c)) {
+					c, isFit = fc, true
 				}
 			}
-			unknown := 0
-			for key := range obj {
-				if v.Known != nil && !slices.Contains(v.Known, key) && !slices.Contains(u.Shared, key) {
-					unknown++
-				}
-			}
-			if v.IsClosed && unknown > 0 {
+			if !isFit {
 				continue
 			}
-			c.score = len(v.Required) - missing - unknown
-			c.isMatch = missing == 0
-			c.isPerfect = missing == 0 && unknown == 0
 		}
+		c.index = i
 		out = append(out, c)
 	}
 
@@ -228,6 +233,26 @@ func (u Union) candidates(pool []int, kind Kind, obj map[string]json.RawMessage)
 		return cmp.Or(cmp.Compare(b.score, a.score), cmp.Compare(u.width(a), u.width(b)))
 	})
 	return out
+}
+
+// fit scores obj against sh; an unknown key rules out a closed shape.
+func (u Union) fit(sh Shape, obj map[string]json.RawMessage) (candidate, bool) {
+	absentKeys := 0
+	for _, name := range sh.Required {
+		if _, found := obj[name]; !found {
+			absentKeys++
+		}
+	}
+	unknown := 0
+	for key := range obj {
+		if sh.Known != nil && !slices.Contains(sh.Known, key) && !slices.Contains(u.Shared, key) {
+			unknown++
+		}
+	}
+	if sh.IsClosed && unknown > 0 {
+		return candidate{}, false
+	}
+	return candidate{score: len(sh.Required) - absentKeys - unknown, isMatch: absentKeys == 0, isPerfect: absentKeys == 0 && unknown == 0}, true
 }
 
 // width is the number of kinds a candidate takes: an int goes before a float64 for an integer.
@@ -273,6 +298,10 @@ func (u Union) decodeFirst(data []byte, kind Kind, cands []candidate) error {
 		return fmt.Errorf("%w for a JSON %s", ErrNoVariant, kind)
 	}
 	return fmt.Errorf("%w for a JSON %s: %w", ErrNoVariant, kind, errors.Join(errs...))
+}
+
+func (c candidate) outranks(other candidate) bool {
+	return c.score > other.score || c.score == other.score && c.isPerfect && !other.isPerfect
 }
 
 func discriminatorValue(raw json.RawMessage) string {

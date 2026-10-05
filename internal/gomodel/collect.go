@@ -266,7 +266,7 @@ func (c *collector) params(op *Operation) {
 					Code:     diag.CodeParamUnsupported,
 					Pointer:  p.Origin.Pointer,
 					Origin:   origin(p.Origin),
-					Message:  fmt.Sprintf("%s parameter %q is a union of more than scalars; it gets no field and is neither sent nor read", in, p.Name),
+					Message:  fmt.Sprintf("%s parameter %q is or holds a union of more than scalars; it gets no field and is neither sent nor read", in, p.Name),
 				})
 				continue
 			}
@@ -324,26 +324,31 @@ func (c *collector) queryString(op *Operation) {
 	}
 }
 
-// isUnionLost reports a union, or a list of them, that a parameter cannot write as text.
+// isUnionLost reports a union, or a list or map of them, that a parameter cannot write as text.
 func (c *collector) isUnionLost(s *spec.Schema, on map[*spec.Schema]bool) bool {
 	if c.flat.goTypeOf(s) != nil {
 		return false
 	}
 	t := target(s)
 	f := c.flat.flatten(t)
+	var item *spec.Schema
 	switch classify(f) {
 	case shapeArray:
-		if f.Items == nil || on[t] {
-			return false
+		item = f.Items
+	case shapeMap:
+		if f.AdditionalProperties.Mode == spec.AdditionalSchema {
+			item = f.AdditionalProperties.Schema
 		}
-		on[t] = true
-		defer delete(on, t)
-		return c.isUnionLost(f.Items, on)
 	case shapeUnion:
 		return !c.isScalar(s, on)
-	case shapeAny, shapePrimitive, shapeEnum, shapeStruct, shapeMap:
+	case shapeAny, shapePrimitive, shapeEnum, shapeStruct:
 	}
-	return false
+	if item == nil || on[t] {
+		return false
+	}
+	on[t] = true
+	defer delete(on, t)
+	return c.isUnionLost(item, on)
 }
 
 // isScalar reports a schema a parameter writes as one text; a schema met again adds nothing.

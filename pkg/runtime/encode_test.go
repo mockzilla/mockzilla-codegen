@@ -7,6 +7,7 @@ package runtime
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -94,6 +95,33 @@ func TestEncodeForm(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+func TestEncodeFormJSONValues(t *testing.T) {
+	t.Parallel()
+
+	in := drawing{
+		Vertex:   &vertex{Point: &point{X: 7}},
+		Vertices: []vertex{{Text: new("a")}, {Point: &point{X: 1}}},
+		Named:    map[string]vertex{"n": {Point: &point{X: 2}}},
+		Origin:   &point{X: 3},
+	}
+	values, err := EncodeForm(in)
+	require.NoError(t, err)
+	assert.Equal(t, url.Values{
+		"vertex":    {`{"x":7}`},
+		"vertices":  {"a", `{"x":1}`},
+		"named[n]":  {`{"x":2}`},
+		"origin[x]": {"3"},
+	}, values)
+
+	var out drawing
+	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &out, false))
+	assert.Equal(t, in, out)
+
+	raw, err := EncodeForm(json.RawMessage(`{"a":{"b":1}}`))
+	require.NoError(t, err)
+	assert.Equal(t, url.Values{"a[b]": {"1"}}, raw)
 }
 
 func TestEncodeFormRoundTrip(t *testing.T) {

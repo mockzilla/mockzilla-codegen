@@ -41,4 +41,4 @@ op GetDevice GET /devices/{id}
   params header GetDeviceHeaders
   response 200 application/json Device
 ---
-warning param-unsupported 10:11 /paths/~1devices~1{id}/get/parameters/2: query parameter "pick" is a union of more than scalars; it gets no field and is neither sent nor read
+warning param-unsupported 10:11 /paths/~1devices~1{id}/get/parameters/2: query parameter "pick" is or holds a union of more than scalars; it gets no field and is neither sent nor read

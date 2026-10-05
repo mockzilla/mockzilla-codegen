@@ -17,20 +17,6 @@ type presence struct {
 	isInCycle        bool
 }
 
-// fieldType makes a field a pointer when it can be absent or null, or when its type holds the
-// struct itself by value. Types that can be nil already stay as they are.
-func fieldType(t Type, p presence) Type {
-	switch {
-	case nilable(t):
-		return t
-	case p.isInCycle, p.isRequired && p.isNullable:
-		return Pointer{Elem: t}
-	case p.isPointerSkipped, p.isRequired:
-		return t
-	}
-	return Pointer{Elem: t}
-}
-
 // Held is how a struct field holds a value of type t that may be absent: a pointer, unless t can
 // be nil already.
 func Held(t Type) Type {
@@ -68,6 +54,40 @@ func StructDecl(t Type) *Decl {
 		return r.Decl
 	}
 	return nil
+}
+
+// ErrorDecl is the error type a value of type t is, through pointers and aliases, or nil.
+func ErrorDecl(t Type) *Decl {
+	for {
+		switch x := t.(type) {
+		case Pointer:
+			t = x.Elem
+		case DeclRef:
+			if x.Decl.Error != nil {
+				return x.Decl
+			}
+			if x.Decl.Kind != KindAlias && x.Decl.Kind != KindDefined {
+				return nil
+			}
+			t = x.Decl.Target
+		default:
+			return nil
+		}
+	}
+}
+
+// fieldType makes a field a pointer when it can be absent or null, or when its type holds the
+// struct itself by value. Types that can be nil already stay as they are.
+func fieldType(t Type, p presence) Type {
+	switch {
+	case nilable(t):
+		return t
+	case p.isInCycle, p.isRequired && p.isNullable:
+		return Pointer{Elem: t}
+	case p.isPointerSkipped, p.isRequired:
+		return t
+	}
+	return Pointer{Elem: t}
 }
 
 // elemType is for array items and map values: a pointer only when the value can be null.

@@ -193,6 +193,16 @@ func (s *Shape) UnmarshalJSON(data []byte) error {
 			{
 				Name: "Pet",
 				Kind: runtime.KindObject,
+				Shapes: []runtime.Shape{
+					{
+						Required: []string{"meow"},
+						Known:    []string{"name", "meow"},
+					},
+					{
+						Required: []string{"bark"},
+						Known:    []string{"name", "bark"},
+					},
+				},
 				Into: runtime.Into(&s.Pet),
 			},
 			{

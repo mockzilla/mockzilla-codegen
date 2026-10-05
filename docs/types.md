@@ -216,7 +216,8 @@ Decoding, in `UnmarshalJSON`:
 2. Only variants that take the JSON kind are tried (object, array, string, number, boolean). An
    integer goes to integer variants before float ones.
 3. Objects are ranked by required properties present less unknown keys. A variant with
-   `additionalProperties: false` is ruled out by an unknown key. For `oneOf`, two variants that
+   `additionalProperties: false` is ruled out by an unknown key. A variant that is itself a union
+   ranks by the best of the objects it can be, at any depth. For `oneOf`, two variants that
    match exactly with the same rank are an error. Generation warns (`union-ambiguous`) when object
    variants of a `oneOf` without a discriminator require the same properties, or none: an object
    with only those always hits this error.
@@ -237,7 +238,13 @@ A union of strings, numbers and booleans with no shared properties also gets `Ma
 `UnmarshalText`, so it works as a parameter, a header or a form field. The text is the set variant
 without JSON quotes. Text that reads as a JSON number or boolean is tried as one first, then as a
 string. A union with nothing set has no text: sending it is an error. A query, header or cookie
-parameter whose union has an object or array variant gets no field, with a warning.
+parameter whose union has an object or array variant gets no field, with a warning, and so does a
+list or map of such unions.
+
+Any other union is one field of a form or multipart body: the text of a string, number or boolean
+variant, the JSON of an object or array variant, `vertex=abc` or `vertex={"x":1,"y":2}`. The server
+reads a field that is JSON as JSON and other text as a string. An object with additional
+properties goes as JSON in a url-encoded form too, so its extra keys arrive.
 
 `Validate` checks the count: exactly one for `oneOf`, at most one when nullable, at least one for
 `anyOf`, anything for a nullable `anyOf`. With a discriminator it also checks the value, as above.
