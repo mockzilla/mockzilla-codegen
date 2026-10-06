@@ -2,10 +2,13 @@
 
 package orders
 
-import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+import (
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
+)
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Status string
 
@@ -26,7 +29,7 @@ func StatusValues() []Status {
 
 // Validate checks the value against the constraints of the spec.
 func (s Status) Validate() error {
-	return runtime.OneOf(s, StatusOpen, StatusPaid, StatusShipped)
+	return validation.Enum(s, StatusOpen, StatusPaid, StatusShipped)
 }
 
 type GetOrderQueryExpand string
@@ -46,5 +49,5 @@ func GetOrderQueryExpandValues() []GetOrderQueryExpand {
 
 // Validate checks the value against the constraints of the spec.
 func (g GetOrderQueryExpand) Validate() error {
-	return runtime.OneOf(g, GetOrderQueryExpandItems, GetOrderQueryExpandCustomer)
+	return validation.Enum(g, GetOrderQueryExpandItems, GetOrderQueryExpandCustomer)
 }

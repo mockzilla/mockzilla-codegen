@@ -13,7 +13,7 @@ import (
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Note struct {
 	Text  string `json:"text"`
@@ -267,7 +267,7 @@ func (c *Client) PostJSON(ctx context.Context, opts *PostJSONRequestOptions, edi
 	}
 
 	var out *Note
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -300,7 +300,7 @@ func (c *Client) GetForm(ctx context.Context, opts *GetFormRequestOptions, edito
 	}
 
 	var out *Note
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/x-www-form-urlencoded", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -329,7 +329,7 @@ func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions, edi
 	}
 
 	var out *Note
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ func (c *Client) PostCharset(ctx context.Context, opts *PostCharsetRequestOption
 	}
 
 	var out *Note
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json; charset=utf-8", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -397,7 +397,7 @@ func (c *Client) Upload(ctx context.Context, opts *UploadRequestOptions, editors
 	}
 
 	var out UploadResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -432,7 +432,7 @@ func (c *Client) PostText(ctx context.Context, opts *PostTextRequestOptions, edi
 	}
 
 	var out *PostTextResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -467,7 +467,7 @@ func (c *Client) PutFile(ctx context.Context, opts *PutFileRequestOptions, edito
 	}
 
 	var out *PutFileResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "image/png", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -528,7 +528,7 @@ func (c *Client) PostAny(ctx context.Context, opts *PostAnyRequestOptions, edito
 	}
 
 	var out *PostAnyResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -565,7 +565,7 @@ func (c *Client) GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions,
 	}
 
 	var out *GetAnyTextResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "*/*", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -594,7 +594,7 @@ func (c *Client) GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOption
 	}
 
 	var out []byte
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "*/*", Dst: &out},
 	}); err != nil {
 		return nil, err

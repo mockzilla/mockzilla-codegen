@@ -10,10 +10,11 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Pet struct {
 	Name string `json:"name"`
@@ -21,8 +22,8 @@ type Pet struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p Pet) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(p.Name, 1))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(p.Name, 1))
 	return errs.Err()
 }
 
@@ -36,10 +37,10 @@ type ListPetsQuery struct {
 
 // Validate checks the value against the constraints of the spec.
 func (l ListPetsQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if l.Limit != nil {
-		errs.Append("limit", runtime.Minimum(*l.Limit, 1, false))
-		errs.Append("limit", runtime.Maximum(*l.Limit, 100, false))
+		errs.Append("limit", validation.Minimum(*l.Limit, 1, false))
+		errs.Append("limit", validation.Maximum(*l.Limit, 100, false))
 	}
 	return errs.Err()
 }
@@ -58,8 +59,8 @@ type DeletePetPathParams struct {
 
 // Validate checks the value against the constraints of the spec.
 func (d DeletePetPathParams) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("id", runtime.Format(d.ID, "uuid"))
+	var errs validation.Errors
+	errs.Append("id", validation.Format(d.ID, "uuid"))
 	return errs.Err()
 }
 
@@ -67,9 +68,9 @@ type ListPetsResponse200 []Pet
 
 // Validate checks the value against the constraints of the spec.
 func (l ListPetsResponse200) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	for idx, item := range l {
-		errs.Append(runtime.Index("", idx), item.Validate())
+		errs.Append(validation.Index("", idx), item.Validate())
 	}
 	return errs.Err()
 }
@@ -113,7 +114,7 @@ type ListPetsServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *ListPetsServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -194,7 +195,7 @@ type CreatePetServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreatePetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.BodyJSON != nil {
 		errs.Append("body", o.BodyJSON.Validate())
 	}
@@ -263,7 +264,7 @@ type DeletePetServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *DeletePetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.PathParams != nil {
 		errs.Append("path", o.PathParams.Validate())
 	}

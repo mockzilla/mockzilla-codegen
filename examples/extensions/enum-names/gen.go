@@ -2,10 +2,13 @@
 
 package enumnames
 
-import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+import (
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
+)
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Priority int
 
@@ -26,7 +29,7 @@ func PriorityValues() []Priority {
 
 // Validate checks the value against the constraints of the spec.
 func (p Priority) Validate() error {
-	return runtime.OneOf(p, PriorityLow, PriorityNormal, PriorityUrgent)
+	return validation.Enum(p, PriorityLow, PriorityNormal, PriorityUrgent)
 }
 
 type Region string
@@ -46,5 +49,5 @@ func RegionValues() []Region {
 
 // Validate checks the value against the constraints of the spec.
 func (r Region) Validate() error {
-	return runtime.OneOf(r, RegionEurope, RegionAmerica)
+	return validation.Enum(r, RegionEurope, RegionAmerica)
 }

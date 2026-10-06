@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Base struct {
 	ID      string     `json:"id"`
@@ -76,7 +77,7 @@ func (c *Contact) UnmarshalJSON(data []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (c Contact) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(c.Email != nil, c.Phone != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(c.Email != nil, c.Phone != nil))
 	return errs.Err()
 }

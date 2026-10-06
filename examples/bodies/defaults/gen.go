@@ -10,10 +10,11 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Order struct {
 	Item  string  `json:"item"`
@@ -281,7 +282,7 @@ func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id stri
 
 func (a *HTTPAdapter) failBody(w http.ResponseWriter, r *http.Request, id string, err error) {
 	kind := runtime.ErrorDecode
-	if runtime.IsValidation(err) {
+	if validation.Failed(err) {
 		kind = runtime.ErrorValidation
 	}
 	a.fail(w, r, &runtime.HandlerError{Kind: kind, OperationID: id, Err: err})

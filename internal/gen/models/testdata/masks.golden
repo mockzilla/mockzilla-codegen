@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mask"
 )
 
 var (
@@ -17,7 +18,7 @@ type Contact struct {
 
 // Masked returns a copy with the sensitive values masked. JSON encoding is left as it is.
 func (c Contact) Masked() Contact {
-	c.Email = runtime.MaskFull(c.Email)
+	c.Email = mask.Full(c.Email)
 	return c
 }
 
@@ -49,28 +50,28 @@ type User struct {
 // Masked returns a copy with the sensitive values masked. JSON encoding is left as it is.
 func (u User) Masked() User {
 	if u.Password != nil {
-		u.Password = runtime.Ptr(runtime.MaskFull(*u.Password))
+		u.Password = runtime.Ptr(mask.Full(*u.Password))
 	}
-	u.Ssn = runtime.MaskRegex(u.Ssn, patternUserSsn)
-	u.Token = runtime.MaskHash(u.Token)
-	u.Card = runtime.MaskPartial(u.Card, 1, 4)
-	u.Pin = runtime.Zero(u.Pin)
+	u.Ssn = mask.Regex(u.Ssn, patternUserSsn)
+	u.Token = mask.Hash(u.Token)
+	u.Card = mask.Partial(u.Card, 1, 4)
+	u.Pin = mask.Zero(u.Pin)
 	if u.Main != nil {
 		u.Main = runtime.Ptr(u.Main.Masked())
 	}
 	u.Plain = u.Plain.Masked()
-	u.List = runtime.MaskSlice(u.List)
-	u.ByName = runtime.MaskMap(u.ByName)
+	u.List = mask.Slice(u.List)
+	u.ByName = mask.Map(u.ByName)
 	if value, ok := u.Nick.Get(); ok {
-		u.Nick = runtime.Some(runtime.MaskFull(value))
+		u.Nick = runtime.Some(mask.Full(value))
 	}
 	if value, ok := u.Backup.Get(); ok {
 		u.Backup = runtime.Some(value.Masked())
 	}
 	if value, ok := u.Others.Get(); ok {
-		u.Others = runtime.Some(runtime.MaskSlice(value))
+		u.Others = runtime.Some(mask.Slice(value))
 	}
-	u.Code = runtime.Zero(u.Code)
+	u.Code = mask.Zero(u.Code)
 	return u
 }
 
@@ -83,7 +84,7 @@ type Contacts []Contact
 
 // Masked returns a copy with the sensitive values masked. JSON encoding is left as it is.
 func (c Contacts) Masked() Contacts {
-	c = runtime.MaskSlice(c)
+	c = mask.Slice(c)
 	return c
 }
 

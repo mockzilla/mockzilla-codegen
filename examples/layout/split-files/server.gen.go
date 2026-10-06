@@ -9,10 +9,11 @@ import (
 	"net/http"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
@@ -31,7 +32,7 @@ type CreateOrderServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreateOrderServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -93,7 +94,7 @@ type GetOrderServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *GetOrderServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}

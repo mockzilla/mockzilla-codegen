@@ -202,7 +202,7 @@ func TestTailLogStream(t *testing.T) {
 	_, err = c.TailLogStream(ctx, &TailLogRequestOptions{PathParams: &TailLogPathParams{Job: "deploy"}})
 	var apiErr *runtime.APIError
 	require.ErrorAs(t, err, &apiErr)
-	assert.Equal(t, http.StatusNotFound, apiErr.Status)
+	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
 }
 
 func TestTimeoutBoundsOnlyTheWaitForAStream(t *testing.T) {

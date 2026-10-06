@@ -14,11 +14,12 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Note struct {
 	Title      string       `json:"title"`
@@ -489,7 +490,7 @@ func (c *Client) SetPhoto(ctx context.Context, opts *SetPhotoRequestOptions, edi
 	}
 
 	var out *Received
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -529,7 +530,7 @@ func (c *Client) AddNote(ctx context.Context, opts *AddNoteRequestOptions, edito
 	}
 
 	var out *Received
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -618,9 +619,9 @@ func (t *MCPTools) SetPhoto(ctx context.Context, _ *mcp.CallToolRequest, in SetP
 	}
 	out, err := t.client.SetPhoto(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // AddNoteTool is the definition of the add_note tool.
@@ -640,7 +641,7 @@ func (t *MCPTools) AddNote(ctx context.Context, _ *mcp.CallToolRequest, in AddNo
 	}
 	out, err := t.client.AddNote(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }

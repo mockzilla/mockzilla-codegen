@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Cat struct {
 	Name *string `json:"name,omitempty"`
@@ -30,14 +31,14 @@ type Owner struct {
 
 // Validate checks the value against the constraints of the spec.
 func (o Owner) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	errs.Append("pet", o.Pet.Validate())
 	for idx, item := range o.Pets {
-		errs.Append(runtime.Index("pets", idx), item.Validate())
+		errs.Append(validation.Index("pets", idx), item.Validate())
 	}
-	for _, key := range runtime.SortedKeys(o.Tags) {
+	for _, key := range validation.SortedKeys(o.Tags) {
 		item := o.Tags[key]
-		errs.Append(runtime.Key("tags", key), item.Validate())
+		errs.Append(validation.Key("tags", key), item.Validate())
 	}
 	return errs.Err()
 }
@@ -85,8 +86,8 @@ func (p *Pet) UnmarshalJSON(data []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (p Pet) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(p.Cat != nil, p.Dog != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(p.Cat != nil, p.Dog != nil))
 	return errs.Err()
 }
 
@@ -165,8 +166,8 @@ func (v *Value) UnmarshalJSON(data []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (v Value) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(v.Time != nil, v.String != nil, v.Int64 != nil, v.Float64 != nil, v.Bool != nil, v.Strings != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(v.Time != nil, v.String != nil, v.Int64 != nil, v.Float64 != nil, v.Bool != nil, v.Strings != nil))
 	return errs.Err()
 }
 
@@ -219,8 +220,8 @@ func (s *Shape) UnmarshalJSON(data []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (s Shape) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(s.Pet != nil, s.Option2 != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(s.Pet != nil, s.Option2 != nil))
 	if s.Pet != nil {
 		errs.Append("", s.Pet.Validate())
 	}
@@ -279,8 +280,8 @@ func (s *ShapeOption2) UnmarshalText(text []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (s ShapeOption2) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(s.String != nil, s.Int != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(s.String != nil, s.Int != nil))
 	return errs.Err()
 }
 
@@ -333,7 +334,7 @@ func (o *OwnerTagsValue) UnmarshalText(text []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (o OwnerTagsValue) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(o.String != nil, o.Int != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(o.String != nil, o.Int != nil))
 	return errs.Err()
 }

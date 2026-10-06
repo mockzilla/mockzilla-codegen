@@ -13,7 +13,7 @@ import (
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 // WithRouter registers the routes on app instead of a new App.
 func WithRouter(app *fiber.App) ServerOption {

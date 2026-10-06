@@ -13,7 +13,7 @@ import (
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Job struct {
 	Size int `json:"size"`
@@ -216,7 +216,7 @@ func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions, e
 	}
 
 	var out *Result
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "202"},
 		{Status: "400", MediaType: "application/problem+json", Dst: new(Problem)},
@@ -238,7 +238,7 @@ func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobReque
 	}
 
 	out := &SubmitJobResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out.JSON201},
 		{Status: "202", MediaType: "application/json", Dst: &out.JSON202},
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
@@ -277,7 +277,7 @@ func (c *Client) GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions, e
 	}
 
 	var out GetJobLogJSONResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -297,7 +297,7 @@ func (c *Client) GetJobLogWithResponse(ctx context.Context, opts *GetJobLogReque
 	}
 
 	out := &GetJobLogResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out.Text200},
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 	}); err != nil {

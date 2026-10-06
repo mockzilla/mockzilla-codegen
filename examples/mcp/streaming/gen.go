@@ -15,11 +15,12 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Prompt struct {
 	Text   string `json:"text"`
@@ -476,7 +477,7 @@ func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions, editors ...
 	}
 
 	var out *Reply
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -526,7 +527,7 @@ func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions,
 	}
 
 	var out string
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "text/event-stream", Dst: &out},
 	}); err != nil {
 		return "", err
@@ -618,9 +619,9 @@ func (t *MCPTools) Chat(ctx context.Context, _ *mcp.CallToolRequest, in ChatTool
 	}
 	out, err := t.client.Chat(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // ListEventsTool is the definition of the list_events tool.

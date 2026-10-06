@@ -32,8 +32,9 @@ func TestRequestOptionsView(t *testing.T) {
 	got := requestOptionsView(f.g, op, f.scope(t, PartOptions))
 
 	assert.Equal(t, RequestOptionsView{
-		Name: "CreatePet",
-		Type: "CreatePetRequestOptions",
+		Name:       "CreatePet",
+		Type:       "CreatePetRequestOptions",
+		Validation: "validation",
 		Fields: []FieldView{
 			{Name: "Query", Type: "*Query"},
 			{Name: "BodyJSON", Type: "*Pet", Doc: "Body sent as application/json."},

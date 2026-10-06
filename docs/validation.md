@@ -18,19 +18,19 @@ Pet:
 var patternPetTagsItem = regexp.MustCompile(`^[a-z]+$`)
 
 func (p Pet) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(p.Name, 1))
-	errs.Append("name", runtime.MaxLength(p.Name, 20))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(p.Name, 1))
+	errs.Append("name", validation.MaxLength(p.Name, 20))
 	if p.Age != nil {
-		errs.Append("age", runtime.Minimum(*p.Age, 0, false))
+		errs.Append("age", validation.Minimum(*p.Age, 0, false))
 	}
 	if p.Tags == nil {
 		errs.Required("tags")
 	}
 	if p.Tags != nil {
-		errs.Append("tags", runtime.MinItems(p.Tags, 1))
+		errs.Append("tags", validation.MinItems(p.Tags, 1))
 		for idx, item := range p.Tags {
-			errs.Append(runtime.Index("tags", idx), runtime.Pattern(item, patternPetTagsItem, `^[a-z]+$`))
+			errs.Append(validation.Index("tags", idx), validation.Pattern(item, patternPetTagsItem, `^[a-z]+$`))
 		}
 	}
 	if p.Owner != nil {
@@ -120,13 +120,14 @@ names it. An error quotes the pattern as the spec writes it: `tags[1]: must matc
 
 ## Error paths
 
-`runtime.ValidationErrors` collects every failed check with the path of its value:
+`validation.Errors`, of the package `pkg/runtime/validation`, collects every failed check with the
+path of its value:
 
 ```
 name: must be at least 1 characters long; tags[1]: must match ^[a-z]+$; labels["team"]: must be at most 5 characters long
 ```
 
-`errors.As` finds the `runtime.ValidationErrors` and each `runtime.ValidationError` in it. Map values
+`errors.As` finds the `*validation.Errors` and each `validation.Error` in it. Map values
 come out in key order, so the same value gives the same error text on every run. A key that fails
 `propertyNames` is reported under the path of its value: `labels["Bad Key"]: must match ^[a-z]+$`.
 
@@ -134,10 +135,10 @@ Each error also names the keyword that failed, `Rule`, and its value in the spec
 service can write messages of its own:
 
 ```go
-var errs runtime.ValidationErrors
+var errs *validation.Errors
 if errors.As(err, &errs) {
-	for _, e := range errs {
-		// e.Field "name", e.Rule runtime.RuleMinLength, e.Limit 2
+	for _, e := range *errs {
+		// e.Field "name", e.Rule validation.RuleMinLength, e.Limit 2
 	}
 }
 ```

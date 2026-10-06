@@ -14,11 +14,12 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Stored struct {
 	// Given by the server.
@@ -365,7 +366,7 @@ func (c *Client) AddPet(ctx context.Context, opts *AddPetRequestOptions, editors
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -438,7 +439,7 @@ func (t *MCPTools) AddPetTool() *mcp.Tool {
 
 // AddPet handles the add_pet tool.
 func (t *MCPTools) AddPet(ctx context.Context, req *mcp.CallToolRequest, in AddPetToolInput) (*mcp.CallToolResult, any, error) {
-	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := mcptool.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 
@@ -447,7 +448,7 @@ func (t *MCPTools) AddPet(ctx context.Context, req *mcp.CallToolRequest, in AddP
 	}
 	out, err := t.client.AddPet(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }

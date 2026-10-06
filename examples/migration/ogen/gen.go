@@ -12,10 +12,11 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type NewPet struct {
 	Name   string  `json:"name" db:"name"`
@@ -25,8 +26,8 @@ type NewPet struct {
 
 // Validate checks the value against the constraints of the spec.
 func (n NewPet) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(n.Name, 1))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(n.Name, 1))
 	if n.Status != nil {
 		errs.Append("status", n.Status.Validate())
 	}
@@ -42,8 +43,8 @@ type Pet struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p Pet) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(p.Name, 1))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(p.Name, 1))
 	if p.Status != nil {
 		errs.Append("status", p.Status.Validate())
 	}
@@ -86,7 +87,7 @@ func StatusValues() []Status {
 
 // Validate checks the value against the constraints of the spec.
 func (s Status) Validate() error {
-	return runtime.OneOf(s, StatusAvailable, StatusPending, StatusSold)
+	return validation.Enum(s, StatusAvailable, StatusPending, StatusSold)
 }
 
 type ListPetsQuery struct {
@@ -96,9 +97,9 @@ type ListPetsQuery struct {
 
 // Validate checks the value against the constraints of the spec.
 func (l ListPetsQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if l.Limit != nil {
-		errs.Append("limit", runtime.Minimum(*l.Limit, 1, false))
+		errs.Append("limit", validation.Minimum(*l.Limit, 1, false))
 	}
 	if l.Status != nil {
 		errs.Append("status", l.Status.Validate())
@@ -118,9 +119,9 @@ type ListPetsResponse200 []Pet
 
 // Validate checks the value against the constraints of the spec.
 func (l ListPetsResponse200) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	for idx, item := range l {
-		errs.Append(runtime.Index("", idx), item.Validate())
+		errs.Append(validation.Index("", idx), item.Validate())
 	}
 	return errs.Err()
 }
@@ -149,7 +150,7 @@ type ListPetsServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *ListPetsServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -216,7 +217,7 @@ type CreatePetServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreatePetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -683,7 +684,7 @@ type ListPetsRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *ListPetsRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -698,7 +699,7 @@ type CreatePetRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreatePetRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -812,7 +813,7 @@ func (c *Client) ListPets(ctx context.Context, opts *ListPetsRequestOptions, edi
 	}
 
 	var out ListPetsResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(Error)},
 	}); err != nil {
@@ -846,7 +847,7 @@ func (c *Client) CreatePet(ctx context.Context, opts *CreatePetRequestOptions, e
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(Error)},
 	}); err != nil {
@@ -882,7 +883,7 @@ func (c *Client) GetPet(ctx context.Context, opts *GetPetRequestOptions, editors
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "404", MediaType: "application/json", Dst: new(Error)},
 	}); err != nil {

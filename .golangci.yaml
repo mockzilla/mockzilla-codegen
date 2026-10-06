@@ -104,13 +104,13 @@ linters:
         text: "^G204:"
       # maxMemory bounds what stays in memory; the size of the body is the server's job, as with
       # every other decoder here.
-      - path: ^pkg/runtime/(body|presence)\.go
+      - path: ^pkg/runtime/body_(decode|presence)\.go
         linters:
           - gosec
         text: "^G120:"
       # These are request cookies written by the client; Secure, HttpOnly and SameSite only exist on
       # Set-Cookie.
-      - path: ^pkg/runtime/params\.go
+      - path: ^pkg/runtime/param\.go
         linters:
           - gosec
         text: "^G124:"

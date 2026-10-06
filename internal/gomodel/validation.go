@@ -30,7 +30,7 @@ const (
 	groupMap
 )
 
-// checkedFormats are the string formats runtime.Format checks.
+// checkedFormats are the string formats validation.Format checks.
 var checkedFormats = []string{"uuid", "uri", "uri-reference", "ipv4", "ipv6", "hostname", "date", "date-time", "email"}
 
 // keywordSet holds the keywords that constrain a value where it is used.

@@ -8,10 +8,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type DeviceID = uuid.UUID
 
@@ -25,9 +26,9 @@ type Device struct {
 
 // Validate checks the value against the constraints of the spec.
 func (d Device) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if d.LegacyID != nil {
-		errs.Append("legacyId", runtime.Format(*d.LegacyID, "uuid"))
+		errs.Append("legacyId", validation.Format(*d.LegacyID, "uuid"))
 	}
 	return errs.Err()
 }

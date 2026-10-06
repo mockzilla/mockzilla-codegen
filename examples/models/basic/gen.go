@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 // A pet in the store.
 type Pet struct {
@@ -24,7 +25,7 @@ type Pet struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p Pet) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if p.Owner != nil {
 		errs.Append("owner", p.Owner.Validate())
 	}
@@ -38,7 +39,7 @@ type PetOwner struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p PetOwner) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if p.Email != nil {
 		errs.Append("email", p.Email.Validate())
 	}
@@ -49,9 +50,9 @@ type Pets []Pet
 
 // Validate checks the value against the constraints of the spec.
 func (p Pets) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	for idx, item := range p {
-		errs.Append(runtime.Index("", idx), item.Validate())
+		errs.Append(validation.Index("", idx), item.Validate())
 	}
 	return errs.Err()
 }

@@ -15,11 +15,12 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Pet struct {
 	Name string `json:"name"`
@@ -647,7 +648,7 @@ func (c *Client) CountPets(ctx context.Context, opts *CountPetsRequestOptions, e
 	}
 
 	var out *CountPetsResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -678,7 +679,7 @@ func (c *Client) FindPet(ctx context.Context, opts *FindPetRequestOptions, edito
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "204"},
 	}); err != nil {
@@ -713,7 +714,7 @@ func (c *Client) GetPhoto(ctx context.Context, opts *GetPhotoRequestOptions, edi
 	}
 
 	var out *GetPhotoResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "*/*", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -747,7 +748,7 @@ func (c *Client) GetIcon(ctx context.Context, opts *GetIconRequestOptions, edito
 	}
 
 	var out []byte
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "image/png", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -830,9 +831,9 @@ func (t *MCPTools) CountPets(ctx context.Context, _ *mcp.CallToolRequest, _ Coun
 	opts := &CountPetsRequestOptions{}
 	out, err := t.client.CountPets(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // FindPetTool is the definition of the find_pet tool.
@@ -854,12 +855,12 @@ func (t *MCPTools) FindPet(ctx context.Context, _ *mcp.CallToolRequest, in FindP
 	}
 	out, err := t.client.FindPet(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
 	if out == nil {
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "ok"}}}, nil, nil
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // GetPhotoTool is the definition of the get_photo tool.
@@ -881,7 +882,7 @@ func (t *MCPTools) GetPhoto(ctx context.Context, _ *mcp.CallToolRequest, in GetP
 	}
 	out, err := t.client.GetPhoto(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
 	if out == nil {
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "ok"}}}, nil, nil
@@ -904,7 +905,7 @@ func (t *MCPTools) GetIcon(ctx context.Context, _ *mcp.CallToolRequest, _ GetIco
 	opts := &GetIconRequestOptions{}
 	out, err := t.client.GetIcon(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
 	return t.fileResult(runtime.NewFile(out, "", "image/png"))
 }
@@ -922,5 +923,5 @@ func (*MCPTools) fileResult(f runtime.File) (*mcp.CallToolResult, any, error) {
 	case strings.HasPrefix(mediaType, "audio/"):
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.AudioContent{Data: data, MIMEType: mediaType}}}, nil, nil
 	}
-	return nil, runtime.ToolResult{Value: data}, nil
+	return nil, mcptool.Result{Value: data}, nil
 }

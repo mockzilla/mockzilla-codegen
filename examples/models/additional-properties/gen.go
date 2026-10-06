@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 var (
 	patternHeadersKey = regexp.MustCompile(`^[a-z][a-z-]*$`)
@@ -63,10 +64,10 @@ type Headers map[string]string
 
 // Validate checks the value against the constraints of the spec.
 func (h Headers) Validate() error {
-	var errs runtime.ValidationErrors
-	for _, key := range runtime.SortedKeys(h) {
-		errs.Append(runtime.Key("", key), runtime.MaxLength(key, 20))
-		errs.Append(runtime.Key("", key), runtime.Pattern(key, patternHeadersKey, `^[a-z][a-z-]*$`))
+	var errs validation.Errors
+	for _, key := range validation.SortedKeys(h) {
+		errs.Append(validation.Key("", key), validation.MaxLength(key, 20))
+		errs.Append(validation.Key("", key), validation.Pattern(key, patternHeadersKey, `^[a-z][a-z-]*$`))
 	}
 	return errs.Err()
 }
@@ -75,9 +76,9 @@ type Units map[string]int
 
 // Validate checks the value against the constraints of the spec.
 func (u Units) Validate() error {
-	var errs runtime.ValidationErrors
-	for _, key := range runtime.SortedKeys(u) {
-		errs.Append(runtime.Key("", key), runtime.OneOf(key, "cm", "kg"))
+	var errs validation.Errors
+	for _, key := range validation.SortedKeys(u) {
+		errs.Append(validation.Key("", key), validation.Enum(key, "cm", "kg"))
 	}
 	return errs.Err()
 }
@@ -99,5 +100,5 @@ func UnitValues() []Unit {
 
 // Validate checks the value against the constraints of the spec.
 func (u Unit) Validate() error {
-	return runtime.OneOf(u, UnitCm, UnitKg)
+	return validation.Enum(u, UnitCm, UnitKg)
 }

@@ -25,6 +25,7 @@ var (
 	ErrResponseCut  = errors.New("response cut short")
 	ErrPanic        = errors.New("panic")
 	ErrBaseURL      = errors.New("invalid base URL")
+	ErrHeaderValue  = errors.New("invalid response header")
 	ErrFrame        = errors.New("invalid stream frame")
 	ErrFrameSize    = errors.New("stream frame too large")
 )

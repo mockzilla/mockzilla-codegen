@@ -14,12 +14,12 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
 
-// maskFuncs are the runtime functions that mask a string, by mask kind.
+// maskFuncs are the functions of the mask package that mask a string, by mask kind.
 var maskFuncs = map[gomodel.MaskKind]string{
-	gomodel.MaskFull:    "MaskFull",
-	gomodel.MaskRegex:   "MaskRegex",
-	gomodel.MaskHash:    "MaskHash",
-	gomodel.MaskPartial: "MaskPartial",
+	gomodel.MaskFull:    "Full",
+	gomodel.MaskRegex:   "Regex",
+	gomodel.MaskHash:    "Hash",
+	gomodel.MaskPartial: "Partial",
 }
 
 // MaskView is what Masked and LogValue need. Slog is the name log/slog is imported under.
@@ -41,12 +41,18 @@ func maskView(d *gomodel.Decl, s *gocode.Scope) *MaskView {
 	rt := s.Import(gomodel.Import{Path: gomodel.RuntimePath})
 	v := &MaskView{Receiver: receiver(d.Name), Runtime: rt, Slog: s.Import(gomodel.Import{Path: "log/slog"})}
 	for _, m := range d.Masks {
-		v.Fields = append(v.Fields, maskFieldView(m, v.Receiver, rt))
+		v.Fields = append(v.Fields, maskFieldView(m, v.Receiver, s))
 	}
 	return v
 }
 
-func maskFieldView(m *gomodel.Mask, r, rt string) MaskFieldView {
+func maskFieldView(m *gomodel.Mask, r string, s *gocode.Scope) MaskFieldView {
+	// The mask package is imported only by a file that calls it.
+	maskCall := func(name string, args ...string) string {
+		return gocode.Call(gocode.Selector(s.Import(gomodel.Import{Path: gomodel.MaskPath}), name), args...)
+	}
+	rt := s.Import(gomodel.Import{Path: gomodel.RuntimePath})
+
 	target := r
 	if m.Field != "" {
 		target = gocode.Selector(r, m.Field)
@@ -62,19 +68,19 @@ func maskFieldView(m *gomodel.Mask, r, rt string) MaskFieldView {
 	var out string
 	switch m.Kind {
 	case gomodel.MaskZero:
-		return MaskFieldView{Target: target, Value: gocode.Call(gocode.Selector(rt, "Zero"), target)}
+		return MaskFieldView{Target: target, Value: maskCall("Zero", target)}
 	case gomodel.MaskItems:
-		out = gocode.Call(gocode.Selector(rt, "MaskSlice"), owner)
+		out = maskCall("Slice", owner)
 	case gomodel.MaskValues:
-		out = gocode.Call(gocode.Selector(rt, "MaskMap"), owner)
+		out = maskCall("Map", owner)
 	case gomodel.MaskNested:
 		out = gocode.Call(gocode.Selector(owner, "Masked"))
 	case gomodel.MaskRegex:
-		out = gocode.Call(gocode.Selector(rt, maskFuncs[m.Kind]), value, m.Pattern.Name)
+		out = maskCall(maskFuncs[m.Kind], value, m.Pattern.Name)
 	case gomodel.MaskPartial:
-		out = gocode.Call(gocode.Selector(rt, maskFuncs[m.Kind]), value, strconv.Itoa(m.KeepPrefix), strconv.Itoa(m.KeepSuffix))
+		out = maskCall(maskFuncs[m.Kind], value, strconv.Itoa(m.KeepPrefix), strconv.Itoa(m.KeepSuffix))
 	case gomodel.MaskFull, gomodel.MaskHash:
-		out = gocode.Call(gocode.Selector(rt, maskFuncs[m.Kind]), value)
+		out = maskCall(maskFuncs[m.Kind], value)
 	}
 
 	switch {

@@ -8,8 +8,13 @@
 
 package gomodel
 
-// RuntimePath is the import path of the helpers that generated code uses.
-const RuntimePath = "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+// The import paths of the helpers that generated code uses: the runtime and its packages.
+const (
+	RuntimePath    = "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	ValidationPath = RuntimePath + "/validation"
+	MaskPath       = RuntimePath + "/mask"
+	MCPToolPath    = RuntimePath + "/mcptool"
+)
 
 // Type is a Go type expression. It stays a value until rendering turns it into text.
 type Type interface {

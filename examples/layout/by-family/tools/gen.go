@@ -9,11 +9,12 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/examples/layout/by-family/client"
 	"github.com/mockzilla/mockzilla-codegen/examples/layout/by-family/models"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 // CreateOrderToolInput is the input of the create_order tool.
 type CreateOrderToolInput struct {
@@ -58,7 +59,7 @@ func (t *MCPTools) CreateOrderTool() *mcp.Tool {
 
 // CreateOrder handles the create_order tool.
 func (t *MCPTools) CreateOrder(ctx context.Context, req *mcp.CallToolRequest, in CreateOrderToolInput) (*mcp.CallToolResult, any, error) {
-	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := mcptool.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 
@@ -67,9 +68,9 @@ func (t *MCPTools) CreateOrder(ctx context.Context, req *mcp.CallToolRequest, in
 	}
 	out, err := t.client.CreateOrder(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // GetOrderTool is the definition of the get_order tool.
@@ -94,7 +95,7 @@ func (t *MCPTools) GetOrder(ctx context.Context, _ *mcp.CallToolRequest, in GetO
 	}
 	out, err := t.client.GetOrder(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }

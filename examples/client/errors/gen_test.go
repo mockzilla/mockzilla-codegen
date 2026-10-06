@@ -97,7 +97,7 @@ func TestErrors(t *testing.T) {
 			assert.Nil(t, pet)
 			var apiErr *runtime.APIError
 			require.ErrorAs(t, err, &apiErr)
-			assert.Equal(t, tc.wantStatus, apiErr.Status)
+			assert.Equal(t, tc.wantStatus, apiErr.StatusCode)
 			assert.EqualError(t, err, tc.wantMessage)
 			var problem *Problem
 			if tc.wantProblem != nil {

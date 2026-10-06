@@ -220,7 +220,7 @@ func TestErrors(t *testing.T) {
 			}
 			var apiErr *runtime.APIError
 			require.ErrorAs(t, err, &apiErr)
-			assert.Equal(t, tc.wantStatus, apiErr.Status)
+			assert.Equal(t, tc.wantStatus, apiErr.StatusCode)
 			assert.Equal(t, tc.wantBody, string(apiErr.Body))
 			assert.NoError(t, apiErr.Err, "no error type is documented")
 		})

@@ -2,10 +2,13 @@
 
 package discriminator
 
-import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+import (
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
+)
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Card struct {
 	Type   string `json:"type"`
@@ -24,8 +27,8 @@ type Wallet struct {
 
 // Validate checks the value against the constraints of the spec.
 func (w Wallet) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("type", runtime.Const(w.Type, "wallet"))
+	var errs validation.Errors
+	errs.Append("type", validation.Const(w.Type, "wallet"))
 	return errs.Err()
 }
 
@@ -40,9 +43,9 @@ type InlineCircle struct {
 
 // Validate checks the value against the constraints of the spec.
 func (i InlineCircle) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if i.Kind != nil {
-		errs.Append("kind", runtime.Const(*i.Kind, "circle"))
+		errs.Append("kind", validation.Const(*i.Kind, "circle"))
 	}
 	return errs.Err()
 }
@@ -54,9 +57,9 @@ type InlineSquare struct {
 
 // Validate checks the value against the constraints of the spec.
 func (i InlineSquare) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if i.Kind != nil {
-		errs.Append("kind", runtime.Const(*i.Kind, "square"))
+		errs.Append("kind", validation.Const(*i.Kind, "square"))
 	}
 	return errs.Err()
 }
@@ -114,8 +117,8 @@ func (p *Payment) union() runtime.Union {
 
 // Validate checks the value against the constraints of the spec.
 func (p Payment) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(p.Card != nil, p.Bank != nil, p.Wallet != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(p.Card != nil, p.Bank != nil, p.Wallet != nil))
 	errs.Append("", runtime.DiscriminatorError(p.MarshalJSON()))
 	if p.Wallet != nil {
 		errs.Append("", p.Wallet.Validate())
@@ -167,8 +170,8 @@ func (t *Tolerant) union() runtime.Union {
 
 // Validate checks the value against the constraints of the spec.
 func (t Tolerant) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(t.Card != nil, t.Unknown != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(t.Card != nil, t.Unknown != nil))
 	errs.Append("", runtime.DiscriminatorError(t.MarshalJSON()))
 	return errs.Err()
 }
@@ -215,8 +218,8 @@ func (i *Inline) union() runtime.Union {
 
 // Validate checks the value against the constraints of the spec.
 func (i Inline) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(i.Circle != nil, i.Square != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(i.Circle != nil, i.Square != nil))
 	errs.Append("", runtime.DiscriminatorError(i.MarshalJSON()))
 	if i.Circle != nil {
 		errs.Append("", i.Circle.Validate())

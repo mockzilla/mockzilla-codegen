@@ -6,10 +6,11 @@ import (
 	"regexp"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 var (
 	patternItemCode = regexp.MustCompile(`^[A-Z]{3}$`)
@@ -28,8 +29,8 @@ type Corner struct {
 
 // Validate checks the value against the constraints of the spec.
 func (c Corner) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.OneOfJSON(c, `{"x":0,"y":null}`, `{"x":1,"y":1}`))
+	var errs validation.Errors
+	errs.Append("", validation.EnumJSON(c, `{"x":0,"y":null}`, `{"x":1,"y":1}`))
 	return errs.Err()
 }
 
@@ -59,51 +60,51 @@ type Item struct {
 
 // Validate checks the value against the constraints of the spec.
 func (i Item) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(i.Name, 2))
-	errs.Append("name", runtime.MaxLength(i.Name, 10))
-	errs.Append("code", runtime.Pattern(i.Code, patternItemCode, `^[A-Z]{3}$`))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(i.Name, 2))
+	errs.Append("name", validation.MaxLength(i.Name, 10))
+	errs.Append("code", validation.Pattern(i.Code, patternItemCode, `^[A-Z]{3}$`))
 	if i.ID != nil {
-		errs.Append("id", runtime.Format(*i.ID, "uuid"))
+		errs.Append("id", validation.Format(*i.ID, "uuid"))
 	}
 	if i.Site != nil {
-		errs.Append("site", runtime.Format(*i.Site, "uri"))
+		errs.Append("site", validation.Format(*i.Site, "uri"))
 	}
 	if i.Host != nil {
-		errs.Append("host", runtime.Format(*i.Host, "hostname"))
+		errs.Append("host", validation.Format(*i.Host, "hostname"))
 	}
 	if i.Email != nil {
 		errs.Append("email", i.Email.Validate())
 	}
 	if i.Price != nil {
-		errs.Append("price", runtime.Minimum(*i.Price, 0, false))
-		errs.Append("price", runtime.Maximum(*i.Price, 1000, true))
-		errs.Append("price", runtime.MultipleOf(*i.Price, 0.01))
+		errs.Append("price", validation.Minimum(*i.Price, 0, false))
+		errs.Append("price", validation.Maximum(*i.Price, 1000, true))
+		errs.Append("price", validation.MultipleOf(*i.Price, 0.01))
 	}
 	if i.Count != nil {
-		errs.Append("count", runtime.Minimum(*i.Count, 0, true))
-		errs.Append("count", runtime.Maximum(*i.Count, 5, false))
+		errs.Append("count", validation.Minimum(*i.Count, 0, true))
+		errs.Append("count", validation.Maximum(*i.Count, 5, false))
 	}
 	if i.Tags == nil {
 		errs.Required("tags")
 	}
 	if i.Tags != nil {
-		errs.Append("tags", runtime.MinItems(i.Tags, 1))
-		errs.Append("tags", runtime.MaxItems(i.Tags, 3))
-		errs.Append("tags", runtime.Unique(i.Tags))
+		errs.Append("tags", validation.MinItems(i.Tags, 1))
+		errs.Append("tags", validation.MaxItems(i.Tags, 3))
+		errs.Append("tags", validation.Unique(i.Tags))
 		for idx, item := range i.Tags {
-			errs.Append(runtime.Index("tags", idx), runtime.MaxLength(item, 5))
+			errs.Append(validation.Index("tags", idx), validation.MaxLength(item, 5))
 		}
 	}
 	if i.Labels != nil {
-		errs.Append("labels", runtime.MaxProperties(i.Labels, 2))
-		for _, key := range runtime.SortedKeys(i.Labels) {
+		errs.Append("labels", validation.MaxProperties(i.Labels, 2))
+		for _, key := range validation.SortedKeys(i.Labels) {
 			item := i.Labels[key]
-			errs.Append(runtime.Key("labels", key), runtime.MinLength(item, 1))
+			errs.Append(validation.Key("labels", key), validation.MinLength(item, 1))
 		}
 	}
 	if i.Kind != nil {
-		errs.Append("kind", runtime.Const(*i.Kind, "item"))
+		errs.Append("kind", validation.Const(*i.Kind, "item"))
 	}
 	if i.Size != nil {
 		errs.Append("size", i.Size.Validate())
@@ -112,30 +113,30 @@ func (i Item) Validate() error {
 		errs.Append("corner", i.Corner.Validate())
 	}
 	if i.Dims != nil {
-		errs.Append("dims", runtime.OneOfJSON(i.Dims, `[1,2]`, `[2,4]`))
+		errs.Append("dims", validation.EnumJSON(i.Dims, `[1,2]`, `[2,4]`))
 	}
 	if i.Unit != nil {
 		errs.Append("unit", i.Unit.Validate())
 	}
 	if i.Mark != nil {
-		errs.Append("mark", runtime.OneOfJSON(i.Mark, `"a"`, `1`, `true`))
+		errs.Append("mark", validation.EnumJSON(i.Mark, `"a"`, `1`, `true`))
 	}
 	if i.Token != nil {
-		errs.Append("token", runtime.MaxLength(runtime.Base64(i.Token), 8))
+		errs.Append("token", validation.MaxLength(validation.Base64(i.Token), 8))
 	}
 	if i.Word != nil {
-		errs.Append("word", runtime.Pattern(*i.Word, patternItemWord, `^\S+$`))
+		errs.Append("word", validation.Pattern(*i.Word, patternItemWord, `^\S+$`))
 	}
 	if i.Line != nil {
-		errs.Append("line", runtime.Pattern(*i.Line, patternItemLine, `^.*$`))
+		errs.Append("line", validation.Pattern(*i.Line, patternItemLine, `^.*$`))
 	}
 	if i.Stock != nil {
-		errs.Append("stock", runtime.Minimum(*i.Stock, 10, false))
-		errs.Append("stock", runtime.Maximum(*i.Stock, 100, false))
+		errs.Append("stock", validation.Minimum(*i.Stock, 10, false))
+		errs.Append("stock", validation.Maximum(*i.Stock, 100, false))
 	}
 	if i.Ref != nil {
-		errs.Append("ref", runtime.Pattern(*i.Ref, patternItemRef, `^[A-Z]`))
-		errs.Append("ref", runtime.Pattern(*i.Ref, patternItemRef2, `[0-9]$`))
+		errs.Append("ref", validation.Pattern(*i.Ref, patternItemRef, `^[A-Z]`))
+		errs.Append("ref", validation.Pattern(*i.Ref, patternItemRef2, `[0-9]$`))
 	}
 	return errs.Err()
 }
@@ -159,7 +160,7 @@ func SizeValues() []Size {
 
 // Validate checks the value against the constraints of the spec.
 func (s Size) Validate() error {
-	return runtime.OneOf(s, SizeS, SizeM, SizeL)
+	return validation.Enum(s, SizeS, SizeM, SizeL)
 }
 
 // ItemUnit is one of String or Int.
@@ -211,8 +212,8 @@ func (i *ItemUnit) UnmarshalText(text []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (i ItemUnit) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(i.String != nil, i.Int != nil))
-	errs.Append("", runtime.OneOfJSON(i, `"cm"`, `10`))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(i.String != nil, i.Int != nil))
+	errs.Append("", validation.EnumJSON(i, `"cm"`, `10`))
 	return errs.Err()
 }

@@ -12,10 +12,11 @@ import (
 	"github.com/beego/beego/v2/server/web"
 	bcontext "github.com/beego/beego/v2/server/web/context"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Pet struct {
 	Name string `json:"name"`
@@ -24,17 +25,17 @@ type Pet struct {
 
 // Validate checks the value against the constraints of the spec, as a request carries it.
 func (p Pet) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(p.Name, 1))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(p.Name, 1))
 	return errs.Err()
 }
 
 // ValidateResponse checks the value against the constraints of the spec, as a response carries it.
 func (p Pet) ValidateResponse() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(p.Name, 1))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(p.Name, 1))
 	if p.Age != nil {
-		errs.Append("age", runtime.Minimum(*p.Age, 0, false))
+		errs.Append("age", validation.Minimum(*p.Age, 0, false))
 	}
 	return errs.Err()
 }
@@ -77,7 +78,7 @@ func GetPetQueryFieldsItemValues() []GetPetQueryFieldsItem {
 
 // Validate checks the value against the constraints of the spec.
 func (g GetPetQueryFieldsItem) Validate() error {
-	return runtime.OneOf(g, GetPetQueryFieldsItemName, GetPetQueryFieldsItemAge)
+	return validation.Enum(g, GetPetQueryFieldsItemName, GetPetQueryFieldsItemAge)
 }
 
 type GetPetPathParams struct {
@@ -86,8 +87,8 @@ type GetPetPathParams struct {
 
 // Validate checks the value against the constraints of the spec.
 func (g GetPetPathParams) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("id", runtime.Minimum(g.ID, 1, false))
+	var errs validation.Errors
+	errs.Append("id", validation.Minimum(g.ID, 1, false))
 	return errs.Err()
 }
 
@@ -97,9 +98,9 @@ type GetPetQuery struct {
 
 // Validate checks the value against the constraints of the spec.
 func (g GetPetQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	for idx, item := range g.Fields {
-		errs.Append(runtime.Index("fields", idx), item.Validate())
+		errs.Append(validation.Index("fields", idx), item.Validate())
 	}
 	return errs.Err()
 }
@@ -110,8 +111,8 @@ type PutPetPathParams struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p PutPetPathParams) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("id", runtime.Minimum(p.ID, 1, false))
+	var errs validation.Errors
+	errs.Append("id", validation.Minimum(p.ID, 1, false))
 	return errs.Err()
 }
 
@@ -132,7 +133,7 @@ type GetPetServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *GetPetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.PathParams != nil {
 		errs.Append("path", o.PathParams.Validate())
 	}
@@ -208,7 +209,7 @@ type PutPetServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *PutPetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.PathParams != nil {
 		errs.Append("path", o.PathParams.Validate())
 	}
@@ -479,7 +480,7 @@ func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id stri
 
 func (a *HTTPAdapter) failBody(w http.ResponseWriter, r *http.Request, id string, err error) {
 	kind := runtime.ErrorDecode
-	if runtime.IsValidation(err) {
+	if validation.Failed(err) {
 		kind = runtime.ErrorValidation
 	}
 	a.fail(w, r, &runtime.HandlerError{Kind: kind, OperationID: id, Err: err})

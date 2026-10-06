@@ -99,7 +99,7 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
   	log.Println(problem.Detail)
   }
   var apiErr *runtime.APIError
-  if errors.As(err, &apiErr) && apiErr.Status == http.StatusNotFound {
+  if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
   	return nil
   }
   ```
@@ -163,9 +163,9 @@ func (o *CreatePetRequestOptions) Validate() error
   `query` is a query parameter, is `runtime.ErrParamMissing` on every call. Generation warns about
   it (`path-param-missing`).
 - The body goes as its media type: JSON for `application/json` and `+json`,
-  `application/x-www-form-urlencoded` through `EncodeForm` (a union or an object with additional
-  properties in it goes as one JSON value), `multipart/form-data` through
-  `WriteMultipart`, a `runtime.File` body streamed, text and bytes as they are. A multipart form is
+  `application/x-www-form-urlencoded` as a form (a union or an object with additional
+  properties in it goes as one JSON value), `multipart/form-data` as a multipart form, a
+  `runtime.File` body streamed, text and bytes as they are. A multipart form is
   written while it is sent, so its files stream too, each as a file part named `blob` when it has
   no name, as browsers name a Blob. It goes with a `Content-Length` when every file knows its
   size, and chunked when one does not, such as a `runtime.NewFileReader` of size -1. A list goes
@@ -338,11 +338,11 @@ Generated clients use these helpers of the runtime package, next to the codecs t
 
 - `RequestBuilder` puts a request together: `PathParam`, `QueryParam`, `HeaderParam`,
   `CookieParam` and the body methods, then `Build` against the base URL. The first error stops
-  the rest and comes back from `Build`.
-- `EncodeForm` and `WriteMultipart` write a struct or a union as a form, in the shapes
+  the rest and comes back from `Build`. A form or multipart body is written in the shapes
   `DecodeForm` and `DecodeMultipart` read.
-- `Send` sends with a `Doer` and reads the body within a timeout; `DecodeSuccess` and `Decode`
-  fill the targets of the response, `DecodeHeaders` a struct of typed headers; `APIError` is the
-  error of a status outside 2xx, or of a 2xx the spec does not list.
+- `Send` sends with a `Doer` and reads the body within a timeout; `DecodeSuccess` and
+  `DecodeResponse` fill the `ResponseTarget` of the response's status, its typed headers too. A
+  header that does not parse is `ErrHeaderValue`. `APIError` is the error of a status outside
+  2xx, or of a 2xx the spec does not list, with the status in `StatusCode`.
 - `Stream[T]` reads a sequential response frame by frame; `SendStream`, `OpenStream`,
   `IsStreaming` and `IsSequential` are what the stream methods are built on.

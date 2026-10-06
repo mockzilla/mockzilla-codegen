@@ -46,7 +46,7 @@ func (t *MCPTools) {{.Name}}(_ {{$.Context}}.Context, _ *{{$.MCP}}.CallToolReque
 // {{.Name}} handles the {{.Tool}} tool.
 func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, {{if .IsRounded}}req{{else}}_{{end}} *{{$.MCP}}.CallToolRequest, {{if .HasInput}}in{{else}}_{{end}} {{.Input}}) (*{{$.MCP}}.CallToolResult, any, error) {
 {{- if .IsRounded}}
-	if err := {{$.Runtime}}.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := {{$.MCPTool}}.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 {{end}}
@@ -67,13 +67,13 @@ func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, {{if .IsRounded}}req{{el
 	}
 {{- if not .HasResult}}
 	if err := t.client.{{.Name}}(ctx, opts); err != nil {
-		return nil, nil, {{$.Runtime}}.ToolError(err)
+		return nil, nil, {{$.MCPTool}}.Error(err)
 	}
 	return &{{$.MCP}}.CallToolResult{Content: []{{$.MCP}}.Content{&{{$.MCP}}.TextContent{Text: "ok"}}}, nil, nil
 {{- else}}
 	out, err := t.client.{{.Name}}(ctx, opts)
 	if err != nil {
-		return nil, nil, {{$.Runtime}}.ToolError(err)
+		return nil, nil, {{$.MCPTool}}.Error(err)
 	}
 {{- if .HasNilCheck}}
 	if out == nil {
@@ -85,7 +85,7 @@ func (t *MCPTools) {{.Name}}(ctx {{$.Context}}.Context, {{if .IsRounded}}req{{el
 {{- else if .File}}
 	return t.fileResult({{.File}})
 {{- else}}
-	return nil, {{$.Runtime}}.ToolResult{Value: out}, nil
+	return nil, {{$.MCPTool}}.Result{Value: out}, nil
 {{- end}}
 {{- end}}
 }
@@ -106,6 +106,6 @@ func (*MCPTools) fileResult(f {{.Runtime}}.File) (*{{.MCP}}.CallToolResult, any,
 	case {{.Strings}}.HasPrefix(mediaType, "audio/"):
 		return &{{.MCP}}.CallToolResult{Content: []{{.MCP}}.Content{&{{.MCP}}.AudioContent{Data: data, MIMEType: mediaType}}}, nil, nil
 	}
-	return nil, {{.Runtime}}.ToolResult{Value: data}, nil
+	return nil, {{.MCPTool}}.Result{Value: data}, nil
 }
 {{- end}}
