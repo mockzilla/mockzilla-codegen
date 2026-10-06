@@ -8,15 +8,17 @@ mockzilla-codegen response data. The config pair in
 
 ## The command
 
-ogen is driven by flags, with an optional config file. Everything moves into `codegen.yaml`.
+ogen is driven by flags, with an optional config file. The output flags have a counterpart, and
+the config file is optional here too. The rest moves into `codegen.yaml`.
 
 | ogen | mockzilla-codegen |
 |---|---|
-| `ogen --target ./api --package api --clean api.yaml` | `mockzilla-codegen generate -c codegen.yaml` with `output.file: ./api/gen.go` and `package: api` |
+| `ogen --target ./api --package api --clean api.yaml` | `mockzilla-codegen generate -o ./api/gen.go -package api api.yaml`, or `output.file: ./api/gen.go` and `package: api` in `codegen.yaml` |
 | `--config ogen.yaml` | `-c codegen.yaml`; the spec path from `spec.path` or as the last argument |
 | `--clean` | none needed: every file the config names is written on every run. Delete the `oas_*_gen.go` files once |
 | `--initialisms`, `--initialisms-extra` | `naming.initialisms`, added to the built-in set; the set cannot be replaced |
-| `--strict` | none |
+| `--strict` | `-strict` exits 1 on a warning too; an error exits 1 without it. Files are written either way |
+| `--no-client`, `--no-server` | `-no-client`, `-no-server`, over what the config says |
 | `--debug.*`, `--cpuprofile`, `--memprofile` | none; `-v` prints info diagnostics and the files written |
 
 ogen writes one file per concern, `oas_client_gen.go`, `oas_server_gen.go`, `oas_schemas_gen.go`
