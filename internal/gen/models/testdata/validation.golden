@@ -180,6 +180,59 @@ func (c Corner) Validate() error {
 	return errs.Err()
 }
 
+type Patch struct {
+	Nick   runtime.Nullable[string]    `json:"nick,omitzero"`
+	Boss   runtime.Nullable[Owner]     `json:"boss,omitzero"`
+	Scores []runtime.Nullable[float64] `json:"scores"`
+	Names  runtime.Nullable[[]string]  `json:"names,omitzero"`
+}
+
+// Validate checks the value against the constraints of the spec, as a request carries it.
+func (p Patch) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("nick", runtime.NotNull(p.Nick))
+	if value, ok := p.Nick.Get(); ok {
+		errs.Append("nick", runtime.MinLength(value, 1))
+	}
+	if value, ok := p.Boss.Get(); ok {
+		errs.Append("boss", value.Validate())
+	}
+	for idx, item := range p.Scores {
+		if value2, ok2 := item.Get(); ok2 {
+			errs.Append(runtime.Index("scores", idx), runtime.Minimum(value2, 0, false))
+		}
+	}
+	if value, ok := p.Names.Get(); ok {
+		for idx, item := range value {
+			errs.Append(runtime.Index("names", idx), runtime.MinLength(item, 1))
+		}
+	}
+	return errs.Err()
+}
+
+// ValidateResponse checks the value against the constraints of the spec, as a response carries it.
+func (p Patch) ValidateResponse() error {
+	var errs runtime.ValidationErrors
+	errs.Append("nick", runtime.NotNull(p.Nick))
+	if value, ok := p.Nick.Get(); ok {
+		errs.Append("nick", runtime.MinLength(value, 1))
+	}
+	if value, ok := p.Boss.Get(); ok {
+		errs.Append("boss", value.ValidateResponse())
+	}
+	for idx, item := range p.Scores {
+		if value2, ok2 := item.Get(); ok2 {
+			errs.Append(runtime.Index("scores", idx), runtime.Minimum(value2, 0, false))
+		}
+	}
+	if value, ok := p.Names.Get(); ok {
+		for idx, item := range value {
+			errs.Append(runtime.Index("names", idx), runtime.MinLength(item, 1))
+		}
+	}
+	return errs.Err()
+}
+
 type Problem struct {
 	Message string `json:"message"`
 }

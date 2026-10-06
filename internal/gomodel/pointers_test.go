@@ -31,6 +31,10 @@ func TestFieldType(t *testing.T) {
 		{name: "Required nullable map", t: Map{Key: str, Elem: str}, p: presence{isRequired: true, isNullable: true}, want: Map{Key: str, Elem: str}},
 		{name: "Optional any", t: anyType, want: anyType},
 		{name: "Optional raw JSON", t: rawJSON, want: rawJSON},
+		{name: "Wrapped", t: str, p: presence{wrap: wrapNonNil}, want: Nullable{Elem: str}},
+		{name: "Wrapped in a cycle", t: str, p: presence{wrap: wrapNonNil, isInCycle: true}, want: Nullable{Elem: str}},
+		{name: "Wrapped slice", t: Slice{Elem: str}, p: presence{wrap: wrapNonNil}, want: Slice{Elem: str}},
+		{name: "Wrapped slice asked for", t: Slice{Elem: str}, p: presence{wrap: wrapAny}, want: Nullable{Elem: Slice{Elem: str}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -43,9 +47,18 @@ func TestFieldType(t *testing.T) {
 func TestElemType(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, Builtin{Name: "int"}, elemType(Builtin{Name: "int"}, false))
-	assert.Equal(t, Pointer{Elem: Builtin{Name: "int"}}, elemType(Builtin{Name: "int"}, true))
-	assert.Equal(t, Slice{Elem: stringType}, elemType(Slice{Elem: stringType}, true))
+	assert.Equal(t, Builtin{Name: "int"}, elemType(Builtin{Name: "int"}, false, true))
+	assert.Equal(t, Pointer{Elem: Builtin{Name: "int"}}, elemType(Builtin{Name: "int"}, true, false))
+	assert.Equal(t, Nullable{Elem: Builtin{Name: "int"}}, elemType(Builtin{Name: "int"}, true, true))
+	assert.Equal(t, Slice{Elem: stringType}, elemType(Slice{Elem: stringType}, true, true))
+}
+
+func TestElem(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, stringType, Elem(Pointer{Elem: stringType}))
+	assert.Equal(t, stringType, Elem(Nullable{Elem: stringType}))
+	assert.Equal(t, stringType, Elem(stringType))
 }
 
 func TestNilable(t *testing.T) {
@@ -82,6 +95,25 @@ func TestNilable(t *testing.T) {
 func TestPointersInModel(t *testing.T) {
 	t.Parallel()
 	checkGolden(t, "pointers", "pointers", testOptions())
+}
+
+func TestNullableInModel(t *testing.T) {
+	t.Parallel()
+
+	opts := testOptions()
+	opts.Nullable = true
+	checkGolden(t, "pointers", "pointers-nullable", opts)
+
+	opts.IsValidated, opts.IsServer, opts.HasResponseHeaders = true, true, true
+	checkGolden(t, "nullable", "nullable", opts)
+}
+
+func TestNullableExtensionWithoutConfig(t *testing.T) {
+	t.Parallel()
+
+	opts := testOptions()
+	opts.IsValidated = true
+	checkGolden(t, "nullable", "nullable-extension", opts)
 }
 
 func TestHeldAndValidates(t *testing.T) {
@@ -149,6 +181,7 @@ func TestErrorDecl(t *testing.T) {
 		{name: "An error type", typ: DeclRef{Decl: problem}, want: problem},
 		{name: "Behind a pointer and an alias", typ: Pointer{Elem: DeclRef{Decl: alias}}, want: problem},
 		{name: "A union", typ: Pointer{Elem: DeclRef{Decl: fault}}, want: fault},
+		{name: "Behind a Nullable", typ: Nullable{Elem: DeclRef{Decl: problem}}, want: problem},
 		{name: "A struct that is no error", typ: DeclRef{Decl: plain}},
 		{name: "A builtin", typ: Builtin{Name: "string"}},
 		{name: "No type", typ: nil},

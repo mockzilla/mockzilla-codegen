@@ -127,6 +127,8 @@ func appendRefs(out []*gomodel.Decl, t gomodel.Type) []*gomodel.Decl {
 		return append(out, t.Decl)
 	case gomodel.Pointer:
 		return appendRefs(out, t.Elem)
+	case gomodel.Nullable:
+		return appendRefs(out, t.Elem)
 	case gomodel.Slice:
 		return appendRefs(out, t.Elem)
 	case gomodel.Map:

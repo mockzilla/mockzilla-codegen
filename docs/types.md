@@ -110,6 +110,55 @@ Optional fields get `omitempty` in their JSON tag. Required fields do not, apart
 `writeOnly` ones. A field with `omitempty` that holds a struct or a type from another package by
 value, such as `time.Time`, also gets `omitzero`: `omitempty` alone never leaves out a struct.
 
+### Nullable
+
+A pointer cannot tell `null` from a property that was left out: both are `nil`. With
+`models.nullable: true`, a field that may hold no value is a `runtime.Nullable[T]` instead:
+
+```yaml
+models:
+  nullable: true
+```
+
+| Field | Go type |
+|---|---|
+| required | `T` |
+| optional, nullable, or both | `runtime.Nullable[T]` |
+| slice or map | `T` with `omitzero`, so an empty one is sent |
+| `any`, `json.RawMessage` | `T` |
+| nullable array item or map value | `runtime.Nullable[T]` |
+
+This covers properties, query, header and cookie parameters, and typed response headers. Request
+and response bodies stay pointers.
+
+```go
+type PetPatch struct {
+	Nickname runtime.Nullable[string] `json:"nickname,omitzero"`
+}
+
+p.Nickname = runtime.Some("Rex")    // "nickname": "Rex"
+p.Nickname = runtime.Null[string]() // "nickname": null
+var p PetPatch                      // nickname is left out
+
+if name, ok := p.Nickname.Get(); ok { // false when absent and when null
+	use(name)
+}
+p.Nickname.IsNull() // sent as null
+p.Nickname.IsSet()  // sent at all, as a value or null
+p.Nickname.Or("none")
+```
+
+The zero value is absent, and `omitzero` leaves it out. A required nullable field has no
+`omitzero`, so one left unset is written as `null`. `Validate` reports `must not be null` for a
+field set to null that the spec does not let be null. A type can hold a `Nullable` of itself, so a
+field on a loop needs no pointer. [examples/models/nullable](../examples/models/nullable) applies a
+PATCH that keeps, clears and sets fields.
+
+`x-go-nullable` on a property, a parameter or its schema wins over the config: `true` makes the
+field a `Nullable`, a slice or map too; `false` keeps the pointer. On a required field that is not
+nullable, or one `x-go-type-skip-optional-pointer` makes a plain value, it is left out with a
+warning.
+
 ### Defaults
 
 An optional parameter or property with a `default` gets a getter. It returns the field, or the
@@ -131,8 +180,9 @@ value, which comes back as its constant, or a list of these, which is a new slic
 Any other default, such as an object, a date or an `x-go-type`, gets no getter, and `-v` says why
 (`getter-skipped`). A required field, a path parameter, and a field that
 `x-go-type-skip-optional-pointer` makes a plain value get none either. A nullable field is `nil`
-when it is absent and when it is `null`, so its getter returns the default for both. A default
-that does not fit its schema is left out, and generation warns (`default-ignored`).
+when it is absent and when it is `null`, so its getter returns the default for both. A
+`runtime.Nullable` field's getter returns `Or(default)`, which does the same. A default that does
+not fit its schema is left out, and generation warns (`default-ignored`).
 
 ## Recursion
 

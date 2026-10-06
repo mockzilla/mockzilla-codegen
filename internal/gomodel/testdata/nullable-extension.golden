@@ -1,0 +1,36 @@
+Pet struct models.types
+  ID int json=id required
+  Tag *string json=tag required nullable
+  Note *string json=note nullable omitempty
+  Age *int json=age omitempty getter=GetAge:1
+  Parent *Pet json=parent omitempty
+  Tags []string json=tags omitempty
+  Scores []*int json=scores omitempty
+  Labels map[string]*string json=labels omitempty
+  Exact *string json=exact omitempty
+  Aliases runtime.Nullable[[]string] json=aliases nullable omitempty omitzero
+  Plain int json=plain omitempty
+  Secret *string json=secret omitempty sensitive
+  ? validate
+  ? Note path=note pointer guarded maxLength(10)
+  ? Age path=age pointer guarded minimum(0)
+  ? Parent path=parent pointer guarded nested
+  ? Scores path=scores guarded
+  ?   items - path= pointer guarded minimum(0)
+  ? Aliases path=aliases wrapped guarded minItems(1)
+  * mask Parent nested pointer
+  * mask Secret full pointer
+ListPetsQuery struct models.params
+  Limit *int json=limit omitempty getter=GetLimit:20
+  Kind *string json=kind omitempty
+  ID int json=id required
+  From *string json=from omitempty
+  To runtime.Nullable[string] json=to omitempty omitzero
+op ListPets GET /pets
+  params query ListPetsQuery
+  response 200 application/json Pet
+---
+warning extension-value 10:11 /paths/~1pets/get/parameters/2: x-go-nullable on query parameter "id" is left out: it is required and not nullable, so it always holds a value
+warning extension-value 12:11 /paths/~1pets/get/parameters/4: x-go-nullable of query parameter "to" is "true", and "false" in its schema; the parameter's is used
+warning extension-value 26:13 /components/schemas/Pet/properties/id: x-go-nullable on property "id" of Pet is left out: it is required and not nullable, so it always holds a value
+warning extension-value 36:16 /components/schemas/Pet/properties/plain: x-go-nullable on property "plain" of Pet is left out: x-go-type-skip-optional-pointer makes it a plain value

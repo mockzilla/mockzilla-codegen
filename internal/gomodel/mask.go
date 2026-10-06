@@ -82,7 +82,7 @@ func maskables(d *Decl) []maskable {
 // maskOf is what Masked does to m, nil for nothing. A sensitive string is masked as asked, with a
 // full mask when its pattern cannot be used; any other sensitive value is cleared.
 func maskOf(d *Decl, m maskable, masked map[*Decl]bool, patterns *patternSet) *Mask {
-	out := &Mask{Field: m.name, IsPointer: isPointer(m.typ)}
+	out := &Mask{Field: m.name, IsPointer: isPointer(m.typ), IsWrapped: isWrapped(m.typ)}
 	s := m.sensitive
 	switch {
 	case s != nil && groupOf(Elem(m.typ)) == groupString:

@@ -55,14 +55,15 @@ type MethodView struct {
 }
 
 // CheckView checks one value. Every text is a Go expression: Calls return an error that is added
-// under Path, Deref is Value behind its pointer. IsGuarded makes the calls on a value that is not
-// nil.
+// under Path, Deref is Value behind its pointer. Guard is what the calls run under, NullCheck the
+// call that rejects a null Nullable.
 type CheckView struct {
 	Path       string
 	Value      string
 	Deref      string
-	IsGuarded  bool
+	Guard      string
 	IsRequired bool
+	NullCheck  string
 	Calls      []string
 	Items      *LoopView
 	Values     *LoopView
@@ -161,11 +162,23 @@ func methodView(d *gomodel.Decl, rt string, side methodSide) MethodView {
 // first level.
 func checkView(c *gomodel.Check, at checkAt, rt string, side methodSide) CheckView {
 	value, path := at.value, at.path
-	deref := value
-	if c.IsPointer {
+	suffix := ""
+	if at.depth > 1 {
+		suffix = strconv.Itoa(at.depth)
+	}
+	deref, owner, guard := value, value, gocode.NotNil(value)
+	switch {
+	case c.IsWrapped:
+		deref, owner = "value"+suffix, "value"+suffix
+		guard = gocode.Get(value, deref, "ok"+suffix)
+	case c.IsPointer:
 		deref = gocode.Deref(value)
 	}
+
 	cv := CheckView{Path: path, Value: value, Deref: deref, IsRequired: c.IsRequired}
+	if c.IsNullRejected {
+		cv.NullCheck = gocode.Call(gocode.Selector(rt, "NotNull"), value)
+	}
 	for _, r := range c.Rules {
 		cv.Calls = append(cv.Calls, ruleCall(r, rt, deref))
 	}
@@ -174,15 +187,14 @@ func checkView(c *gomodel.Check, at checkAt, rt string, side methodSide) CheckVi
 		if side.isResponse && c.Nested != nil && c.Nested.Validation.HasResponse {
 			method = "ValidateResponse"
 		}
-		cv.Calls = append(cv.Calls, gocode.Call(gocode.Selector(value, method)))
+		cv.Calls = append(cv.Calls, gocode.Call(gocode.Selector(owner, method)))
 	}
-	// Ranging over a nil slice or map is fine; only calls need the value.
-	cv.IsGuarded = c.IsGuarded && len(cv.Calls) > 0
+	// Ranging over a nil slice or map is fine; only calls and the value of a Nullable need it.
+	isLooped := c.Items != nil || c.Values != nil || len(c.Keys) > 0
+	if c.IsGuarded && (len(cv.Calls) > 0 || c.IsWrapped && isLooped) {
+		cv.Guard = guard
+	}
 
-	suffix := ""
-	if at.depth > 1 {
-		suffix = strconv.Itoa(at.depth)
-	}
 	if c.Items != nil {
 		index, item := "idx"+suffix, "item"+suffix
 		cv.Items = &LoopView{

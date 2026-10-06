@@ -3,8 +3,11 @@
 		errs.Required({{.Path}})
 	}
 {{- end}}
-{{- if .IsGuarded}}
-	if {{.Value}} != nil {
+{{- with .NullCheck}}
+	errs.Append({{$.Path}}, {{.}})
+{{- end}}
+{{- with .Guard}}
+	if {{.}} {
 {{- end}}
 {{- range .Calls}}
 	errs.Append({{$.Path}}, {{.}})
@@ -25,6 +28,6 @@
 {{- end}}
 	}
 {{- end}}
-{{- if .IsGuarded}}
+{{- if .Guard}}
 	}
 {{- end}}

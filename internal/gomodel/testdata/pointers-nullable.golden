@@ -1,0 +1,27 @@
+Fields struct models.types
+  Req string json=req required
+  Opt runtime.Nullable[string] json=opt omitempty omitzero
+  ReqNull runtime.Nullable[string] json=reqNull required nullable
+  OptNull runtime.Nullable[string] json=optNull nullable omitempty omitzero
+  ReqList []string json=reqList required
+  OptList []runtime.Nullable[int] json=optList omitempty omitzero
+  OptMap map[string]runtime.Nullable[bool] json=optMap omitempty omitzero
+  ReqAny any json=reqAny required
+  OptJSON json.RawMessage json=optJSON omitempty
+  OptBytes []byte json=optBytes omitempty omitzero
+  ReqRef Item json=reqRef required
+  ReqNullRef runtime.Nullable[NullableItem] json=reqNullRef required nullable
+  OptList2 Items json=optList2 omitempty omitzero
+  OptAnything Anything json=optAnything omitempty
+  OptNullSibling runtime.Nullable[Item] json=optNullSibling nullable omitempty omitzero
+  OptNullWrapped runtime.Nullable[Item] json=optNullWrapped nullable omitempty omitzero
+  OptNullEnum runtime.Nullable[FieldsOptNullEnum] json=optNullEnum nullable omitempty omitzero
+FieldsOptNullEnum enum string models.enums
+  FieldsOptNullEnumA "a"
+Item struct models.types
+  ID runtime.Nullable[string] json=id omitempty omitzero
+NullableItem struct models.types
+  ID runtime.Nullable[string] json=id omitempty omitzero
+Items defined []Item models.types
+Anything alias any models.types
+---

@@ -31,6 +31,8 @@ func markForm(t Type, seen map[*Decl]bool) {
 	switch x := t.(type) {
 	case Pointer:
 		markForm(x.Elem, seen)
+	case Nullable:
+		markForm(x.Elem, seen)
 	case Slice:
 		markForm(x.Elem, seen)
 	case Map:

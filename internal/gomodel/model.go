@@ -110,7 +110,8 @@ type readers struct {
 // error type names to the path of their message. IsServer reserves the names of the response
 // constructors of the service contract; HasResponseHeaders declares a struct of the typed headers
 // of every response that has some, which the server and the client envelopes use. Imports are
-// the packages an x-go-type may name without an x-go-type-import.
+// the packages an x-go-type may name without an x-go-type-import. Nullable makes every value that
+// may hold no value a Nullable.
 type Options struct {
 	IntType            string
 	Descriptions       bool
@@ -128,6 +129,7 @@ type Options struct {
 	ErrorMapping       map[string]string
 	Imports            []config.Import
 	FormatTypes        map[string]Type
+	Nullable           bool
 }
 
 // OptionsFrom reads Options from a config. Blocks left out get their defaults.
@@ -145,6 +147,7 @@ func OptionsFrom(cfg *config.Config) Options {
 		ErrorMapping:     models.ErrorMapping,
 		Imports:          cfg.Imports,
 		FormatTypes:      formatTypes(models.FormatTypes, cfg.Imports),
+		Nullable:         models.Nullable,
 	}
 	for _, name := range slices.Sorted(maps.Keys(models.ErrorMapping)) {
 		opts.Reserved = append(opts.Reserved, "New"+name)

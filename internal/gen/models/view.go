@@ -63,16 +63,15 @@ type FieldView struct {
 	Tag  string
 }
 
-// GetterView is a method that returns a field, or Default when the field is nil. IsPointer
-// returns what the field points to.
+// GetterView is a method that returns Value, or Default when Unset holds.
 type GetterView struct {
-	Doc       string
-	Receiver  string
-	Name      string
-	Field     string
-	Type      string
-	Default   string
-	IsPointer bool
+	Doc      string
+	Receiver string
+	Name     string
+	Type     string
+	Default  string
+	Unset    string
+	Value    string
 }
 
 // ConstView is one enum constant; Value is its literal.
@@ -266,15 +265,25 @@ func getterViews(d *gomodel.Decl, s *gocode.Scope) []GetterView {
 			text = "its default"
 		}
 		t := gomodel.Elem(f.Type)
-		out = append(out, GetterView{
-			Doc:       g.Name + " returns " + f.Name + ", or " + text + " when it is nil.",
-			Receiver:  receiver(d.Name),
-			Name:      g.Name,
-			Field:     f.Name,
-			Type:      s.Expr(t),
-			Default:   s.Value(t, g.Default),
-			IsPointer: t != f.Type,
-		})
+		r := receiver(d.Name)
+		field := gocode.Selector(r, f.Name)
+		v := GetterView{
+			Doc:      g.Name + " returns " + f.Name + ", or " + text + " when it is nil.",
+			Receiver: r,
+			Name:     g.Name,
+			Type:     s.Expr(t),
+			Default:  s.Value(t, g.Default),
+			Unset:    gocode.Or(gocode.IsNil(r), gocode.IsNil(field)),
+			Value:    field,
+		}
+		switch f.Type.(type) {
+		case gomodel.Nullable:
+			v.Doc = g.Name + " returns " + f.Name + ", or " + text + " when it holds no value."
+			v.Unset, v.Value = gocode.IsNil(r), gocode.Call(gocode.Selector(field, "Or"), v.Default)
+		case gomodel.Pointer:
+			v.Value = gocode.Deref(field)
+		}
+		out = append(out, v)
 	}
 	return out
 }
@@ -333,7 +342,10 @@ func jsonValue(f *gomodel.Field) string {
 		return "-"
 	}
 	parts := []string{f.JSONName}
-	if f.OmitEmpty {
+	switch {
+	case f.OmitZero:
+		parts = append(parts, "omitzero")
+	case f.OmitEmpty:
 		parts = append(parts, "omitempty")
 		if isStructValue(f.Type) {
 			parts = append(parts, "omitzero")

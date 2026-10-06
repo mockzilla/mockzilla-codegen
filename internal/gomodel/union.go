@@ -203,7 +203,7 @@ func settleUnions(decls []*Decl) {
 		}
 		d.Union.IsText = len(d.Union.Variants) > 0 && len(d.Struct.Fields) == 0
 		for _, v := range d.Union.Variants {
-			v.FieldType = elemType(v.Type, true)
+			v.FieldType = elemType(v.Type, true, false)
 			v.Kinds = JSONKinds(v.Type)
 			if v.Kinds == 0 || v.Kinds&^JSONScalar != 0 {
 				d.Union.IsText = false
@@ -271,6 +271,8 @@ func jsonKinds(t Type, seen map[*Decl]bool) JSONKind {
 		}
 		return JSONAny
 	case Pointer:
+		return jsonKinds(t.Elem, seen)
+	case Nullable:
 		return jsonKinds(t.Elem, seen)
 	case Slice:
 		if t.Elem == byteType {
@@ -420,6 +422,8 @@ func typeName(t Type, n *naming.Namer) string {
 	case DeclRef:
 		return t.Decl.Name
 	case Pointer:
+		return typeName(t.Elem, n)
+	case Nullable:
 		return typeName(t.Elem, n)
 	case Slice:
 		if t.Elem == byteType {

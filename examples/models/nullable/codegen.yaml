@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../../config.schema.json
+spec: {path: api.yaml}
+package: nullable
+models:
+  nullable: true
+server:
+  framework: chi
+  validation: {request: true}
+client: {}

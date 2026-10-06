@@ -43,6 +43,14 @@ func MinLength[S ~string](s S, n int) error {
 	return nil
 }
 
+// NotNull checks that n, a value the spec does not let be null, is not null.
+func NotNull[T any](n Nullable[T]) error {
+	if n.IsNull() {
+		return ValidationError{Message: "must not be null", Rule: RuleType}
+	}
+	return nil
+}
+
 // MaxLength checks that s has at most n characters.
 func MaxLength[S ~string](s S, n int) error {
 	if utf8.RuneCountInString(string(s)) > n {

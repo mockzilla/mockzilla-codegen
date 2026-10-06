@@ -120,6 +120,8 @@ func holdsObject(t Type) bool {
 	switch x := unalias(t).(type) {
 	case Pointer:
 		return holdsObject(x.Elem)
+	case Nullable:
+		return holdsObject(x.Elem)
 	case Slice:
 		return holdsObject(x.Elem)
 	case Map:

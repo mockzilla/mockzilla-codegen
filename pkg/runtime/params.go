@@ -457,9 +457,7 @@ func pointer(dst any) (reflect.Value, error) {
 // shapeOf is what a Go type holds as a parameter. A type that reads text on its own, such as
 // time.Time, is one value.
 func shapeOf(t reflect.Type) shape {
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
+	t = valueType(t)
 	switch {
 	case reflect.PointerTo(t).Implements(textUnmarshaler):
 		return shapeValue
@@ -477,14 +475,11 @@ func isBytes(t reflect.Type) bool {
 }
 
 // encodeTree writes v as text: one string, a list of strings, or name-value pairs, which a
-// deepObject names by their whole key. A nil pointer gives nil.
+// deepObject names by their whole key. A nil pointer or a Nullable without a value gives nil.
 func encodeTree(v any, p Param) (any, error) {
-	rv := reflect.ValueOf(v)
-	for rv.Kind() == reflect.Pointer {
-		if rv.IsNil() {
-			return nil, nil
-		}
-		rv = rv.Elem()
+	rv, ok := held(reflect.ValueOf(v))
+	if !ok {
+		return nil, nil
 	}
 	if p.IsJSON {
 		data, err := json.Marshal(rv.Interface())
@@ -586,17 +581,12 @@ func properties(rv reflect.Value) iter.Seq2[string, reflect.Value] {
 	}
 }
 
-// present is what v holds behind pointers and interfaces, and false when that is nothing or a
-// list or map with no items.
+// present is what v holds behind pointers, interfaces and Nullables, and false when that is
+// nothing or a list or map with no items.
 func present(v reflect.Value) (reflect.Value, bool) {
-	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
-		if v.IsNil() {
-			return v, false
-		}
-		v = v.Elem()
-	}
+	v, ok := held(v)
 	isEmpty := (v.Kind() == reflect.Slice || v.Kind() == reflect.Map) && v.Len() == 0
-	return v, !isEmpty
+	return v, ok && !isEmpty
 }
 
 // text writes one value as a parameter carries it.

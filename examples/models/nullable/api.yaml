@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info: {title: nullable, version: "1"}
+paths:
+  /pets/{id}:
+    patch:
+      operationId: updatePet
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+        - {name: notify, in: query, schema: {type: boolean}}
+      requestBody:
+        required: true
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/PetPatch'}}
+      responses:
+        "200":
+          description: The pet after the change.
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, name, tag]
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        tag: {type: [string, "null"], description: "Required, and null when the pet has none."}
+        nickname: {type: [string, "null"], maxLength: 20}
+        age: {type: integer, minimum: 0}
+        owner: {$ref: '#/components/schemas/Owner'}
+        toys: {type: array, items: {type: string}}
+    PetPatch:
+      description: Leave a property out to keep it, send null to clear it.
+      type: object
+      properties:
+        name: {type: string}
+        tag: {type: [string, "null"]}
+        nickname: {type: [string, "null"], maxLength: 20}
+        age: {type: integer, minimum: 0}
+        owner:
+          oneOf:
+            - $ref: '#/components/schemas/Owner'
+            - type: "null"
+        toys: {type: array, items: {type: string}}
+        legacy: {type: string, x-go-nullable: false}
+    Owner:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}

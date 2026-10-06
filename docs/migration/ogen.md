@@ -2,7 +2,8 @@
 
 For projects on `github.com/ogen-go/ogen`. ogen and mockzilla-codegen read the same specs and both
 generate a typed server and client with validation, but the generated code has a different shape:
-ogen wraps optional values, mockzilla-codegen uses pointers; ogen returns response sum types,
+ogen wraps optional values, mockzilla-codegen uses pointers or, with `models.nullable`, one
+`runtime.Nullable[T]`; ogen returns response sum types,
 mockzilla-codegen response data. The config pair in
 [examples/migration/ogen](../../examples/migration/ogen) is the one this guide walks through.
 
@@ -99,8 +100,8 @@ The full list is in [extensions](../extensions.md).
 
 | ogen | mockzilla-codegen |
 |---|---|
-| `OptString`, `OptInt`, `OptPet` | `*string`, `*int`, `*Pet`; `.Get()` becomes a nil check, `.Set = true` becomes `new(v)` ([pointers](../types.md#pointers)) |
-| `NilString`, `OptNilString` | `*string` for both; `null` and absent are one state |
+| `OptString`, `OptInt`, `OptPet` | `*string`, `*int`, `*Pet`; `.Get()` becomes a nil check, `.Set = true` becomes `new(v)` ([pointers](../types.md#pointers)). With `models.nullable: true`, `runtime.Nullable[string]`: `.Get()` and `.Or()` stay, `NewOptString(v)` becomes `runtime.Some(v)` ([nullable](../types.md#nullable)) |
+| `NilString`, `OptNilString` | `*string` for both; `null` and absent are one state. With `models.nullable: true`, `runtime.Nullable[string]` for both, which keeps them apart: `runtime.Null[string]()`, `.IsNull()` |
 | `[]T` for an optional array | the same |
 | sum type `ID{Type IDType, String string, Int int}` with `NewStringID` | a union struct with a field per variant: `ID{String: &s}` ([unions](../types.md#unions)) |
 | `<Schema>Sum` for an inline `oneOf` | a union type named after where it sits ([names](../naming.md#names-for-types-without-a-name)) |

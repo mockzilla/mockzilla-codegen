@@ -10,6 +10,7 @@ package gomodel
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
@@ -78,6 +79,14 @@ func (r *extReader) merge(p *spec.Parameter, outer, inner extension.Set) extensi
 		}
 	}
 	out.IsPointerSkipped = outer.IsPointerSkipped || inner.IsPointerSkipped
+
+	switch {
+	case inner.Nullable == nil:
+	case outer.Nullable == nil:
+		out.Nullable = inner.Nullable
+	case *outer.Nullable != *inner.Nullable:
+		r.clash(p, extension.Nullable, strconv.FormatBool(*outer.Nullable), strconv.FormatBool(*inner.Nullable))
+	}
 	return out
 }
 

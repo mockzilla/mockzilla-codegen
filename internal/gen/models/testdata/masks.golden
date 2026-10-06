@@ -38,8 +38,12 @@ type User struct {
 	List     []Contact          `json:"list"`
 	ByName   map[string]Contact `json:"byName"`
 	// Deprecated: Use Password.
-	Old    string `json:"old"`
-	Hidden string `json:"-"`
+	Old    string                      `json:"old"`
+	Hidden string                      `json:"-"`
+	Nick   runtime.Nullable[string]    `json:"nick"`
+	Backup runtime.Nullable[Contact]   `json:"backup"`
+	Others runtime.Nullable[[]Contact] `json:"others"`
+	Code   runtime.Nullable[int]       `json:"code"`
 }
 
 // Masked returns a copy with the sensitive values masked. JSON encoding is left as it is.
@@ -57,6 +61,16 @@ func (u User) Masked() User {
 	u.Plain = u.Plain.Masked()
 	u.List = runtime.MaskSlice(u.List)
 	u.ByName = runtime.MaskMap(u.ByName)
+	if value, ok := u.Nick.Get(); ok {
+		u.Nick = runtime.Some(runtime.MaskFull(value))
+	}
+	if value, ok := u.Backup.Get(); ok {
+		u.Backup = runtime.Some(value.Masked())
+	}
+	if value, ok := u.Others.Get(); ok {
+		u.Others = runtime.Some(runtime.MaskSlice(value))
+	}
+	u.Code = runtime.Zero(u.Code)
 	return u
 }
 
