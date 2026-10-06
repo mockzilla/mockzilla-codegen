@@ -75,12 +75,13 @@ var (
 	patternOwnerContactString = regexp.MustCompile(`^\+[0-9]+$`)
 )
 
+// OwnerContact is one of Email or String.
 type OwnerContact struct {
 	Email  *runtime.Email `json:"-"`
 	String *string        `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (o OwnerContact) MarshalJSON() ([]byte, error) {
 	var set []any
 	if o.Email != nil {
@@ -89,10 +90,10 @@ func (o OwnerContact) MarshalJSON() ([]byte, error) {
 	if o.String != nil {
 		set = append(set, o.String)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (o *OwnerContact) UnmarshalJSON(data []byte) error {
 	*o = OwnerContact{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -116,7 +117,7 @@ func (o OwnerContact) MarshalText() ([]byte, error) {
 	return runtime.MarshalUnionText(o.MarshalJSON())
 }
 
-// UnmarshalText sets the variants text matches.
+// UnmarshalText sets the variant text matches.
 func (o *OwnerContact) UnmarshalText(text []byte) error {
 	return runtime.UnmarshalUnionText(text, o.UnmarshalJSON)
 }

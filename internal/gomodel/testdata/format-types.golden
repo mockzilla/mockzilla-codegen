@@ -30,7 +30,7 @@ GetDeviceHeadersXPick union models.unions
   | Int *int kinds=integer
   | Option2 *GetDeviceHeadersXPickOption2 kinds=string
   ? validate count=ExactlyOne
-  ? Option2 path= pointer guarded nested
+  ? Option2 path= variant pointer guarded nested
 GetDeviceHeadersXPickOption2 enum string models.enums
   GetDeviceHeadersXPickOption2A "a"
   GetDeviceHeadersXPickOption2B "b"

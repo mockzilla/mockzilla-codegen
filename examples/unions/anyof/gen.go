@@ -19,12 +19,13 @@ type Aged struct {
 	Age int `json:"age"`
 }
 
+// Person is any of Named or Aged.
 type Person struct {
 	Named *Named `json:"-"`
 	Aged  *Aged  `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variants that are set, merged.
 func (p Person) MarshalJSON() ([]byte, error) {
 	var set []any
 	if p.Named != nil {
@@ -36,7 +37,7 @@ func (p Person) MarshalJSON() ([]byte, error) {
 	return runtime.MarshalUnion(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets every variant data matches.
 func (p *Person) UnmarshalJSON(data []byte) error {
 	*p = Person{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -67,12 +68,13 @@ func (p Person) Validate() error {
 	return errs.Err()
 }
 
+// Stamp is any of Time or String, or null.
 type Stamp struct {
 	Time   *time.Time `json:"-"`
 	String *string    `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variants that are set, merged.
 func (s Stamp) MarshalJSON() ([]byte, error) {
 	var set []any
 	if s.Time != nil {
@@ -84,7 +86,7 @@ func (s Stamp) MarshalJSON() ([]byte, error) {
 	return runtime.MarshalUnion(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets every variant data matches.
 func (s *Stamp) UnmarshalJSON(data []byte) error {
 	*s = Stamp{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -109,7 +111,70 @@ func (s Stamp) MarshalText() ([]byte, error) {
 	return runtime.MarshalUnionText(s.MarshalJSON())
 }
 
-// UnmarshalText sets the variants text matches.
+// UnmarshalText sets every variant text matches.
 func (s *Stamp) UnmarshalText(text []byte) error {
 	return runtime.UnmarshalUnionText(text, s.UnmarshalJSON)
+}
+
+// Code is any of Time or String.
+type Code struct {
+	Time   *time.Time `json:"-"`
+	String *string    `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged.
+func (c Code) MarshalJSON() ([]byte, error) {
+	var set []any
+	if c.Time != nil {
+		set = append(set, c.Time)
+	}
+	if c.String != nil {
+		set = append(set, c.String)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets every variant data matches.
+func (c *Code) UnmarshalJSON(data []byte) error {
+	*c = Code{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		IsAnyOf: true,
+		Variants: []runtime.Variant{
+			{
+				Name: "Time",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&c.Time),
+			},
+			{
+				Name: "String",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&c.String),
+			},
+		},
+	})
+}
+
+// MarshalText writes the variant that is set as text.
+func (c Code) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(c.MarshalJSON())
+}
+
+// UnmarshalText sets every variant text matches.
+func (c *Code) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, c.UnmarshalJSON)
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c Code) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.AtLeastOne(c.Time != nil, c.String != nil))
+	var errsString runtime.ValidationErrors
+	if c.String != nil {
+		errsString.Append("", runtime.MaxLength(*c.String, 5))
+	}
+	errs.Append("", runtime.AnyValid(
+		runtime.VariantErrors{IsSet: c.Time != nil},
+		runtime.VariantErrors{IsSet: c.String != nil, Errs: errsString},
+	))
+	return errs.Err()
 }

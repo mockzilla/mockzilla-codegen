@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,31 @@ func TestChecks(t *testing.T) {
 			t.Parallel()
 
 			assert.Equal(t, tc.want, tc.check(tc.set...))
+		})
+	}
+}
+
+func TestAnyValid(t *testing.T) {
+	t.Parallel()
+
+	short := ValidationErrors{{Message: "must be at most 5 characters long", Rule: RuleMaxLength}}
+	early := ValidationErrors{{Message: "must be at least 2026", Rule: RuleMinimum}}
+	tests := []struct {
+		name     string
+		variants []VariantErrors
+		want     error
+	}{
+		{name: "Nothing set", variants: []VariantErrors{{Errs: short}}},
+		{name: "A set variant that passes", variants: []VariantErrors{{IsSet: true}, {IsSet: true, Errs: short}}},
+		{name: "A passing variant later", variants: []VariantErrors{{IsSet: true, Errs: short}, {IsSet: true}}},
+		{name: "Every set variant fails", variants: []VariantErrors{{IsSet: true, Errs: short}, {Errs: early}, {IsSet: true, Errs: early}}, want: slices.Concat(short, early)},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, AnyValid(tc.variants...))
 		})
 	}
 }

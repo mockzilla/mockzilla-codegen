@@ -128,9 +128,11 @@ type Validation struct {
 // itself, and Path its JSON name in error paths. IsGuarded skips the checks of a nil value, which is
 // absent; IsRequired reports it. Nested is the declaration whose Validate is called, nil with
 // IsNested for runtime.Email. IsWrapped marks a Nullable; IsNullRejected reports it set to null.
+// IsVariant marks the check of a union variant.
 type Check struct {
 	Field          string
 	Path           string
+	IsVariant      bool
 	IsPointer      bool
 	IsWrapped      bool
 	IsGuarded      bool

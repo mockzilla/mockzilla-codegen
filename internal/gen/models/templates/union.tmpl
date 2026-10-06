@@ -12,7 +12,7 @@ type {{.Name}} struct {
 {{- with .Union}}
 {{- if .Discriminator}}
 
-// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
+// MarshalJSON writes {{if .IsAnyOf}}the variants that are set, with the discriminator value that picks them{{else}}the variant that is set, with the discriminator value that picks it{{end}}.
 func ({{.Receiver}} {{$.Name}}) MarshalJSON() ([]byte, error) {
 {{- if .JSON}}
 	type plain {{$.Name}}
@@ -23,7 +23,7 @@ func ({{.Receiver}} {{$.Name}}) MarshalJSON() ([]byte, error) {
 }
 {{- else}}
 
-// MarshalJSON writes the variants that are set{{if .JSON}}, merged with the shared properties{{end}}.
+// MarshalJSON writes {{if .IsAnyOf}}the variants that are set, merged{{if .JSON}} with the shared properties{{end}}{{else}}the variant that is set{{if .JSON}}, merged with the shared properties{{end}}{{end}}.
 func ({{.Receiver}} {{$.Name}}) MarshalJSON() ([]byte, error) {
 	var set []any
 {{- range .Variants}}
@@ -33,14 +33,14 @@ func ({{.Receiver}} {{$.Name}}) MarshalJSON() ([]byte, error) {
 {{- end}}
 {{- if .JSON}}
 	type plain {{$.Name}}
-	return {{.Runtime}}.MarshalUnion(plain({{.Receiver}}), set...)
+	return {{.Runtime}}.{{.Marshal}}(plain({{.Receiver}}), set...)
 {{- else}}
-	return {{.Runtime}}.MarshalUnion(nil, set...)
+	return {{.Runtime}}.{{.Marshal}}(nil, set...)
 {{- end}}
 }
 {{- end}}
 
-// UnmarshalJSON sets the variants data matches{{if .JSON}}, and the shared properties{{end}}.
+// UnmarshalJSON sets {{.Which}} data matches{{if .JSON}}, and the shared properties{{end}}.
 func ({{.Receiver}} *{{$.Name}}) UnmarshalJSON(data []byte) error {
 	*{{.Receiver}} = {{$.Name}}{}
 {{- if .JSON}}
@@ -53,7 +53,7 @@ func ({{.Receiver}} *{{$.Name}}) UnmarshalJSON(data []byte) error {
 }
 {{- with .Form}}
 
-// UnmarshalForm sets the variants the form matches{{if $.Union.JSON}}, and the shared properties{{end}}.
+// UnmarshalForm sets {{$.Union.Which}} the form matches{{if $.Union.JSON}}, and the shared properties{{end}}.
 func ({{$.Union.Receiver}} *{{$.Name}}) UnmarshalForm(form {{.}}) error {
 	*{{$.Union.Receiver}} = {{$.Name}}{}
 {{- if $.Union.JSON}}
@@ -77,7 +77,7 @@ func ({{.Receiver}} {{$.Name}}) MarshalText() ([]byte, error) {
 	return {{.Runtime}}.MarshalUnionText({{.Receiver}}.MarshalJSON())
 }
 
-// UnmarshalText sets the variants text matches.
+// UnmarshalText sets {{.Which}} text matches.
 func ({{.Receiver}} *{{$.Name}}) UnmarshalText(text []byte) error {
 	return {{.Runtime}}.UnmarshalUnionText(text, {{.Receiver}}.UnmarshalJSON)
 }

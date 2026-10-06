@@ -138,6 +138,7 @@ func dumpCheck(b *strings.Builder, c *Check, indent string) {
 		isSet bool
 		word  string
 	}{
+		{c.IsVariant, "variant"},
 		{c.IsPointer, "pointer"},
 		{c.IsWrapped, "wrapped"},
 		{c.IsGuarded, "guarded"},

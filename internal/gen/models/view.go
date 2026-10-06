@@ -9,6 +9,7 @@ package models
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -83,11 +84,14 @@ type ConstView struct {
 // UnionView is what a union's variant fields and methods need. Runtime and JSON are the names
 // the packages are imported under, JSON only when shared fields are decoded. Discriminator and
 // Shared are quoted. IsText adds MarshalText and UnmarshalText; Form, the form type, UnmarshalForm.
+// Which is what decoding sets in doc lines, Marshal the runtime func that writes the variants.
 type UnionView struct {
 	Receiver      string
 	Runtime       string
 	JSON          string
 	Form          string
+	Which         string
+	Marshal       string
 	IsAnyOf       bool
 	IsText        bool
 	HasUnion      bool
@@ -135,7 +139,11 @@ type AdditionalView struct {
 }
 
 func declView(d *gomodel.Decl, s *gocode.Scope) DeclView {
-	v := DeclView{Doc: withDeprecated(d.Doc, d.Deprecated, d.DeprecatedReason), Name: d.Name}
+	doc := d.Doc
+	if d.Union != nil && doc == "" {
+		doc = unionDoc(d)
+	}
+	v := DeclView{Doc: withDeprecated(doc, d.Deprecated, d.DeprecatedReason), Name: d.Name}
 	switch {
 	case d.Union != nil:
 		v.IsUnion = true
@@ -209,10 +217,15 @@ func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
 		Receiver: receiver(d.Name),
 		Runtime:  s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
 		Form:     formType(d, s),
+		Which:    "the variant",
+		Marshal:  "MarshalOneOf",
 		IsAnyOf:  u.IsAnyOf,
 		IsText:   u.IsText,
 		HasUnion: u.Discriminator != "" || d.IsForm,
 		Variants: make([]VariantView, len(u.Variants)),
+	}
+	if u.IsAnyOf {
+		v.Which, v.Marshal = "every variant", "MarshalUnion"
 	}
 	if len(d.Struct.Fields) > 0 {
 		v.JSON = s.Import(gomodel.Import{Path: "encoding/json"})
@@ -250,6 +263,37 @@ func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
 		}
 	}
 	return v
+}
+
+// unionDoc names the variants of a union the spec does not describe, or counts them past one line.
+func unionDoc(d *gomodel.Decl) string {
+	u := d.Union
+	if len(u.Variants) == 0 {
+		return ""
+	}
+
+	kind, null := " is one of ", ""
+	if u.IsAnyOf {
+		kind = " is any of "
+	}
+	if u.IsNullable {
+		null = ", or null"
+	}
+	names := make([]string, len(u.Variants))
+	for i, vr := range u.Variants {
+		names[i] = vr.Name
+	}
+	last := len(names) - 1
+	list := names[last]
+	if last > 0 {
+		list = strings.Join(names[:last], ", ") + " or " + list
+	}
+
+	line := d.Name + kind + list + null + "."
+	if utf8.RuneCountInString("// "+line) > gocode.CommentWidth {
+		line = d.Name + kind + strconv.Itoa(len(names)) + " variants" + null + "."
+	}
+	return line
 }
 
 func getterViews(d *gomodel.Decl, s *gocode.Scope) []GetterView {

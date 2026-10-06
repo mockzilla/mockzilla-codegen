@@ -25,6 +25,7 @@ type Phone struct {
 	Number string `json:"number"`
 }
 
+// Contact is one of Email or Phone.
 type Contact struct {
 	ID      string     `json:"id"`
 	Created *time.Time `json:"created,omitempty"`
@@ -32,7 +33,7 @@ type Contact struct {
 	Phone   *Phone     `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set, merged with the shared properties.
+// MarshalJSON writes the variant that is set, merged with the shared properties.
 func (c Contact) MarshalJSON() ([]byte, error) {
 	var set []any
 	if c.Email != nil {
@@ -42,10 +43,10 @@ func (c Contact) MarshalJSON() ([]byte, error) {
 		set = append(set, c.Phone)
 	}
 	type plain Contact
-	return runtime.MarshalUnion(plain(c), set...)
+	return runtime.MarshalOneOf(plain(c), set...)
 }
 
-// UnmarshalJSON sets the variants data matches, and the shared properties.
+// UnmarshalJSON sets the variant data matches, and the shared properties.
 func (c *Contact) UnmarshalJSON(data []byte) error {
 	*c = Contact{}
 	type plain Contact

@@ -155,11 +155,16 @@ func (u Union) setVariants(obj map[string]json.RawMessage, kind Kind, what strin
 		pool = rest
 	}
 
-	cands := u.candidates(pool, kind, obj)
-	if u.IsAnyOf {
+	cands, err := u.candidates(pool, kind, obj, what)
+	switch {
+	case err != nil:
+		return err
+	case u.IsAnyOf:
 		return u.decodeAll(cands, what, decode)
+	case kind == KindObject && len(cands) > 1 && cands[0].score == cands[1].score:
+		return fmt.Errorf("%w: %s and %s", ErrAmbiguous, u.Variants[cands[0].index].Name, u.Variants[cands[1].index].Name)
 	}
-	return u.decodeOne(cands, what, decode)
+	return u.decodeFirst(cands, what, decode)
 }
 
 // tag fills an empty discriminator value and checks that the value picks a variant of set.
@@ -239,8 +244,10 @@ func (u Union) discriminate(obj map[string]json.RawMessage) (int, []int, error) 
 	return -1, nil, fmt.Errorf("%w %q, want one of %s", ErrUnknownDiscriminator, value, strings.Join(allowed, ", "))
 }
 
-func (u Union) candidates(pool []int, kind Kind, obj map[string]json.RawMessage) []candidate {
+// candidates are the variants a value of kind matches, best first.
+func (u Union) candidates(pool []int, kind Kind, obj map[string]json.RawMessage, what string) ([]candidate, error) {
 	var out []candidate
+	var needs []string
 	for _, i := range pool {
 		v := u.Variants[i]
 		if v.Kind&kind == 0 {
@@ -249,36 +256,53 @@ func (u Union) candidates(pool []int, kind Kind, obj map[string]json.RawMessage)
 
 		c := candidate{isMatch: true}
 		if kind == KindObject {
-			shapes := v.Shapes
-			if len(shapes) == 0 {
-				shapes = []Shape{{Required: v.Required, Known: v.Known, IsClosed: v.IsClosed}}
-			}
-			isFit := false
-			for _, sh := range shapes {
-				if fc, ok := u.fit(sh, obj); ok && (!isFit || fc.outranks(c)) {
-					c, isFit = fc, true
+			var lacks []string
+			c, lacks = u.bestShape(v, obj)
+			if !c.isMatch {
+				if lacks != nil {
+					needs = append(needs, v.Name+" needs "+strings.Join(lacks, " or "))
 				}
-			}
-			if !isFit {
 				continue
 			}
 		}
 		c.index = i
 		out = append(out, c)
 	}
+	if len(out) == 0 && len(needs) > 0 {
+		return nil, fmt.Errorf("%w for %s: %s", ErrNoVariant, what, strings.Join(needs, ", "))
+	}
 
 	slices.SortStableFunc(out, func(a, b candidate) int {
 		return cmp.Or(cmp.Compare(b.score, a.score), cmp.Compare(u.width(a), u.width(b)))
 	})
-	return out
+	return out, nil
 }
 
-// fit scores obj against sh; an unknown key rules out a closed shape.
-func (u Union) fit(sh Shape, obj map[string]json.RawMessage) (candidate, bool) {
-	absentKeys := 0
+// bestShape is the best shape of v that obj matches, else what obj lacks for each shape.
+func (u Union) bestShape(v Variant, obj map[string]json.RawMessage) (best candidate, lacks []string) {
+	shapes := v.Shapes
+	if len(shapes) == 0 {
+		shapes = []Shape{{Required: v.Required, Known: v.Known, IsClosed: v.IsClosed}}
+	}
+	for _, sh := range shapes {
+		c, unmet, ok := u.fit(sh, obj)
+		switch {
+		case !ok:
+		case !c.isMatch:
+			lacks = append(lacks, strings.Join(unmet, " and "))
+		case !best.isMatch || c.outranks(best):
+			best = c
+		}
+	}
+	return best, lacks
+}
+
+// fit scores obj against sh and lists its unmet required keys; unknown keys rule out a closed sh.
+func (u Union) fit(sh Shape, obj map[string]json.RawMessage) (candidate, []string, bool) {
+	var unmet []string
 	for _, name := range sh.Required {
 		if _, found := obj[name]; !found {
-			absentKeys++
+			unmet = append(unmet, name)
 		}
 	}
 	unknown := 0
@@ -288,9 +312,10 @@ func (u Union) fit(sh Shape, obj map[string]json.RawMessage) (candidate, bool) {
 		}
 	}
 	if sh.IsClosed && unknown > 0 {
-		return candidate{}, false
+		return candidate{}, nil, false
 	}
-	return candidate{score: len(sh.Required) - absentKeys - unknown, isMatch: absentKeys == 0, isPerfect: absentKeys == 0 && unknown == 0}, true
+	isMatch := len(unmet) == 0
+	return candidate{score: len(sh.Required) - len(unmet) - unknown, isMatch: isMatch, isPerfect: isMatch && unknown == 0}, unmet, true
 }
 
 // width is the number of kinds a candidate takes: an int goes before a float64 for an integer.
@@ -298,30 +323,22 @@ func (u Union) width(c candidate) int {
 	return bits.OnesCount8(uint8(u.Variants[c.index].Kind))
 }
 
-// decodeOne sets the first candidate that decodes. Two perfect object matches with the same score
-// are ambiguous.
-func (u Union) decodeOne(cands []candidate, what string, decode func(Setter) error) error {
-	if len(cands) > 1 && cands[0].isPerfect && cands[1].isPerfect && cands[0].score == cands[1].score {
-		return fmt.Errorf("%w: %s and %s", ErrAmbiguous, u.Variants[cands[0].index].Name, u.Variants[cands[1].index].Name)
-	}
-	return u.decodeFirst(cands, what, decode)
-}
-
-// decodeAll sets every matching candidate that decodes, and falls back to the first that decodes
-// when none does.
+// decodeAll sets every candidate that decodes.
 func (u Union) decodeAll(cands []candidate, what string, decode func(Setter) error) error {
-	isSet := false
+	var errs []error
 	for _, c := range cands {
-		if c.isMatch && decode(u.Variants[c.index].Into) == nil {
-			isSet = true
+		v := u.Variants[c.index]
+		if err := decode(v.Into); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", v.Name, err))
 		}
 	}
-	if isSet {
+	if len(errs) < len(cands) {
 		return nil
 	}
-	return u.decodeFirst(cands, what, decode)
+	return noVariant(what, errs)
 }
 
+// decodeFirst sets the first candidate that decodes.
 func (u Union) decodeFirst(cands []candidate, what string, decode func(Setter) error) error {
 	var errs []error
 	for _, c := range cands {
@@ -332,14 +349,19 @@ func (u Union) decodeFirst(cands []candidate, what string, decode func(Setter) e
 		}
 		errs = append(errs, fmt.Errorf("%s: %w", v.Name, err))
 	}
-	if len(errs) == 0 {
-		return fmt.Errorf("%w for %s", ErrNoVariant, what)
-	}
-	return fmt.Errorf("%w for %s: %w", ErrNoVariant, what, errors.Join(errs...))
+	return noVariant(what, errs)
 }
 
 func (c candidate) outranks(other candidate) bool {
 	return c.score > other.score || c.score == other.score && c.isPerfect && !other.isPerfect
+}
+
+// noVariant is the error of a value no candidate decodes, errs being why each one failed.
+func noVariant(what string, errs []error) error {
+	if len(errs) == 0 {
+		return fmt.Errorf("%w for %s", ErrNoVariant, what)
+	}
+	return fmt.Errorf("%w for %s: %w", ErrNoVariant, what, errors.Join(errs...))
 }
 
 func discriminatorValue(raw json.RawMessage) string {

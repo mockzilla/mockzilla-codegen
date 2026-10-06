@@ -98,6 +98,19 @@ func TestViewRendersValidation(t *testing.T) {
 			{Name: "Empty", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: empty}}, Kinds: gomodel.JSONObject, Values: []string{"empty"}},
 		},
 	}, Validation: &gomodel.Validation{Count: "ExactlyOne", IsDiscriminated: true}}
+	either := &gomodel.Decl{Name: "Either", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
+		IsAnyOf: true,
+		Variants: []*gomodel.Variant{
+			{Name: "Number", FieldType: gomodel.Pointer{Elem: num}, Kinds: gomodel.JSONNumber},
+			{Name: "Code", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString},
+			{Name: "Tags", FieldType: gomodel.Slice{Elem: str}, Kinds: gomodel.JSONArray},
+		},
+	}, Validation: &gomodel.Validation{Count: "AtLeastOne", Checks: []*gomodel.Check{
+		{Field: "Code", IsVariant: true, IsPointer: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMaxLength, Number: "5"}}},
+		{Field: "Tags", IsVariant: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMinItems, Number: "1"}}, Items: &gomodel.Check{
+			Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "1"}},
+		}},
+	}}}
 	quoted := spec.Value{Kind: spec.KindObject, Fields: []spec.Field{{Name: "a", Value: spec.Value{Kind: spec.KindString, Str: "x`y"}}}}
 	corner := &gomodel.Decl{Name: "Corner", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}, Validation: &gomodel.Validation{Checks: []*gomodel.Check{
 		{Rules: []gomodel.Rule{{Kind: gomodel.RuleEnumJSON, Values: []spec.Value{{Kind: spec.KindArray, Items: []spec.Value{{Kind: spec.KindNumber, Num: "1"}}}, quoted}}}},
@@ -120,7 +133,7 @@ func TestViewRendersValidation(t *testing.T) {
 	}, Error: &gomodel.ErrorMessage{Path: "message", HasConstructor: true}}
 
 	g := New(&gomodel.Model{
-		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, corner, patch, problem},
+		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, either, corner, patch, problem},
 		Patterns: []*gomodel.Pattern{code},
 	})
 	checkRender(t, g, "validation")

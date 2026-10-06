@@ -97,12 +97,13 @@ type Upload struct {
 	Checksum []byte       `json:"checksum,omitempty"`
 }
 
+// Vertex is one of String or Point.
 type Vertex struct {
 	String *string `json:"-"`
 	Point  *Point  `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (v Vertex) MarshalJSON() ([]byte, error) {
 	var set []any
 	if v.String != nil {
@@ -111,16 +112,16 @@ func (v Vertex) MarshalJSON() ([]byte, error) {
 	if v.Point != nil {
 		set = append(set, v.Point)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (v *Vertex) UnmarshalJSON(data []byte) error {
 	*v = Vertex{}
 	return runtime.UnmarshalUnion(data, v.union())
 }
 
-// UnmarshalForm sets the variants the form matches.
+// UnmarshalForm sets the variant the form matches.
 func (v *Vertex) UnmarshalForm(form *multipart.Form) error {
 	*v = Vertex{}
 	return runtime.UnmarshalUnionForm(form, nil, v.union())
@@ -152,12 +153,13 @@ func (v Vertex) Validate() error {
 	return errs.Err()
 }
 
+// Fault is one of Busy or Invalid.
 type Fault struct {
 	Busy    *Busy    `json:"-"`
 	Invalid *Invalid `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (f Fault) MarshalJSON() ([]byte, error) {
 	var set []any
 	if f.Busy != nil {
@@ -166,10 +168,10 @@ func (f Fault) MarshalJSON() ([]byte, error) {
 	if f.Invalid != nil {
 		set = append(set, f.Invalid)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (f *Fault) UnmarshalJSON(data []byte) error {
 	*f = Fault{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -204,12 +206,13 @@ func (f Fault) Error() string {
 	return runtime.ErrorMessage(f, "message", "Fault")
 }
 
+// Attachment is one of Link or Upload.
 type Attachment struct {
 	Link   *Link   `json:"-"`
 	Upload *Upload `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (a Attachment) MarshalJSON() ([]byte, error) {
 	var set []any
 	if a.Link != nil {
@@ -218,16 +221,16 @@ func (a Attachment) MarshalJSON() ([]byte, error) {
 	if a.Upload != nil {
 		set = append(set, a.Upload)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (a *Attachment) UnmarshalJSON(data []byte) error {
 	*a = Attachment{}
 	return runtime.UnmarshalUnion(data, a.union())
 }
 
-// UnmarshalForm sets the variants the form matches.
+// UnmarshalForm sets the variant the form matches.
 func (a *Attachment) UnmarshalForm(form *multipart.Form) error {
 	*a = Attachment{}
 	return runtime.UnmarshalUnionForm(form, nil, a.union())

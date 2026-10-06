@@ -17,7 +17,8 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
-const commentWidth = 100
+// CommentWidth is the column Comment wraps lines at.
+const CommentWidth = 100
 
 // Comment turns text into // lines at most 100 columns wide. Long lines wrap at spaces; the
 // line breaks, indentation and spacing of text stay, runs of blank lines become one. Characters
@@ -95,7 +96,7 @@ func wrap(line string) []string {
 		switch {
 		case cur == prefix:
 			cur += word
-		case utf8.RuneCountInString(cur)+utf8.RuneCountInString(gap)+utf8.RuneCountInString(word) > commentWidth:
+		case utf8.RuneCountInString(cur)+utf8.RuneCountInString(gap)+utf8.RuneCountInString(word) > CommentWidth:
 			out = append(out, cur)
 			cur = prefix + word
 		default:

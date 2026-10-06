@@ -83,7 +83,7 @@ func (v *validator) validation(d *Decl) *Validation {
 		checks := slices.Concat(v.ownChecks(d), v.structChecks(d))
 		for _, vr := range d.Union.Variants {
 			c := v.check(d, vr.schema, vr.FieldType, d.Name+vr.Name)
-			c.Field = vr.Name
+			c.Field, c.IsVariant = vr.Name, true
 			checks = appendCheck(checks, c)
 		}
 		return &Validation{Count: unionCount(d.Union), IsDiscriminated: d.Union.Discriminator != "", Checks: checks}

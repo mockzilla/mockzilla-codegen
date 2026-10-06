@@ -86,9 +86,9 @@ Choice union models.unions
   | Strings []string kinds=array
   | Owner *Owner kinds=object required=contacts
   ? validate count=ExactlyOne response
-  ? String path= pointer guarded maxLength(3)
-  ? Strings path= guarded minItems(1)
-  ? Owner path= pointer guarded nested
+  ? String path= variant pointer guarded maxLength(3)
+  ? Strings path= variant guarded minItems(1)
+  ? Owner path= variant pointer guarded nested
 MaybeChoice union models.unions
   | anyOf nullable text
   | String *string kinds=string
@@ -256,8 +256,8 @@ Listed union models.unions
   | String *ListedString kinds=string
   | Integer *ListedInteger kinds=integer
   ? validate count=ExactlyOne
-  ? String path= pointer guarded nested
-  ? Integer path= pointer guarded nested
+  ? String path= variant pointer guarded nested
+  ? Integer path= variant pointer guarded nested
 ListedString enum string models.enums
   ListedStringA "a"
   ? validate

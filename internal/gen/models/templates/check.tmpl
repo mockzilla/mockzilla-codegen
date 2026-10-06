@@ -1,16 +1,16 @@
 {{- if .IsRequired}}
 	if {{.Value}} == nil {
-		errs.Required({{.Path}})
+		{{.Errs}}.Required({{.Path}})
 	}
 {{- end}}
 {{- with .NullCheck}}
-	errs.Append({{$.Path}}, {{.}})
+	{{$.Errs}}.Append({{$.Path}}, {{.}})
 {{- end}}
 {{- with .Guard}}
 	if {{.}} {
 {{- end}}
 {{- range .Calls}}
-	errs.Append({{$.Path}}, {{.}})
+	{{$.Errs}}.Append({{$.Path}}, {{.}})
 {{- end}}
 {{- with .Items}}
 	for {{.Index}}, {{.Item}} := range {{.Range}} {
