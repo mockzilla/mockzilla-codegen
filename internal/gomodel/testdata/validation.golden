@@ -6,8 +6,8 @@ Pet struct models.types
   Age *int json=age omitempty
   Weight *float64 json=weight omitempty
   Tags []string json=tags required
-  Owners []Owner json=owners omitempty
-  Labels map[string]string json=labels omitempty
+  Owners []Owner json=owners omitempty omitzero
+  Labels map[string]string json=labels omitempty omitzero
   Kind string json=kind required
   Count *int json=count omitempty
   Ratio *int json=ratio omitempty
@@ -16,18 +16,18 @@ Pet struct models.types
   Site *string json=site omitempty
   Born *time.Time json=born omitempty
   Secret *string json=secret omitempty writeOnly
-  Grid [][]int json=grid omitempty
-  Spots []*string json=spots omitempty
+  Grid [][]int json=grid omitempty omitzero
+  Spots []*string json=spots omitempty omitzero
   Ahead *string json=ahead omitempty
   Accent *string json=accent omitempty
   Again *string json=again omitempty
   Status *Status json=status omitempty
-  Pets Pets json=pets omitempty
-  Blob []byte json=blob omitempty
-  Loose []any json=loose omitempty
-  Bag map[string]any json=bag omitempty
+  Pets Pets json=pets omitempty omitzero
+  Blob []byte json=blob omitempty omitzero
+  Loose []any json=loose omitempty omitzero
+  Bag map[string]any json=bag omitempty omitzero
   Whatever any json=whatever omitempty
-  Dates []time.Time json=dates omitempty
+  Dates []time.Time json=dates omitempty omitzero
   ? validate response
   ? ID path=id response-only format(uuid)
   ? Name path=name minLength(1) maxLength(20) pattern(patternPetName)
@@ -68,7 +68,7 @@ Pets defined []Pet models.types
   ? - path= guarded maxItems(3)
   ?   items - path= nested
 Owner struct models.types
-  Contacts []string json=contacts required omitempty readOnly
+  Contacts []string json=contacts required omitempty omitzero readOnly
   Pet *Pet json=pet omitempty
   AdditionalProperties map[string]Pet json=-
   ? validate response
@@ -111,8 +111,8 @@ Strict struct models.types
   Range *int json=range omitempty
   Tie *float64 json=tie omitempty
   Code *string json=code omitempty
-  List []string json=list omitempty
-  Bag map[string]any json=bag omitempty
+  List []string json=list omitempty omitzero
+  Bag map[string]any json=bag omitempty omitzero
   Even *int json=even omitempty
   Wrapped *Wrapped json=wrapped omitempty
   ? validate
@@ -156,8 +156,8 @@ Merged defined map[string]string models.types
   ? validate
   ? - path= guarded key pattern(patternStrictCode) key pattern(patternMergedKey)
 KeyHolder struct models.types
-  Inline map[string]string json=inline omitempty
-  KeysOnly map[string]any json=keysOnly omitempty
+  Inline map[string]string json=inline omitempty omitzero
+  KeysOnly map[string]any json=keysOnly omitempty omitzero
   ? validate
   ? Inline path=inline guarded key minLength(1)
   ? KeysOnly path=keysOnly guarded key maxLength(4)
@@ -267,11 +267,11 @@ ListedInteger enum int models.enums
 Anything alias any models.types
 Shelf struct models.types
   Spot *Spot json=spot nullable omitempty
-  Span Span json=span omitempty
+  Span Span json=span omitempty omitzero
   Anything Anything json=anything omitempty
   Inline any json=inline omitempty
-  Rows []map[string]any json=rows omitempty
-  AllNull []int json=allNull nullable omitempty
+  Rows []map[string]any json=rows omitempty omitzero
+  AllNull []int json=allNull nullable omitempty omitzero
   ? validate
   ? Spot path=spot pointer guarded nested
   ? Span path=span guarded nested

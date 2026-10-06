@@ -91,7 +91,7 @@ func (g GetPetPathParams) Validate() error {
 }
 
 type GetPetQuery struct {
-	Fields []GetPetQueryFieldsItem `json:"fields,omitempty"`
+	Fields []GetPetQueryFieldsItem `json:"fields,omitzero"`
 }
 
 // Validate checks the value against the constraints of the spec.

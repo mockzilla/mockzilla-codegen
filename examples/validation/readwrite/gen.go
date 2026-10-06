@@ -14,7 +14,7 @@ type User struct {
 	ID       string   `json:"id,omitempty"`
 	Name     string   `json:"name"`
 	Password string   `json:"password,omitempty"`
-	Roles    []string `json:"roles,omitempty"`
+	Roles    []string `json:"roles,omitzero"`
 }
 
 // Validate checks the value against the constraints of the spec, as a request carries it.

@@ -13,7 +13,7 @@ MixedTrue struct models.types
 MixedFalse struct models.types
   Name *string json=name omitempty
 Nested struct models.types
-  Deep map[string]map[string]Mixed json=deep omitempty
+  Deep map[string]map[string]Mixed json=deep omitempty omitzero
 Access struct models.types doc="Read and write rules"
   ID string json=id required omitempty readOnly
   Secret string json=secret required omitempty writeOnly doc="Never returned"

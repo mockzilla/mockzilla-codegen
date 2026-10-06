@@ -55,7 +55,7 @@ Holder struct models.types
   Status *Status json=status nullable omitempty
   Inline *HolderInline json=inline omitempty
   Mixed Mixed json=mixed omitempty
-  Tags []string json=tags omitempty
+  Tags []string json=tags omitempty omitzero
   Point *Point json=point nullable omitempty
 HolderInline enum string models.enums
   HolderInlineX "x"

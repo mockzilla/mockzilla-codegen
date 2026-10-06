@@ -48,7 +48,7 @@ type NestedErrorError struct {
 }
 
 type ListError struct {
-	Errors []ListErrorErrorsItem `json:"errors,omitempty"`
+	Errors []ListErrorErrorsItem `json:"errors,omitzero"`
 }
 
 // Error returns the message at errors[].detail.

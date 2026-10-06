@@ -22,8 +22,8 @@ type Pet struct {
 	Age   *int     `json:"age,omitempty"`
 	Size  *string  `json:"size,omitempty"`
 	Owner Owner    `json:"owner"`
-	Tags  []string `json:"tags,omitempty"`
-	Toys  []Toy    `json:"toys,omitempty"`
+	Tags  []string `json:"tags,omitzero"`
+	Toys  []Toy    `json:"toys,omitzero"`
 }
 
 // GetAge returns Age, or 1 when it is nil.

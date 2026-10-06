@@ -26,8 +26,8 @@ func (p Pet) Validate() error {
 type Owner struct {
 	Pets    []Pet          `json:"pets"`
 	Best    *Pet           `json:"best,omitempty"`
-	ByName  map[string]Pet `json:"byName,omitempty"`
-	Grid    [][]int        `json:"grid,omitempty"`
+	ByName  map[string]Pet `json:"byName,omitzero"`
+	Grid    [][]int        `json:"grid,omitzero"`
 	Contact *OwnerContact  `json:"contact,omitempty"`
 }
 

@@ -24,13 +24,14 @@ import (
 )
 
 type stamped struct {
-	Title    string    `json:"title"`
-	When     time.Time `json:"when"`
-	Raw      []byte    `json:"raw"`
-	Optional *string   `json:"optional"`
-	Any      any       `json:"any"`
-	Ptrs     []*string `json:"ptrs"`
-	Bad      chan int  `json:"-"`
+	Title    string         `json:"title"`
+	When     time.Time      `json:"when"`
+	Raw      []byte         `json:"raw"`
+	Optional *string        `json:"optional"`
+	Any      any            `json:"any"`
+	Ptrs     []*string      `json:"ptrs"`
+	Meta     map[string]int `json:"meta"`
+	Bad      chan int       `json:"-"`
 }
 
 // failAfter takes n bytes and fails the write that goes past them.
@@ -222,21 +223,49 @@ func TestWriteMultipartParts(t *testing.T) {
 	t.Parallel()
 
 	when := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
-	data, contentType := multipartOf(t, stamped{Title: `a "quoted" \ name`, When: when, Raw: []byte{0, 1}, Any: map[string]int{"n": 1}, Ptrs: []*string{Ptr("p"), nil}})
+	tests := []struct {
+		name  string
+		value stamped
+		want  map[string][]string
+	}{
+		{
+			name:  "Each set field is a part of its own",
+			value: stamped{Title: `a "quoted" \ name`, When: when, Raw: []byte{0, 1}, Any: map[string]int{"n": 1}, Ptrs: []*string{Ptr("p"), nil}, Meta: map[string]int{}},
+			want: map[string][]string{
+				"title": {`a "quoted" \ name`},
+				"when":  {"2026-01-02T03:04:05Z"},
+				"raw":   {"AAE="},
+				"any":   {`{"n":1}`},
+				"ptrs":  {"p"},
+				"meta":  {"{}"},
+			},
+		},
+		{
+			name:  "A nil list, bytes or map is left out",
+			value: stamped{Title: "x", When: when},
+			want:  map[string][]string{"title": {"x"}, "when": {"2026-01-02T03:04:05Z"}},
+		},
+		{
+			name:  "Empty bytes are an empty part",
+			value: stamped{Title: "x", When: when, Raw: []byte{}},
+			want:  map[string][]string{"title": {"x"}, "when": {"2026-01-02T03:04:05Z"}, "raw": {""}},
+		},
+	}
 
-	_, params, err := mime.ParseMediaType(contentType)
-	require.NoError(t, err)
-	mr := multipart.NewReader(bytes.NewReader(data), params["boundary"])
-	form, err := mr.ReadForm(1 << 20)
-	require.NoError(t, err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	assert.Equal(t, map[string][]string{
-		"title": {`a "quoted" \ name`},
-		"when":  {"2026-01-02T03:04:05Z"},
-		"raw":   {"AAE="},
-		"any":   {`{"n":1}`},
-		"ptrs":  {"p"},
-	}, form.Value)
+			data, contentType := multipartOf(t, tc.value)
+			_, params, err := mime.ParseMediaType(contentType)
+			require.NoError(t, err)
+			mr := multipart.NewReader(bytes.NewReader(data), params["boundary"])
+			form, err := mr.ReadForm(1 << 20)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.want, form.Value)
+		})
+	}
 }
 
 func TestWriteMultipartUnmarshaler(t *testing.T) {
