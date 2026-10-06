@@ -58,7 +58,7 @@ go tool mockzilla-codegen generate
 ```
 
 This writes `api/gen.go` in package `api`. Paths in the config are relative to the config file.
-[README](../README.md#configuration) lists every key.
+[Configuration](config.md) lists every key.
 
 To run it from `go generate`, add this line to any Go file of the package:
 

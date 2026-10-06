@@ -38,7 +38,7 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
 | `output-options.skip-prune` | `spec.prune: false` |
 | `output-options.include-tags`, `exclude-tags` | `spec.filter.include.tags`, `spec.filter.exclude.tags` |
 | `output-options.include-operation-ids`, `exclude-operation-ids` | `spec.filter.include.operation-ids`, `spec.filter.exclude.operation-ids` |
-| `output-options.exclude-schemas` | `spec.filter.exclude.schema-properties` drops properties; an [overlay](../../README.md#configuration) removes a whole schema |
+| `output-options.exclude-schemas` | `spec.filter.exclude.schema-properties` drops properties; an [overlay](../config.md) removes a whole schema |
 | `output-options.overlay.path` | `spec.overlays: [path]`, several in order |
 | `output-options.additional-initialisms` | `naming.initialisms`, in effect without a `name-normalizer` |
 | `output-options.yaml-tags`, `struct-tags` | `models.extra-tags: [yaml]`; each tag repeats the JSON name |
@@ -85,7 +85,7 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
   `preserve-original-operation-id-casing-in-embedded-spec`: nothing to replace.
 - `import-mapping`: a `$ref` into another file is resolved and its types generated with the rest.
   To keep several packages, run once with `output.files` and `output.packages` sending parts to
-  their folders ([output files](../../README.md#output-files)); the imports between them are
+  their folders ([output files](../config.md#output-files)); the imports between them are
   written for you.
 
 ## Extensions

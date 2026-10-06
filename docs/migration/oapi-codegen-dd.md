@@ -25,7 +25,7 @@ guide walks through. A project still on v2 of the fork follows the
 | `overlay.sources` | `spec.overlays` |
 | `base-path` | none; a relative `$ref` is resolved against the spec file |
 | `output.use-single-file: true`, `output.directory`, `output.filename` | `output.file`, the path of that file |
-| `output.use-single-file: false` | `output.files`, each part to the file you name ([output files](../../README.md#output-files)) |
+| `output.use-single-file: false` | `output.files`, each part to the file you name ([output files](../config.md#output-files)) |
 | `output.skip-fmt` | `output.format: false` |
 | `generate.models` | always on; models for another package go there with `output.files` |
 | `generate.client` | `client:` |

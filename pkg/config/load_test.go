@@ -304,15 +304,15 @@ func TestParseEdits(t *testing.T) {
 	}
 }
 
-func TestReadmeShowsTheFullExample(t *testing.T) {
+func TestConfigDocShowsTheFullExample(t *testing.T) {
 	t.Parallel()
 
-	readme, err := os.ReadFile(filepath.Join("..", "..", "README.md"))
+	doc, err := os.ReadFile(filepath.Join("..", "..", "docs", "config.md"))
 	require.NoError(t, err)
 	full, err := os.ReadFile(filepath.Join("testdata", "full.yaml"))
 	require.NoError(t, err)
 
-	assert.Contains(t, string(readme), "```yaml\n"+string(full)+"```\n")
+	assert.Contains(t, string(doc), "```yaml\n"+string(full)+"```\n")
 }
 
 func defaulted(c Config) *Config {
