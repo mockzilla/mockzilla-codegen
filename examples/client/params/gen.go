@@ -23,7 +23,7 @@ type Point struct {
 
 type Filter struct {
 	Name *string  `json:"name,omitempty"`
-	Tags []string `json:"tags,omitempty"`
+	Tags []string `json:"tags,omitzero"`
 	Size *Point   `json:"size,omitempty"`
 }
 
@@ -155,10 +155,10 @@ func (p PathStylesPathParams) Validate() error {
 }
 
 type QueryStylesQuery struct {
-	Form   []int               `json:"form,omitempty"`
-	Csv    []string            `json:"csv,omitempty"`
-	Space  []string            `json:"space,omitempty"`
-	Pipe   []string            `json:"pipe,omitempty"`
+	Form   []int               `json:"form,omitzero"`
+	Csv    []string            `json:"csv,omitzero"`
+	Space  []string            `json:"space,omitzero"`
+	Pipe   []string            `json:"pipe,omitzero"`
 	Deep   *Point              `json:"deep,omitempty"`
 	Flat   *Point              `json:"flat,omitempty"`
 	JSON   *Point              `json:"json,omitempty"`
@@ -178,7 +178,7 @@ func (q QueryStylesQuery) Validate() error {
 }
 
 type HeaderStylesHeaders struct {
-	XTags  []string                   `json:"X-Tags,omitempty"`
+	XTags  []string                   `json:"X-Tags,omitzero"`
 	XPoint *Point                     `json:"X-Point,omitempty"`
 	XWhen  *time.Time                 `json:"X-When,omitempty"`
 	XLimit *HeaderStylesHeadersXLimit `json:"X-Limit,omitempty"`
@@ -195,7 +195,7 @@ func (h HeaderStylesHeaders) Validate() error {
 
 type CookieStylesCookies struct {
 	Session *string `json:"session,omitempty"`
-	Flags   []int   `json:"flags,omitempty"`
+	Flags   []int   `json:"flags,omitzero"`
 }
 
 // PathStylesRequestOptions is what PathStyles sends.

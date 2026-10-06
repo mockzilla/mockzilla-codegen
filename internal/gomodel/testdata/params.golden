@@ -18,15 +18,15 @@ ListItemsPathParams struct models.params
 ListItemsQuery struct models.params
   Limit *int json=limit omitempty getter=GetLimit:20
   Sort *Sort json=sort omitempty getter=GetSort:"asc"
-  Tags []string json=tags omitempty getter=GetTags:["a","b"]
+  Tags []string json=tags omitempty omitzero getter=GetTags:["a","b"]
   Page int json=page required
   Ratio *int json=ratio omitempty
   ID2 *ListItemsQueryID2 json=id2 omitempty
   Wait *time.Duration json=wait omitempty
-  Bare []any json=bare omitempty
-  Tree Tree json=tree omitempty
-  Labels map[string]ListItemsQueryLabelsValue json=labels omitempty
-  Open map[string]any json=open omitempty
+  Bare []any json=bare omitempty omitzero
+  Tree Tree json=tree omitempty omitzero
+  Labels map[string]ListItemsQueryLabelsValue json=labels omitempty omitzero
+  Open map[string]any json=open omitempty omitzero
 ListItemsQueryID2 union models.unions
   | oneOf text
   | Int *int kinds=integer
@@ -45,7 +45,7 @@ ListItemsCookies struct models.params
   Loop *Loop json=loop omitempty
 SearchItemsFilter struct models.params
   Name *string json=name omitempty
-  Tag []string json=tag omitempty
+  Tag []string json=tag omitempty omitzero
 MixItemsQuery struct models.params
   Page *int json=page omitempty
 op ListItems GET /items/{id}

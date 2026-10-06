@@ -7,8 +7,8 @@ User struct models.types
   Pin *int json=pin omitempty sensitive
   Odd *string json=odd omitempty sensitive
   Profile *Profile json=profile omitempty
-  Friends []Profile json=friends omitempty
-  ByName map[string]Profile json=byName omitempty
+  Friends []Profile json=friends omitempty omitzero
+  ByName map[string]Profile json=byName omitempty omitzero
   Plain *Plain json=plain omitempty
   * mask Password full pointer
   * mask Ssn regex patternUserSsn

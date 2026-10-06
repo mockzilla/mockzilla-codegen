@@ -24,7 +24,7 @@ type Parcel struct {
 	Doc   *runtime.File `json:"doc,omitempty"`
 	Photo *runtime.File `json:"photo,omitempty"`
 	To    *Address      `json:"to,omitempty"`
-	Stops []Address     `json:"stops,omitempty"`
+	Stops []Address     `json:"stops,omitzero"`
 	Note  *string       `json:"note,omitempty"`
 }
 
@@ -51,7 +51,7 @@ type Receipt struct {
 	DocType   *string   `json:"docType,omitempty"`
 	PhotoType *string   `json:"photoType,omitempty"`
 	To        *Address  `json:"to,omitempty"`
-	Stops     []Address `json:"stops,omitempty"`
+	Stops     []Address `json:"stops,omitzero"`
 	Note      *string   `json:"note,omitempty"`
 }
 

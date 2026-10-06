@@ -5,7 +5,7 @@ ClientSchemaAddress struct models.types
 ClientSchemaAddressGeo struct models.types
   Lat *float64 json=lat omitempty
 Pet struct models.types
-  Tags []PetTagsItem json=tags omitempty
+  Tags []PetTagsItem json=tags omitempty omitzero
 PetTagsItem struct models.types
   Label *string json=label omitempty
 PetSchema struct models.types

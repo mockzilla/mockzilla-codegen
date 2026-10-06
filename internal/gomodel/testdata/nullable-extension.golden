@@ -4,9 +4,9 @@ Pet struct models.types
   Note *string json=note nullable omitempty
   Age *int json=age omitempty getter=GetAge:1
   Parent *Pet json=parent omitempty
-  Tags []string json=tags omitempty
-  Scores []*int json=scores omitempty
-  Labels map[string]*string json=labels omitempty
+  Tags []string json=tags omitempty omitzero
+  Scores []*int json=scores omitempty omitzero
+  Labels map[string]*string json=labels omitempty omitzero
   Exact *string json=exact omitempty
   Aliases runtime.Nullable[[]string] json=aliases nullable omitempty omitzero
   Plain int json=plain omitempty

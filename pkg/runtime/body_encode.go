@@ -54,7 +54,8 @@ func encodeForm(v any, enc Encoding) (url.Values, error) {
 // writeParts writes v, a struct, to mw as a multipart form and closes mw, which ends the
 // form: File fields as file parts with their name and content type, application/octet-stream
 // without one, lists as one part per item, structs and maps as JSON parts, bytes as base64, and
-// everything else as text. A property enc declares a media type for is written in it.
+// everything else as text. A property enc declares a media type for is written in it. A nil slice
+// or map is left out, as omitzero leaves it out of JSON.
 func writeParts(mw *multipart.Writer, v any, enc Encoding) error {
 	return (&formWriter{mw: mw, encoding: enc}).write(v)
 }
@@ -106,6 +107,8 @@ func (w *formWriter) part(name string, v reflect.Value) error {
 	case t == fileType:
 		f, _ := v.Interface().(File)
 		return w.file(name, f)
+	case (t.Kind() == reflect.Slice || t.Kind() == reflect.Map) && v.IsNil():
+		return nil
 	case t.Kind() == reflect.Slice && !isBytes(t):
 		for i := range v.Len() {
 			if err := w.part(name, v.Index(i)); err != nil {

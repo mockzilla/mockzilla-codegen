@@ -44,14 +44,14 @@ type Item struct {
 	Price  *float64          `json:"price,omitempty"`
 	Count  *int              `json:"count,omitempty"`
 	Tags   []string          `json:"tags"`
-	Labels map[string]string `json:"labels,omitempty"`
+	Labels map[string]string `json:"labels,omitzero"`
 	Kind   *string           `json:"kind,omitempty"`
 	Size   *Size             `json:"size,omitempty"`
 	Corner *Corner           `json:"corner,omitempty"`
-	Dims   []int             `json:"dims,omitempty"`
+	Dims   []int             `json:"dims,omitzero"`
 	Unit   *ItemUnit         `json:"unit,omitempty"`
 	Mark   any               `json:"mark,omitempty"`
-	Token  []byte            `json:"token,omitempty"`
+	Token  []byte            `json:"token,omitzero"`
 	Word   *string           `json:"word,omitempty"`
 	Line   *string           `json:"line,omitempty"`
 	Stock  *int              `json:"stock,omitempty"`

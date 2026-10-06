@@ -24,8 +24,8 @@ type Dog struct {
 
 type Owner struct {
 	Pet  Pet                       `json:"pet"`
-	Pets []Pet                     `json:"pets,omitempty"`
-	Tags map[string]OwnerTagsValue `json:"tags,omitempty"`
+	Pets []Pet                     `json:"pets,omitzero"`
+	Tags map[string]OwnerTagsValue `json:"tags,omitzero"`
 	Best *Dog                      `json:"best,omitempty"`
 }
 

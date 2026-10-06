@@ -63,6 +63,11 @@ func TestAddPet(t *testing.T) {
 			want: `{"name":"","age":1,"size":"m","owner":{"id":0,"city":"Berlin"}}`,
 		},
 		{
+			name: "An empty list stays empty", contentType: typeJSON, wantStatus: http.StatusOK,
+			body: `{"name":"Rex","owner":{"id":1},"tags":[],"toys":[]}`,
+			want: `{"name":"Rex","age":1,"size":"m","owner":{"id":1,"city":"Berlin"},"tags":[],"toys":[]}`,
+		},
+		{
 			name: "A missing required key is an error", contentType: typeJSON, wantStatus: http.StatusBadRequest,
 			body: `{"owner":{}}`,
 			want: `{"error":"invalid request: body.name: is required; body.owner.id: is required"}`,

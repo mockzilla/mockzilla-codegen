@@ -3,11 +3,11 @@ Parcel struct models.types
   Doc *runtime.File json=doc omitempty
   Logo *runtime.File json=logo omitempty
   Pet *Pet json=pet omitempty
-  Pets []Pet json=pets omitempty
-  Labels []Pet json=labels omitempty
-  Meta map[string]string json=meta omitempty
+  Pets []Pet json=pets omitempty omitzero
+  Labels []Pet json=labels omitempty omitzero
+  Meta map[string]string json=meta omitempty omitzero
   Note *string json=note omitempty
-  Tags []string json=tags omitempty
+  Tags []string json=tags omitempty omitzero
   Flags *string json=flags omitempty
   Signed *runtime.File json=signed omitempty
 Pet struct models.types

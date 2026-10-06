@@ -8,10 +8,10 @@ Pet struct models.types
   Count *int json=count omitempty checks=value
   Born *string json=born omitempty readOnly checks=value getter=GetBorn:"today"
   Owner *Owner json=owner omitempty checks=Owner
-  Tags []string json=tags omitempty checks=[]value
-  Notes []*string json=notes omitempty checks=[]value?
-  Photo []byte json=photo omitempty checks=value
-  Friends map[string]Owner json=friends omitempty checks=map[]Owner
+  Tags []string json=tags omitempty omitzero checks=[]value
+  Notes []*string json=notes omitempty omitzero checks=[]value?
+  Photo []byte json=photo omitempty omitzero checks=value
+  Friends map[string]Owner json=friends omitempty omitzero checks=map[]Owner
   Loose *PetLoose json=loose omitempty checks=PetLoose?
   Anything any json=anything omitempty checks=value?
   Pick *PetPick json=pick omitempty checks=value

@@ -108,7 +108,8 @@ enum values. A `$ref` to a nullable schema is nullable too.
 
 Optional fields get `omitempty` in their JSON tag. Required fields do not, apart from `readOnly` and
 `writeOnly` ones. A field with `omitempty` that holds a struct or a type from another package by
-value, such as `time.Time`, also gets `omitzero`: `omitempty` alone never leaves out a struct.
+value, such as `time.Time`, also gets `omitzero`: `omitempty` alone never leaves out a struct. A
+slice or map gets `omitzero` instead, so `nil` is left out and an empty one is sent as `[]` or `{}`.
 
 ### Nullable
 
@@ -124,7 +125,7 @@ models:
 |---|---|
 | required | `T` |
 | optional, nullable, or both | `runtime.Nullable[T]` |
-| slice or map | `T` with `omitzero`, so an empty one is sent |
+| slice or map | `T` |
 | `any`, `json.RawMessage` | `T` |
 | nullable array item or map value | `runtime.Nullable[T]` |
 
@@ -201,7 +202,7 @@ Node:
 ```go
 type Node struct {
 	Next     *Node  `json:"next"`
-	Children []Node `json:"children,omitempty"`
+	Children []Node `json:"children,omitzero"`
 }
 ```
 

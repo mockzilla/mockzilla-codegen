@@ -9,7 +9,7 @@ Late struct models.types
   Inner *EarlyLater json=inner omitempty
   Same *EarlyLater json=same omitempty
 Tree struct models.types
-  Kids TreeKids json=kids omitempty
+  Kids TreeKids json=kids omitempty omitzero
 TreeKids defined []TreeKids models.types
 Pair struct models.types
   P any json=p omitempty
@@ -28,7 +28,7 @@ Multi union models.unions
   | Int *int kinds=integer
 Holder struct models.types
   Choice *HolderChoice json=choice omitempty
-  List []HolderListItem json=list omitempty
+  List []HolderListItem json=list omitempty omitzero
 HolderChoice union models.unions
   | anyOf text
   | String *string kinds=string

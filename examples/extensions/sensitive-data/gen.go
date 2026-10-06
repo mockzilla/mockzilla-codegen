@@ -25,7 +25,7 @@ type User struct {
 	Card     *string   `json:"card,omitempty"`
 	APIKey   *string   `json:"apiKey,omitempty"`
 	Pin      *int      `json:"pin,omitempty"`
-	Contacts []Contact `json:"contacts,omitempty"`
+	Contacts []Contact `json:"contacts,omitzero"`
 }
 
 // Validate checks the value against the constraints of the spec.

@@ -22,7 +22,7 @@ const _ = runtime.SupportsGeneratorV1
 
 type Shape struct {
 	Name   *string      `json:"name,omitempty"`
-	Stamp  []byte       `json:"stamp,omitempty"`
+	Stamp  []byte       `json:"stamp,omitzero"`
 	Vertex *Vertex      `json:"vertex,omitempty"`
 	Labels *ShapeLabels `json:"labels,omitempty"`
 	Origin *Point       `json:"origin,omitempty"`
@@ -95,7 +95,7 @@ type Link struct {
 
 type Upload struct {
 	File     runtime.File `json:"file"`
-	Checksum []byte       `json:"checksum,omitempty"`
+	Checksum []byte       `json:"checksum,omitzero"`
 }
 
 // Vertex is one of String or Point.

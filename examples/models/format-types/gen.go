@@ -19,7 +19,7 @@ type DeviceID = uuid.UUID
 type Device struct {
 	ID       DeviceID    `json:"id"`
 	Address  *netip.Addr `json:"address,omitempty"`
-	Peers    []uuid.UUID `json:"peers,omitempty"`
+	Peers    []uuid.UUID `json:"peers,omitzero"`
 	LegacyID *string     `json:"legacyId,omitempty"`
 	Seen     *time.Time  `json:"seen,omitempty"`
 }
