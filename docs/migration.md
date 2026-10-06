@@ -13,8 +13,6 @@ and ends with every command flag, config key and extension of that tool mapped t
 | [oapi-codegen](migration/oapi-codegen.md), plain server | rename keys | rewritten: no `http.ResponseWriter` | the same as above |
 | [ogen](migration/ogen.md) | flags and keys to `codegen.yaml` | response data instead of sum types; `Opt` types are pointers | no `switch` on the response type |
 
-The fork goapi-gen has a section at the end of the oapi-codegen guide.
-
 The spec stays as it is. Every version from 3.0 to 3.2 is read, and the `x-go-*` extensions it
 already carries keep working ([extensions](extensions.md)).
 

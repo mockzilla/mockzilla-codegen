@@ -1,7 +1,7 @@
 # Migrating from oapi-codegen
 
 For projects on `github.com/oapi-codegen/oapi-codegen/v2`, or the older `deepmap/oapi-codegen`
-import path. The fork `goapi-gen` has [its own section](#goapi-gen) at the end.
+import path.
 
 The guide walks through [examples/migration/oapi-codegen](../../examples/migration/oapi-codegen):
 a petstore spec, the oapi-codegen config, its translation, and the service and client calls after
@@ -263,34 +263,3 @@ Beyond the type mapping:
 - `AdditionalProperties` stays a map field with `Get` and `Set`, written next to the properties
   ([additionalProperties](../types.md#additionalproperties)).
 
-## goapi-gen
-
-`goapi-gen` is a hard fork of `oapi-codegen` v1 for chi, with a flat config file:
-
-| goapi-gen | mockzilla-codegen |
-|---|---|
-| `output` | `output.file` |
-| `package` | `package` |
-| `generate: [types, server]` | models are always on; `server: {framework: chi}` |
-| `generate: [spec]`, `skip-fmt`, `skip-prune` | none, `output.format: false`, `spec.prune: false` |
-| `include-tags`, `exclude-tags` | `spec.filter.include.tags`, `spec.filter.exclude.tags` |
-| `exclude-schemas` | see `output-options.exclude-schemas` above |
-| `templates` | `templates`, per block, or `extra-files` |
-| `import-mapping` | none, see above |
-| `alias` | none; a component that is only a `$ref` is always an alias |
-| `initialisms` | `naming.initialisms`, added to the built-in set |
-
-Its extensions:
-
-| goapi-gen | mockzilla-codegen |
-|---|---|
-| `x-go-type` with `type`, `import`, `alias` | `x-go-type` with the type, `x-go-type-import` with `{path, name}` |
-| `x-go-type-external` | the same two |
-| `x-go-extra-tags` | the same |
-| `x-go-optional-value` | `x-go-type-skip-optional-pointer` |
-| `x-go-omitempty` | `x-omitempty` |
-| `x-go-string` | none |
-| `x-go-middlewares` | none; `WithMiddleware` wraps every route, and the `server.router-extra` template block adds routes of your own |
-
-The generated server is the strict shape above, not goapi-gen's `ServerInterface` with the
-response writer, so every handler moves to the service interface.
