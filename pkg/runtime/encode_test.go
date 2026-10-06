@@ -8,6 +8,7 @@ package runtime
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -40,6 +41,13 @@ type failAfter struct {
 // textForm stands in for a union that reads forms and holds a string.
 type textForm struct {
 	Text string
+}
+
+// part is one part of a multipart form as it went out.
+type part struct {
+	Name        string
+	ContentType string
+	Body        string
 }
 
 func (w *failAfter) Write(p []byte) (int, error) {
@@ -98,7 +106,7 @@ func TestEncodeForm(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := EncodeForm(tc.value)
+			got, err := EncodeForm(tc.value, nil)
 
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)
@@ -119,7 +127,7 @@ func TestEncodeFormJSONValues(t *testing.T) {
 		Named:    map[string]vertex{"n": {Point: &point{X: 2}}},
 		Origin:   &point{X: 3},
 	}
-	values, err := EncodeForm(in)
+	values, err := EncodeForm(in, nil)
 	require.NoError(t, err)
 	assert.Equal(t, url.Values{
 		"vertex":    {`{"x":7}`},
@@ -129,10 +137,10 @@ func TestEncodeFormJSONValues(t *testing.T) {
 	}, values)
 
 	var out drawing
-	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &out, false))
+	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &out, false, nil))
 	assert.Equal(t, in, out)
 
-	raw, err := EncodeForm(json.RawMessage(`{"a":{"b":1}}`))
+	raw, err := EncodeForm(json.RawMessage(`{"a":{"b":1}}`), nil)
 	require.NoError(t, err)
 	assert.Equal(t, url.Values{"a[b]": {"1"}}, raw)
 }
@@ -151,13 +159,27 @@ func TestEncodeFormRoundTrip(t *testing.T) {
 		Codes:   []int{7},
 		Meta:    map[string]bool{"x": true},
 	}
-	values, err := EncodeForm(in)
+	values, err := EncodeForm(in, nil)
 	require.NoError(t, err)
 
 	var out order
-	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &out, true))
+	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &out, true, nil))
 
 	assert.Equal(t, in, out)
+}
+
+func TestEncodeFormEncoding(t *testing.T) {
+	t.Parallel()
+
+	in := parcel{ID: Ptr("p1"), Pet: &address{City: "Rome"}, Pets: []address{{City: "A"}}, Tags: []string{"x", "y"}, Note: "hi"}
+	got, err := EncodeForm(in, Encoding{"id": "application/json", "pet": "application/json", "pets": "application/json", "note": "text/plain"})
+	require.NoError(t, err)
+	assert.Equal(t, `id=%22p1%22&note=hi&pet=%7B%22city%22%3A%22Rome%22%2C%22country%22%3A%22%22%7D&pets=%5B%7B%22city%22%3A%22A%22%2C%22country%22%3A%22%22%7D%5D&tags=x&tags=y`, got.Encode())
+
+	_, err = EncodeForm(in, Encoding{"pet": "text/plain"})
+	require.EqualError(t, err, "unsupported content type: pet in text/plain")
+	_, err = EncodeForm(in, Encoding{"tags": "text/plain"})
+	require.NoError(t, err)
 }
 
 func TestWriteMultipart(t *testing.T) {
@@ -179,7 +201,7 @@ func TestWriteMultipart(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(data))
 	req.Header.Set("Content-Type", contentType)
 	var out upload
-	require.NoError(t, DecodeMultipart(req, &out, 0))
+	require.NoError(t, DecodeMultipart(req, &out, 0, nil))
 	content, err := out.File.Bytes()
 	require.NoError(t, err)
 	assert.Equal(t, "meow", string(content))
@@ -221,12 +243,12 @@ func TestWriteMultipartUnmarshaler(t *testing.T) {
 	t.Parallel()
 
 	p := post{ID: "1", Photo: &photo{Image: NewFileReader(strings.NewReader("PNG"), "a.png", "image/png", 3), Caption: "sun", Tags: []string{"a", "b"}}}
-	size, boundary, err := multipartSize(p)
+	size, boundary, err := multipartSize(p, nil)
 	require.NoError(t, err)
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	require.NoError(t, mw.SetBoundary(boundary))
-	require.NoError(t, WriteMultipart(mw, &p))
+	require.NoError(t, WriteMultipart(mw, &p, nil))
 	assert.Equal(t, int64(buf.Len()), size)
 
 	form, err := multipart.NewReader(&buf, boundary).ReadForm(1 << 20)
@@ -254,7 +276,7 @@ func TestWriteMultipartMembers(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]string{
 		"name": {"n"}, "num": {"1.5"}, "yes": {"true"}, "text": {"t"}, "obj": {`{"k":1}`},
-		"list": {"1", "a"}, "objs": {`[{"k":1}]`}, "lists": {`[[1]]`},
+		"list": {"1", "a"}, "objs": {`{"k":1}`}, "lists": {`[1]`},
 	}, form.Value)
 
 	list, contentType := multipartOf(t, struct {
@@ -265,6 +287,43 @@ func TestWriteMultipartMembers(t *testing.T) {
 	form, err = multipart.NewReader(bytes.NewReader(list), params["boundary"]).ReadForm(1 << 20)
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]string{"list": {"YQ==", "Yg=="}}, form.Value)
+}
+
+func TestWriteMultipartEncoding(t *testing.T) {
+	t.Parallel()
+
+	in := parcel{
+		ID:    Ptr("p1"),
+		Doc:   new(NewFile([]byte("%PDF"), "a.pdf", "")),
+		Logo:  new(NewFile([]byte("PNG"), "logo.png", "image/png")),
+		Pet:   &address{City: "Rome"},
+		Pets:  []address{{City: "A"}, {City: "B"}},
+		Tags:  []string{"x"},
+		Note:  "hi",
+		Plain: []address{{City: "C"}},
+	}
+	got := partsOf(t, in, parcelEncoding())
+
+	assert.Equal(t, []part{
+		{Name: "id", ContentType: "application/json", Body: `"p1"`},
+		{Name: "doc", ContentType: "application/pdf", Body: "%PDF"},
+		{Name: "logo", ContentType: "image/png", Body: "PNG"},
+		{Name: "pet", ContentType: "application/json", Body: `{"city":"Rome","country":""}`},
+		{Name: "pets", ContentType: "application/json", Body: `{"city":"A","country":""}`},
+		{Name: "pets", ContentType: "application/json", Body: `{"city":"B","country":""}`},
+		{Name: "tags", ContentType: "application/json", Body: `"x"`},
+		{Name: "note", ContentType: "text/plain; charset=utf-8", Body: "hi"},
+		{Name: "plain", ContentType: "application/json", Body: `{"city":"C","country":""}`},
+	}, got)
+
+	in.Logo = new(NewFile([]byte("PNG"), "logo", ""))
+	err := WriteMultipart(multipart.NewWriter(io.Discard), in, parcelEncoding())
+	require.EqualError(t, err, "invalid body value: logo: the file has no content type; the spec takes image/png, image/jpeg")
+
+	err = WriteMultipart(multipart.NewWriter(io.Discard), parcel{Pet: &address{}}, Encoding{"pet": "application/xml"})
+	require.EqualError(t, err, "unsupported content type: pet in application/xml")
+	err = WriteMultipart(multipart.NewWriter(io.Discard), parcel{Note: "x"}, Encoding{"note": "image/*"})
+	require.EqualError(t, err, "unsupported content type: note in image/*")
 }
 
 func TestWriteMultipartErrors(t *testing.T) {
@@ -291,7 +350,7 @@ func TestWriteMultipartErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := WriteMultipart(multipart.NewWriter(io.Discard), tc.value)
+			err := WriteMultipart(multipart.NewWriter(io.Discard), tc.value, nil)
 
 			require.EqualError(t, err, tc.wantErr)
 		})
@@ -311,7 +370,7 @@ func TestWriteMultipartFailingWriter(t *testing.T) {
 		data, _ := multipartOf(t, v)
 
 		for n := range len(data) {
-			err := WriteMultipart(multipart.NewWriter(&failAfter{n: n}), v)
+			err := WriteMultipart(multipart.NewWriter(&failAfter{n: n}), v, nil)
 			require.ErrorIs(t, err, io.ErrClosedPipe, n)
 		}
 	}
@@ -336,7 +395,7 @@ func TestMultipartSize(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			size, boundary, err := multipartSize(tc.value)
+			size, boundary, err := multipartSize(tc.value, nil)
 
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
@@ -350,10 +409,51 @@ func TestMultipartSize(t *testing.T) {
 			var buf bytes.Buffer
 			mw := multipart.NewWriter(&buf)
 			require.NoError(t, mw.SetBoundary(boundary))
-			require.NoError(t, WriteMultipart(mw, tc.value))
+			require.NoError(t, WriteMultipart(mw, tc.value, nil))
 			assert.Equal(t, int64(buf.Len()), size)
 		})
 	}
+}
+
+func TestEncodingRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	in := parcel{
+		ID:    Ptr("p1"),
+		Doc:   new(NewFile([]byte("%PDF"), "a.pdf", "")),
+		Logo:  new(NewFile([]byte("PNG"), "logo.png", "image/png")),
+		Pet:   &address{City: "Rome"},
+		Pets:  []address{{City: "A"}, {City: "B"}},
+		Tags:  []string{"x", "y"},
+		Note:  "hi",
+		Plain: []address{{City: "C"}, {City: "D"}},
+	}
+
+	b := NewRequestBuilder(http.MethodPost, "/")
+	b.MultipartBody(in, parcelEncoding())
+	req, err := b.Build(t.Context(), parseURL(t, "http://x"))
+	require.NoError(t, err)
+	data, err := io.ReadAll(req.Body)
+	require.NoError(t, err)
+	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(data))
+	r.Header.Set("Content-Type", req.Header.Get("Content-Type"))
+	var out parcel
+	require.NoError(t, DecodeMultipart(r, &out, 0, parcelEncoding()))
+	assert.Equal(t, "p1", *out.ID)
+	assert.Equal(t, "application/pdf", out.Doc.ContentType())
+	assert.Equal(t, in.Pet, out.Pet)
+	assert.Equal(t, in.Pets, out.Pets)
+	assert.Equal(t, in.Tags, out.Tags)
+	assert.Equal(t, "hi", out.Note)
+	assert.Equal(t, in.Plain, out.Plain)
+
+	in.Doc, in.Logo = nil, nil
+	enc := Encoding{"id": "application/json", "pet": "application/json", "pets": "application/json", "tags": "application/json"}
+	values, err := EncodeForm(in, enc)
+	require.NoError(t, err)
+	var form parcel
+	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &form, true, enc))
+	assert.Equal(t, in, form)
 }
 
 // multipartOf writes v as a multipart form and returns it with its content type.
@@ -362,6 +462,37 @@ func multipartOf(t *testing.T, v any) ([]byte, string) {
 
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
-	require.NoError(t, WriteMultipart(mw, v))
+	require.NoError(t, WriteMultipart(mw, v, nil))
 	return buf.Bytes(), mw.FormDataContentType()
+}
+
+func parcelEncoding() Encoding {
+	return Encoding{
+		"id": "application/json", "doc": "application/pdf", "logo": "image/png, image/jpeg", "pet": "application/json",
+		"pets": "application/json", "tags": "application/json", "note": "text/plain; charset=utf-8",
+	}
+}
+
+// partsOf writes v as a multipart form with enc and returns its parts in order.
+func partsOf(t *testing.T, v any, enc Encoding) []part {
+	t.Helper()
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	require.NoError(t, WriteMultipart(mw, v, enc))
+	_, params, err := mime.ParseMediaType(mw.FormDataContentType())
+	require.NoError(t, err)
+
+	var out []part
+	mr := multipart.NewReader(&buf, params["boundary"])
+	for {
+		p, nextErr := mr.NextPart()
+		if errors.Is(nextErr, io.EOF) {
+			return out
+		}
+		require.NoError(t, nextErr)
+		data, readErr := io.ReadAll(p)
+		require.NoError(t, readErr)
+		out = append(out, part{Name: p.FormName(), ContentType: p.Header.Get("Content-Type"), Body: string(data)})
+	}
 }

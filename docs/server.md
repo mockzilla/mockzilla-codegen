@@ -152,6 +152,11 @@ mux.HandleFunc("GET /pets", adapter.ListPets)
   (`format: binary`) streams the body: the service reads it once, before it returns. A documented
   media type that does not fit its type, such as XML into a struct, is accepted and left to
   `RawRequest`, and the generator warns about it (`server-body-unread`).
+- A form body follows its `encoding` object as the client writes it, see
+  [the client](client.md#request-options): a property declared JSON is read as JSON, and
+  text that is no JSON is a 400. A list of a multipart form is read from one part per item or
+  from one part that holds the whole list as JSON. A part sent as a file, as browsers send a
+  Blob, is read as the text of a property that holds no file.
 - Media types are matched without their parameters and in lower case. A wildcard such as `*/*`
   takes every media type the operation does not name, as JSON unless its field is a file, a
   string or bytes. Without a wildcard, a media type the operation does not document is answered

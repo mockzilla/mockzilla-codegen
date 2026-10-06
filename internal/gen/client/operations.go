@@ -77,10 +77,11 @@ type OperationsView struct {
 // success response, and with HasEnvelopes the method that returns its envelope. Method is the
 // net/http constant or a quoted method; Path is quoted. IsSendable is false when the body is
 // required and the client can send none of its media types, so the request is never built.
-// Zero is the value the plain method returns on an error. Targets are what the plain method
-// decodes, with the other documented 2xx statuses when it has a Result, EnvelopeTargets what the
-// HasEnvelopes method decodes into the envelope Response. Stream is the Stream method of an
-// operation that answers in a sequential media type, nil without HasStreams.
+// Zero is the value the plain method returns on an error. Accept is the quoted Accept header the
+// plain and envelope methods send. Targets are what the plain method decodes, with the other
+// documented 2xx statuses when it has a Result, EnvelopeTargets what the HasEnvelopes method
+// decodes into the envelope Response. Stream is the Stream method of an operation that answers
+// in a sequential media type, nil without HasStreams.
 type OperationView struct {
 	SignatureView
 	Method          string
@@ -91,6 +92,7 @@ type OperationView struct {
 	IsBodyRequired  bool
 	IsSendable      bool
 	Zero            string
+	Accept          string
 	Targets         []TargetView
 	EnvelopeTargets []TargetView
 	Stream          *StreamView
@@ -127,12 +129,14 @@ type ParamView struct {
 
 // BodyView is one body field: the expression that says it is set, the builder method that sends
 // it with the expression of its value, and the quoted media type the method takes, empty for one
-// that needs none. An empty Encoder is a body the client cannot send, whose media type it reports.
+// that needs none. Encoding is the runtime.Encoding a form or multipart body is sent with. An
+// empty Encoder is a body the client cannot send, whose media type it reports.
 type BodyView struct {
 	IsSet     string
 	Encoder   string
 	Value     string
 	MediaType string
+	Encoding  string
 }
 
 // TargetView is one runtime.Target: the quoted status and media type, and the address of what
@@ -189,6 +193,7 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 	}
 	v.IsSendable = isSendable(v.Bodies, v.IsBodyRequired)
 
+	v.Accept = gocode.Quote(accept(op))
 	if r, c, ok := SuccessBody(op); ok {
 		v.Zero = gocode.Zero(operation.BodyType(c))
 		v.Targets = append(v.Targets, TargetView{Status: gocode.Quote(r.Status), MediaType: gocode.Quote(c.MediaType), Dst: gocode.AddressOf("out")})
@@ -214,6 +219,22 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 		}
 	}
 	return v
+}
+
+// accept lists the media types of op's responses but sequential ones, the returned one first.
+func accept(op *gomodel.Operation) string {
+	var list []string
+	if _, c, ok := SuccessBody(op); ok {
+		list = append(list, c.MediaType)
+	}
+	for _, r := range op.Responses {
+		for _, c := range r.Contents {
+			if !isSequential(c) && !slices.Contains(list, c.MediaType) {
+				list = append(list, c.MediaType)
+			}
+		}
+	}
+	return strings.Join(list, ", ")
 }
 
 // streamView is the Stream method of an operation, nil for one without a sequential response.
@@ -261,7 +282,7 @@ func bodyView(c gomodel.Content, field string, s *gocode.Scope) BodyView {
 
 	switch v.Encoder {
 	case encodeForm, encodeMultipart:
-		v.MediaType = ""
+		v.MediaType, v.Encoding = "", operation.Encoding(c, s.Import(gomodel.Import{Path: gomodel.RuntimePath}))
 	case encodeFile:
 		v.Value = gocode.Deref(value)
 	case encodeText:

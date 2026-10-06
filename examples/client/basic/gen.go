@@ -169,7 +169,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions, 
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +236,7 @@ func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions, edit
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +268,7 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *DeletePetRequestOptions
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
@@ -293,7 +293,7 @@ func (c *PetClient) Ping(ctx context.Context, opts *PingRequestOptions, editors 
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "text/plain", c.timeout)
 	if err != nil {
 		return nil, err
 	}

@@ -684,7 +684,7 @@ func (c *Client) GetItem(ctx context.Context, opts *GetItemRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -724,7 +724,7 @@ func (c *Client) PutItem(ctx context.Context, opts *PutItemRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -764,7 +764,7 @@ func (c *Client) DeleteItem(ctx context.Context, opts *DeleteItemRequestOptions,
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
@@ -791,7 +791,7 @@ func (c *Client) Reset(ctx context.Context, opts *ResetRequestOptions, editors .
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}

@@ -198,7 +198,7 @@ func (c *Client) SearchPhotos(ctx context.Context, opts *SearchPhotosRequestOpti
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
@@ -223,7 +223,7 @@ func (c *Client) ListOrders(ctx context.Context, opts *ListOrdersRequestOptions,
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func (c *Client) ShareFile(ctx context.Context, opts *ShareFileRequestOptions, e
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
@@ -274,7 +274,7 @@ func (c *Client) ListUsers(ctx context.Context, opts *ListUsersRequestOptions, e
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
@@ -299,7 +299,7 @@ func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions, editors
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}

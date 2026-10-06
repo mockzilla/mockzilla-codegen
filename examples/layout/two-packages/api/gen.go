@@ -463,7 +463,7 @@ func (c *Client) CreateOrder(ctx context.Context, opts *CreateOrderRequestOption
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -498,7 +498,7 @@ func (c *Client) GetOrder(ctx context.Context, opts *GetOrderRequestOptions, edi
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}

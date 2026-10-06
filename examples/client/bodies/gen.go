@@ -261,7 +261,7 @@ func (c *Client) PostJSON(ctx context.Context, opts *PostJSONRequestOptions, edi
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +294,7 @@ func (c *Client) GetForm(ctx context.Context, opts *GetFormRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/x-www-form-urlencoded", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -323,7 +323,7 @@ func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions, edi
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ func (c *Client) PostFormRequest(ctx context.Context, opts *PostFormRequestOptio
 	b := runtime.NewRequestBuilder(http.MethodPost, "/form")
 	switch {
 	case opts.Body != nil:
-		b.FormBody(opts.Body)
+		b.FormBody(opts.Body, nil)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
@@ -358,7 +358,7 @@ func (c *Client) PostCharset(ctx context.Context, opts *PostCharsetRequestOption
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json; charset=utf-8", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +391,7 @@ func (c *Client) Upload(ctx context.Context, opts *UploadRequestOptions, editors
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -413,7 +413,7 @@ func (c *Client) UploadRequest(ctx context.Context, opts *UploadRequestOptions, 
 	b := runtime.NewRequestBuilder(http.MethodPost, "/upload")
 	switch {
 	case opts.Body != nil:
-		b.MultipartBody(opts.Body)
+		b.MultipartBody(opts.Body, nil)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
@@ -426,7 +426,7 @@ func (c *Client) PostText(ctx context.Context, opts *PostTextRequestOptions, edi
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "text/plain", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +461,7 @@ func (c *Client) PutFile(ctx context.Context, opts *PutFileRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "image/png", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -496,7 +496,7 @@ func (c *Client) PutXML(ctx context.Context, opts *PutXMLRequestOptions, editors
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
@@ -522,7 +522,7 @@ func (c *Client) PostAny(ctx context.Context, opts *PostAnyRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "text/plain", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -559,7 +559,7 @@ func (c *Client) GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions,
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "*/*", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -588,7 +588,7 @@ func (c *Client) GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOption
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "*/*", c.timeout)
 	if err != nil {
 		return nil, err
 	}

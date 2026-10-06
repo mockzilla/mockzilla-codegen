@@ -7,10 +7,7 @@
 
 package gomodel
 
-import (
-	"slices"
-	"strings"
-)
+import "slices"
 
 // markForms sets IsForm on what a form body of a request or a response holds, at any depth.
 func markForms(ops []*Operation) {
@@ -21,8 +18,7 @@ func markForms(ops []*Operation) {
 			contents = append(contents, r.Contents...)
 		}
 		for _, c := range contents {
-			mediaType, _, _ := strings.Cut(strings.ToLower(c.MediaType), ";")
-			switch strings.TrimSpace(mediaType) {
+			switch baseMediaType(c.MediaType) {
 			case "application/x-www-form-urlencoded", "multipart/form-data":
 				markForm(c.Type, seen)
 			}

@@ -58,6 +58,7 @@ const (
 	CodeQueryStringUnsupported = "querystring-unsupported"
 	CodeParamUnsupported       = "param-unsupported"
 	CodeEncodingIgnored        = "encoding-ignored"
+	CodeEncodingUnsupported    = "encoding-unsupported"
 	CodeMCPToolName            = "mcp-tool-name"
 	CodeImportUnused           = "import-unused"
 )

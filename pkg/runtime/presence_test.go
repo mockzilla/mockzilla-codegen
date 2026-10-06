@@ -128,14 +128,26 @@ func TestPresenceForm(t *testing.T) {
 		}
 		return out
 	}
+	declared := Encoding{"name": "application/json", "tag": "application/json", "tags": "application/json", "toys": "application/json"}
 	tests := []struct {
 		name    string
 		p       Prop
+		enc     Encoding
 		body    string
 		want    url.Values
 		wantErr string
 	}{
 		{name: "Missing fields get their defaults", p: pet, body: "name=Rex", want: with(url.Values{"name": {"Rex"}})},
+		{name: "A field declared JSON gets its default as JSON", p: pet, enc: declared, body: `name="Rex"&toys={"id":3}`, want: with(url.Values{"name": {`"Rex"`}, "tags": {`["a",2,true]`}, "toys": {`{"city":"Berlin","id":3}`}})},
+		{name: "A field declared JSON takes null when nullable", p: pet, enc: declared, body: `name="Rex"&tag=null&tags=[]&toys=[]`, want: with(url.Values{"name": {`"Rex"`}, "tag": {"null"}, "tags": {"[]"}, "toys": {"[]"}})},
+		{name: "A null in a field declared JSON is an error", p: pet, enc: declared, body: "name=null", wantErr: "body.name: must not be null"},
+		{name: "A field declared JSON that is no JSON is left to the decoder", p: pet, enc: declared, body: "name=Rex&tags=[]&toys=[]", want: with(url.Values{"name": {"Rex"}, "tags": {"[]"}, "toys": {"[]"}})},
+		{name: "Items of a list declared JSON are checked one by one", p: pet, enc: declared, body: `name="Rex"&tags=[]&toys={"id":3}&toys={}`, wantErr: "body.toys[1].id: is required"},
+		{name: "Items of a list in parts of their own get their defaults", p: pet, body: `name=Rex&toys={"id":3}&toys={"id":4}`, want: with(url.Values{"name": {"Rex"}, "toys": {`{"city":"Berlin","id":3}`, `{"city":"Berlin","id":4}`}})},
+		{name: "Items under an empty bracket are checked but not filled", p: pet, body: `name=Rex&toys[]={"id":3}&toys[]={"id":4}`, want: url.Values{
+			"age": {"1"}, "meta": {`{"k":"v"}`}, "tags": {"a", "2", "true"}, "name": {"Rex"}, "toys[]": {`{"id":3}`, `{"id":4}`},
+		}},
+		{name: "An item under an empty bracket is checked", p: pet, body: `name=Rex&toys[]={}`, wantErr: "body.toys[0].id: is required"},
 		{name: "Nested fields get their defaults", p: pet, body: "name=Rex&owner[id]=1&byName[x][id]=2&toys[0][id]=3", want: url.Values{
 			"age": {"1"}, "meta": {`{"k":"v"}`}, "tags": {"a", "2", "true"}, "name": {"Rex"}, "owner[id]": {"1"}, "owner[city]": {"Berlin"},
 			"byName[x][id]": {"2"}, "byName[x][city]": {"Berlin"}, "toys[0][id]": {"3"}, "toys[0][city]": {"Berlin"},
@@ -155,7 +167,7 @@ func TestPresenceForm(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			b := Presence{IsChecked: true, Objects: testObjects}
-			got, err := b.Form(strings.NewReader(tc.body), tc.p)
+			got, err := b.Form(strings.NewReader(tc.body), tc.p, tc.enc)
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)
 				return
@@ -206,7 +218,7 @@ func TestPresenceMultipart(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/", &buf)
 			r.Header.Set("Content-Type", mw.FormDataContentType())
 
-			err := Presence{IsChecked: true, Objects: testObjects}.Multipart(r, Prop{Object: "Upload"}, 0)
+			err := Presence{IsChecked: true, Objects: testObjects}.Multipart(r, Prop{Object: "Upload"}, 0, nil)
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)
 				return
@@ -224,12 +236,12 @@ func TestPresenceReadErrors(t *testing.T) {
 	broken := errors.New("broken")
 	_, err := b.JSON(iotest.ErrReader(broken), Prop{})
 	require.ErrorIs(t, err, broken)
-	_, err = b.Form(iotest.ErrReader(broken), Prop{})
+	_, err = b.Form(iotest.ErrReader(broken), Prop{}, nil)
 	require.ErrorIs(t, err, broken)
 
 	r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("x"))
 	r.Header.Set("Content-Type", "text/plain")
-	err = b.Multipart(r, Prop{}, 0)
+	err = b.Multipart(r, Prop{}, 0, nil)
 	require.Error(t, err)
 	assert.False(t, IsValidation(err))
 }

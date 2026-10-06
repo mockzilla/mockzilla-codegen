@@ -300,7 +300,7 @@ func (a *HTTPAdapter) AddNote(w http.ResponseWriter, r *http.Request) {
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "multipart/form-data":
 		opts.Body = &Note{}
-		if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory); err != nil {
+		if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory, nil); err != nil {
 			a.failDecode(w, r, "AddNote", err)
 			return
 		}
@@ -483,7 +483,7 @@ func (c *Client) SetPhoto(ctx context.Context, opts *SetPhotoRequestOptions, edi
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -523,7 +523,7 @@ func (c *Client) AddNote(ctx context.Context, opts *AddNoteRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -545,7 +545,7 @@ func (c *Client) AddNoteRequest(ctx context.Context, opts *AddNoteRequestOptions
 	b := runtime.NewRequestBuilder(http.MethodPost, "/notes")
 	switch {
 	case opts.Body != nil:
-		b.MultipartBody(opts.Body)
+		b.MultipartBody(opts.Body, nil)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}

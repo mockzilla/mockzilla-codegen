@@ -14,29 +14,38 @@
 			{{.Return}}
 		}
 {{- else if and .IsForm .Check}}
-		body, err := a.opts.Presence.Form(r.Body, {{.Runtime}}.Prop{{template "server/prop.tmpl" .Check}})
+{{- with .EncodingLiteral}}
+		encoding := {{.}}
+{{- end}}
+		body, err := a.opts.Presence.Form(r.Body, {{.Runtime}}.Prop{{template "server/prop.tmpl" .Check}}, {{.Encoding}})
 		if err != nil {
 			a.failBody(w, r, {{.OperationID}}, err)
 			{{.Return}}
 		}
-		if err = {{.Runtime}}.DecodeForm(body, {{.Target}}, {{.IsRequired}}); err != nil {
+		if err = {{.Runtime}}.DecodeForm(body, {{.Target}}, {{.IsRequired}}, {{.Encoding}}); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
 			{{.Return}}
 		}
 {{- else if .IsForm}}
-		if err := {{.Runtime}}.DecodeForm(r.Body, {{.Target}}, {{.IsRequired}}); err != nil {
+{{- with .EncodingLiteral}}
+		encoding := {{.}}
+{{- end}}
+		if err := {{.Runtime}}.DecodeForm(r.Body, {{.Target}}, {{.IsRequired}}, {{.Encoding}}); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
 			{{.Return}}
 		}
 {{- else if .IsMultipart}}
+{{- with .EncodingLiteral}}
+		encoding := {{.}}
+{{- end}}
 {{- with .Check}}
-		if err := a.opts.Presence.Multipart(r, {{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, a.opts.MultipartMaxMemory); err != nil {
+		if err := a.opts.Presence.Multipart(r, {{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, a.opts.MultipartMaxMemory, {{$.Encoding}}); err != nil {
 			a.failBody(w, r, {{$.OperationID}}, err)
 			{{$.Return}}
 		}
 {{- end}}
 		opts.{{.Field}} = &{{.Type}}{}
-		if err := {{.Runtime}}.DecodeMultipart(r, opts.{{.Field}}, a.opts.MultipartMaxMemory); err != nil {
+		if err := {{.Runtime}}.DecodeMultipart(r, opts.{{.Field}}, a.opts.MultipartMaxMemory, {{.Encoding}}); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
 			{{.Return}}
 		}

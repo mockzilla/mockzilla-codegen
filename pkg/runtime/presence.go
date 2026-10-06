@@ -23,8 +23,8 @@ import (
 // PresenceChecker checks which keys a request body has and fills its defaults before decoding.
 type PresenceChecker interface {
 	JSON(body io.Reader, p Prop) (io.Reader, error)
-	Form(body io.Reader, p Prop) (io.Reader, error)
-	Multipart(r *http.Request, p Prop, maxMemory int64) error
+	Form(body io.Reader, p Prop, enc Encoding) (io.Reader, error)
+	Multipart(r *http.Request, p Prop, maxMemory int64, enc Encoding) error
 }
 
 // Presence holds the objects of request bodies, sorted by name; IsChecked adds checks to defaults.
@@ -60,11 +60,12 @@ type walker struct {
 	isChanged bool
 }
 
-// formAt is where a form value sits: its path in errors, and its key in the form values.
+// formAt is where a form value sits: its path in errors, its key, and at the top the encoding.
 type formAt struct {
-	path   string
-	key    string
-	values url.Values
+	path     string
+	key      string
+	values   url.Values
+	encoding Encoding
 }
 
 // JSON checks a JSON body against p, sets the defaults it lacks and returns the body to decode.
@@ -90,7 +91,7 @@ func (pr Presence) JSON(body io.Reader, p Prop) (io.Reader, error) {
 }
 
 // Form checks a url-encoded form against the object p names and returns the form to decode.
-func (pr Presence) Form(body io.Reader, p Prop) (io.Reader, error) {
+func (pr Presence) Form(body io.Reader, p Prop, enc Encoding) (io.Reader, error) {
 	data, err := io.ReadAll(body)
 	if err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func (pr Presence) Form(body io.Reader, p Prop) (io.Reader, error) {
 	}
 
 	w := &walker{presence: pr}
-	w.form(values, nil, p)
+	w.form(values, nil, p, enc)
 	if len(w.errs) > 0 {
 		return nil, w.errs
 	}
@@ -112,7 +113,7 @@ func (pr Presence) Form(body io.Reader, p Prop) (io.Reader, error) {
 }
 
 // Multipart parses the multipart form of r, checks it against the object p names and fills it.
-func (pr Presence) Multipart(r *http.Request, p Prop, maxMemory int64) error {
+func (pr Presence) Multipart(r *http.Request, p Prop, maxMemory int64, enc Encoding) error {
 	if maxMemory <= 0 {
 		maxMemory = DefaultMultipartMemory
 	}
@@ -121,7 +122,7 @@ func (pr Presence) Multipart(r *http.Request, p Prop, maxMemory int64) error {
 	}
 
 	w := &walker{presence: pr}
-	w.form(r.MultipartForm.Value, r.MultipartForm.File, p)
+	w.form(r.MultipartForm.Value, r.MultipartForm.File, p, enc)
 	return w.errs.Err()
 }
 
@@ -185,7 +186,7 @@ func (w *walker) object(m map[string]any, o Object, path string) {
 }
 
 // form checks a form against the object p names; a file part counts as its field.
-func (w *walker) form(values url.Values, files map[string][]*multipart.FileHeader, p Prop) {
+func (w *walker) form(values url.Values, files map[string][]*multipart.FileHeader, p Prop, enc Encoding) {
 	o, isObject := w.lookup(p.Object)
 	if !isObject {
 		return
@@ -197,17 +198,21 @@ func (w *walker) form(values url.Values, files map[string][]*multipart.FileHeade
 			fields[name] = []string(nil)
 		}
 	}
-	w.formObject(fields, o, formAt{path: "body", values: values})
+	w.formObject(fields, o, formAt{path: "body", values: values, encoding: enc})
 }
 
 func (w *walker) formObject(m map[string]any, o Object, at formAt) {
 	for _, p := range o.Props {
 		child, isSet := m[p.Key]
+		isJSON := at.encoding.isJSON(p.Key)
 		switch {
 		case isSet:
-			w.formValue(child, p, at.field(p.Key))
+			w.formValue(child, p, at.field(p.Key), isJSON)
 		case p.IsRequired && w.presence.IsChecked:
 			w.errs.Required(joinPath(at.path, p.Key))
+		case p.Default != "" && isJSON:
+			at.values.Add(p.Key, p.Default)
+			w.isChanged = true
 		case p.Default != "":
 			w.formDefault(at.field(p.Key), p.Default)
 		}
@@ -221,15 +226,18 @@ func (w *walker) formObject(m map[string]any, o Object, at formAt) {
 		case o.IsClosed && w.presence.IsChecked:
 			w.errs = append(w.errs, ValidationError{Field: joinPath(at.path, key), Message: "is not allowed", Rule: RuleAdditionalProperties, Limit: false})
 		case o.Extra != nil:
-			w.formValue(m[key], *o.Extra, at.entry(key))
+			w.formValue(m[key], *o.Extra, at.entry(key), false)
 		}
 	}
 }
 
-func (w *walker) formValue(node any, p Prop, at formAt) {
+// formValue checks a field against p; isDeclared says its texts are JSON, as the encoding says.
+func (w *walker) formValue(node any, p Prop, at formAt, isDeclared bool) {
 	switch n := node.(type) {
 	case string:
-		w.formJSON(n, p, at)
+		w.formTexts([]string{n}, p, at, isDeclared)
+	case []string:
+		w.formTexts(n, p, at, isDeclared)
 	case map[string]any:
 		if o, isObject := w.lookup(p.Object); isObject {
 			w.formObject(n, o, at)
@@ -237,36 +245,53 @@ func (w *walker) formValue(node any, p Prop, at formAt) {
 		}
 		if p.Values != nil {
 			for _, key := range SortedKeys(n) {
-				w.formValue(n[key], *p.Values, at.entry(key))
+				w.formValue(n[key], *p.Values, at.entry(key), false)
 			}
 		}
 	case []any:
 		if p.Items != nil {
 			for i, item := range n {
-				w.formValue(item, *p.Items, at.item(i))
+				w.formValue(item, *p.Items, at.item(i), false)
 			}
 		}
 	}
 }
 
-// formJSON checks a field that holds a JSON object or array as JSON, as DecodeForm reads it.
-func (w *walker) formJSON(text string, p Prop, at formAt) {
-	trimmed := strings.TrimSpace(text)
-	if p.Object == "" && p.Items == nil && p.Values == nil || !strings.HasPrefix(trimmed, "{") && !strings.HasPrefix(trimmed, "[") {
+// formTexts checks the JSON texts of a field as setJSON reads them, and writes back new defaults.
+func (w *walker) formTexts(texts []string, p Prop, at formAt, isDeclared bool) {
+	if !isDeclared && p.Object == "" && p.Items == nil && p.Values == nil {
 		return
 	}
-	v, isJSON := parseJSON([]byte(trimmed))
-	if !isJSON {
-		return
+	for i, item := range texts {
+		trimmed := strings.TrimSpace(item)
+		if !isDeclared && !strings.HasPrefix(trimmed, "{") && !strings.HasPrefix(trimmed, "[") {
+			continue
+		}
+		v, isJSON := parseJSON([]byte(trimmed))
+		if !isJSON {
+			continue
+		}
+		prop, path := p, at.path
+		if _, isList := v.([]any); p.Items != nil && !isList {
+			prop, path = *p.Items, Index(at.path, i)
+		}
+		// A key such as toys[] reaches here as toys, so there is nothing to write back to.
+		if s, isChanged := w.walkJSON(v, prop, path); isChanged && i < len(at.values[at.key]) {
+			at.values[at.key][i] = s
+		}
 	}
+}
 
+// walkJSON checks v against p and returns it written again when a default changed it.
+func (w *walker) walkJSON(v any, p Prop, path string) (string, bool) {
 	inner := &walker{presence: w.presence}
-	inner.value(v, p, at.path)
+	inner.value(v, p, path)
 	w.errs = append(w.errs, inner.errs...)
-	if inner.isChanged {
-		at.values[at.key] = []string{string(encodeJSON(v))}
-		w.isChanged = true
+	if !inner.isChanged {
+		return "", false
 	}
+	w.isChanged = true
+	return string(encodeJSON(v)), true
 }
 
 // formDefault adds a default as form text: a list of scalars item by item, the rest as JSON.

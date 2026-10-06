@@ -210,7 +210,7 @@ func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions, e
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +232,7 @@ func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobReque
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +271,7 @@ func (c *Client) GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions, e
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json, text/plain", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +291,7 @@ func (c *Client) GetJobLogWithResponse(ctx context.Context, opts *GetJobLogReque
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json, text/plain", c.timeout)
 	if err != nil {
 		return nil, err
 	}

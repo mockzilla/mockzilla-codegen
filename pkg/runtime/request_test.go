@@ -205,8 +205,8 @@ func TestRequestBuilder(t *testing.T) {
 				b.HeaderParam("x", Param{Name: "X-H"})
 				b.CookieParam("x", Param{Name: "c"})
 				b.JSONBody(1, "application/json")
-				b.FormBody(color)
-				b.MultipartBody(color)
+				b.FormBody(color, nil)
+				b.MultipartBody(color, nil)
 				b.FileBody(NewFile(nil, "a", ""), "")
 				b.TextBody("x", "text/plain")
 			},
@@ -291,19 +291,19 @@ func TestRequestBuilder(t *testing.T) {
 		},
 		{
 			name:       "A form body",
-			build:      func(b *RequestBuilder) { b.FormBody(color) },
+			build:      func(b *RequestBuilder) { b.FormBody(color, nil) },
 			wantHeader: http.Header{"Content-Type": {"application/x-www-form-urlencoded"}},
 			wantBody:   "B=150&G=200&R=100",
 			wantLength: 17,
 		},
 		{
 			name:    "A form body that is no object",
-			build:   func(b *RequestBuilder) { b.FormBody("text") },
+			build:   func(b *RequestBuilder) { b.FormBody("text", nil) },
 			wantErr: ErrBodyValue,
 		},
 		{
 			name:    "A multipart body that is no struct",
-			build:   func(b *RequestBuilder) { b.MultipartBody("text") },
+			build:   func(b *RequestBuilder) { b.MultipartBody("text", nil) },
 			wantErr: ErrBodyValue,
 		},
 		{
@@ -406,13 +406,13 @@ func TestRequestBuilderMultipartBody(t *testing.T) {
 			var got upload
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				gotLength, gotEncoding = r.ContentLength, r.TransferEncoding
-				if err := DecodeMultipart(r, &got, 0); err != nil {
+				if err := DecodeMultipart(r, &got, 0, nil); err != nil {
 					w.WriteHeader(http.StatusBadRequest)
 				}
 			}))
 			t.Cleanup(srv.Close)
 			b := NewRequestBuilder(http.MethodPost, "/upload")
-			b.MultipartBody(tc.value)
+			b.MultipartBody(tc.value, nil)
 			req, err := b.Build(context.Background(), parseURL(t, srv.URL))
 			require.NoError(t, err)
 
@@ -444,7 +444,7 @@ func TestMultipartBodyReadAfterClose(t *testing.T) {
 	t.Parallel()
 
 	b := NewRequestBuilder(http.MethodPost, "/upload")
-	b.MultipartBody(upload{Title: "Cat"})
+	b.MultipartBody(upload{Title: "Cat"}, nil)
 	body, ok := b.body.(*multipartBody)
 	require.True(t, ok)
 
@@ -566,7 +566,7 @@ func TestSend(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			res, body, sendErr := Send(tc.doer, req, 0)
+			res, body, sendErr := Send(tc.doer, req, "", 0)
 
 			if tc.wantErr != nil {
 				require.ErrorIs(t, sendErr, tc.wantErr)
@@ -579,6 +579,43 @@ func TestSend(t *testing.T) {
 				require.NoError(t, readErr)
 				assert.Equal(t, tc.wantBody, string(again))
 			}
+		})
+	}
+}
+
+func TestSendAccept(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		set    string
+		accept string
+		want   string
+	}{
+		{name: "It asks for what the operation answers in", accept: "application/json, application/xml", want: "application/json, application/xml"},
+		{name: "An Accept the request sets stays", set: "application/xml", accept: "application/json", want: "application/xml"},
+		{name: "Nothing to ask for", want: ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://api.test", nil)
+			require.NoError(t, err)
+			if tc.set != "" {
+				req.Header.Set("Accept", tc.set)
+			}
+			var got string
+			d := doerFunc(func(r *http.Request) (*http.Response, error) {
+				got = r.Header.Get("Accept")
+				return &http.Response{StatusCode: 204}, nil
+			})
+
+			_, _, err = Send(d, req, tc.accept, 0)
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
@@ -605,7 +642,7 @@ func TestSendClosesTheBody(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusOK, Body: body}, nil
 			})
 
-			_, _, _ = Send(d, req, 0)
+			_, _, _ = Send(d, req, "", 0)
 
 			assert.True(t, body.isClosed)
 		})
@@ -637,7 +674,7 @@ func TestSendTimeout(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusNoContent}, nil
 			})
 
-			_, _, err = Send(d, req, tc.timeout)
+			_, _, err = Send(d, req, "", tc.timeout)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantDeadline, hasDeadline)
@@ -657,7 +694,7 @@ func TestSendTimeoutCoversTheBody(t *testing.T) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
 	require.NoError(t, err)
 
-	_, _, err = Send(srv.Client(), req, 20*time.Millisecond)
+	_, _, err = Send(srv.Client(), req, "", 20*time.Millisecond)
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 }

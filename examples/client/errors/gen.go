@@ -234,7 +234,7 @@ func (c *Client) AddPet(ctx context.Context, opts *AddPetRequestOptions, editors
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +271,7 @@ func (c *Client) GetPet(ctx context.Context, opts *GetPetRequestOptions, editors
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +307,7 @@ func (c *Client) PutPet(ctx context.Context, opts *PutPetRequestOptions, editors
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
