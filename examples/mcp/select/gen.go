@@ -394,7 +394,7 @@ func (a *HTTPAdapter) GetItem(w http.ResponseWriter, r *http.Request) {
 	opts := &GetItemServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.PathParams = &GetItemPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetItem", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}
@@ -426,7 +426,7 @@ func (a *HTTPAdapter) PutItem(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "PutItem"))
 	opts := &PutItemServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PutItemPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PutItem", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}
@@ -461,7 +461,7 @@ func (a *HTTPAdapter) DeleteItem(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "DeleteItem"))
 	opts := &DeleteItemServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeleteItemPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "DeleteItem", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}

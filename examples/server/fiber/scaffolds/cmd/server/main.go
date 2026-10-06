@@ -25,8 +25,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	app := fiber.New(fiber.Config{ReadTimeout: 5 * time.Second})
-	scaffolds.NewRouter(scaffolds.NewTodo(), scaffolds.WithRouter(app), scaffolds.WithMiddleware(
+	app := scaffolds.NewRouter(scaffolds.NewTodo(), scaffolds.WithConfig(fiber.Config{ReadTimeout: 5 * time.Second}), scaffolds.WithMiddleware(
 		scaffolds.RequestIDMiddleware,
 		scaffolds.RecoverMiddleware,
 		scaffolds.LoggingMiddleware,

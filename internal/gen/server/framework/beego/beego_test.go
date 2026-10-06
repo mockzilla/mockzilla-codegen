@@ -23,7 +23,6 @@ func TestFramework(t *testing.T) {
 	fw := Framework{}
 
 	assert.Equal(t, "beego", fw.Name())
-	assert.Equal(t, framework.NetHTTP, fw.Family())
 	assert.Equal(t, []gomodel.Import{
 		{Path: "github.com/beego/beego/v2/server/web"},
 		{Path: "github.com/beego/beego/v2/server/web/context", Alias: "bcontext"},
@@ -81,11 +80,15 @@ func TestConflicts(t *testing.T) {
 
 	get := framework.Route{Operation: "GetPet", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/:id"}
 	again := framework.Route{Operation: "GetPetAgain", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/:id"}
+	slash := framework.Route{Operation: "GetPetSlash", Method: "GET", Path: "/pets/{petId}/", Pattern: "/pets/:petId/"}
 
-	kept, dropped := Framework{}.Conflicts([]framework.Route{get, again})
+	kept, dropped := Framework{}.Conflicts([]framework.Route{get, again, slash})
 
 	assert.Equal(t, []framework.Route{get}, kept)
-	assert.Equal(t, []framework.Conflict{{Route: again, Reason: "repeats the route of GetPet"}}, dropped)
+	assert.Equal(t, []framework.Conflict{
+		{Route: again, Reason: "repeats the route of GetPet"},
+		{Route: slash, Reason: "matches the same requests as GetPet at /pets/{id}"},
+	}, dropped)
 }
 
 func TestHandler(t *testing.T) {

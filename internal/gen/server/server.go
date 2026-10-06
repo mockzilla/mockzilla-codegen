@@ -57,7 +57,7 @@ const (
 	blockServiceHeader       = "server.service-header"
 	blockRequestOptionsExtra = "server.request-options-extra"
 	blockResponseDataExtra   = "server.response-data-extra"
-	blockRouterExtra         = "server.router-extra"
+	BlockRouterExtra         = "server.router-extra"
 
 	blockScaffoldServiceFields = "server.scaffold.service-fields"
 	blockScaffoldServiceMethod = "server.scaffold.service-method"
@@ -69,7 +69,7 @@ const mainTemplate = "scaffold-main.tmpl"
 
 // Options are the settings of the server generator. Name is the base of the interface name.
 // Scaffold flags say which scaffold files the config asks for. User is the config's
-// user-context, which the overridable blocks see.
+// user-context, which the overridable blocks see. RouterExtra is the router-extra override text.
 type Options struct {
 	Name               string
 	Namer              *naming.Namer
@@ -81,6 +81,7 @@ type Options struct {
 	Port               int
 	Timeout            time.Duration
 	User               map[string]any
+	RouterExtra        string
 }
 
 // Scaffold says which scaffold files are written.
@@ -249,13 +250,13 @@ func Templates(fw framework.Framework) []render.Set {
 			},
 			Blocks: []string{blockServiceHeader, blockRequestOptionsExtra, blockResponseDataExtra, blockScaffoldServiceFields, blockScaffoldServiceMethod},
 		},
-		{Name: fw.Name(), FS: fw.Templates(), Parts: own, Blocks: []string{blockRouterExtra}},
+		{Name: fw.Name(), FS: fw.Templates(), Parts: own, Blocks: []string{BlockRouterExtra}},
 	}
 }
 
 // Blocks lists the blocks of the server templates a config may override, whatever the framework.
 func Blocks() []string {
-	return []string{blockServiceHeader, blockRequestOptionsExtra, blockResponseDataExtra, blockScaffoldServiceFields, blockScaffoldServiceMethod, blockRouterExtra}
+	return []string{blockServiceHeader, blockRequestOptionsExtra, blockResponseDataExtra, blockScaffoldServiceFields, blockScaffoldServiceMethod, BlockRouterExtra}
 }
 
 // ownsMain reports whether fw brings the template of the main scaffold.

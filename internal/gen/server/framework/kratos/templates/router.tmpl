@@ -26,7 +26,8 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Server {
 		register(s.Route("/", filters...))
 		return s
 	}
-	s := {{.Framework}}.NewServer({{.Framework}}.Filter(filters...))
+	// Without these, kratos ends each request after 1s and serves http.DefaultServeMux.
+	s := {{.Framework}}.NewServer({{.Framework}}.Filter(filters...), {{.Framework}}.Timeout(0), {{.Framework}}.NotFoundHandler(nil), {{.Framework}}.MethodNotAllowedHandler(nil))
 	register(s.Route("/"))
 	return s
 }

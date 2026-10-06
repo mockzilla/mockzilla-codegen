@@ -67,6 +67,17 @@ type pair struct {
 	value string
 }
 
+// UnescapePath unescapes v, a path value a router cut from r.URL.RawPath when the request has one.
+func UnescapePath(r *http.Request, v string) string {
+	if r.URL.RawPath == "" {
+		return v
+	}
+	if out, err := url.PathUnescape(v); err == nil {
+		return out
+	}
+	return v
+}
+
 // DecodePath decodes a path segment into dst, a pointer to the parameter's type.
 func DecodePath(raw string, p Param, dst any) error {
 	target, err := pointer(dst)

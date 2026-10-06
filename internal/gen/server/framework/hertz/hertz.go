@@ -22,9 +22,8 @@ const importPath = "github.com/cloudwego/hertz/pkg/app/server"
 //go:embed templates/*.tmpl
 var templates embed.FS
 
-// pattern writes routes as hertz takes them: a literal colon or star cannot be escaped, and the
-// wildcard needs a name.
-var pattern = framework.Colon{Literal: framework.Rejecting(":*"), Name: framework.Same, Wildcard: "*rest", IsPrefixAllowed: true}
+// pattern writes routes as hertz takes them: no literal colon or star, and a named wildcard.
+var pattern = framework.Colon{Literal: framework.Rejecting(":*"), Name: framework.Unmarked, Wildcard: "*", IsWildcardNamed: true, IsPrefixAllowed: true}
 
 var _ framework.Framework = Framework{}
 
@@ -35,14 +34,11 @@ func (Framework) Name() string {
 	return "hertz"
 }
 
-func (Framework) Family() framework.Family {
-	return framework.NetHTTP
-}
-
 func (Framework) Imports() []gomodel.Import {
 	return []gomodel.Import{
 		{Path: importPath},
 		{Path: "github.com/cloudwego/hertz/pkg/app"},
+		{Path: "github.com/cloudwego/hertz/pkg/common/config"},
 		{Path: "github.com/cloudwego/hertz/pkg/protocol"},
 		{Path: "bytes"},
 		{Path: "context"},
@@ -50,12 +46,7 @@ func (Framework) Imports() []gomodel.Import {
 	}
 }
 
-// RoutePattern writes each parameter as :name and a trailing /* as /*rest, the catch-all hertz
-// asks a name for, as for gin: a parameter runs to the end of its segment, so a path fails when
-// one has a suffix or shares a segment with another, and a literal colon or star fails since
-// hertz reads them as the start of a parameter; a path also fails without a leading slash, with
-// an unclosed brace, a parameter without a name or named twice, and a wildcard that is not a
-// segment of its own, last.
+// RoutePattern writes each parameter as :name and a trailing /* as /*rest, as for gin.
 func (Framework) RoutePattern(method, path string) (string, error) {
 	if err := framework.CheckMethod(method); err != nil {
 		return "", err
@@ -64,8 +55,7 @@ func (Framework) RoutePattern(method, path string) (string, error) {
 	return pattern.Pattern(path)
 }
 
-// Conflicts drops every route that has the method and shape of an earlier one: a repeat of it,
-// or one whose path parameters are named otherwise, which hertz panics on as a registered path.
+// Conflicts drops every route with the method and shape of an earlier one, which hertz panics on.
 func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
 	return framework.ConflictsByShape(routes)
 }
@@ -75,7 +65,7 @@ func (Framework) Handler(s *gocode.Scope) framework.Handler {
 }
 
 func (Framework) PathParam(_ *gocode.Scope, name string) string {
-	return gocode.Call(gocode.Selector("r", "PathValue"), gocode.Quote(name))
+	return gocode.Call(gocode.Selector("r", "PathValue"), gocode.Quote(framework.Unmarked(name)))
 }
 
 func (Framework) Templates() fs.FS {

@@ -19,7 +19,11 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Engine {
 	}
 	register := func(e *{{.Framework}}.Engine, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
 {{- range .Routes}}
-		e.{{.HTTPMethod}}({{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(a.{{.Operation}}))))
+{{- if .IsShortcut}}
+		e.{{.HTTPMethod}}({{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(a.{{.Operation}})){{range .Names}}, {{.}}{{end}}))
+{{- else}}
+		e.Handle("{{.HTTPMethod}}", {{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(a.{{.Operation}})){{range .Names}}, {{.}}{{end}}))
+{{- end}}
 {{- end}}
 {{- override "server.router-extra" .}}
 	}
@@ -34,10 +38,15 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Engine {
 	return e
 }
 
-func handle(h {{.Packages.http}}.Handler) {{.Framework}}.HandlerFunc {
+func handle(h {{.Packages.http}}.Handler, names ...string) {{.Framework}}.HandlerFunc {
 	return func(c *{{.Framework}}.Context) {
-		for _, p := range c.Params {
-			c.Request.SetPathValue(p.Key, p.Value)
+		// gin holds one name at a position for every route, so the spec's names come by position.
+		for i, p := range c.Params {
+			name := p.Key
+			if i < len(names) {
+				name = names[i]
+			}
+			c.Request.SetPathValue(name, p.Value)
 		}
 		h.ServeHTTP(c.Writer, c.Request)
 	}

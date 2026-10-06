@@ -159,6 +159,10 @@ func (g *generation) serverOptions() (server.Options, error) {
 	if !ok {
 		return server.Options{}, fmt.Errorf("%w: %s", ErrFramework, s.Framework)
 	}
+	extra, err := g.text("templates."+server.BlockRouterExtra, g.cfg.Templates[server.BlockRouterExtra])
+	if err != nil {
+		return server.Options{}, err
+	}
 	return server.Options{
 		Name:               cmp.Or(s.Name, "Service"),
 		Namer:              g.namer,
@@ -170,6 +174,7 @@ func (g *generation) serverOptions() (server.Options, error) {
 		Port:               s.Scaffold.Port,
 		Timeout:            time.Duration(s.Scaffold.Timeout),
 		User:               g.cfg.UserContext,
+		RouterExtra:        extra,
 	}, nil
 }
 

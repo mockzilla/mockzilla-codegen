@@ -6,9 +6,13 @@ import (
 	"net/http"
 
 	"github.com/fasthttp/router"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
 )
+
+// Fails to compile when the runtime does not match the generator that wrote this file.
+const _ = runtime.SupportsGeneratorV2
 
 // WithRouter registers the routes on r instead of a new Router.
 func WithRouter(r *router.Router) ServerOption {
@@ -25,7 +29,8 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) *router.Router {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
 		}
-		return h
+		// fasthttp would end the process on a panic.
+		return runtime.Recover(h, o.ErrorHandler)
 	}
 	register := func(r *router.Router, route func(http.Handler) http.Handler) {
 		r.GET("/books/{isbn}", handle(route(http.HandlerFunc(a.GetBook))))
@@ -47,9 +52,11 @@ func NewRouter(svc BooksInterface, opts ...ServerOption) *router.Router {
 func handle(h http.Handler) fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
 		fasthttpadaptor.NewFastHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// fasthttp reuses the memory of the request's strings for the next request.
+			r = runtime.DetachRequest(r)
 			ctx.VisitUserValues(func(key []byte, value any) {
 				if s, ok := value.(string); ok {
-					r.SetPathValue(string(key), s)
+					r.SetPathValue(string(key), runtime.DetachPathValue(s))
 				}
 			})
 			h.ServeHTTP(w, r)

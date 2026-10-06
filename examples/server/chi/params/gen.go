@@ -608,19 +608,19 @@ func (a *HTTPAdapter) PathStyles(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "PathStyles"))
 	opts := &PathStylesServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PathStylesPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "simple"), runtime.Param{Name: "simple", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Simple); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "simple")), runtime.Param{Name: "simple", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Simple); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "simple", ParamLocation: "path", Err: err})
 		return
 	}
-	if err := runtime.DecodePath(chi.URLParam(r, "label"), runtime.Param{Name: "label", Style: runtime.StyleLabel, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Label); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "label")), runtime.Param{Name: "label", Style: runtime.StyleLabel, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Label); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "label", ParamLocation: "path", Err: err})
 		return
 	}
-	if err := runtime.DecodePath(chi.URLParam(r, "matrix"), runtime.Param{Name: "matrix", Style: runtime.StyleMatrix, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Matrix); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "matrix")), runtime.Param{Name: "matrix", Style: runtime.StyleMatrix, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Matrix); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "matrix", ParamLocation: "path", Err: err})
 		return
 	}
-	if err := runtime.DecodePath(chi.URLParam(r, "list"), runtime.Param{Name: "list", Style: runtime.StyleSimple, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.PathParams.List); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "list")), runtime.Param{Name: "list", Style: runtime.StyleSimple, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.PathParams.List); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "list", ParamLocation: "path", Err: err})
 		return
 	}
