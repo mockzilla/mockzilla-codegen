@@ -33,7 +33,9 @@ Status: early development. The config format and the generated API may still cha
 
 ```sh
 go get -tool github.com/mockzilla/mockzilla-codegen/cmd/mockzilla-codegen
-go tool mockzilla-codegen generate -c codegen.yaml
+go tool mockzilla-codegen generate openapi.yaml            # models in ./gen.go
+go tool mockzilla-codegen generate openapi.yaml -client    # and a client
+go tool mockzilla-codegen generate -c codegen.yaml         # what the config lists
 ```
 
 The executable is `mockzilla-codegen`. [Getting started](docs/getting-started.md) covers the

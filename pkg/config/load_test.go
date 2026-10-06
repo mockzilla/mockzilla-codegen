@@ -246,6 +246,63 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestParseEdits(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		src     string
+		edits   []func(*Config)
+		want    *Config
+		wantMsg string
+	}{
+		{
+			name:  "Defaults follow the edit",
+			edits: []func(*Config){func(c *Config) { c.Output.File = "./api/gen.go" }},
+			want: &Config{
+				Spec:    Spec{Prune: new(true)},
+				Package: "api",
+				Header:  defaultHeader,
+				Naming:  Naming{EnumPrefix: new(true)},
+				Models:  &Models{IntType: "int", Descriptions: new(true)},
+				Output:  Output{File: "./api/gen.go", Format: new(true)},
+				dir:     "/work",
+			},
+		},
+		{
+			name: "Edits run in order and new blocks get their defaults",
+			src:  "client: {name: Pets}\n",
+			edits: []func(*Config){
+				func(c *Config) { c.Server = &Server{Framework: "echo"} },
+				func(c *Config) { c.Server.Framework = "chi" },
+			},
+			want: defaulted(Config{Server: &Server{Framework: "chi"}, Client: &Client{Name: "Pets"}, dir: "/work"}),
+		},
+		{
+			name:    "Edits are validated",
+			src:     "client: {}\nmcp: {}\n",
+			edits:   []func(*Config){func(c *Config) { c.Client = nil }},
+			wantMsg: "invalid config: mcp: needs a client block",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg, err := Parse([]byte(tc.src), "/work", tc.edits...)
+
+			if tc.wantMsg != "" {
+				require.EqualError(t, err, tc.wantMsg)
+				assert.Nil(t, cfg)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, cfg)
+		})
+	}
+}
+
 func TestReadmeShowsTheFullExample(t *testing.T) {
 	t.Parallel()
 

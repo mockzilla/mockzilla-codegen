@@ -12,7 +12,9 @@ walks through.
 | `oapi-codegen -config cfg.yaml api.yaml` | `mockzilla-codegen generate -c codegen.yaml`, the spec path from `spec.path` or as the last argument |
 | `//go:generate go tool oapi-codegen -config cfg.yaml ../api.yaml` | `//go:generate go tool mockzilla-codegen generate -c ../codegen.yaml` |
 | `oapi-codegen -version` | `mockzilla-codegen version` |
-| the command line flags | none; everything is in the config |
+| `-package api -o api.gen.go` | `-package api -o api.gen.go` |
+| `-generate types,client,chi-server` | `-client -server chi`; models are always written |
+| the other command line flags | none; they are config keys |
 
 The output is written on every run, so remove the old generated file first, or point
 `output.file` at it and let the run replace it.
