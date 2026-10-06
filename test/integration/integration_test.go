@@ -10,6 +10,8 @@ package integration
 import (
 	"context"
 	"fmt"
+	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -26,74 +28,30 @@ import (
 )
 
 const (
-	knownFailuresFile = "known-failures.txt"
-	cacheFile         = ".integration-cache.json"
-	specTimeout       = 5 * time.Minute
-	batchSize         = 50
-	progressEvery     = 5 * time.Second
+	cacheFile        = ".integration-cache.json"
+	specTimeout      = 5 * time.Minute
+	batchSize        = 50
+	progressEvery    = 5 * time.Second
+	serverValidation = "  validation:\n    request: true\n    response: true\n"
+	modelsValidation = "models:\n  validation:\n    response: true\n"
 )
 
-// servers are the server variants FRAMEWORKS can name, with the modules their code imports. The
-// init call builds the router, which panics on a route the framework rejects.
-var servers = map[string]struct {
-	variant itest.Variant
-	deps    []string
-}{
-	"chi": {
-		variant: itest.Variant{Name: "chi", Config: "server:\n  framework: chi\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/go-chi/chi/v5"},
-	},
-	"std-http": {
-		variant: itest.Variant{Name: "std-http", Config: "server:\n  framework: std-http\n", Init: "%s.NewRouter(nil)"},
-	},
-	"echo": {
-		variant: itest.Variant{Name: "echo", Config: "server:\n  framework: echo\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/labstack/echo/v4"},
-	},
-	"echo-v5": {
-		variant: itest.Variant{Name: "echo-v5", Config: "server:\n  framework: echo-v5\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/labstack/echo/v5"},
-	},
-	"gin": {
-		variant: itest.Variant{Name: "gin", Config: "server:\n  framework: gin\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/gin-gonic/gin"},
-	},
-	"gorilla-mux": {
-		variant: itest.Variant{Name: "gorilla-mux", Config: "server:\n  framework: gorilla-mux\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/gorilla/mux"},
-	},
-	"fiber": {
-		variant: itest.Variant{Name: "fiber", Config: "server:\n  framework: fiber\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/gofiber/fiber/v3", "github.com/valyala/fasthttp/fasthttpadaptor"},
-	},
-	"fasthttp": {
-		variant: itest.Variant{Name: "fasthttp", Config: "server:\n  framework: fasthttp\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/fasthttp/router", "github.com/valyala/fasthttp/fasthttpadaptor"},
-	},
-	"hertz": {
-		variant: itest.Variant{Name: "hertz", Config: "server:\n  framework: hertz\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/cloudwego/hertz/pkg/app/server"},
-	},
-	"beego": {
-		variant: itest.Variant{Name: "beego", Config: "server:\n  framework: beego\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/beego/beego/v2/server/web"},
-	},
-	"goframe": {
-		variant: itest.Variant{Name: "goframe", Config: "server:\n  framework: goframe\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/gogf/gf/v2/net/ghttp"},
-	},
-	"go-zero": {
-		variant: itest.Variant{Name: "go-zero", Config: "server:\n  framework: go-zero\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/zeromicro/go-zero/rest"},
-	},
-	"iris": {
-		variant: itest.Variant{Name: "iris", Config: "server:\n  framework: iris\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/kataras/iris/v12"},
-	},
-	"kratos": {
-		variant: itest.Variant{Name: "kratos", Config: "server:\n  framework: kratos\n", Init: "%s.NewRouter(nil)"},
-		deps:    []string{"github.com/go-kratos/kratos/v2/transport/http"},
-	},
+// servers are the frameworks FRAMEWORKS can name, with the modules their code imports.
+var servers = map[string][]string{
+	"chi":         {"github.com/go-chi/chi/v5"},
+	"std-http":    nil,
+	"echo":        {"github.com/labstack/echo/v4"},
+	"echo-v5":     {"github.com/labstack/echo/v5"},
+	"gin":         {"github.com/gin-gonic/gin"},
+	"gorilla-mux": {"github.com/gorilla/mux"},
+	"fiber":       {"github.com/gofiber/fiber/v3", "github.com/valyala/fasthttp/fasthttpadaptor"},
+	"fasthttp":    {"github.com/fasthttp/router", "github.com/valyala/fasthttp/fasthttpadaptor"},
+	"hertz":       {"github.com/cloudwego/hertz/pkg/app/server"},
+	"beego":       {"github.com/beego/beego/v2/server/web"},
+	"goframe":     {"github.com/gogf/gf/v2/net/ghttp"},
+	"go-zero":     {"github.com/zeromicro/go-zero/rest"},
+	"iris":        {"github.com/kataras/iris/v12"},
+	"kratos":      {"github.com/go-kratos/kratos/v2/transport/http"},
 }
 
 // clientVariant generates the client with its envelopes and its stream methods, the largest of
@@ -116,7 +74,7 @@ var (
 // package of its own where Go allows, so the build checks every reference between packages.
 var splitVariant = itest.Variant{
 	Name: "split",
-	Config: "server:\n  framework: chi\n  scaffold:\n" +
+	Config: "server:\n  framework: chi\n" + serverValidation + "  scaffold:\n" +
 		"    service: ./scaffold/service/service.go\n" +
 		"    middleware: ./scaffold/middleware/middleware.go\n" +
 		"    main: ./cmd/server/main.go\n" +
@@ -136,9 +94,9 @@ var splitVariant = itest.Variant{
 }
 
 // TestIntegration generates every spec in testdata/specs with the models variant, one per
-// framework FRAMEWORKS names, chi by default, the client variant when CLIENT is set, the MCP
-// variant when MCP is set and the split variant when SPLIT is set, then builds and tests the
-// result. It fails on an unlisted failure and on a listed spec that passes now.
+// framework FRAMEWORKS names (chi by default, every framework for all), the client variant when
+// CLIENT is set, the MCP variant when MCP is set and the split variant when SPLIT is set, then
+// builds and tests the result. It fails on every failed job.
 func TestIntegration(t *testing.T) {
 	t.Parallel()
 
@@ -153,7 +111,7 @@ func TestIntegration(t *testing.T) {
 	}
 	if os.Getenv("SPLIT") != "" {
 		variants = append(variants, splitVariant)
-		deps = append(deps, servers["chi"].deps...)
+		deps = append(deps, servers["chi"]...)
 		deps = append(deps, mcpDeps...)
 	}
 	slices.Sort(deps)
@@ -167,11 +125,6 @@ func TestIntegration(t *testing.T) {
 		t.Skip("no specs in testdata/specs")
 	}
 
-	knownData, err := os.ReadFile(knownFailuresFile)
-	require.NoError(t, err)
-	known, err := itest.ParseKnown(knownData)
-	require.NoError(t, err)
-
 	concurrency := runtime.GOMAXPROCS(0)
 	if s := os.Getenv("INTEGRATION_MAX_CONCURRENCY"); s != "" {
 		concurrency, err = strconv.Atoi(s)
@@ -184,7 +137,7 @@ func TestIntegration(t *testing.T) {
 	tool, err := sandbox.BuildTool(ctx, itest.Exec)
 	require.NoError(t, err)
 	require.NoError(t, sandbox.Setup(ctx, itest.Exec, deps))
-	runtimeFiles, err := filepath.Glob(filepath.Join(repo, "pkg", "runtime", "*.go"))
+	runtimeFiles, err := goFiles(filepath.Join(repo, "pkg", "runtime"))
 	require.NoError(t, err)
 	toolHash, err := itest.HashFiles(append([]string{tool}, runtimeFiles...)...)
 	require.NoError(t, err)
@@ -230,31 +183,37 @@ func TestIntegration(t *testing.T) {
 	}
 	require.NoError(t, cache.Save(cachePath))
 
-	fmt.Fprintf(os.Stderr, "\n%s\ntook %s\n", itest.Report(results, known), time.Since(start).Round(time.Second))
-	v := itest.Compare(results, known)
-	for _, r := range v.New {
-		t.Errorf("%s (%s) failed at %s, not in %s", r.Job.Spec.Name, r.Job.Variant.Name, r.Stage, knownFailuresFile)
-	}
-	for _, name := range v.Fixed {
-		t.Errorf("%s passes now; remove it from %s", name, knownFailuresFile)
+	fmt.Fprintf(os.Stderr, "\n%s\ntook %s\n", itest.Report(results), time.Since(start).Round(time.Second))
+	for _, r := range results {
+		if r.Stage != "" {
+			t.Errorf("%s (%s) failed at %s", r.Job.Spec.Name, r.Job.Variant.Name, r.Stage)
+		}
 	}
 }
 
 // selectVariants is the models variant and the server variants of the frameworks named, chi when
 // none is set, with the modules the sandbox needs.
 func selectVariants(frameworks string, isSet bool) ([]itest.Variant, []string, error) {
-	if !isSet {
-		frameworks = "chi"
+	names := strings.FieldsFunc(frameworks, func(r rune) bool { return r == ',' || r == ' ' })
+	switch {
+	case !isSet:
+		names = []string{"chi"}
+	case frameworks == "all":
+		names = slices.Sorted(maps.Keys(servers))
 	}
-	variants := []itest.Variant{{Name: "models"}}
+	variants := []itest.Variant{{Name: "models", Config: modelsValidation}}
 	deps := []string{gomodel.RuntimePath}
-	for _, name := range strings.FieldsFunc(frameworks, func(r rune) bool { return r == ',' || r == ' ' }) {
-		s, ok := servers[name]
+	for _, name := range names {
+		serverDeps, ok := servers[name]
 		if !ok {
 			return nil, nil, fmt.Errorf("FRAMEWORKS names %q, which has no integration variant", name)
 		}
-		variants = append(variants, s.variant)
-		deps = append(deps, s.deps...)
+		variants = append(variants, itest.Variant{
+			Name:   name,
+			Config: "server:\n  framework: " + name + "\n" + serverValidation,
+			Init:   "%s.NewRouter(nil)",
+		})
+		deps = append(deps, serverDeps...)
 	}
 	return variants, deps, nil
 }
@@ -275,4 +234,16 @@ func runWithProgress(ctx context.Context, runner *itest.Runner, jobs []itest.Job
 			fmt.Fprintf(os.Stderr, "%s: %s\n", time.Since(start).Round(time.Second), runner.Progress())
 		}
 	}
+}
+
+// goFiles lists the Go files in dir and the folders below it.
+func goFiles(dir string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && filepath.Ext(path) == ".go" {
+			files = append(files, path)
+		}
+		return err
+	})
+	return files, err
 }

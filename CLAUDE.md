@@ -10,16 +10,19 @@ Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33f/libop
 - One test while developing: `make test PKG=./internal/naming RUN=TestIdent`.
 - Before calling a change done: `make check` (lint, 100% coverage gate, tidy, examples).
 - Golden examples: `make examples` regenerates `examples/`, `make examples-check` compares and
-  builds them.
+  builds them. `make generate` regenerates them and `config.schema.json`.
 - One integration spec: `make test-integration SPEC=3.0/misc/<spec>.yml`. Never run the full
   integration or parse sweep unless asked; they cover 2,000+ specs. Each spec runs as models
-  only and once per server framework in `FRAMEWORKS` (default `chi`), whose router is also built
-  in a test; `CLIENT=1` adds the client variant, whose client is built the same way, `MCP=1`
-  the MCP variant, whose tools are built over the client, and `SPLIT=1` the variant that puts
-  every part in a package of its own where Go allows, which is built.
+  only and once per server framework in `FRAMEWORKS` (default `chi`, `all` for every one), whose
+  router is also built in a test; `CLIENT=1` adds the client variant, whose client is built the
+  same way, `MCP=1` the MCP variant, whose tools are built over the client, and `SPLIT=1` the
+  variant that puts every part in a package of its own where Go allows, which is built. Server
+  variants validate requests and responses, and the models variant generates `ValidateResponse`.
 - The integration run skips jobs that passed with the same spec, variant and tool build
-  (`.integration-cache.json`); `make test-integration-clear` runs all. Expected failures are listed
-  in `test/integration/known-failures.txt`.
+  (`.integration-cache.json`); `make test-integration-clear` runs all. Both sweeps leave out a spec
+  whose name starts with `-` and `stash` folders.
+- `make test-integration-ci` runs what CI runs: `.github/ci-specs.txt` on every variant with chi,
+  `.github/ci-router-specs.txt` on every framework.
 - Coverage gate exclusions live in `.covignore`.
 
 ## Rules

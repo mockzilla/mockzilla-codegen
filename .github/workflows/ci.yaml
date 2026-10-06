@@ -40,5 +40,39 @@ jobs:
       - name: runtime dependencies
         run: make runtime-deps
 
+      # cover-check already compared the examples with a fresh run
       - name: examples
-        run: make examples-check
+        run: make examples-build
+
+  integration:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: list the CI specs
+        id: specs
+        run: |
+          {
+            echo 'paths<<EOF'
+            grep -hv '^#' .github/ci-specs.txt .github/ci-router-specs.txt | sort -u
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: fetch the CI specs
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ secrets.SPECS_REPO }}
+          token: ${{ secrets.GH_PAT }}
+          path: testdata/specs
+          filter: blob:none
+          sparse-checkout: ${{ steps.specs.outputs.paths }}
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: integration on the CI specs
+        run: make test-integration-ci
