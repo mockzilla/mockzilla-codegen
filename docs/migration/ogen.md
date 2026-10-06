@@ -24,7 +24,7 @@ the config file is optional here too. The rest moves into `codegen.yaml`.
 
 ogen writes one file per concern, `oas_client_gen.go`, `oas_server_gen.go`, `oas_schemas_gen.go`
 and so on. mockzilla-codegen writes one file, or the files `output.files` names
-([output files](../../README.md#output-files)).
+([output files](../config.md#output-files)).
 
 ## Config
 

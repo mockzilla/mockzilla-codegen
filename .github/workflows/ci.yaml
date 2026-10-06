@@ -41,6 +41,13 @@ jobs:
       - name: test with coverage gate
         run: make cover-check
 
+      - name: upload coverage
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.out
+          disable_search: true
+
       - name: runtime dependencies
         run: make runtime-deps
 
