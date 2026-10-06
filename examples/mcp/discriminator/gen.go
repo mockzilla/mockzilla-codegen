@@ -416,7 +416,7 @@ func (c *Client) AddAnimal(ctx context.Context, opts *AddAnimalRequestOptions, e
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}

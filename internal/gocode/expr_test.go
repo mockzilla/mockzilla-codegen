@@ -25,6 +25,8 @@ func TestExpressions(t *testing.T) {
 	assert.Equal(t, "p.Cat != nil", NotNil("p.Cat"))
 	assert.Equal(t, `opts.Body != ""`, NotEmpty("opts.Body"))
 	assert.Equal(t, "&opts.Body", AddressOf("opts.Body"))
+	assert.Equal(t, `T{"a": 1}`, Composite("T", []KeyValue{{Key: `"a"`, Value: "1"}}))
+	assert.Equal(t, "T{\n\"a\": 1,\n\"b\": 2,\n}", Composite("T", []KeyValue{{Key: `"a"`, Value: "1"}, {Key: `"b"`, Value: "2"}}))
 	assert.Equal(t, `""`, Zero(gomodel.Builtin{Name: "string"}))
 	assert.Equal(t, "nil", Zero(gomodel.Pointer{Elem: gomodel.Builtin{Name: "string"}}))
 }

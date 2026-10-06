@@ -564,7 +564,7 @@ func (a *HTTPAdapter) PostForm(w http.ResponseWriter, r *http.Request) {
 	opts := &PostFormServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/x-www-form-urlencoded":
-		if err := runtime.DecodeForm(r.Body, &opts.Body, true); err != nil {
+		if err := runtime.DecodeForm(r.Body, &opts.Body, true, nil); err != nil {
 			a.failDecode(w, r, "PostForm", err)
 			return
 		}
@@ -600,7 +600,7 @@ func (a *HTTPAdapter) PostMultipart(w http.ResponseWriter, r *http.Request) {
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "multipart/form-data":
 		opts.Body = &Shape{}
-		if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory); err != nil {
+		if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory, nil); err != nil {
 			a.failDecode(w, r, "PostMultipart", err)
 			return
 		}
@@ -630,13 +630,13 @@ func (a *HTTPAdapter) PostAttachment(w http.ResponseWriter, r *http.Request) {
 	opts := &PostAttachmentServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/x-www-form-urlencoded":
-		if err := runtime.DecodeForm(r.Body, &opts.BodyForm, true); err != nil {
+		if err := runtime.DecodeForm(r.Body, &opts.BodyForm, true, nil); err != nil {
 			a.failDecode(w, r, "PostAttachment", err)
 			return
 		}
 	case "multipart/form-data":
 		opts.BodyMultipart = &Attachment{}
-		if err := runtime.DecodeMultipart(r, opts.BodyMultipart, a.opts.MultipartMaxMemory); err != nil {
+		if err := runtime.DecodeMultipart(r, opts.BodyMultipart, a.opts.MultipartMaxMemory, nil); err != nil {
 			a.failDecode(w, r, "PostAttachment", err)
 			return
 		}
@@ -843,7 +843,7 @@ func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions, edi
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -866,7 +866,7 @@ func (c *Client) PostFormRequest(ctx context.Context, opts *PostFormRequestOptio
 	b := runtime.NewRequestBuilder(http.MethodPost, "/form")
 	switch {
 	case opts.Body != nil:
-		b.FormBody(opts.Body)
+		b.FormBody(opts.Body, nil)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
@@ -879,7 +879,7 @@ func (c *Client) PostMultipart(ctx context.Context, opts *PostMultipartRequestOp
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -901,7 +901,7 @@ func (c *Client) PostMultipartRequest(ctx context.Context, opts *PostMultipartRe
 	b := runtime.NewRequestBuilder(http.MethodPost, "/multipart")
 	switch {
 	case opts.Body != nil:
-		b.MultipartBody(opts.Body)
+		b.MultipartBody(opts.Body, nil)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
@@ -914,7 +914,7 @@ func (c *Client) PostAttachment(ctx context.Context, opts *PostAttachmentRequest
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "text/plain", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -936,9 +936,9 @@ func (c *Client) PostAttachmentRequest(ctx context.Context, opts *PostAttachment
 	b := runtime.NewRequestBuilder(http.MethodPost, "/attachments")
 	switch {
 	case opts.BodyForm != nil:
-		b.FormBody(opts.BodyForm)
+		b.FormBody(opts.BodyForm, nil)
 	case opts.BodyMultipart != nil:
-		b.MultipartBody(opts.BodyMultipart)
+		b.MultipartBody(opts.BodyMultipart, nil)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}

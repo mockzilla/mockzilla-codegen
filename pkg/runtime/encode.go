@@ -26,30 +26,42 @@ var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
 // EncodeForm writes v, a struct or a map, as form values: nested objects with bracketed keys,
 // address[city]=Berlin, lists as repeated keys, tags=a&tags=b, and lists of objects with an
 // index, lines[0][city]=Berlin. Values go through their JSON form, so json tags and marshalers
-// apply. A value that writes its own JSON object or array, such as a union, is one JSON value.
-func EncodeForm(v any) (url.Values, error) {
+// apply. A value that writes its own JSON object or array, such as a union, is one JSON value. So
+// is a property enc declares JSON.
+func EncodeForm(v any, enc Encoding) (url.Values, error) {
 	fields, err := jsonObject(v)
 	if err != nil {
 		return nil, err
 	}
 
 	out := url.Values{}
+	for _, name := range slices.Sorted(maps.Keys(fields)) {
+		var mediaType string
+		if mediaType, err = enc.partType(name, isFormText(fields[name])); err != nil {
+			return nil, err
+		}
+		if IsJSON(mediaType) {
+			out.Add(name, string(encodeJSON(fields[name])))
+			delete(fields, name)
+		}
+	}
 	addForm(out, "", jsonFields(reflect.ValueOf(v), fields))
 	return out, nil
 }
 
 // WriteMultipart writes v, a struct, to mw as a multipart form and closes mw, which ends the
 // form: File fields as file parts with their name and content type, application/octet-stream
-// without one, structs, maps and lists of them as JSON parts, lists of values as repeated parts,
-// bytes as base64, and everything else as text.
-func WriteMultipart(mw *multipart.Writer, v any) error {
-	return (&formWriter{mw: mw}).write(v)
+// without one, lists as one part per item, structs and maps as JSON parts, bytes as base64, and
+// everything else as text. A property enc declares a media type for is written in it.
+func WriteMultipart(mw *multipart.Writer, v any, enc Encoding) error {
+	return (&formWriter{mw: mw, encoding: enc}).write(v)
 }
 
 // formWriter writes the parts of a multipart form. Counting, it reads no file and adds the file
 // sizes to size instead; isUnsized records a file that does not know its size.
 type formWriter struct {
 	mw         *multipart.Writer
+	encoding   Encoding
 	isCounting bool
 	size       int64
 	isUnsized  bool
@@ -80,7 +92,7 @@ func (w *formWriter) write(v any) error {
 	return w.mw.Close()
 }
 
-// part writes one field of a multipart form, by its type.
+// part writes one field of a multipart form, a list item by item and each item by its type.
 func (w *formWriter) part(name string, v reflect.Value) error {
 	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
 		if v.IsNil() {
@@ -94,13 +106,7 @@ func (w *formWriter) part(name string, v reflect.Value) error {
 	case t == fileType:
 		f, _ := v.Interface().(File)
 		return w.file(name, f)
-	case isBytes(t), isScalar(t):
-		s, err := text(v)
-		if err != nil {
-			return err
-		}
-		return w.mw.WriteField(name, s)
-	case t.Kind() == reflect.Slice && (t.Elem() == fileType || isBytes(t.Elem()) || isScalar(t.Elem())):
+	case t.Kind() == reflect.Slice && !isBytes(t):
 		for i := range v.Len() {
 			if err := w.part(name, v.Index(i)); err != nil {
 				return err
@@ -109,11 +115,23 @@ func (w *formWriter) part(name string, v reflect.Value) error {
 		return nil
 	}
 
-	data, err := json.Marshal(v.Interface())
+	isText := isBytes(t) || isScalar(t)
+	mediaType, err := w.encoding.partType(name, isText)
 	if err != nil {
 		return err
 	}
-	return w.jsonPart(name, data)
+	if (mediaType == "" && !isText) || IsJSON(mediaType) {
+		return w.jsonPart(name, cmp.Or(mediaType, "application/json"), v.Interface())
+	}
+
+	s, err := text(v)
+	switch {
+	case err != nil:
+		return err
+	case mediaType == "":
+		return w.mw.WriteField(name, s)
+	}
+	return w.dataPart(name, mediaType, []byte(s))
 }
 
 // object writes a struct with UnmarshalForm member by member from its JSON, files as file parts.
@@ -141,21 +159,24 @@ func (w *formWriter) object(rv reflect.Value) error {
 	return w.mw.Close()
 }
 
-// member writes one JSON member: a scalar or a list of them as text, other values as a JSON part.
+// member writes one JSON member: a scalar as text, an object as a JSON part, a list item by item.
 func (w *formWriter) member(name string, raw json.RawMessage) error {
 	switch JSONKind(raw) {
 	case KindNull:
 		return nil
 	case KindObject:
-		return w.jsonPart(name, raw)
+		return w.dataPart(name, "application/json", raw)
 	case KindArray:
 		var items []json.RawMessage
 		_ = json.Unmarshal(raw, &items) // raw is an array of the JSON the struct wrote
-		if slices.ContainsFunc(items, func(item json.RawMessage) bool { return JSONKind(item)&(KindObject|KindArray) != 0 }) {
-			return w.jsonPart(name, raw)
-		}
 		for _, item := range items {
-			if err := w.member(name, item); err != nil {
+			var err error
+			if JSONKind(item) == KindArray {
+				err = w.dataPart(name, "application/json", item)
+			} else {
+				err = w.member(name, item)
+			}
+			if err != nil {
 				return err
 			}
 		}
@@ -170,11 +191,20 @@ func (w *formWriter) member(name string, raw json.RawMessage) error {
 	return w.mw.WriteField(name, s)
 }
 
-// jsonPart writes data as a part of its own with the content type application/json.
-func (w *formWriter) jsonPart(name string, data []byte) error {
+// jsonPart writes v as JSON in a part of its own under mediaType.
+func (w *formWriter) jsonPart(name, mediaType string, v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return w.dataPart(name, mediaType, data)
+}
+
+// dataPart writes data as a part of its own under mediaType.
+func (w *formWriter) dataPart(name, mediaType string, data []byte) error {
 	h := textproto.MIMEHeader{}
 	h.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(name)+`"`)
-	h.Set("Content-Type", "application/json")
+	h.Set("Content-Type", mediaType)
 	pw, err := w.mw.CreatePart(h)
 	if err != nil {
 		return err
@@ -183,12 +213,16 @@ func (w *formWriter) jsonPart(name string, data []byte) error {
 	return err
 }
 
-// file writes f as a file part, with its name and its content type when it has one. A file
-// without a name goes as blob, as browsers send a Blob: most servers read an empty filename as text.
+// file writes f as a file part, with its name and the content type fileType picks. A file without
+// a name goes as blob, as browsers send a Blob: most servers read an empty filename as text.
 func (w *formWriter) file(name string, f File) error {
+	mediaType, err := w.encoding.fileType(name, f)
+	if err != nil {
+		return err
+	}
 	h := textproto.MIMEHeader{}
 	h.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(name)+`"; filename="`+quoteEscaper.Replace(cmp.Or(f.Name(), "blob"))+`"`)
-	h.Set("Content-Type", cmp.Or(f.ContentType(), "application/octet-stream"))
+	h.Set("Content-Type", mediaType)
 	pw, err := w.mw.CreatePart(h)
 	if err != nil {
 		return err
@@ -240,9 +274,9 @@ func (c *byteCounter) Write(p []byte) (int, error) {
 
 // multipartSize writes v as a multipart form without reading its files, and returns the boundary
 // it used with the length of the form, -1 when a file does not know its size.
-func multipartSize(v any) (int64, string, error) {
+func multipartSize(v any, enc Encoding) (int64, string, error) {
 	var n byteCounter
-	w := &formWriter{mw: multipart.NewWriter(&n), isCounting: true}
+	w := &formWriter{mw: multipart.NewWriter(&n), encoding: enc, isCounting: true}
 	if err := w.write(v); err != nil {
 		return 0, "", err
 	}
@@ -341,6 +375,17 @@ func formText(v any) string {
 	}
 	s, _ := v.(string)
 	return s
+}
+
+// isFormText reports a JSON value a form holds as text: a scalar, or a list of scalars.
+func isFormText(v any) bool {
+	switch x := v.(type) {
+	case map[string]any:
+		return false
+	case []any:
+		return !slices.ContainsFunc(x, isComposite)
+	}
+	return true
 }
 
 // isScalar reports a type written as one text: a string, a bool, a number, or one that writes

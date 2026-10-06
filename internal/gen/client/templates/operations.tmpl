@@ -10,7 +10,7 @@ func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}, 
 	if err != nil {
 		return {{with .Zero}}{{.}}, {{end}}err
 	}
-	res, body, err := {{$.Runtime}}.Send(c.doer, req, c.timeout)
+	res, body, err := {{$.Runtime}}.Send(c.doer, req, {{.Accept}}, c.timeout)
 	if err != nil {
 		return {{with .Zero}}{{.}}, {{end}}err
 	}
@@ -39,7 +39,7 @@ func (c *{{$.Client}}) {{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := {{$.Runtime}}.Send(c.doer, req, c.timeout)
+	res, body, err := {{$.Runtime}}.Send(c.doer, req, {{.Accept}}, c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 {{- range .Bodies}}
 	case {{.IsSet}}:
 {{- if .Encoder}}
-		b.{{.Encoder}}({{.Value}}{{with .MediaType}}, {{.}}{{end}})
+		b.{{.Encoder}}({{.Value}}{{with .MediaType}}, {{.}}{{end}}{{with .Encoding}}, {{.}}{{end}})
 {{- else}}
 		return nil, {{$.Runtime}}.ContentTypeError({{.MediaType}})
 {{- end}}

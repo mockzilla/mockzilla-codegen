@@ -641,7 +641,7 @@ func (c *Client) CountPets(ctx context.Context, opts *CountPetsRequestOptions, e
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -672,7 +672,7 @@ func (c *Client) FindPet(ctx context.Context, opts *FindPetRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -707,7 +707,7 @@ func (c *Client) GetPhoto(ctx context.Context, opts *GetPhotoRequestOptions, edi
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "*/*", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -741,7 +741,7 @@ func (c *Client) GetIcon(ctx context.Context, opts *GetIconRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "image/png", c.timeout)
 	if err != nil {
 		return nil, err
 	}

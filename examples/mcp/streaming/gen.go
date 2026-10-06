@@ -470,7 +470,7 @@ func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions, editors ...
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -520,7 +520,7 @@ func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions,
 	if err != nil {
 		return "", err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "text/event-stream", c.timeout)
 	if err != nil {
 		return "", err
 	}

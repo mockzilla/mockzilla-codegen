@@ -46,12 +46,20 @@ func TestBodyView(t *testing.T) {
 		{
 			name:    "A form decodes into the field",
 			content: gomodel.Content{MediaType: "application/x-www-form-urlencoded", Type: gomodel.Map{Key: str, Elem: str}},
-			want:    view(BodyView{Kind: "form", MediaType: `"application/x-www-form-urlencoded"`, IsForm: true}),
+			want:    view(BodyView{Kind: "form", MediaType: `"application/x-www-form-urlencoded"`, IsForm: true, Encoding: "nil"}),
 		},
 		{
 			name:    "Multipart fills a struct",
 			content: gomodel.Content{MediaType: "multipart/form-data", Type: gomodel.DeclRef{Decl: pet}},
-			want:    view(BodyView{Kind: "multipart", MediaType: `"multipart/form-data"`, IsMultipart: true, Type: "Pet"}),
+			want:    view(BodyView{Kind: "multipart", MediaType: `"multipart/form-data"`, IsMultipart: true, Type: "Pet", Encoding: "nil"}),
+		},
+		{
+			name:    "A form with an encoding is read with it",
+			content: gomodel.Content{MediaType: "multipart/form-data", Type: gomodel.DeclRef{Decl: pet}, Encoding: map[string]string{"a": "application/json", "b": "text/plain"}},
+			want: view(BodyView{
+				Kind: "multipart", MediaType: `"multipart/form-data"`, IsMultipart: true, Type: "Pet", Encoding: "encoding",
+				EncodingLiteral: "runtime.Encoding{\n\"a\": \"application/json\",\n\"b\": \"text/plain\",\n}",
+			}),
 		},
 		{
 			name:    "Multipart without a struct is taken in as it is",

@@ -240,12 +240,12 @@ func (a *HTTPAdapter) AddOrder(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case "application/x-www-form-urlencoded":
-		body, err := a.opts.Presence.Form(r.Body, runtime.Prop{Object: "Order"})
+		body, err := a.opts.Presence.Form(r.Body, runtime.Prop{Object: "Order"}, nil)
 		if err != nil {
 			a.failBody(w, r, "AddOrder", err)
 			return
 		}
-		if err = runtime.DecodeForm(body, &opts.BodyForm, true); err != nil {
+		if err = runtime.DecodeForm(body, &opts.BodyForm, true, nil); err != nil {
 			a.failDecode(w, r, "AddOrder", err)
 			return
 		}

@@ -126,7 +126,7 @@ func writeText(w http.ResponseWriter, status int, v reflect.Value) error {
 }
 
 func writeForm(w http.ResponseWriter, status int, body any) error {
-	values, err := EncodeForm(body)
+	values, err := EncodeForm(body, nil)
 	if err != nil {
 		return err
 	}
@@ -135,13 +135,13 @@ func writeForm(w http.ResponseWriter, status int, body any) error {
 
 func writeMultipart(w http.ResponseWriter, status int, body any) error {
 	// A dry run fails a body that is no form while an error response can still follow.
-	if _, _, err := multipartSize(body); err != nil {
+	if _, _, err := multipartSize(body, nil); err != nil {
 		return err
 	}
 	mw := multipart.NewWriter(w)
 	w.Header().Set("Content-Type", mw.FormDataContentType())
 	w.WriteHeader(status)
-	return cut(WriteMultipart(mw, body))
+	return cut(WriteMultipart(mw, body, nil))
 }
 
 func writeFrames(w http.ResponseWriter, status int, mediaType string, body any) error {

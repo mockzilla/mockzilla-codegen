@@ -64,8 +64,8 @@ func DecodeJSON(body io.Reader, dst any, isRequired bool) error {
 
 // DecodeForm decodes an application/x-www-form-urlencoded body into dst, a pointer. Keys with
 // brackets nest: address[city]=Berlin, items[0]=a. Into an untyped target, a value that reads as a
-// number or a boolean becomes one.
-func DecodeForm(body io.Reader, dst any, isRequired bool) error {
+// number or a boolean becomes one. A field enc declares JSON is read as JSON.
+func DecodeForm(body io.Reader, dst any, isRequired bool, enc Encoding) error {
 	data, err := io.ReadAll(body)
 	if err != nil {
 		return err
@@ -77,14 +77,19 @@ func DecodeForm(body io.Reader, dst any, isRequired bool) error {
 	if err != nil {
 		return err
 	}
-	return fillPointer(&multipart.Form{Value: values}, dst)
+	target, err := pointer(dst)
+	if err != nil {
+		return err
+	}
+	return fillForm(target, &multipart.Form{Value: values}, enc)
 }
 
 // DecodeMultipart decodes a multipart/form-data body into dst, a pointer to a struct. Fields of
 // type File, *File or []File take the files of their name; a part that holds JSON fills a field of
 // a struct, slice or map type; every other part is read as form text. maxMemory is how much stays
-// in memory, DefaultMultipartMemory when 0. A type with UnmarshalForm reads the form itself.
-func DecodeMultipart(r *http.Request, dst any, maxMemory int64) error {
+// in memory, DefaultMultipartMemory when 0. A type with UnmarshalForm reads the form itself. A part
+// enc declares JSON is read as JSON.
+func DecodeMultipart(r *http.Request, dst any, maxMemory int64, enc Encoding) error {
 	if maxMemory <= 0 {
 		maxMemory = DefaultMultipartMemory
 	}
@@ -99,7 +104,7 @@ func DecodeMultipart(r *http.Request, dst any, maxMemory int64) error {
 	if target.Kind() != reflect.Struct {
 		return fmt.Errorf("%w: a multipart form needs a struct, not %s", ErrParamValue, target.Type())
 	}
-	return fillForm(target, r.MultipartForm)
+	return fillForm(target, r.MultipartForm, enc)
 }
 
 // DecodeText reads a text body.
@@ -145,11 +150,11 @@ func fillPointer(form *multipart.Form, dst any) error {
 	if err != nil {
 		return err
 	}
-	return fillForm(target, form)
+	return fillForm(target, form, nil)
 }
 
 // fillForm stores form in target: by UnmarshalForm, field by field into a struct, else by keys.
-func fillForm(target reflect.Value, form *multipart.Form) error {
+func fillForm(target reflect.Value, form *multipart.Form, enc Encoding) error {
 	target = allocate(target)
 	if u, ok := target.Addr().Interface().(FormUnmarshaler); ok {
 		return u.UnmarshalForm(form)
@@ -163,17 +168,37 @@ func fillForm(target reflect.Value, form *multipart.Form) error {
 			if name == "" || !f.IsExported() {
 				continue
 			}
-			isSet, err := setFiles(target.Field(i), form.File[name])
-			if err == nil && !isSet {
-				err = setPart(target.Field(i), values[name])
-			}
-			if err != nil {
+			if err := fillField(target.Field(i), name, form, enc); err != nil {
 				return err
 			}
 			delete(values, name)
 		}
 	}
 	return assigner{isLoose: true}.assign(target, listsOf(formTree(values)))
+}
+
+// fillField stores the parts of name in field: its files, else its texts, file parts included.
+func fillField(field reflect.Value, name string, form *multipart.Form, enc Encoding) error {
+	isSet, err := setFiles(field, form.File[name])
+	if err != nil || isSet {
+		return err
+	}
+	texts := slices.Clone(form.Value[name])
+	for _, h := range form.File[name] {
+		var data []byte
+		if data, err = NewFileFromMultipart(h).Bytes(); err != nil {
+			return err
+		}
+		texts = append(texts, string(data))
+	}
+
+	if !enc.isJSON(name) {
+		return setPart(field, texts)
+	}
+	if err = setJSON(field, texts); err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	return nil
 }
 
 // formTree nests form values by the names in their keys, with lists where the names count 0, 1, 2.
@@ -265,6 +290,31 @@ func setPart(field reflect.Value, texts []string) error {
 		return assigner{}.json(field, string(trimmed))
 	}
 	return assigner{isLoose: true}.assign(field, texts)
+}
+
+// setJSON reads each text as JSON: into a list an array whole and any other value as one item.
+func setJSON(field reflect.Value, texts []string) error {
+	if len(texts) == 0 {
+		return nil
+	}
+	t := field.Type()
+	if t.Kind() != reflect.Slice || isBytes(t) {
+		return json.Unmarshal([]byte(texts[0]), field.Addr().Interface())
+	}
+
+	for _, s := range texts {
+		list := reflect.New(t)
+		if json.Unmarshal([]byte(s), list.Interface()) == nil {
+			field.Set(reflect.AppendSlice(field, list.Elem()))
+			continue
+		}
+		item := reflect.New(t.Elem())
+		if err := json.Unmarshal([]byte(s), item.Interface()); err != nil {
+			return err
+		}
+		field.Set(reflect.Append(field, item.Elem()))
+	}
+	return nil
 }
 
 // setFiles fills a File field, or bytes from a file part, and reports whether it was one.

@@ -133,7 +133,6 @@ func (c *collector) run(ops []*Operation) {
 		if b := op.Spec.Body; b != nil {
 			isMultiple := countInline(b.Contents) > 1
 			for _, mt := range b.Contents {
-				c.encoding(mt)
 				name := n.RequestBody(op.Name, mt.Name, isMultiple)
 				at := place{name: name, rank: naming.RankOperation, part: PartBodies}
 				c.media(mt, at, place{name: n.ArrayItem(name), rank: naming.RankOperation, part: PartBodies})
@@ -227,18 +226,12 @@ func (c *collector) media(mt *spec.MediaType, at, item place) {
 	c.walk(mt.ItemSchema, item, ruleUnlessRef)
 }
 
-// encoding warns about the encoding object of mt, which nothing reads yet.
+// encoding warns about the encoding object of mt, a response media type, which nothing reads yet.
 func (c *collector) encoding(mt *spec.MediaType) {
 	if len(mt.Encodings) == 0 {
 		return
 	}
-	c.diags.Append(diag.Diagnostic{
-		Severity: diag.Warning,
-		Code:     diag.CodeEncodingIgnored,
-		Pointer:  mt.Origin.Pointer + "/encoding",
-		Origin:   origin(mt.Origin),
-		Message:  "the encoding of " + mt.Name + " is not supported yet; its parts are written and read by their schema types",
-	})
+	c.diags.Append(encodingWarning(mt, diag.CodeEncodingIgnored, "the encoding of "+mt.Name+" in a response is not supported yet; its parts are written and read by their schema types"))
 }
 
 // params adds one struct per parameter location and walks its schemas, then the querystring.
@@ -564,14 +557,13 @@ func partOf(sh shape, from string) string {
 	}
 }
 
-// paramSchema is a parameter's schema, or the schema of its one media type.
 // isQueryStringMedia reports a media type a querystring parameter is written in: a form or JSON.
 func isQueryStringMedia(mediaType string) bool {
-	base, _, _ := strings.Cut(strings.ToLower(mediaType), ";")
-	base = strings.TrimSpace(base)
+	base := baseMediaType(mediaType)
 	return base == "application/x-www-form-urlencoded" || runtime.IsJSON(base)
 }
 
+// paramSchema is a parameter's schema, or the schema of its one media type.
 func paramSchema(p *spec.Parameter) *spec.Schema {
 	if p.Schema == nil && len(p.Contents) > 0 {
 		return p.Contents[0].Schema

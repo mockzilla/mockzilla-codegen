@@ -349,12 +349,12 @@ func (a *HTTPAdapter) AddPet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case "application/x-www-form-urlencoded":
-		body, err := a.opts.Presence.Form(r.Body, runtime.Prop{Object: "Pet"})
+		body, err := a.opts.Presence.Form(r.Body, runtime.Prop{Object: "Pet"}, nil)
 		if err != nil {
 			a.failBody(w, r, "AddPet", err)
 			return
 		}
-		if err = runtime.DecodeForm(body, &opts.BodyForm, true); err != nil {
+		if err = runtime.DecodeForm(body, &opts.BodyForm, true, nil); err != nil {
 			a.failDecode(w, r, "AddPet", err)
 			return
 		}
@@ -388,12 +388,12 @@ func (a *HTTPAdapter) Upload(w http.ResponseWriter, r *http.Request) {
 	opts := &UploadServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "multipart/form-data":
-		if err := a.opts.Presence.Multipart(r, runtime.Prop{Object: "Upload"}, a.opts.MultipartMaxMemory); err != nil {
+		if err := a.opts.Presence.Multipart(r, runtime.Prop{Object: "Upload"}, a.opts.MultipartMaxMemory, nil); err != nil {
 			a.failBody(w, r, "Upload", err)
 			return
 		}
 		opts.Body = &Upload{}
-		if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory); err != nil {
+		if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory, nil); err != nil {
 			a.failDecode(w, r, "Upload", err)
 			return
 		}
