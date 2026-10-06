@@ -1,0 +1,5 @@
+# Specs CI also runs on every server framework. Each is in ci-specs.txt too.
+# Paths relative to testdata/specs, one per line.
+3.0/misc/httpbin.org.yml
+3.0/misc/microsoft.dynamics-365-business-central.yml
+3.0/rapidapi.com/idealspot-geodata.1.0.yml

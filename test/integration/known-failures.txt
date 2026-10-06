@@ -1,6 +1,0 @@
-# Specs in testdata/specs that do not generate and build, one per line:
-# <path relative to testdata/specs> <stage>: <reason>
-# Stages: generate, build. A listed spec that starts passing fails the run until its line is
-# removed.
-3.0/misc/soundcloud.com.yml generate: libopenapi resolves a $ref inside an example value, which is literal data
-3.1/misc/meilisearch.yml generate: libopenapi resolves a $ref inside an example value, which is literal data

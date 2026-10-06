@@ -3,6 +3,8 @@ SHELL := /bin/bash
 
 PKG ?= ./...
 RUN ?=
+CI_SPECS = $(shell grep -v '^\#' .github/ci-specs.txt)
+CI_ROUTER_SPECS = $(shell grep -v '^\#' .github/ci-router-specs.txt)
 MIN_COVERAGE ?= 100
 # golangci-lint must be built with a Go at least as new as the go directive in go.mod; bump the two
 # together.
@@ -70,8 +72,7 @@ schema: ## Regenerate config.schema.json
 	UPDATE=1 go test -count=1 -run TestSchemaUpToDate ./pkg/config
 
 .PHONY: generate
-generate: ## Run go generate
-	go generate ./...
+generate: schema examples ## Regenerate config.schema.json and the golden examples
 
 .PHONY: examples
 examples: ## Regenerate the golden examples
@@ -80,6 +81,10 @@ examples: ## Regenerate the golden examples
 .PHONY: examples-check
 examples-check: ## Fail when the golden examples are stale, do not build or fail their tests
 	go test -count=1 -run '^TestExamples' ./pkg/codegen
+	$(MAKE) --no-print-directory examples-build
+
+.PHONY: examples-build
+examples-build: ## Build, vet and test the examples module, without comparing it with a fresh run
 	cd examples && go build ./... && go vet ./... && GIN_MODE=release go test -count=1 ./...
 
 .PHONY: test-parse
@@ -87,8 +92,12 @@ test-parse: ## Parse every spec in testdata/specs; SPEC=, SPECS= narrow it
 	SPEC='$(SPEC)' SPECS='$(SPECS)' go test -tags parse -count=1 -timeout 60m -v ./test/parse
 
 .PHONY: test-integration
-test-integration: ## Generate, build and test every spec in testdata/specs; SPEC=, SPECS= narrow it, FRAMEWORKS= picks the server variants (chi, std-http, echo, or any of docs/server.md's routers), CLIENT=1 adds the client variant, MCP=1 the MCP variant, SPLIT=1 the variant with every part in its own package
-	SPEC='$(SPEC)' SPECS='$(SPECS)' $(if $(FRAMEWORKS),FRAMEWORKS='$(FRAMEWORKS)') $(if $(CLIENT),CLIENT='$(CLIENT)') $(if $(MCP),MCP='$(MCP)') $(if $(SPLIT),SPLIT='$(SPLIT)') go test -tags integration -count=1 -timeout 120m -v ./test/integration
+test-integration: ## Generate, build and test every spec in testdata/specs; SPEC=, SPECS= narrow it, FRAMEWORKS= picks the server variants (chi, std-http, echo, any of docs/server.md's routers, or all), CLIENT=1 adds the client variant, MCP=1 the MCP variant, SPLIT=1 the variant with every part in its own package
+	SPEC='$(SPEC)' SPECS='$(SPECS)' $(if $(FRAMEWORKS),FRAMEWORKS='$(FRAMEWORKS)') $(if $(CLIENT),CLIENT='$(CLIENT)') $(if $(MCP),MCP='$(MCP)') $(if $(SPLIT),SPLIT='$(SPLIT)') $(if $(ROUTER_SPECS),ROUTER_SPECS='$(ROUTER_SPECS)') $(if $(BATCH),BATCH='$(BATCH)') go test -tags integration -count=1 -timeout 120m -v ./test/integration
+
+.PHONY: test-integration-ci
+test-integration-ci: ## Integration run of CI: .github/ci-specs.txt with client, MCP and split, .github/ci-router-specs.txt on every framework; BATCH=i/n runs one of n batches
+	$(MAKE) --no-print-directory test-integration SPECS='$(CI_SPECS)' ROUTER_SPECS='$(CI_ROUTER_SPECS)' CLIENT=1 MCP=1 SPLIT=1
 
 .PHONY: test-integration-clear
 test-integration-clear: ## Integration run with the result cache cleared
@@ -104,7 +113,7 @@ runtime-deps: ## Fail when ./pkg/runtime or a package of it imports anything out
 	if [ -n "$$bad" ]; then echo "pkg/runtime must import the standard library only, found:"; echo "$$bad"; exit 1; fi
 
 .PHONY: check
-check: lint cover-check runtime-deps examples-check tidy-check ## Run every check
+check: lint cover-check runtime-deps examples-build tidy-check ## Run every check; cover-check compares the examples
 
 .PHONY: clean
 clean: ## Remove build and test output
