@@ -11,8 +11,6 @@
 
 Go models, HTTP servers, clients and MCP tools from OpenAPI 3.0, 3.1 and 3.2 specs.
 
-Status: early development. The config format and the generated API may still change.
-
 The goal is a generator that fits your project. The config says where every file goes. Any block of
 the built-in templates can be replaced. The output reads like Go a person wrote.
 

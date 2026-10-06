@@ -388,8 +388,15 @@ type Operation struct {
 	ResponseData         TypeRef    // <Op>ResponseData, empty without a server block
 	ClientRequestOptions TypeRef    // <Op>RequestOptions, empty without a client block or for a webhook
 	ClientResponse       TypeRef    // <Op>Response, empty unless client.with-response is set
+	Bodies               []Body     // every request body, in spec order
 	Responses            []Response // every response, in the order of the generated code
 	Success              *Response  // the first of them with a Code from 200 to 299, or nil
+}
+
+type Body struct {
+	ContentType string  // application/json
+	Field       string  // the field of the request options that holds it: Body, or BodyJSON next to others
+	Type        TypeRef // the type of that field, such as *Pet
 }
 
 type Response struct {
@@ -406,10 +413,19 @@ type Response struct {
 
 `Responses` come in the order of the generated code: codes, ranges, other keys, then `default`,
 whatever the order in the spec. `Code` is what the generated client and error mapping read from
-the key: the key when it is a number, the first digit times 100 when the key has three characters
-and starts with a digit (`2XX`, and also `20X`), else 0 (`default`, `ok`). The parser warns about
-every key that is no code from 100 to 599, no range and not `default`, and the key is still listed.
-`Success` is the first response with a `Code` from 200 to 299, and points into `Responses`.
+the key: the key when it is a number, the first digit times 100 for a range such as `2XX`, else 0
+(`default`). A key that is no code from 100 to 599, no range and not `default` is left out, with a
+warning (`invalid-status`). `Success` is the first response with a `Code` from 200 to 299, and
+points into `Responses`.
+
+`Bodies` lists the request bodies the server and the client options hold, each with the field it
+is in, so a template can make one. For a JSON body of type `*Pet`:
+
+```
+{{- range .Bodies}}{{if eq .ContentType "application/json"}}
+	body := new({{expr .Type.Elem}})
+{{- end}}{{end}}
+```
 
 `Constructor` is the function a hand-written service calls to answer with one status, such as
 `NewGetPetResponseData404`. It takes the status first when `HasStatusArg` is set, which is when

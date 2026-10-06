@@ -41,6 +41,10 @@ const (
 	FileScaffold
 )
 
+// scaffoldHeader opens a scaffold the config does not overwrite. It has no generated marker, so Go
+// tools treat the file as written by hand.
+const scaffoldHeader = "Written once by mockzilla-codegen. Edit it freely: generate does not overwrite it."
+
 // Result is what Generate made: every file with its content, and what the spec and generation
 // reported, sorted by position.
 type Result struct {
@@ -49,13 +53,15 @@ type Result struct {
 }
 
 // File is one generated file. Path is resolved against the config folder; Parts lists the parts it
-// holds, such as models.types.
+// holds, such as models.types. IsOverwritten is set on a scaffold that server.scaffold.overwrite
+// lets Write replace.
 type File struct {
-	Path    string
-	Package string
-	Parts   []string
-	Kind    FileKind
-	Content []byte
+	Path          string
+	Package       string
+	Parts         []string
+	Kind          FileKind
+	IsOverwritten bool
+	Content       []byte
 }
 
 // generation is one Generate run.
@@ -308,11 +314,24 @@ func (g *generation) render() error {
 		for i, p := range f.Parts {
 			parts[i] = string(p)
 		}
-		g.files = append(g.files, File{Path: f.Path, Package: f.Package, Parts: parts, Kind: FileKind(f.Kind), Content: content})
+		g.files = append(g.files, File{
+			Path:          f.Path,
+			Package:       f.Package,
+			Parts:         parts,
+			Kind:          FileKind(f.Kind),
+			IsOverwritten: g.isOverwritten(f),
+			Content:       content,
+		})
 	}
 
 	g.reportUnusedImports()
 	return g.lay.CheckImports(g.imports)
+}
+
+// isOverwritten says whether f is a scaffold the config rewrites on every run, which makes it a
+// generated file in all but its kind.
+func (g *generation) isOverwritten(f *layout.File) bool {
+	return f.Kind == layout.Scaffold && g.cfg.Server != nil && g.cfg.Server.Scaffold.Overwrite
 }
 
 // file renders f with the imports of the config on offer. An offer no part took, which cost
@@ -351,7 +370,11 @@ func (g *generation) file(f *layout.File) ([]byte, error) {
 
 // parts renders the parts of f. A part that names an import on offer takes it.
 func (g *generation) parts(f *layout.File, s *gocode.Scope) (render.FileData, error) {
-	data := render.FileData{Header: g.cfg.Header, Package: f.Package}
+	header := g.cfg.Header
+	if f.Kind == layout.Scaffold && !g.isOverwritten(f) {
+		header = scaffoldHeader
+	}
+	data := render.FileData{Header: header, Package: f.Package}
 	for _, part := range f.Parts {
 		out, err := g.part(part, s)
 		if err != nil {

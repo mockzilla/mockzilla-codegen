@@ -104,6 +104,17 @@ func (s *ImportSet) Take(src []byte) {
 	maps.DeleteFunc(s.offered, func(path string, _ bool) bool { return used[s.names[path]] })
 }
 
+// DropUnused removes each of paths whose name src, declarations of the file, does not refer to.
+func (s *ImportSet) DropUnused(src []byte, paths []string) {
+	used := packageNames(src)
+	for _, path := range paths {
+		if name, ok := s.names[path]; ok && !used[name] {
+			delete(s.names, path)
+			delete(s.paths, name)
+		}
+	}
+}
+
 // Idle lists, sorted, the paths that are still on offer and denied their name to another path:
 // without them the file would name its imports otherwise.
 func (s *ImportSet) Idle() []string {

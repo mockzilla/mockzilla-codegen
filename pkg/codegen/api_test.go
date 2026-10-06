@@ -136,6 +136,7 @@ user-context: {owner: platform}
 			{
 				ID: "CreatePet", Method: "POST", Path: "/pets", HasOptions: true, IsRouted: true,
 				RequestOptions: named(inAPI, "CreatePetServiceRequestOptions"), ResponseData: named(inAPI, "CreatePetResponseData"),
+				Bodies:    []Body{{ContentType: "application/json", Field: "Body", Type: named(inModels, "*Pet")}},
 				Responses: createPet, Success: &createPet[0],
 			},
 			{
@@ -297,6 +298,34 @@ func TestDescribeService(t *testing.T) {
 			assert.Equal(t, tc.wantConstructor, api.Operations[0].Responses[0].Constructor, "next to the interface")
 		})
 	}
+}
+
+func TestDescribeBodies(t *testing.T) {
+	t.Parallel()
+
+	api := describe(run(t, t.TempDir(), "server: {framework: chi}\n", `openapi: 3.1.0
+info: {title: t, version: "1"}
+paths:
+  /pets:
+    post:
+      operationId: createPet
+      requestBody:
+        content:
+          application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+          application/x-www-form-urlencoded: {schema: {$ref: '#/components/schemas/Pet'}}
+          text/plain: {}
+      responses:
+        "204": {description: created}
+components:
+  schemas:
+    Pet: {type: object, properties: {name: {type: string}}}
+`))
+
+	assert.Equal(t, []Body{
+		{ContentType: "application/json", Field: "BodyJSON", Type: TypeRef{Name: "*Pet"}},
+		{ContentType: "application/x-www-form-urlencoded", Field: "BodyForm", Type: TypeRef{Name: "*Pet"}},
+		{ContentType: "text/plain", Field: "BodyText", Type: TypeRef{Name: "string"}},
+	}, api.Operations[0].Bodies)
 }
 
 func TestDescribeResponses(t *testing.T) {

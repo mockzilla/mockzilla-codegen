@@ -16,7 +16,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -108,19 +107,8 @@ func (o *output) diagnostics(list []codegen.Diagnostic, isVerbose bool) {
 			continue
 		}
 
-		var b strings.Builder
-		if d.File != "" {
-			b.WriteString(o.rel(d.File))
-			if d.Line > 0 {
-				b.WriteString(":" + strconv.Itoa(d.Line) + ":" + strconv.Itoa(d.Col))
-			}
-			b.WriteString(": ")
-		}
-		b.WriteString(d.Severity.String() + " " + d.Code + ": " + d.Message)
-		if d.Pointer != "" {
-			b.WriteString(" [" + d.Pointer + "]")
-		}
-		_, _ = fmt.Fprintln(o.stderr, b.String())
+		d.File = o.rel(d.File)
+		_, _ = fmt.Fprintln(o.stderr, d.String())
 	}
 }
 
@@ -274,8 +262,7 @@ func generate(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	case gf.isDryRun:
 		code = out.write(res, codegen.WriteOptions{DryRun: true}, true)
 	default:
-		isOverwrite := cfg.Server != nil && cfg.Server.Scaffold.Overwrite
-		code = out.write(res, codegen.WriteOptions{OverwriteScaffolds: isOverwrite}, gf.isVerbose)
+		code = out.write(res, codegen.WriteOptions{}, gf.isVerbose)
 	}
 	if code != ExitOK {
 		return code
