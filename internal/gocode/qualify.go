@@ -29,6 +29,8 @@ func Text(t gomodel.Type) string {
 		return t.Name
 	case gomodel.Pointer:
 		return "*" + Text(t.Elem)
+	case gomodel.Nullable:
+		return "Nullable[" + Text(t.Elem) + "]"
 	case gomodel.Slice:
 		return "[]" + Text(t.Elem)
 	case gomodel.Map:
@@ -41,6 +43,8 @@ func Text(t gomodel.Type) string {
 func Leaf(t gomodel.Type) gomodel.Type {
 	switch t := t.(type) {
 	case gomodel.Pointer:
+		return Leaf(t.Elem)
+	case gomodel.Nullable:
 		return Leaf(t.Elem)
 	case gomodel.Slice:
 		return Leaf(t.Elem)

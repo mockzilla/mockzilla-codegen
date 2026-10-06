@@ -84,6 +84,7 @@ func TestOptionsFrom(t *testing.T) {
 						"money": {Type: "decimal.Decimal"},
 						"ulid":  {Type: "string"},
 					},
+					Nullable: true,
 				},
 			},
 			want: Options{
@@ -100,6 +101,7 @@ func TestOptionsFrom(t *testing.T) {
 					"ulid":  stringType,
 				},
 				Reserved: []string{"NewError", "NewProblem"},
+				Nullable: true,
 			},
 		},
 		{

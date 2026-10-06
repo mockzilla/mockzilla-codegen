@@ -9,24 +9,37 @@ package gomodel
 
 import "strings"
 
-// presence is what decides whether a struct field is a pointer.
+// presence is what decides whether a struct field is a pointer or a Nullable.
 type presence struct {
 	isRequired       bool
 	isNullable       bool
 	isPointerSkipped bool
 	isInCycle        bool
+	wrap             wrapping
 }
+
+// wrapping is when a field is a Nullable: never, when its type cannot be nil, or always.
+type wrapping int
+
+const (
+	wrapNone wrapping = iota
+	wrapNonNil
+	wrapAny
+)
 
 // Held is how a struct field holds a value of type t that may be absent: a pointer, unless t can
 // be nil already.
 func Held(t Type) Type {
-	return elemType(t, true)
+	return elemType(t, true, false)
 }
 
-// Elem is the type a pointer points to, or t itself.
+// Elem is the type a pointer points to or a Nullable holds, or t itself.
 func Elem(t Type) Type {
-	if p, ok := t.(Pointer); ok {
-		return p.Elem
+	switch x := t.(type) {
+	case Pointer:
+		return x.Elem
+	case Nullable:
+		return x.Elem
 	}
 	return t
 }
@@ -70,6 +83,8 @@ func ErrorDecl(t Type) *Decl {
 		switch x := t.(type) {
 		case Pointer:
 			t = x.Elem
+		case Nullable:
+			t = x.Elem
 		case DeclRef:
 			if x.Decl.Error != nil {
 				return x.Decl
@@ -85,9 +100,12 @@ func ErrorDecl(t Type) *Decl {
 }
 
 // fieldType makes a field a pointer when it can be absent or null, or when its type holds the
-// struct itself by value. Types that can be nil already stay as they are.
+// struct itself by value. Types that can be nil already stay as they are. A wrapped field is a
+// Nullable instead.
 func fieldType(t Type, p presence) Type {
 	switch {
+	case p.wrap == wrapAny, p.wrap == wrapNonNil && !nilable(t):
+		return Nullable{Elem: t}
 	case nilable(t):
 		return t
 	case p.isInCycle, p.isRequired && p.isNullable:
@@ -98,12 +116,29 @@ func fieldType(t Type, p presence) Type {
 	return Pointer{Elem: t}
 }
 
-// elemType is for array items and map values: a pointer only when the value can be null.
-func elemType(t Type, isNullable bool) Type {
-	if isNullable && !nilable(t) {
-		return Pointer{Elem: t}
+// elemType is for array items and map values: a pointer or a Nullable when the value can be null.
+func elemType(t Type, isNullable, isNullableOn bool) Type {
+	switch {
+	case !isNullable || nilable(t):
+		return t
+	case isNullableOn:
+		return Nullable{Elem: t}
 	}
-	return t
+	return Pointer{Elem: t}
+}
+
+// isCollection reports a slice or a map, through aliases and defined types.
+func isCollection(t Type) bool {
+	switch Underlying(t).(type) {
+	case Slice, Map:
+		return true
+	}
+	return false
+}
+
+func isWrapped(t Type) bool {
+	_, ok := t.(Nullable)
+	return ok
 }
 
 // nilable reports types whose zero value is nil: slices, maps, pointers, any, json.RawMessage.

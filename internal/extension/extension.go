@@ -25,6 +25,7 @@ const (
 	GoName           = "x-go-name"
 	GoNameExact      = "x-go-name-exact"
 	SkipPointer      = "x-go-type-skip-optional-pointer"
+	Nullable         = "x-go-nullable"
 	JSONIgnore       = "x-go-json-ignore"
 	OmitEmpty        = "x-omitempty"
 	ExtraTags        = "x-go-extra-tags"
@@ -58,6 +59,7 @@ type Set struct {
 	Name             string
 	IsExactName      bool
 	IsPointerSkipped bool
+	Nullable         *bool
 	IsJSONIgnored    bool
 	OmitEmpty        *bool
 	Tags             []Tag
@@ -133,6 +135,10 @@ func Parse(exts []spec.Extension, at spec.Origin) (Set, []diag.Diagnostic) {
 			s.IsExactName = r.boolean(e.Name, v)
 		case SkipPointer:
 			s.IsPointerSkipped = r.boolean(e.Name, v)
+		case Nullable:
+			if b, ok := r.optionalBool(e.Name, v); ok {
+				s.Nullable = &b
+			}
 		case JSONIgnore:
 			s.IsJSONIgnored = r.boolean(e.Name, v)
 		case OmitEmpty:

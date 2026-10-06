@@ -46,6 +46,7 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
 | `output-options.user-templates` | `templates` for the [blocks that may be replaced](../templates.md#blocks), else [`extra-files`](../templates.md#extra-files) |
 | `output-options.prefer-skip-optional-pointer` | none globally; `x-go-type-skip-optional-pointer` per field |
 | `output-options.prefer-skip-optional-pointer-on-container-types` | the default: a slice or map never gets a pointer |
+| `output-options.nullable-type` | `models.nullable: true`: every field that may be absent or null is a `runtime.Nullable[T]`, optional ones too ([nullable](../types.md#nullable)) |
 | `output-options.streaming-content-types` | `client.streaming` reads `text/event-stream` and line-delimited JSON; the list is fixed |
 | `output-options.resolve-type-name-collisions` | always ([naming](../naming.md)) |
 | `output-options.generate-types-for-anonymous-schemas` | always: every inline object is a named type |
@@ -65,8 +66,6 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
   to `ToCamelCaseWithInitialisms`, so a project on `ToCamelCase` sees `Id` become `ID`.
 - `output-options.response-type-suffix`, `content-types`: type names follow fixed rules,
   `<Op>Response<Status>` and `<Op>JSONRequestBody` ([names](../naming.md#names-for-types-without-a-name)).
-- `output-options.nullable-type`: a nullable field is a pointer ([pointers](../types.md#pointers)),
-  there is no `nullable.Nullable[T]`.
 - `output-options.type-mapping`, `disable-type-aliases-for-type`: `x-go-type` on a schema, and
   `models.int-type` for integers without a format.
 - `output-options.client-response-bytes-function`, `skip-client-response-content-type`,

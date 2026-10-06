@@ -179,6 +179,11 @@ func fillForm(target reflect.Value, form *multipart.Form, enc Encoding) error {
 
 // fillField stores the parts of name in field: its files, else its texts, file parts included.
 func fillField(field reflect.Value, name string, form *multipart.Form, enc Encoding) error {
+	if len(form.Value[name]) > 0 || len(form.File[name]) > 0 {
+		if target, ok := targetOf(field); ok {
+			field = target
+		}
+	}
 	isSet, err := setFiles(field, form.File[name])
 	if err != nil || isSet {
 		return err
@@ -355,8 +360,9 @@ func setFiles(field reflect.Value, headers []*multipart.FileHeader) (bool, error
 }
 
 func isFileField(t reflect.Type) bool {
-	for t.Kind() == reflect.Pointer || t.Kind() == reflect.Slice {
-		t = t.Elem()
+	t = valueType(t)
+	for t.Kind() == reflect.Slice {
+		t = valueType(t.Elem())
 	}
 	return t == fileType
 }

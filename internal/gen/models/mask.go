@@ -51,8 +51,11 @@ func maskFieldView(m *gomodel.Mask, r, rt string) MaskFieldView {
 	if m.Field != "" {
 		target = gocode.Selector(r, m.Field)
 	}
-	value := target
-	if m.IsPointer {
+	value, owner := target, target
+	switch {
+	case m.IsWrapped:
+		value, owner = "value", "value"
+	case m.IsPointer:
 		value = gocode.Deref(target)
 	}
 
@@ -61,11 +64,11 @@ func maskFieldView(m *gomodel.Mask, r, rt string) MaskFieldView {
 	case gomodel.MaskZero:
 		return MaskFieldView{Target: target, Value: gocode.Call(gocode.Selector(rt, "Zero"), target)}
 	case gomodel.MaskItems:
-		return MaskFieldView{Target: target, Value: gocode.Call(gocode.Selector(rt, "MaskSlice"), target)}
+		out = gocode.Call(gocode.Selector(rt, "MaskSlice"), owner)
 	case gomodel.MaskValues:
-		return MaskFieldView{Target: target, Value: gocode.Call(gocode.Selector(rt, "MaskMap"), target)}
+		out = gocode.Call(gocode.Selector(rt, "MaskMap"), owner)
 	case gomodel.MaskNested:
-		out = gocode.Call(gocode.Selector(target, "Masked"))
+		out = gocode.Call(gocode.Selector(owner, "Masked"))
 	case gomodel.MaskRegex:
 		out = gocode.Call(gocode.Selector(rt, maskFuncs[m.Kind]), value, m.Pattern.Name)
 	case gomodel.MaskPartial:
@@ -74,8 +77,11 @@ func maskFieldView(m *gomodel.Mask, r, rt string) MaskFieldView {
 		out = gocode.Call(gocode.Selector(rt, maskFuncs[m.Kind]), value)
 	}
 
-	if !m.IsPointer {
-		return MaskFieldView{Target: target, Value: out}
+	switch {
+	case m.IsWrapped:
+		return MaskFieldView{Target: target, Guard: gocode.Get(target, value, "ok"), Value: gocode.Call(gocode.Selector(rt, "Some"), out)}
+	case m.IsPointer && m.Kind != gomodel.MaskItems && m.Kind != gomodel.MaskValues:
+		return MaskFieldView{Target: target, Guard: gocode.NotNil(target), Value: gocode.Call(gocode.Selector(rt, "Ptr"), out)}
 	}
-	return MaskFieldView{Target: target, Guard: gocode.NotNil(target), Value: gocode.Call(gocode.Selector(rt, "Ptr"), out)}
+	return MaskFieldView{Target: target, Value: out}
 }

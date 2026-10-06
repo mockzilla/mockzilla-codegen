@@ -1,0 +1,41 @@
+Pet struct models.types
+  ID int json=id required
+  Tag runtime.Nullable[string] json=tag required nullable
+  Note runtime.Nullable[string] json=note nullable omitempty omitzero
+  Age runtime.Nullable[int] json=age omitempty omitzero getter=GetAge:1
+  Parent runtime.Nullable[Pet] json=parent omitempty omitzero
+  Tags []string json=tags omitempty omitzero
+  Scores []runtime.Nullable[int] json=scores omitempty omitzero
+  Labels map[string]runtime.Nullable[string] json=labels omitempty omitzero
+  Exact *string json=exact omitempty
+  Aliases runtime.Nullable[[]string] json=aliases nullable omitempty omitzero
+  Plain int json=plain omitempty
+  Secret runtime.Nullable[string] json=secret omitempty omitzero sensitive
+  ? validate
+  ? Note path=note wrapped guarded maxLength(10)
+  ? Age path=age wrapped guarded notNull minimum(0)
+  ? Parent path=parent wrapped guarded notNull nested
+  ? Scores path=scores guarded
+  ?   items - path= wrapped guarded minimum(0)
+  ? Aliases path=aliases wrapped guarded minItems(1)
+  ? Secret path=secret wrapped guarded notNull
+  * mask Parent nested wrapped
+  * mask Secret full wrapped
+ListPetsQuery struct models.params
+  Limit runtime.Nullable[int] json=limit omitempty omitzero getter=GetLimit:20
+  Kind *string json=kind omitempty
+  ID int json=id required
+  From *string json=from omitempty
+  To runtime.Nullable[string] json=to omitempty omitzero
+ListPetsResponse200Headers struct models.responses
+  XRate runtime.Nullable[int] json=X-Rate omitempty omitzero
+op ListPets GET /pets
+  params query ListPetsQuery
+    default limit 20
+  response 200 application/json Pet
+  response 200 headers ListPetsResponse200Headers
+---
+warning extension-value 10:11 /paths/~1pets/get/parameters/2: x-go-nullable on query parameter "id" is left out: it is required and not nullable, so it always holds a value
+warning extension-value 12:11 /paths/~1pets/get/parameters/4: x-go-nullable of query parameter "to" is "true", and "false" in its schema; the parameter's is used
+warning extension-value 26:13 /components/schemas/Pet/properties/id: x-go-nullable on property "id" of Pet is left out: it is required and not nullable, so it always holds a value
+warning extension-value 36:16 /components/schemas/Pet/properties/plain: x-go-nullable on property "plain" of Pet is left out: x-go-type-skip-optional-pointer makes it a plain value

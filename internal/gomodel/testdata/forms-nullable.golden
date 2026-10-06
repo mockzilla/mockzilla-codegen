@@ -1,0 +1,44 @@
+Pet union models.unions form
+  | oneOf
+  | Cat *Cat kinds=object required=claws known=claws,friend
+  | Dog *Dog kinds=object required=bark known=bark
+Cat struct models.types
+  Claws int json=claws required
+  Friend runtime.Nullable[Pet] json=friend omitempty omitzero
+Dog struct models.types
+  Bark string json=bark required
+Labels struct models.types form
+  Name runtime.Nullable[string] json=name omitempty omitzero
+  AdditionalProperties map[string]string json=-
+Order struct models.types
+  Lines []Line json=lines omitempty omitzero
+  More Lines json=more omitempty omitzero
+  Code runtime.Nullable[OrderCode] json=code omitempty omitzero
+OrderCode union models.unions
+  | oneOf text
+  | String *string kinds=string
+  | Int *int kinds=integer
+Lines defined []Extras models.types
+Extras struct models.types form
+  M runtime.Nullable[string] json=m omitempty omitzero
+  AdditionalProperties map[string]string json=-
+Line struct models.types
+  Extra runtime.Nullable[LineExtra] json=extra omitempty omitzero
+LineExtra struct models.types form
+  N runtime.Nullable[int] json=n omitempty omitzero
+  AdditionalProperties map[string]int json=-
+Shown union models.unions
+  | oneOf
+  | Option1 *ShownOption1 kinds=object required=a known=a
+  | Option2 *ShownOption2 kinds=object required=b known=b
+ShownOption1 struct models.types
+  A string json=a required
+ShownOption2 struct models.types
+  B string json=b required
+op CreatePet POST /pets
+  body multipart/form-data Pet
+  body application/json Shown
+  response 200 application/x-www-form-urlencoded; charset=utf-8 Labels
+op PutOrder PUT /orders
+  body application/x-www-form-urlencoded Order
+---

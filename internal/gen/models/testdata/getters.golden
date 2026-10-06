@@ -1,5 +1,7 @@
 package api
 
+import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+
 type Sort string
 
 const (
@@ -7,11 +9,12 @@ const (
 )
 
 type ListQuery struct {
-	Limit *int     `json:"limit,omitempty"`
-	Sort  *Sort    `json:"sort,omitempty"`
-	Tags  []string `json:"tags,omitempty"`
-	Note  *string  `json:"note,omitempty"`
-	Page  int      `json:"page"`
+	Limit *int                  `json:"limit,omitempty"`
+	Sort  *Sort                 `json:"sort,omitempty"`
+	Tags  []string              `json:"tags,omitempty"`
+	Note  *string               `json:"note,omitempty"`
+	Page  int                   `json:"page"`
+	Size  runtime.Nullable[int] `json:"size,omitzero"`
 }
 
 // GetLimit returns Limit, or 20 when it is nil.
@@ -44,4 +47,12 @@ func (l *ListQuery) GetNote() string {
 		return "a default too long to quote in a doc line"
 	}
 	return *l.Note
+}
+
+// GetSize returns Size, or 10 when it holds no value.
+func (l *ListQuery) GetSize() int {
+	if l == nil {
+		return 10
+	}
+	return l.Size.Or(10)
 }

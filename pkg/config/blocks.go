@@ -59,6 +59,7 @@ type Models struct {
 	Validation   ModelValidation   `yaml:"validation" desc:"Generated Validate methods."`
 	ErrorMapping map[string]string `yaml:"error-mapping" desc:"Error types, mapped to the path of their message field."`
 	FormatTypes  map[string]GoType `yaml:"format-types" desc:"Go types by schema format, such as uuid, in place of the built-in ones. x-go-type on a schema wins."`
+	Nullable     bool              `yaml:"nullable" desc:"Make every value that may be absent or null a runtime.Nullable in place of a pointer. x-go-nullable on a property wins."`
 }
 
 // GoType is a Go type and the package it comes from.

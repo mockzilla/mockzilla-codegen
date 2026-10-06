@@ -94,11 +94,9 @@ func (w *formWriter) write(v any) error {
 
 // part writes one field of a multipart form, a list item by item and each item by its type.
 func (w *formWriter) part(name string, v reflect.Value) error {
-	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
-		if v.IsNil() {
-			return nil
-		}
-		v = v.Elem()
+	v, ok := held(v)
+	if !ok {
+		return nil
 	}
 
 	t := v.Type()
@@ -326,6 +324,10 @@ func jsonFields(rv reflect.Value, encoded any) any {
 
 // jsonField is item, the JSON of v, as text when v writes its own JSON object or array.
 func jsonField(v reflect.Value, item any) any {
+	v, ok := held(v)
+	if !ok {
+		return item
+	}
 	t := v.Type()
 	if !t.Implements(jsonMarshaler) && !reflect.PointerTo(t).Implements(jsonMarshaler) {
 		return jsonFields(v, item)
@@ -391,9 +393,7 @@ func isFormText(v any) bool {
 // isScalar reports a type written as one text: a string, a bool, a number, or one that writes
 // its own text, such as time.Time.
 func isScalar(t reflect.Type) bool {
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
+	t = valueType(t)
 	switch {
 	case t.Implements(textMarshaler):
 		return true

@@ -264,6 +264,9 @@ func TestViewRendersGetters(t *testing.T) {
 			}},
 			{Name: "Note", JSONName: "note", Type: gomodel.Pointer{Elem: str}, OmitEmpty: true, Getter: &gomodel.Getter{Name: "GetNote", Default: long}},
 			{Name: "Page", JSONName: "page", Type: gomodel.Builtin{Name: "int"}},
+			{Name: "Size", JSONName: "size", Type: gomodel.Nullable{Elem: gomodel.Builtin{Name: "int"}}, OmitEmpty: true, OmitZero: true, Getter: &gomodel.Getter{
+				Name: "GetSize", Default: spec.Value{Kind: spec.KindNumber, Num: json.Number("10")},
+			}},
 		},
 	}}
 	g := New(&gomodel.Model{Decls: []*gomodel.Decl{sortEnum, query}})

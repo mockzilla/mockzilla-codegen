@@ -12,3 +12,11 @@ func TestMarkForms(t *testing.T) {
 
 	checkGolden(t, "forms", "forms", testOptions())
 }
+
+func TestMarkFormsNullable(t *testing.T) {
+	t.Parallel()
+
+	opts := testOptions()
+	opts.Nullable = true
+	checkGolden(t, "forms", "forms-nullable", opts)
+}

@@ -132,6 +132,10 @@
           ],
           "type": "string"
         },
+        "nullable": {
+          "description": "Make every value that may be absent or null a runtime.Nullable in place of a pointer. x-go-nullable on a property wins.",
+          "type": "boolean"
+        },
         "validation": {
           "additionalProperties": false,
           "description": "Generated Validate methods.",

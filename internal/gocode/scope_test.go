@@ -68,6 +68,12 @@ func TestScopeExpr(t *testing.T) {
 			typ:  gomodel.Map{Key: gomodel.Builtin{Name: "string"}, Elem: gomodel.Slice{Elem: gomodel.DeclRef{Decl: query}}},
 			want: "map[string][]ListQuery",
 		},
+		{
+			name:        "Nullable imports the runtime",
+			typ:         gomodel.Nullable{Elem: gomodel.DeclRef{Decl: query}},
+			want:        "runtime.Nullable[ListQuery]",
+			wantImports: `import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"`,
+		},
 		{name: "Nil type is any", want: "any"},
 	}
 

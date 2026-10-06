@@ -44,6 +44,8 @@ func (s *Scope) Expr(t gomodel.Type) string {
 		return s.Import(t.Import) + "." + t.Name
 	case gomodel.Pointer:
 		return "*" + s.Expr(t.Elem)
+	case gomodel.Nullable:
+		return s.Import(gomodel.Import{Path: gomodel.RuntimePath}) + ".Nullable[" + s.Expr(t.Elem) + "]"
 	case gomodel.Slice:
 		return "[]" + s.Expr(t.Elem)
 	case gomodel.Map:

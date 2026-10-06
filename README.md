@@ -9,7 +9,8 @@ Status: early development. The config format and the generated API may still cha
 - Every file's location is written in the config. One file or many, one package or several.
 - Consistent, deterministic names, with clashes resolved the same way on every run
   ([naming rules](docs/naming.md)).
-- Pointers only where a value can be missing or null, and `allOf` merged into one struct
+- Pointers only where a value can be missing or null, or `runtime.Nullable[T]` that tells `null`
+  from absent ([nullable](docs/types.md#nullable)), and `allOf` merged into one struct
   ([type rules](docs/types.md)).
 - One shape for `oneOf`/`anyOf` unions, whatever the number of variants
   ([unions](docs/types.md#unions)).
@@ -85,6 +86,7 @@ models:
   validation: {response: true}
   error-mapping: {ErrorResponse: error.message}
   format-types: {uuid: {type: uuid.UUID}}
+  nullable: true
 server:
   framework: chi
   name: PetService

@@ -1,0 +1,37 @@
+openapi: 3.1.0
+info: {title: nullable, version: "1"}
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      parameters:
+        - {name: limit, in: query, schema: {type: integer, default: 20}}
+        - {name: kind, in: query, x-go-nullable: false, schema: {type: string}}
+        - {name: id, in: query, required: true, x-go-nullable: true, schema: {type: integer}}
+        - {name: from, in: query, schema: {type: string, x-go-nullable: false}}
+        - {name: to, in: query, x-go-nullable: true, schema: {type: string, x-go-nullable: false}}
+      responses:
+        "200":
+          description: ok
+          headers:
+            X-Rate: {schema: {type: integer}}
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Pet'}}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, tag]
+      properties:
+        id: {type: integer, x-go-nullable: true}
+        tag: {type: [string, "null"]}
+        note: {type: [string, "null"], maxLength: 10}
+        age: {type: integer, minimum: 0, default: 1}
+        parent: {$ref: '#/components/schemas/Pet'}
+        tags: {type: array, items: {type: string}}
+        scores: {type: array, items: {type: [integer, "null"], minimum: 0}}
+        labels: {type: object, additionalProperties: {type: [string, "null"]}}
+        exact: {type: string, x-go-nullable: false}
+        aliases: {type: [array, "null"], items: {type: string}, minItems: 1, x-go-nullable: true}
+        plain: {type: integer, x-go-nullable: true, x-go-type-skip-optional-pointer: true}
+        secret: {type: string, x-sensitive-data: full}

@@ -314,7 +314,7 @@ func TestPartsOf(t *testing.T) {
 		{name: "Builtins and nil are in no part", types: []gomodel.Type{str, nil, gomodel.Qualified{Name: "Time"}}},
 		{
 			name:  "Declarations through pointers, slices and maps, each part once and sorted",
-			types: []gomodel.Type{params, gomodel.Pointer{Elem: pet}, gomodel.Slice{Elem: pet}, gomodel.Map{Key: str, Elem: params}},
+			types: []gomodel.Type{params, gomodel.Pointer{Elem: pet}, gomodel.Nullable{Elem: pet}, gomodel.Slice{Elem: pet}, gomodel.Map{Key: str, Elem: params}},
 			want:  []layout.PartID{gomodel.PartParams, gomodel.PartTypes},
 		},
 	}

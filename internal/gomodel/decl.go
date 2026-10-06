@@ -111,6 +111,7 @@ type Decl struct {
 
 	schema    *spec.Schema
 	enumNames []string
+	isParams  bool
 }
 
 // Validation is what the Validate methods of a declaration check. Count is the runtime check of
@@ -126,20 +127,22 @@ type Validation struct {
 // Check is what Validate checks of one value. Field is the Go field it lives in, empty for the value
 // itself, and Path its JSON name in error paths. IsGuarded skips the checks of a nil value, which is
 // absent; IsRequired reports it. Nested is the declaration whose Validate is called, nil with
-// IsNested for runtime.Email.
+// IsNested for runtime.Email. IsWrapped marks a Nullable; IsNullRejected reports it set to null.
 type Check struct {
-	Field      string
-	Path       string
-	IsPointer  bool
-	IsGuarded  bool
-	IsRequired bool
-	Side       Side
-	Rules      []Rule
-	IsNested   bool
-	Nested     *Decl
-	Items      *Check
-	Values     *Check
-	Keys       []Rule
+	Field          string
+	Path           string
+	IsPointer      bool
+	IsWrapped      bool
+	IsGuarded      bool
+	IsRequired     bool
+	IsNullRejected bool
+	Side           Side
+	Rules          []Rule
+	IsNested       bool
+	Nested         *Decl
+	Items          *Check
+	Values         *Check
+	Keys           []Rule
 }
 
 // Rule is one keyword check. Number is a bound, length, count or factor as the spec writes it.
@@ -188,6 +191,7 @@ type Mask struct {
 	Field      string
 	Kind       MaskKind
 	IsPointer  bool
+	IsWrapped  bool
 	Pattern    *Pattern
 	KeepPrefix int
 	KeepSuffix int
@@ -252,7 +256,7 @@ type Shape struct {
 // Field is one struct field. Required, Nullable, ReadOnly and WriteOnly repeat the spec.
 // IsJSONIgnored writes the field with the JSON tag "-". Sensitive is how Masked masks it, nil for
 // a value that is not sensitive. Value and Default are what the server checks and sets in a body.
-// Getter returns the field or its default, nil when the field has none.
+// Getter returns the field or its default, nil when the field has none. OmitZero tags it omitzero.
 type Field struct {
 	Name             string
 	JSONName         string
@@ -260,6 +264,7 @@ type Field struct {
 	Required         bool
 	Nullable         bool
 	OmitEmpty        bool
+	OmitZero         bool
 	ReadOnly         bool
 	WriteOnly        bool
 	Deprecated       bool
@@ -277,6 +282,7 @@ type Field struct {
 	def              *spec.Value
 	goName           string
 	isPointerSkipped bool
+	wrap             wrapping
 }
 
 // Tag is a struct tag written next to json, such as yaml:"name,omitempty".

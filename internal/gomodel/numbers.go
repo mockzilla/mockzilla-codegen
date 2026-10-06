@@ -32,6 +32,8 @@ func fitsFloat64(t Type, seen map[*Decl]bool) bool {
 		return slices.Contains(stringTypes, Type(t))
 	case Pointer:
 		return fitsFloat64(t.Elem, seen)
+	case Nullable:
+		return fitsFloat64(t.Elem, seen)
 	case Slice:
 		return fitsFloat64(t.Elem, seen)
 	case Map:

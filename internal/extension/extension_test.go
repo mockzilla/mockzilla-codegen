@@ -55,11 +55,12 @@ func TestParse(t *testing.T) {
 				ext(GoTypeName, str("Account")),
 				ext(GoNameExact, boolean(true)),
 				ext(SkipPointer, str("true")),
+				ext(Nullable, boolean(false)),
 				ext(JSONIgnore, boolean(true)),
 				ext(OmitEmpty, boolean(false)),
 				ext(DeprecatedReason, str("use v2")),
 			},
-			want: Set{Name: "accountID", TypeName: "Account", IsExactName: true, IsPointerSkipped: true, IsJSONIgnored: true, OmitEmpty: &off, DeprecatedReason: "use v2"},
+			want: Set{Name: "accountID", TypeName: "Account", IsExactName: true, IsPointerSkipped: true, Nullable: &off, IsJSONIgnored: true, OmitEmpty: &off, DeprecatedReason: "use v2"},
 		},
 		{
 			name: "Extra tags sorted by key",
