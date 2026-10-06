@@ -8,6 +8,7 @@
 package integration
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io/fs"
@@ -96,7 +97,8 @@ var splitVariant = itest.Variant{
 // TestIntegration generates every spec in testdata/specs with the models variant, one per
 // framework FRAMEWORKS names (chi by default, every framework for all), the client variant when
 // CLIENT is set, the MCP variant when MCP is set and the split variant when SPLIT is set, then
-// builds and tests the result. It fails on every failed job.
+// builds and tests the result. A spec ROUTER_SPECS names runs on every other framework too, and
+// BATCH=i/n keeps the jobs of the i-th of n batches. It fails on every failed job.
 func TestIntegration(t *testing.T) {
 	t.Parallel()
 
@@ -114,8 +116,6 @@ func TestIntegration(t *testing.T) {
 		deps = append(deps, servers["chi"]...)
 		deps = append(deps, mcpDeps...)
 	}
-	slices.Sort(deps)
-	deps = slices.Compact(deps)
 	repo, err := filepath.Abs("../..")
 	require.NoError(t, err)
 	named := strings.Fields(os.Getenv("SPEC") + " " + os.Getenv("SPECS"))
@@ -124,6 +124,18 @@ func TestIntegration(t *testing.T) {
 	if len(specs) == 0 {
 		t.Skip("no specs in testdata/specs")
 	}
+
+	all := itest.Jobs(specs, variants)
+	if routed := routedSpecs(specs, strings.Fields(os.Getenv("ROUTER_SPECS"))); len(routed) > 0 {
+		others, otherDeps := otherServers(variants)
+		all = append(all, itest.Jobs(routed, others)...)
+		deps = append(deps, otherDeps...)
+	}
+	all, err = pickBatch(all, os.Getenv("BATCH"))
+	require.NoError(t, err)
+
+	slices.Sort(deps)
+	deps = slices.Compact(deps)
 
 	concurrency := runtime.GOMAXPROCS(0)
 	if s := os.Getenv("INTEGRATION_MAX_CONCURRENCY"); s != "" {
@@ -153,7 +165,7 @@ func TestIntegration(t *testing.T) {
 	var cached []itest.Result
 	var jobs []itest.Job
 	keys := map[string]string{}
-	for _, job := range itest.Jobs(specs, variants) {
+	for _, job := range all {
 		key, keyErr := itest.Key(job)
 		require.NoError(t, keyErr)
 		keys[job.Package] = key
@@ -208,14 +220,71 @@ func selectVariants(frameworks string, isSet bool) ([]itest.Variant, []string, e
 		if !ok {
 			return nil, nil, fmt.Errorf("FRAMEWORKS names %q, which has no integration variant", name)
 		}
-		variants = append(variants, itest.Variant{
-			Name:   name,
-			Config: "server:\n  framework: " + name + "\n" + serverValidation,
-			Init:   "%s.NewRouter(nil)",
-		})
+		variants = append(variants, serverVariant(name))
 		deps = append(deps, serverDeps...)
 	}
 	return variants, deps, nil
+}
+
+// serverVariant generates the server of framework with request and response validation.
+func serverVariant(framework string) itest.Variant {
+	return itest.Variant{
+		Name:   framework,
+		Config: "server:\n  framework: " + framework + "\n" + serverValidation,
+		Init:   "%s.NewRouter(nil)",
+	}
+}
+
+// otherServers is a server variant of every framework variants has none of, with its modules.
+func otherServers(variants []itest.Variant) ([]itest.Variant, []string) {
+	var others []itest.Variant
+	var deps []string
+	for _, name := range slices.Sorted(maps.Keys(servers)) {
+		if !slices.ContainsFunc(variants, func(v itest.Variant) bool { return v.Name == name }) {
+			others = append(others, serverVariant(name))
+			deps = append(deps, servers[name]...)
+		}
+	}
+	return others, deps
+}
+
+// routedSpecs are the specs whose name is in names.
+func routedSpecs(specs []itest.Spec, names []string) []itest.Spec {
+	var routed []itest.Spec
+	for _, s := range specs {
+		if slices.Contains(names, s.Name) {
+			routed = append(routed, s)
+		}
+	}
+	return routed
+}
+
+// pickBatch keeps batch i of n for BATCH=i/n; each job joins the batch with the fewest spec bytes.
+func pickBatch(jobs []itest.Job, batch string) ([]itest.Job, error) {
+	if batch == "" {
+		return jobs, nil
+	}
+	first, count, _ := strings.Cut(batch, "/")
+	i, iErr := strconv.Atoi(first)
+	n, nErr := strconv.Atoi(count)
+	if iErr != nil || nErr != nil || i < 1 || i > n {
+		return nil, fmt.Errorf("BATCH is %q, want i/n with i from 1 to n", batch)
+	}
+
+	heaviest := slices.Clone(jobs)
+	slices.SortStableFunc(heaviest, func(a, b itest.Job) int {
+		return cmp.Compare(b.Spec.Size, a.Spec.Size)
+	})
+	loads := make([]int64, n)
+	var picked []itest.Job
+	for _, j := range heaviest {
+		lightest := slices.Index(loads, slices.Min(loads))
+		loads[lightest] += j.Spec.Size
+		if lightest == i-1 {
+			picked = append(picked, j)
+		}
+	}
+	return picked, nil
 }
 
 // runWithProgress runs the jobs and prints the runner's progress while they run.

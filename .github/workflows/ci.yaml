@@ -9,6 +9,10 @@ on:
 
 permissions: read-all
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -47,7 +51,11 @@ jobs:
   integration:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
 
@@ -74,5 +82,5 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: integration on the CI specs
-        run: make test-integration-ci
+      - name: integration on the CI specs, batch ${{ matrix.batch }} of 4
+        run: make test-integration-ci BATCH=${{ matrix.batch }}/4

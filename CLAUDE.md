@@ -22,7 +22,8 @@ Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33f/libop
   (`.integration-cache.json`); `make test-integration-clear` runs all. Both sweeps leave out a spec
   whose name starts with `-` and `stash` folders.
 - `make test-integration-ci` runs what CI runs: `.github/ci-specs.txt` on every variant with chi,
-  `.github/ci-router-specs.txt` on every framework.
+  the specs `.github/ci-router-specs.txt` lists on every framework too. `BATCH=i/n` runs one of n
+  batches, as the four CI jobs do.
 - Coverage gate exclusions live in `.covignore`.
 
 ## Rules

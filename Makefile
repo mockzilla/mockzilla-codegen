@@ -93,12 +93,11 @@ test-parse: ## Parse every spec in testdata/specs; SPEC=, SPECS= narrow it
 
 .PHONY: test-integration
 test-integration: ## Generate, build and test every spec in testdata/specs; SPEC=, SPECS= narrow it, FRAMEWORKS= picks the server variants (chi, std-http, echo, any of docs/server.md's routers, or all), CLIENT=1 adds the client variant, MCP=1 the MCP variant, SPLIT=1 the variant with every part in its own package
-	SPEC='$(SPEC)' SPECS='$(SPECS)' $(if $(FRAMEWORKS),FRAMEWORKS='$(FRAMEWORKS)') $(if $(CLIENT),CLIENT='$(CLIENT)') $(if $(MCP),MCP='$(MCP)') $(if $(SPLIT),SPLIT='$(SPLIT)') go test -tags integration -count=1 -timeout 120m -v ./test/integration
+	SPEC='$(SPEC)' SPECS='$(SPECS)' $(if $(FRAMEWORKS),FRAMEWORKS='$(FRAMEWORKS)') $(if $(CLIENT),CLIENT='$(CLIENT)') $(if $(MCP),MCP='$(MCP)') $(if $(SPLIT),SPLIT='$(SPLIT)') $(if $(ROUTER_SPECS),ROUTER_SPECS='$(ROUTER_SPECS)') $(if $(BATCH),BATCH='$(BATCH)') go test -tags integration -count=1 -timeout 120m -v ./test/integration
 
 .PHONY: test-integration-ci
-test-integration-ci: ## Integration run of CI: .github/ci-specs.txt with client, MCP and split, .github/ci-router-specs.txt on every framework
-	$(MAKE) --no-print-directory test-integration SPECS='$(CI_SPECS)' CLIENT=1 MCP=1 SPLIT=1
-	$(MAKE) --no-print-directory test-integration SPECS='$(CI_ROUTER_SPECS)' FRAMEWORKS=all
+test-integration-ci: ## Integration run of CI: .github/ci-specs.txt with client, MCP and split, .github/ci-router-specs.txt on every framework; BATCH=i/n runs one of n batches
+	$(MAKE) --no-print-directory test-integration SPECS='$(CI_SPECS)' ROUTER_SPECS='$(CI_ROUTER_SPECS)' CLIENT=1 MCP=1 SPLIT=1
 
 .PHONY: test-integration-clear
 test-integration-clear: ## Integration run with the result cache cleared
