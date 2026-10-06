@@ -36,6 +36,9 @@ type assigner struct {
 // assign stores v, a string, []string, []any, map[string]string or map[string]any, in dst, which
 // must be settable.
 func (a assigner) assign(dst reflect.Value, v any) error {
+	if target, ok := targetOf(dst); ok {
+		return a.assign(target, v)
+	}
 	switch dst.Kind() {
 	case reflect.Pointer:
 		if dst.IsNil() {

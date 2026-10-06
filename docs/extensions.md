@@ -10,6 +10,7 @@ Extensions change what mockzilla-codegen writes for one schema, property or para
 | `x-go-name` | schema, property, parameter or its schema | the name of the type, field or parameter field |
 | `x-go-name-exact` | next to `x-go-name` | use the name as written, even unexported |
 | `x-go-type-skip-optional-pointer` | property, parameter or its schema | no pointer for an optional field |
+| `x-go-nullable` | property, parameter or its schema | `runtime.Nullable[T]` (`true`) or a pointer (`false`), over `models.nullable` ([nullable](types.md#nullable)) |
 | `x-go-json-ignore` | property | JSON tag `-` |
 | `x-omitempty` | property | `omitempty` on (`true`) or off (`false`) |
 | `x-go-extra-tags` | property, parameter or its schema | extra struct tags; they win over `models.extra-tags` on the same key |
@@ -18,8 +19,8 @@ Extensions change what mockzilla-codegen writes for one schema, property or para
 | `x-sensitive-data` | property | masked in `Masked()` and in logs |
 | `x-mcp` | operation | MCP tool settings: `skip`, `name`, `description` ([MCP](mcp.md#x-mcp)) |
 
-A parameter's field reads `x-go-name`, `x-go-extra-tags` and `x-go-type-skip-optional-pointer` from
-the parameter and from its schema. When both set a name, or a tag of one key, the parameter's
+A parameter's field reads `x-go-name`, `x-go-extra-tags`, `x-go-type-skip-optional-pointer` and
+`x-go-nullable` from the parameter and from its schema. When both set a name, or a tag of one key, the parameter's
 wins, with a warning.
 
 A value of the wrong kind is left out, with a warning. An unknown extension starting with `x-go-`

@@ -31,6 +31,7 @@ models:
   validation: {response: true}
   error-mapping: {ErrorResponse: error.message}
   format-types: {uuid: {type: uuid.UUID}}
+  nullable: true
 server:
   framework: chi
   name: PetService

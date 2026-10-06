@@ -84,6 +84,21 @@ func NotNil(x string) string {
 	return x + " != nil"
 }
 
+// Or writes the conditions joined by ||.
+func Or(conds ...string) string {
+	return strings.Join(conds, " || ")
+}
+
+// IsNil writes x == nil.
+func IsNil(x string) string {
+	return x + " == nil"
+}
+
+// Get writes value, ok := x.Get(); ok, which holds when the Nullable x holds a value.
+func Get(x, value, ok string) string {
+	return value + ", " + ok + " := " + Call(Selector(x, "Get")) + "; " + ok
+}
+
 // NotEmpty writes x != "".
 func NotEmpty(x string) string {
 	return x + ` != ""`

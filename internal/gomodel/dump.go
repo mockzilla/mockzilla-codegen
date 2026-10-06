@@ -109,6 +109,9 @@ func dumpDecl(b *strings.Builder, d *Decl) {
 		if m.IsPointer {
 			b.WriteString(" pointer")
 		}
+		if m.IsWrapped {
+			b.WriteString(" wrapped")
+		}
 		if m.Pattern != nil {
 			b.WriteString(" " + m.Pattern.Name)
 		}
@@ -136,8 +139,10 @@ func dumpCheck(b *strings.Builder, c *Check, indent string) {
 		word  string
 	}{
 		{c.IsPointer, "pointer"},
+		{c.IsWrapped, "wrapped"},
 		{c.IsGuarded, "guarded"},
 		{c.IsRequired, "required"},
+		{c.IsNullRejected, "notNull"},
 		{c.IsNested, "nested"},
 	} {
 		if flag.isSet {
@@ -263,6 +268,7 @@ func dumpField(b *strings.Builder, f *Field) {
 		{f.Required, "required"},
 		{f.Nullable, "nullable"},
 		{f.OmitEmpty, "omitempty"},
+		{f.OmitZero, "omitzero"},
 		{f.ReadOnly, "readOnly"},
 		{f.WriteOnly, "writeOnly"},
 		{f.Deprecated, "deprecated"},
@@ -358,6 +364,8 @@ func typeText(t Type) string {
 		return path.Base(t.Import.Path) + "." + t.Name
 	case Pointer:
 		return "*" + typeText(t.Elem)
+	case Nullable:
+		return "runtime.Nullable[" + typeText(t.Elem) + "]"
 	case Slice:
 		return "[]" + typeText(t.Elem)
 	case Map:

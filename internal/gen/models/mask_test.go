@@ -33,6 +33,10 @@ func TestViewRendersMasks(t *testing.T) {
 		{Name: "ByName", JSONName: "byName", Type: gomodel.Map{Key: str, Elem: gomodel.DeclRef{Decl: contact}}},
 		{Name: "Old", JSONName: "old", Type: str, Deprecated: true, DeprecatedReason: "Use Password."},
 		{Name: "Hidden", JSONName: "hidden", Type: str, IsJSONIgnored: true},
+		{Name: "Nick", JSONName: "nick", Type: gomodel.Nullable{Elem: str}},
+		{Name: "Backup", JSONName: "backup", Type: gomodel.Nullable{Elem: gomodel.DeclRef{Decl: contact}}},
+		{Name: "Others", JSONName: "others", Type: gomodel.Nullable{Elem: gomodel.Slice{Elem: gomodel.DeclRef{Decl: contact}}}},
+		{Name: "Code", JSONName: "code", Type: gomodel.Nullable{Elem: gomodel.Builtin{Name: "int"}}},
 	}}, Masks: []*gomodel.Mask{
 		{Field: "Password", IsPointer: true},
 		{Field: "Ssn", Kind: gomodel.MaskRegex, Pattern: digits},
@@ -43,6 +47,10 @@ func TestViewRendersMasks(t *testing.T) {
 		{Field: "Plain", Kind: gomodel.MaskNested},
 		{Field: "List", Kind: gomodel.MaskItems},
 		{Field: "ByName", Kind: gomodel.MaskValues},
+		{Field: "Nick", IsWrapped: true},
+		{Field: "Backup", Kind: gomodel.MaskNested, IsWrapped: true},
+		{Field: "Others", Kind: gomodel.MaskItems, IsWrapped: true},
+		{Field: "Code", Kind: gomodel.MaskZero, IsWrapped: true},
 	}, Deprecated: true, DeprecatedReason: "Use Account."}
 	contacts := &gomodel.Decl{Name: "Contacts", Part: gomodel.PartTypes, Kind: gomodel.KindDefined, Target: gomodel.Slice{Elem: gomodel.DeclRef{Decl: contact}}, Masks: []*gomodel.Mask{{Kind: gomodel.MaskItems}}}
 

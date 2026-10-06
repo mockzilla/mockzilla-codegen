@@ -51,28 +51,32 @@ func inputView(g *Generator, t *tool, s *gocode.Scope) InputView {
 		v.Fields = append(v.Fields, FieldView{
 			Name: p.goName,
 			Type: s.Expr(p.field.Type),
-			Tag:  jsonTag(p.name, p.spec.Required || p.spec.In == spec.InPath),
+			Tag:  jsonTag(p.name, p.spec.Required || p.spec.In == spec.InPath, p.field.OmitZero),
 			Doc:  p.spec.Description,
 		})
 	}
 	if q := t.queryString; q != nil {
 		doc := cmp.Or(t.op.QueryString.Param.Description, "The query, sent as "+q.content.MediaType+".")
-		v.Fields = append(v.Fields, FieldView{Name: q.goName, Type: s.Expr(operation.QueryStringType(t.op.QueryString)), Tag: jsonTag(q.name, q.isRequired), Doc: doc})
+		v.Fields = append(v.Fields, FieldView{Name: q.goName, Type: s.Expr(operation.QueryStringType(t.op.QueryString)), Tag: jsonTag(q.name, q.isRequired, false), Doc: doc})
 	}
 	if b := t.body; b != nil {
 		doc := bodyDescription(t.op)
 		if doc == "" {
 			doc = "The request body, sent as " + b.content.MediaType + "."
 		}
-		v.Fields = append(v.Fields, FieldView{Name: b.goName, Type: s.Expr(operation.BodyType(b.content)), Tag: jsonTag(b.name, b.isRequired), Doc: doc})
+		v.Fields = append(v.Fields, FieldView{Name: b.goName, Type: s.Expr(operation.BodyType(b.content)), Tag: jsonTag(b.name, b.isRequired, false), Doc: doc})
 	}
 	return v
 }
 
 // jsonTag is the json tag of a field named name, left out of the output when it is not required
-// and empty.
-func jsonTag(name string, isRequired bool) string {
-	if !isRequired {
+// and empty, or zero with isZero.
+func jsonTag(name string, isRequired, isZero bool) string {
+	switch {
+	case isRequired:
+	case isZero:
+		name += ",omitzero"
+	default:
 		name += ",omitempty"
 	}
 	return gocode.Tag([]gomodel.Tag{{Key: "json", Value: name}})

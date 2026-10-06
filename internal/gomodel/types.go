@@ -3,8 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Go types as values: builtins, declared types, types of other packages, pointers, slices and
-// maps.
+// Go types as values: builtins, declared types, types of other packages, pointers, Nullables,
+// slices and maps.
 
 package gomodel
 
@@ -43,6 +43,13 @@ type Pointer struct {
 }
 
 func (Pointer) isType() {}
+
+// Nullable is runtime.Nullable of Elem: a value that may be absent or null.
+type Nullable struct {
+	Elem Type
+}
+
+func (Nullable) isType() {}
 
 type Slice struct {
 	Elem Type

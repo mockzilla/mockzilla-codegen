@@ -107,6 +107,7 @@ func (v *validator) structChecks(d *Decl) []*Check {
 		c := v.check(d, f.schema, f.Type, d.Name+f.Name)
 		c.Field, c.Path = f.Name, f.JSONName
 		c.IsRequired = f.Required && !f.Nullable && nilable(f.Type)
+		c.IsNullRejected = c.IsWrapped && !f.Nullable && !d.isParams
 		switch {
 		case f.ReadOnly:
 			c.Side = SideResponse
@@ -127,7 +128,7 @@ func (v *validator) structChecks(d *Decl) []*Check {
 // check is what a value of type t, described by s, needs. A nil value, which means absent, is not
 // checked.
 func (v *validator) check(d *Decl, s *spec.Schema, t Type, name string) *Check {
-	c := &Check{IsPointer: isPointer(t), IsGuarded: nilable(t)}
+	c := &Check{IsPointer: isPointer(t), IsWrapped: isWrapped(t), IsGuarded: nilable(t) || isWrapped(t)}
 	t = Elem(t)
 
 	kw := v.keywords(s)
@@ -475,7 +476,7 @@ func isPointer(t Type) bool {
 }
 
 func isEmpty(c *Check) bool {
-	return len(c.Rules) == 0 && !c.IsNested && c.Items == nil && c.Values == nil && len(c.Keys) == 0 && !c.IsRequired
+	return len(c.Rules) == 0 && !c.IsNested && c.Items == nil && c.Values == nil && len(c.Keys) == 0 && !c.IsRequired && !c.IsNullRejected
 }
 
 func nonEmpty(c *Check) *Check {

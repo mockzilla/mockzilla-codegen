@@ -245,6 +245,7 @@ func (b *builder) fields(d *Decl, f *spec.Schema) []*Field {
 		}
 		fd.OmitEmpty = !fd.Required || fd.ReadOnly || fd.WriteOnly
 		b.applyExtensions(fd, set)
+		fd.wrap = b.wrapping(fd, set.Nullable, p.Schema.Origin, fmt.Sprintf("property %q of %s", p.Name, d.Name))
 		b.plan(d, fd, b.typeOf(p.Schema))
 		out = append(out, fd)
 	}
@@ -253,7 +254,7 @@ func (b *builder) fields(d *Decl, f *spec.Schema) []*Field {
 
 // fillParams makes one field per parameter of a location. A parameter without a schema is a string.
 func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
-	d.Struct = &Struct{}
+	d.Struct, d.isParams = &Struct{}, true
 	for _, p := range params {
 		s := paramSchema(p)
 		fd := &Field{
@@ -271,7 +272,9 @@ func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
 		if p.In != spec.InPath && !p.Required {
 			fd.def = b.paramDefault(p, s)
 		}
-		b.applyExtensions(fd, b.ext.ofParam(p, s))
+		set := b.ext.ofParam(p, s)
+		b.applyExtensions(fd, set)
+		fd.wrap = b.wrapping(fd, set.Nullable, p.Origin, fmt.Sprintf("%s parameter %q", p.In, p.Name))
 
 		t := Type(stringType)
 		if s != nil {
@@ -322,6 +325,38 @@ func (b *builder) propertyDefault(d *Decl, f *Field) *spec.Value {
 		return nil
 	}
 	return def
+}
+
+// wrapping is how models.nullable and x-go-nullable, isAsked, make f a Nullable.
+func (b *builder) wrapping(f *Field, isAsked *bool, at spec.Origin, what string) wrapping {
+	isOn := b.opts.Nullable
+	if isAsked != nil {
+		isOn = *isAsked
+	}
+	var why string
+	switch {
+	case !isOn:
+		return wrapNone
+	case f.Required && !f.Nullable:
+		why = "it is required and not nullable, so it always holds a value"
+	case f.isPointerSkipped && !f.Required:
+		why = extension.SkipPointer + " makes it a plain value"
+	case isAsked != nil:
+		return wrapAny
+	default:
+		return wrapNonNil
+	}
+
+	if isAsked != nil {
+		b.diags.Append(diag.Diagnostic{
+			Severity: diag.Warning,
+			Code:     diag.CodeExtensionValue,
+			Pointer:  at.Pointer,
+			Origin:   origin(at),
+			Message:  fmt.Sprintf("%s on %s is left out: %s", extension.Nullable, what, why),
+		})
+	}
+	return wrapNone
 }
 
 // applyExtensions sets what the extensions of a field ask for, then its tags.
@@ -396,7 +431,7 @@ func (b *builder) valueType(f *spec.Schema) Type {
 }
 
 func (b *builder) elem(s *spec.Schema) Type {
-	return elemType(b.typeOf(s), b.nullable(s))
+	return elemType(b.typeOf(s), b.nullable(s), b.opts.Nullable)
 }
 
 func (b *builder) nullable(s *spec.Schema) bool {
@@ -428,7 +463,7 @@ func (b *builder) plan(d *Decl, f *Field, base Type) {
 		owner:    d,
 		field:    f,
 		base:     base,
-		presence: presence{isRequired: f.Required, isNullable: f.Nullable, isPointerSkipped: f.isPointerSkipped},
+		presence: presence{isRequired: f.Required, isNullable: f.Nullable, isPointerSkipped: f.isPointerSkipped, wrap: f.wrap},
 	})
 }
 
@@ -458,7 +493,9 @@ func (b *builder) settleFields(decls []*Decl) {
 		if e := byValue(p); e != nil && comp[index[p.owner]] == comp[index[e]] {
 			pr.isInCycle = true
 		}
-		p.field.Type = fieldType(p.base, pr)
+		f := p.field
+		f.Type = fieldType(p.base, pr)
+		f.OmitZero = f.OmitEmpty && (isWrapped(f.Type) || pr.wrap != wrapNone && isCollection(f.Type))
 	}
 }
 
@@ -510,7 +547,8 @@ func byValue(p *fieldPlan) *Decl {
 	if !ok {
 		return nil
 	}
-	if isPointer(fieldType(p.base, p.presence)) {
+	switch fieldType(p.base, p.presence).(type) {
+	case Pointer, Nullable:
 		return nil
 	}
 	return r.Decl

@@ -31,6 +31,7 @@ func TestFitsFloat64(t *testing.T) {
 		want bool
 	}{
 		{name: "A string fits", t: stringType, want: true},
+		{name: "A Nullable fits when its value does", t: Nullable{Elem: small}, want: true},
 		{name: "A 32-bit integer fits", t: small, want: true},
 		{name: "A float64 fits", t: Builtin{Name: "float64"}, want: true},
 		{name: "Any fits, it decodes into a float64 anyway", t: anyType, want: true},

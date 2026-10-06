@@ -12,3 +12,11 @@ func TestPlanEncodings(t *testing.T) {
 
 	checkGolden(t, "encoding", "encoding", testOptions())
 }
+
+func TestPlanEncodingsNullable(t *testing.T) {
+	t.Parallel()
+
+	opts := testOptions()
+	opts.Nullable = true
+	checkGolden(t, "encoding", "encoding-nullable", opts)
+}

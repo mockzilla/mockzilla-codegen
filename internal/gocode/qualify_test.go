@@ -26,6 +26,7 @@ func TestText(t *testing.T) {
 		{name: "Declaration is not qualified", typ: gomodel.DeclRef{Decl: pet}, want: "Pet"},
 		{name: "Qualified type is not qualified either", typ: gomodel.Qualified{Import: gomodel.Import{Path: "time"}, Name: "Time"}, want: "Time"},
 		{name: "Pointer, slice and map", typ: gomodel.Map{Key: gomodel.Builtin{Name: "string"}, Elem: gomodel.Slice{Elem: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: pet}}}}, want: "map[string][]*Pet"},
+		{name: "Nullable", typ: gomodel.Nullable{Elem: gomodel.DeclRef{Decl: pet}}, want: "Nullable[Pet]"},
 		{name: "Nil type is any", want: "any"},
 	}
 
@@ -49,6 +50,7 @@ func TestLeaf(t *testing.T) {
 	}{
 		{name: "Named type is its own leaf", typ: pet, want: pet},
 		{name: "Map of slices of pointers", typ: gomodel.Map{Key: gomodel.Builtin{Name: "string"}, Elem: gomodel.Slice{Elem: gomodel.Pointer{Elem: pet}}}, want: pet},
+		{name: "Nullable", typ: gomodel.Nullable{Elem: pet}, want: pet},
 		{name: "Nil type"},
 	}
 

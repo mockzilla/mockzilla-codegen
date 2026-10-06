@@ -102,12 +102,25 @@ func TestViewRendersValidation(t *testing.T) {
 	corner := &gomodel.Decl{Name: "Corner", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}, Validation: &gomodel.Validation{Checks: []*gomodel.Check{
 		{Rules: []gomodel.Rule{{Kind: gomodel.RuleEnumJSON, Values: []spec.Value{{Kind: spec.KindArray, Items: []spec.Value{{Kind: spec.KindNumber, Num: "1"}}}, quoted}}}},
 	}}}
+	patch := &gomodel.Decl{Name: "Patch", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{Fields: []*gomodel.Field{
+		{Name: "Nick", JSONName: "nick", Type: gomodel.Nullable{Elem: str}, OmitEmpty: true, OmitZero: true},
+		{Name: "Boss", JSONName: "boss", Type: gomodel.Nullable{Elem: gomodel.DeclRef{Decl: owner}}, OmitEmpty: true, OmitZero: true},
+		{Name: "Scores", JSONName: "scores", Type: gomodel.Slice{Elem: gomodel.Nullable{Elem: num}}},
+		{Name: "Names", JSONName: "names", Type: gomodel.Nullable{Elem: gomodel.Slice{Elem: str}}, OmitEmpty: true, OmitZero: true},
+	}}, Validation: &gomodel.Validation{HasResponse: true, Checks: []*gomodel.Check{
+		{Field: "Nick", Path: "nick", IsWrapped: true, IsGuarded: true, IsNullRejected: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "1"}}},
+		{Field: "Boss", Path: "boss", IsWrapped: true, IsGuarded: true, IsNested: true, Nested: owner},
+		{Field: "Scores", Path: "scores", IsGuarded: true, Items: &gomodel.Check{
+			IsWrapped: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMinimum, Number: "0"}},
+		}},
+		{Field: "Names", Path: "names", IsWrapped: true, IsGuarded: true, Items: &gomodel.Check{Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "1"}}}},
+	}}}
 	problem := &gomodel.Decl{Name: "Problem", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "Message", JSONName: "message", Type: str}},
 	}, Error: &gomodel.ErrorMessage{Path: "message", HasConstructor: true}}
 
 	g := New(&gomodel.Model{
-		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, corner, problem},
+		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, corner, patch, problem},
 		Patterns: []*gomodel.Pattern{code},
 	})
 	checkRender(t, g, "validation")

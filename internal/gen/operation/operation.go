@@ -214,6 +214,8 @@ func decls(t gomodel.Type) []*gomodel.Decl {
 		return []*gomodel.Decl{t.Decl}
 	case gomodel.Pointer:
 		return decls(t.Elem)
+	case gomodel.Nullable:
+		return decls(t.Elem)
 	case gomodel.Slice:
 		return decls(t.Elem)
 	case gomodel.Map:

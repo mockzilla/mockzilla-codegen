@@ -116,6 +116,7 @@ func TestParse(t *testing.T) {
 					Validation:   ModelValidation{Response: true},
 					ErrorMapping: map[string]string{"ErrorResponse": "error.message"},
 					FormatTypes:  map[string]GoType{"uuid": {Type: "uuid.UUID"}},
+					Nullable:     true,
 				},
 				Server: &Server{
 					Framework:          "chi",
