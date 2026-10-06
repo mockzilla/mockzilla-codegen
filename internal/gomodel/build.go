@@ -495,7 +495,7 @@ func (b *builder) settleFields(decls []*Decl) {
 		}
 		f := p.field
 		f.Type = fieldType(p.base, pr)
-		f.OmitZero = f.OmitEmpty && (isWrapped(f.Type) || pr.wrap != wrapNone && isCollection(f.Type))
+		f.OmitZero = f.OmitEmpty && (isWrapped(f.Type) || isCollection(f.Type))
 	}
 }
 

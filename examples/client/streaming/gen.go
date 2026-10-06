@@ -79,7 +79,7 @@ type ListEventsResponseItem struct {
 	Kind  ListEventsResponseItemKind   `json:"kind"`
 	At    *time.Time                   `json:"at,omitempty"`
 	Actor *ListEventsResponseItemActor `json:"actor,omitempty"`
-	Tags  []string                     `json:"tags,omitempty"`
+	Tags  []string                     `json:"tags,omitzero"`
 }
 
 // Validate checks the value against the constraints of the spec.

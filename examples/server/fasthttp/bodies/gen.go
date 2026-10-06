@@ -26,7 +26,7 @@ type Note struct {
 type UploadRequestBody struct {
 	Title *string       `json:"title,omitempty"`
 	File  *runtime.File `json:"file,omitempty"`
-	Tags  []string      `json:"tags,omitempty"`
+	Tags  []string      `json:"tags,omitzero"`
 	Meta  *Note         `json:"meta,omitempty"`
 }
 

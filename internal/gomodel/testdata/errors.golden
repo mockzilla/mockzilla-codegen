@@ -6,7 +6,7 @@ ErrorResponseError struct models.types
   Code *int json=code omitempty
   ! error code
 DetailError struct models.types
-  Details []DetailErrorDetailsItem json=details omitempty
+  Details []DetailErrorDetailsItem json=details omitempty omitzero
   ! error details[].text constructor
 DetailErrorDetailsItem struct models.types
   Text *string json=text omitempty
@@ -26,7 +26,7 @@ Problems defined []ProblemsItem models.types
 ProblemsItem struct models.types
   Text *string json=text omitempty
 ListedError struct models.types
-  Problems Problems json=problems omitempty
+  Problems Problems json=problems omitempty omitzero
   ! error problems[].text constructor
 Status enum string models.enums
   StatusA "a"
@@ -39,7 +39,7 @@ StrictErrorError struct models.types
   Message string json=message required
   Code int json=code required
 StrictList struct models.types
-  Items []StrictListItemsItem json=items omitempty
+  Items []StrictListItemsItem json=items omitempty omitzero
   ! error items[].text constructor unset=items[].kind
 StrictListItemsItem struct models.types
   Text string json=text required

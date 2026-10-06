@@ -73,7 +73,8 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
   `HTTPResponse`, and a field per documented body.
 - `output-options.lenient-union-accessors`, `skip-enum-via-oneof`, `prefer-skip-optional-pointer-with-omitzero`:
   unions and enums have one shape ([unions](../types.md#unions)); `omitzero` is added where a
-  struct has `omitempty`.
+  struct has `omitempty`, and an optional slice or map has `omitzero` alone, so an empty one is
+  sent.
 - `compatibility.schema-merging-behavior`, `old-merge-schemas`, `old-allof-sibling-merging`,
   `old-enum-conflicts`, `old-aliasing`: an `allOf` is merged into one type, with its sibling
   properties ([allOf](../types.md#allof)), and enum constants are prefixed. The old behaviours
@@ -97,7 +98,7 @@ Every extension oapi-codegen documents keeps its meaning, apart from these
 | `x-oapi-codegen-extra-tags` | `x-go-extra-tags`; the old name is ignored |
 | `x-oapi-codegen-only-honour-go-name` | `x-go-name-exact`; the old name is ignored |
 | `x-enum-varnames`, `x-enumNames` | `x-enum-names` |
-| `x-omitzero` | none; `omitzero` is written next to `omitempty` where a struct needs it |
+| `x-omitzero` | none; `omitzero` is written where a struct, slice or map needs it |
 | `x-order` | none; fields keep the order of the spec |
 | `x-oapi-codegen-enum-merge` | none |
 | `x-go-type-name` on a component | declares the type under the new name only, no alias under the component name |

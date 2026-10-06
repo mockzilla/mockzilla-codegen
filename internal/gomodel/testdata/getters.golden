@@ -6,14 +6,14 @@ Sorts defined []Sort models.types
 Pet struct models.types
   Size *string json=size nullable omitempty getter=GetSize:"m"
   Born *string json=born omitempty readOnly getter=GetBorn:"today"
-  Sorts Sorts json=sorts omitempty getter=GetSorts:["date","name"]
+  Sorts Sorts json=sorts omitempty omitzero getter=GetSorts:["date","name"]
   Email *runtime.Email json=email omitempty getter=GetEmail:"a@b.c"
   Owner *Owner json=owner omitempty
   Plain int json=plain omitempty
   Age *int json=age omitempty
   GetAge *string json=get_age omitempty
-  Photo []byte json=photo omitempty
-  Notes []*string json=notes omitempty
+  Photo []byte json=photo omitempty omitzero
+  Notes []*string json=notes omitempty omitzero
   Anything any json=anything omitempty
   Tiny *int8 json=tiny omitempty getter=GetTiny:-128
 Owner struct models.types
@@ -31,7 +31,7 @@ ListPetsQuery struct models.params
   Limit *int json=limit omitempty getter=GetLimit:20
   Page int json=page required
   Sort *Order json=sort omitempty getter=GetSort:"name"
-  Tags []string json=tags omitempty getter=GetTags:["new","sale"]
+  Tags []string json=tags omitempty omitzero getter=GetTags:["new","sale"]
   Since *runtime.Date json=since omitempty
   Q *string json=q omitempty
 ListPetsHeaders struct models.params

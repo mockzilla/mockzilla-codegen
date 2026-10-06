@@ -114,8 +114,8 @@ NestedOption2 union models.unions
   | String *string kinds=string
   | Int *int kinds=integer
 Holder struct models.types
-  List []HolderListItem json=list omitempty
-  Map map[string]HolderMapValue json=map omitempty
+  List []HolderListItem json=list omitempty omitzero
+  Map map[string]HolderMapValue json=map omitempty omitzero
   Pet Pet json=pet required
   Maybe *Dog json=maybe required nullable
   Text *string json=text nullable omitempty

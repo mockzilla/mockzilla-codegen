@@ -11,8 +11,8 @@ Labels struct models.types form
   Name *string json=name omitempty
   AdditionalProperties map[string]string json=-
 Order struct models.types
-  Lines []Line json=lines omitempty
-  More Lines json=more omitempty
+  Lines []Line json=lines omitempty omitzero
+  More Lines json=more omitempty omitzero
   Code *OrderCode json=code omitempty
 OrderCode union models.unions
   | oneOf text

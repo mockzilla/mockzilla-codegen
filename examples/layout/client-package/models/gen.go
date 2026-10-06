@@ -13,7 +13,7 @@ const _ = runtime.SupportsGeneratorV1
 type Order struct {
 	ID     string `json:"id"`
 	Status Status `json:"status"`
-	Items  []Item `json:"items,omitempty"`
+	Items  []Item `json:"items,omitzero"`
 }
 
 // Validate checks the value against the constraints of the spec.
