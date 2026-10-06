@@ -41,10 +41,6 @@ const (
 	FileScaffold
 )
 
-// scaffoldHeader opens a scaffold the config does not overwrite. It has no generated marker, so Go
-// tools treat the file as written by hand.
-const scaffoldHeader = "Written once by mockzilla-codegen. Edit it freely: generate does not overwrite it."
-
 // Result is what Generate made: every file with its content, and what the spec and generation
 // reported, sorted by position.
 type Result struct {
@@ -328,8 +324,7 @@ func (g *generation) render() error {
 	return g.lay.CheckImports(g.imports)
 }
 
-// isOverwritten says whether f is a scaffold the config rewrites on every run, which makes it a
-// generated file in all but its kind.
+// isOverwritten says whether f is a scaffold the config rewrites on every run.
 func (g *generation) isOverwritten(f *layout.File) bool {
 	return f.Kind == layout.Scaffold && g.cfg.Server != nil && g.cfg.Server.Scaffold.Overwrite
 }
@@ -370,11 +365,7 @@ func (g *generation) file(f *layout.File) ([]byte, error) {
 
 // parts renders the parts of f. A part that names an import on offer takes it.
 func (g *generation) parts(f *layout.File, s *gocode.Scope) (render.FileData, error) {
-	header := g.cfg.Header
-	if f.Kind == layout.Scaffold && !g.isOverwritten(f) {
-		header = scaffoldHeader
-	}
-	data := render.FileData{Header: header, Package: f.Package}
+	data := render.FileData{Header: g.cfg.Header, Package: f.Package}
 	for _, part := range f.Parts {
 		out, err := g.part(part, s)
 		if err != nil {

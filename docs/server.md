@@ -643,15 +643,8 @@ in a folder of its own, since it is `package main`, and imports the others by mo
 serves with an `http.Server`, except for fiber, fasthttp, hertz and goframe, whose servers are
 served in their own way, see their sections.
 
-A scaffold starts with this line and has no generated marker, so Go tools lint it as your code:
-
-```go
-// Written once by mockzilla-codegen. Edit it freely: generate does not overwrite it.
-```
-
-With `overwrite` set a scaffold is written on every run, so it starts with `header` like a
-generated file. In code, `Generate` sets `File.IsOverwritten` on such a scaffold and `Write`
-follows it.
+With `overwrite` set, `Generate` sets `File.IsOverwritten` on every scaffold and `Write` writes it
+again.
 
 `TimeoutMiddleware` sets a deadline on the request's context, `timeout` after the request came,
 and serves the request on the same goroutine. A service that watches its context and returns the
