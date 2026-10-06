@@ -10,10 +10,11 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type ListUsersQueryAction string
 
@@ -30,7 +31,7 @@ func ListUsersQueryActionValues() []ListUsersQueryAction {
 
 // Validate checks the value against the constraints of the spec.
 func (l ListUsersQueryAction) Validate() error {
-	return runtime.OneOf(l, ListUsersQueryActionListUsers)
+	return validation.Enum(l, ListUsersQueryActionListUsers)
 }
 
 type SearchPhotosQuery struct {
@@ -52,7 +53,7 @@ type ListUsersQuery struct {
 
 // Validate checks the value against the constraints of the spec.
 func (l ListUsersQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	errs.Append("Action", l.Action.Validate())
 	return errs.Err()
 }
@@ -98,7 +99,7 @@ type ListUsersRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *ListUsersRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}

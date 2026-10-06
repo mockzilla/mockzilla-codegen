@@ -3,6 +3,7 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// Package codegen generates Go models, HTTP servers, clients and MCP tools from OpenAPI specs.
 package codegen
 
 import (
@@ -342,8 +343,8 @@ func (g *generation) file(f *layout.File) ([]byte, error) {
 				g.named[imp.Package] = true
 			}
 		}
-		data.Imports = s.Imports.Decl()
 		data.Guard = s.RuntimeGuard()
+		data.Imports = s.Imports.Decl()
 		return g.engine.RenderFile(data)
 	}
 }

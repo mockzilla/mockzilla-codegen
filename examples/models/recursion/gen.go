@@ -2,10 +2,13 @@
 
 package recursion
 
-import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+import (
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
+)
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 // A tree node. Children hold nodes by value, so no pointer is needed there.
 type Node struct {
@@ -16,7 +19,7 @@ type Node struct {
 
 // Validate checks the value against the constraints of the spec.
 func (n Node) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if n.Parent != nil {
 		errs.Append("parent", n.Parent.Validate())
 	}
@@ -24,7 +27,7 @@ func (n Node) Validate() error {
 		errs.Required("children")
 	}
 	for idx, item := range n.Children {
-		errs.Append(runtime.Index("children", idx), item.Validate())
+		errs.Append(validation.Index("children", idx), item.Validate())
 	}
 	return errs.Err()
 }
@@ -37,7 +40,7 @@ type Item struct {
 
 // Validate checks the value against the constraints of the spec.
 func (i Item) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if i.Next == nil {
 		errs.Required("next")
 	}
@@ -54,7 +57,7 @@ type Author struct {
 
 // Validate checks the value against the constraints of the spec.
 func (a Author) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if a.Book == nil {
 		errs.Required("book")
 	}
@@ -71,7 +74,7 @@ type Book struct {
 
 // Validate checks the value against the constraints of the spec.
 func (b Book) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if b.Author == nil {
 		errs.Required("author")
 	}

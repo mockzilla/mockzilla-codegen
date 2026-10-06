@@ -44,7 +44,7 @@ func (t *MCPTools) ListPets(ctx context.Context, req *mcp.CallToolRequest, in Li
   and calls the client method.
 - The SDK reads the numbers of the arguments as float64, which rounds an integer above 2^53. So
   the handler of an input that holds a wider integer than `int32`, raw JSON or a type of another
-  package first decodes the arguments again with `runtime.ToolInput`. An integer sent as plain
+  package first decodes the arguments again with `mcptool.Input`. An integer sent as plain
   digits then keeps all of them, and a default the SDK filled in stays. A host written in
   JavaScript may round such an integer before the server gets it.
 - The tool name is the operation ID in snake case: `listPets` and `list-pets` give `list_pets`.
@@ -144,7 +144,7 @@ validates every call against:
   and as text content holding the same JSON, which every client reads.
 - Structured content is always a JSON object, since clients before protocol 2026-07-28 take
   nothing else there. An object comes as it is. Anything else, such as a list or a number, comes
-  as `{"result": <value>}`. The generated handler returns `runtime.ToolResult{Value: out}`, which
+  as `{"result": <value>}`. The generated handler returns `mcptool.Result{Value: out}`, which
   writes it that way.
 - A `text/*` body comes back as text content alone.
 - A file comes back as image content when the response names an `image/*` media type, as audio
@@ -157,7 +157,7 @@ validates every call against:
   `unexpected status 404 Not Found`, followed by the message of the error type when the spec
   documents one (see `models.error-mapping`). The response body follows on the next line, so the
   assistant can act on it. The body is cut after 4 KiB, and one that is no UTF-8 text shows only
-  its size. The generated handler returns `runtime.ToolError(err)`, which writes it that way.
+  its size. The generated handler returns `mcptool.Error(err)`, which writes it that way.
 - An operation whose 2xx responses come only as `text/event-stream` or line-delimited JSON answers
   with the error `ErrMCPStreaming`, since a tool result cannot carry a stream. Read such an
   operation through the client's `<Op>Stream` method instead. An operation that documents JSON

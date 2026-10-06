@@ -15,11 +15,13 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 var (
 	patternTagName  = regexp.MustCompile(`^[\x21-\x7E]+$`)
@@ -37,10 +39,10 @@ type Tag struct {
 
 // Validate checks the value against the constraints of the spec.
 func (t Tag) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.Pattern(t.Name, patternTagName, `^[\u0021-\u007E]+$`))
+	var errs validation.Errors
+	errs.Append("name", validation.Pattern(t.Name, patternTagName, `^[\u0021-\u007E]+$`))
 	if t.Label != nil {
-		errs.Append("label", runtime.Pattern(*t.Label, patternTagLabel, `^\S+$`))
+		errs.Append("label", validation.Pattern(*t.Label, patternTagLabel, `^\S+$`))
 	}
 	return errs.Err()
 }
@@ -62,9 +64,9 @@ type AddTagQuery struct {
 
 // Validate checks the value against the constraints of the spec.
 func (a AddTagQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if a.Color != nil {
-		errs.Append("color", runtime.Pattern(*a.Color, patternAddTagQueryColor, `^[0-9a-f]{6}$`))
+		errs.Append("color", validation.Pattern(*a.Color, patternAddTagQueryColor, `^[0-9a-f]{6}$`))
 	}
 	return errs.Err()
 }
@@ -87,7 +89,7 @@ type AddTagServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *AddTagServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -329,7 +331,7 @@ type AddTagRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *AddTagRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -424,7 +426,7 @@ func (c *Client) AddTag(ctx context.Context, opts *AddTagRequestOptions, editors
 	}
 
 	var out *Added
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -510,7 +512,7 @@ func (t *MCPTools) AddTag(ctx context.Context, _ *mcp.CallToolRequest, in AddTag
 	}
 	out, err := t.client.AddTag(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }

@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// Decoding oneOf and anyOf unions: which variants a value matches.
+
 package runtime
 
 import (
@@ -17,6 +19,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Variant describes one member of a union to UnmarshalUnion: the JSON kinds it takes, the
@@ -96,7 +100,7 @@ func (t into[T]) fill(form *multipart.Form) error {
 // UnmarshalUnion decodes data into the variants of u it matches: one for oneOf, every match for
 // anyOf. docs/types.md in the mockzilla-codegen repository has the order variants are tried in.
 func UnmarshalUnion(data []byte, u Union) error {
-	kind := JSONKind(data)
+	kind := jsonKind(data)
 	switch kind {
 	case 0:
 		return fmt.Errorf("%w: %q is no JSON value", ErrNoVariant, data)
@@ -177,7 +181,7 @@ func (u Union) tag(data []byte, set []int) ([]byte, error) {
 		value = first.Values[0]
 		obj[u.Discriminator], _ = json.Marshal(value)
 		tag, _ := json.Marshal(map[string]string{u.Discriminator: value})
-		data, _ = MergeObjects(data, tag) // both are objects
+		data, _ = mergeObjects(data, tag) // both are objects
 	}
 
 	picked, rest, err := u.discriminate(obj)
@@ -199,7 +203,7 @@ func (u Union) tag(data []byte, set []int) ([]byte, error) {
 	default:
 		msg = subject + " picks no variant"
 	}
-	return nil, ValidationError{Field: u.Discriminator, Message: msg, Rule: RuleDiscriminator}
+	return nil, validation.Error{Field: u.Discriminator, Message: msg, Rule: validation.RuleDiscriminator}
 }
 
 func (u Union) names(set []int) string {
@@ -374,7 +378,7 @@ func discriminatorValue(raw json.RawMessage) string {
 
 // isLiteral reports raw written as a JSON number or boolean, with no space around it.
 func isLiteral(raw []byte) bool {
-	switch JSONKind(raw) {
+	switch jsonKind(raw) {
 	case KindBool, KindInteger, KindNumber:
 		return json.Valid(raw) && len(bytes.TrimSpace(raw)) == len(raw)
 	default:

@@ -24,9 +24,9 @@ var stringType = gomodel.Builtin{Name: "string"}
 var mediaPrefixes = []string{"image/", "audio/"}
 
 // ToolsView is the data of the tools part. Client is the client interface the tools call, as the
-// file writes it; MCP, JSON, Context, Errors, Runtime and Strings are the names the packages are
-// imported under. HasStream says whether a tool answers with the streaming error, HasFile whether
-// one answers with a file.
+// file writes it; MCP, JSON, Context, Errors, Runtime, MCPTool and Strings are the names the
+// packages are imported under. HasStream says whether a tool answers with the streaming error,
+// HasFile whether one answers with a file.
 type ToolsView struct {
 	Client    string
 	MCP       string
@@ -34,6 +34,7 @@ type ToolsView struct {
 	Context   string
 	Errors    string
 	Runtime   string
+	MCPTool   string
 	Strings   string
 	HasStream bool
 	HasFile   bool
@@ -99,10 +100,11 @@ func toolsView(g *Generator, s *gocode.Scope) *ToolsView {
 			v.HasStream = true
 			v.Errors = s.Import(gomodel.Import{Path: "errors"})
 		default:
-			v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
+			v.MCPTool = s.Import(gomodel.Import{Path: gomodel.MCPToolPath})
 		}
 		if tv.File != "" {
 			v.HasFile = true
+			v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
 			v.Strings = s.Import(gomodel.Import{Path: "strings"})
 		}
 		v.Tools = append(v.Tools, tv)

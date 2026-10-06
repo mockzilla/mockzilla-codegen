@@ -16,17 +16,17 @@ import (
 
 // OptionsView is the data of the options part: the request options type of every operation.
 type OptionsView struct {
-	Runtime    string
 	Operations []RequestOptionsView
 }
 
 // RequestOptionsView is the request options of one operation: a field per parameter group and
-// per body, and the checks Validate runs.
+// per body, and the checks Validate runs. Validation is set when there are checks.
 type RequestOptionsView struct {
-	Name   string
-	Type   string
-	Fields []FieldView
-	Checks []CheckView
+	Name       string
+	Type       string
+	Validation string
+	Fields     []FieldView
+	Checks     []CheckView
 }
 
 // FieldView is one field of a generated struct.
@@ -48,7 +48,6 @@ func optionsView(g *Generator, s *gocode.Scope) *OptionsView {
 		return v
 	}
 
-	v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
 	for _, op := range g.ops {
 		v.Operations = append(v.Operations, requestOptionsView(g, op, s))
 	}
@@ -80,6 +79,10 @@ func requestOptionsView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Re
 		if gomodel.Validates(t) {
 			v.Checks = append(v.Checks, CheckView{Field: fields[i], Path: gocode.Quote("body")})
 		}
+	}
+
+	if len(v.Checks) > 0 {
+		v.Validation = s.Import(gomodel.Import{Path: gomodel.ValidationPath})
 	}
 	return v
 }

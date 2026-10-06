@@ -25,7 +25,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *types.ListPetsRequestOpt
 	}
 
 	var out types.Pets
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
 	}); err != nil {
@@ -69,7 +69,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *types.CreatePetRequestO
 	}
 
 	var out *types.Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "202"},
 		{Status: "4XX", MediaType: "application/problem+json", Dst: new(types.Problem)},
@@ -121,7 +121,7 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *types.DeletePetRequestO
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, []runtime.Target{
+	return runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "404", MediaType: "application/json", Dst: new(types.Problem)},
 	})
 }
@@ -155,7 +155,7 @@ func (c *PetClient) Ping(ctx context.Context, opts *types.PingRequestOptions, ed
 	}
 
 	var out string
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
 	}); err != nil {
 		return "", err
@@ -215,7 +215,7 @@ func (c *PetClient) Chat(ctx context.Context, opts *types.ChatRequestOptions, ed
 	}
 
 	var out *types.Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
 	}); err != nil {
@@ -234,7 +234,7 @@ func (c *PetClient) ChatStream(ctx context.Context, opts *types.ChatRequestOptio
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[types.ChatResponseItem](res, body, []runtime.Target{
+	return runtime.OpenStream[types.ChatResponseItem](res, body, []runtime.ResponseTarget{
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
 	})
 }
@@ -266,7 +266,7 @@ func (c *PetClient) Tail(ctx context.Context, opts *types.TailRequestOptions, ed
 	}
 
 	var out *string
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out},
 	}); err != nil {
 		return nil, err

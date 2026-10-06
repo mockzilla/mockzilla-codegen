@@ -170,7 +170,7 @@ mux.HandleFunc("GET /pets", adapter.ListPets)
   reach the client.
 - A service that returns nil for both values is a 500 with `ErrNoResponse`.
 - The response is written with its status, headers and content type, the body by its media type:
-  JSON as JSON, a string too; a form through `EncodeForm`; `multipart/form-data` as a form of the
+  JSON as JSON, a string too; a form as url-encoded values; `multipart/form-data` as a form of the
   struct; a sequential media type one frame per value, flushed as it goes, each line of a frame a
   `data:` line under `text/event-stream`; a number or a boolean under `text/*` as its text. A
   string, bytes or a `runtime.File` go as they are under every other media type, and a nil body
@@ -650,8 +650,8 @@ context's error is answered with a 503; one that does not runs to its end.
 
 The runtime package holds what the generated HTTP code and clients use, standard library only:
 
-- Parameters: `DecodePath`, `DecodeQuery`, `DecodeHeader`, `DecodeCookie` and their `Encode`
-  counterparts handle every style of the spec (`simple`, `label`, `matrix`, `form`,
+- Parameters: `DecodePath`, `DecodeQuery`, `DecodeHeader` and `DecodeCookie`, and the client's
+  `RequestBuilder` that writes them, handle every style of the spec (`simple`, `label`, `matrix`, `form`,
   `spaceDelimited`, `pipeDelimited`, `deepObject`), exploded or not, for values, lists and objects,
   and parameters with JSON content.
 - Bodies: `DecodeJSON`, `DecodeForm` (bracketed keys nest: `address[city]=Berlin`,
@@ -661,5 +661,9 @@ The runtime package holds what the generated HTTP code and clients use, standard
   checks the keys of a body and fills its defaults before it is decoded.
 - Responses: `Write` sends a status, headers and a body: JSON for most values, text and bytes as
   they are, a `File` streamed.
-- Clients: `RequestBuilder`, `EncodeForm`, `WriteMultipart`, `Send`, `Decode`, `DecodeSuccess`,
-  `DecodeHeaders` and `APIError`, see [client](client.md#runtime).
+- Clients: `RequestBuilder`, `Send`, `DecodeResponse`, `DecodeSuccess`, `ResponseTarget` and
+  `APIError`, see [client](client.md#runtime).
+
+Three packages sit beside it: `pkg/runtime/validation` holds the checks of `Validate` and the
+errors they return (see [validation](validation.md)), `pkg/runtime/mask` the masks of sensitive
+values, and `pkg/runtime/mcptool` what generated MCP tools call.

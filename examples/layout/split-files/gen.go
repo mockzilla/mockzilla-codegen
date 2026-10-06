@@ -2,10 +2,13 @@
 
 package orders
 
-import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+import (
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
+)
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type GetOrderPathParams struct {
 	ID string `json:"id"`
@@ -17,7 +20,7 @@ type GetOrderQuery struct {
 
 // Validate checks the value against the constraints of the spec.
 func (g GetOrderQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if g.Expand != nil {
 		errs.Append("expand", g.Expand.Validate())
 	}
@@ -30,12 +33,12 @@ type CreateOrderRequestBody struct {
 
 // Validate checks the value against the constraints of the spec.
 func (c CreateOrderRequestBody) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if c.Items == nil {
 		errs.Required("items")
 	}
 	for idx, item := range c.Items {
-		errs.Append(runtime.Index("items", idx), item.Validate())
+		errs.Append(validation.Index("items", idx), item.Validate())
 	}
 	return errs.Err()
 }

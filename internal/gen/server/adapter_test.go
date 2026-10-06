@@ -14,6 +14,25 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
+func TestAdapterViewChecksBodies(t *testing.T) {
+	t.Parallel()
+
+	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{Fields: []*gomodel.Field{
+		{Name: "Name", JSONName: "name", Type: gomodel.Builtin{Name: "string"}, Required: true, Value: &gomodel.BodyValue{}},
+	}}}
+	op := &gomodel.Operation{
+		Name:   "CreatePet",
+		Spec:   &spec.Operation{Method: "POST", Path: "/pets"},
+		Bodies: []gomodel.Content{{MediaType: "application/json", Type: gomodel.DeclRef{Decl: pet}, Body: &gomodel.BodyValue{Object: pet}}},
+	}
+	m := &gomodel.Model{Decls: []*gomodel.Decl{pet}, Operations: []*gomodel.Operation{op}}
+	g, _ := New(m, allOptions())
+
+	v := adapterView(g, fixture{m: m, g: g, cfg: scaffoldConfig}.scope(t, PartAdapter))
+
+	assert.Equal(t, "validation", v.Validation)
+}
+
 func TestBodyView(t *testing.T) {
 	t.Parallel()
 

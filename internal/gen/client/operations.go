@@ -139,9 +139,9 @@ type BodyView struct {
 	Encoding  string
 }
 
-// TargetView is one runtime.Target: the quoted status and media type, and the address of what
-// the body is decoded into, empty for a status whose body is not read; IsHeaders marks the typed
-// headers of the status.
+// TargetView is one runtime.ResponseTarget: the quoted status and media type, and the address of
+// what the body is decoded into, empty for a status whose body is not read; IsHeaders marks the
+// typed headers of the status.
 type TargetView struct {
 	Status    string
 	MediaType string

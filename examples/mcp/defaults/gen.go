@@ -14,11 +14,13 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Asked struct {
 	Q     string  `json:"q"`
@@ -43,7 +45,7 @@ func SearchQuerySortValues() []SearchQuerySort {
 
 // Validate checks the value against the constraints of the spec.
 func (s SearchQuerySort) Validate() error {
-	return runtime.OneOf(s, SearchQuerySortName, SearchQuerySortDate)
+	return validation.Enum(s, SearchQuerySortName, SearchQuerySortDate)
 }
 
 type SearchQuery struct {
@@ -65,7 +67,7 @@ func (s *SearchQuery) GetSort() SearchQuerySort {
 
 // Validate checks the value against the constraints of the spec.
 func (s SearchQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if s.Sort != nil {
 		errs.Append("sort", s.Sort.Validate())
 	}
@@ -88,7 +90,7 @@ type SearchServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *SearchServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -320,7 +322,7 @@ type SearchRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *SearchRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -412,7 +414,7 @@ func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions, editors
 	}
 
 	var out *Asked
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -488,7 +490,7 @@ func (t *MCPTools) SearchTool() *mcp.Tool {
 
 // Search handles the search tool.
 func (t *MCPTools) Search(ctx context.Context, req *mcp.CallToolRequest, in SearchToolInput) (*mcp.CallToolResult, any, error) {
-	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := mcptool.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 
@@ -501,7 +503,7 @@ func (t *MCPTools) Search(ctx context.Context, req *mcp.CallToolRequest, in Sear
 	}
 	out, err := t.client.Search(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }

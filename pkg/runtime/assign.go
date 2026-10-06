@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// Setting Go values from the text of params and forms, by reflection.
+
 package runtime
 
 import (

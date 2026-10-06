@@ -99,8 +99,8 @@ bench: ## Benchmarks on large specs in testdata/specs
 	go test -run '^$$' -bench . -benchmem -benchtime 3x ./test/bench
 
 .PHONY: runtime-deps
-runtime-deps: ## Fail when ./pkg/runtime imports anything outside the standard library
-	@bad=$$(go list -deps ./pkg/runtime | grep -vx 'github.com/mockzilla/mockzilla-codegen/pkg/runtime' | awk -F/ '$$1 ~ /\./'); \
+runtime-deps: ## Fail when ./pkg/runtime or a package of it imports anything outside the standard library
+	@bad=$$(go list -deps ./pkg/runtime/... | grep -v '^github.com/mockzilla/mockzilla-codegen/pkg/runtime' | awk -F/ '$$1 ~ /\./'); \
 	if [ -n "$$bad" ]; then echo "pkg/runtime must import the standard library only, found:"; echo "$$bad"; exit 1; fi
 
 .PHONY: check

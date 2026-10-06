@@ -13,10 +13,11 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Parcel struct {
 	ID    string        `json:"id"`
@@ -495,7 +496,7 @@ func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id stri
 
 func (a *HTTPAdapter) failBody(w http.ResponseWriter, r *http.Request, id string, err error) {
 	kind := runtime.ErrorDecode
-	if runtime.IsValidation(err) {
+	if validation.Failed(err) {
 		kind = runtime.ErrorValidation
 	}
 	a.fail(w, r, &runtime.HandlerError{Kind: kind, OperationID: id, Err: err})
@@ -662,7 +663,7 @@ func (c *Client) SendParcel(ctx context.Context, opts *SendParcelRequestOptions,
 	}
 
 	var out *Receipt
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -702,7 +703,7 @@ func (c *Client) GetParcel(ctx context.Context, opts *GetParcelRequestOptions, e
 	}
 
 	var out *Receipt
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -734,7 +735,7 @@ func (c *Client) PrintLabel(ctx context.Context, opts *PrintLabelRequestOptions,
 	}
 
 	var out *Label
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err

@@ -19,7 +19,7 @@ func TestExpressions(t *testing.T) {
 
 	assert.Equal(t, "p.Name", Selector("p", "Name"))
 	assert.Equal(t, "*p.Age", Deref(Selector("p", "Age")))
-	assert.Equal(t, "runtime.MinLength(v, 1)", Call("runtime.MinLength", "v", "1"))
+	assert.Equal(t, "validation.MinLength(v, 1)", Call("validation.MinLength", "v", "1"))
 	assert.Equal(t, "p.Validate()", Call("p.Validate"))
 	assert.Equal(t, "m[key]", Index("m", "key"))
 	assert.Equal(t, "p.Cat != nil", NotNil("p.Cat"))

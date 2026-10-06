@@ -15,7 +15,7 @@ import (
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type TodoSchema struct {
 	Title string `json:"title"`

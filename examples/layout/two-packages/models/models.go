@@ -2,10 +2,13 @@
 
 package models
 
-import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+import (
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
+)
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Order struct {
 	ID     string `json:"id"`
@@ -15,10 +18,10 @@ type Order struct {
 
 // Validate checks the value against the constraints of the spec.
 func (o Order) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	errs.Append("status", o.Status.Validate())
 	for idx, item := range o.Items {
-		errs.Append(runtime.Index("items", idx), item.Validate())
+		errs.Append(validation.Index("items", idx), item.Validate())
 	}
 	return errs.Err()
 }
@@ -30,8 +33,8 @@ type Item struct {
 
 // Validate checks the value against the constraints of the spec.
 func (i Item) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("quantity", runtime.Minimum(i.Quantity, 1, false))
+	var errs validation.Errors
+	errs.Append("quantity", validation.Minimum(i.Quantity, 1, false))
 	return errs.Err()
 }
 
@@ -58,7 +61,7 @@ func StatusValues() []Status {
 
 // Validate checks the value against the constraints of the spec.
 func (s Status) Validate() error {
-	return runtime.OneOf(s, StatusOpen, StatusPaid, StatusShipped)
+	return validation.Enum(s, StatusOpen, StatusPaid, StatusShipped)
 }
 
 type GetOrderQueryExpand string
@@ -78,7 +81,7 @@ func GetOrderQueryExpandValues() []GetOrderQueryExpand {
 
 // Validate checks the value against the constraints of the spec.
 func (g GetOrderQueryExpand) Validate() error {
-	return runtime.OneOf(g, GetOrderQueryExpandItems, GetOrderQueryExpandCustomer)
+	return validation.Enum(g, GetOrderQueryExpandItems, GetOrderQueryExpandCustomer)
 }
 
 type GetOrderPathParams struct {
@@ -91,7 +94,7 @@ type GetOrderQuery struct {
 
 // Validate checks the value against the constraints of the spec.
 func (g GetOrderQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if g.Expand != nil {
 		errs.Append("expand", g.Expand.Validate())
 	}
@@ -104,12 +107,12 @@ type CreateOrderRequestBody struct {
 
 // Validate checks the value against the constraints of the spec.
 func (c CreateOrderRequestBody) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if c.Items == nil {
 		errs.Required("items")
 	}
 	for idx, item := range c.Items {
-		errs.Append(runtime.Index("items", idx), item.Validate())
+		errs.Append(validation.Index("items", idx), item.Validate())
 	}
 	return errs.Err()
 }

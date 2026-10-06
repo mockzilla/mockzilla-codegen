@@ -13,7 +13,7 @@ import (
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 // The error types the handlers use, as the runtime declares them.
 type (

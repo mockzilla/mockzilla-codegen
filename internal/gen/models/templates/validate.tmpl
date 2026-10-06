@@ -2,7 +2,7 @@
 // Validate checks the value against the constraints of the spec{{if .Response}}, as a request carries it{{end}}.
 func ({{.Receiver}} {{$.Name}}) Validate() error {
 {{- if .Enum}}
-	return {{.Runtime}}.OneOf({{.Receiver}}{{range .Enum}}, {{.}}{{end}})
+	return {{.Validation}}.Enum({{.Receiver}}{{range .Enum}}, {{.}}{{end}})
 {{- else}}
 {{- template "models/checks.tmpl" .Request}}
 {{- end}}

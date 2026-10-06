@@ -58,6 +58,7 @@ type ErrorsView struct {
 type AdapterView struct {
 	Service             string
 	Runtime             string
+	Validation          string
 	HTTP                string
 	IO                  string
 	Errors              string
@@ -188,6 +189,10 @@ func adapterView(g *Generator, s *gocode.Scope) *AdapterView {
 		v.Operations = append(v.Operations, handlerView(g, op, s, table))
 	}
 	v.Presence = table.view()
+	if v.Presence != nil {
+		v.Validation = s.Import(gomodel.Import{Path: gomodel.ValidationPath})
+	}
+
 	v.Rejects = rejectViews(g.ops, s)
 	return v
 }

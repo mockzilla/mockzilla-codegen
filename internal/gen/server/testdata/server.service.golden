@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // PetsInterface is what the generated handlers call. Implement it with the business logic.
@@ -40,7 +41,7 @@ type ListPetsServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *ListPetsServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -131,7 +132,7 @@ type CreatePetServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreatePetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.BodyJSON != nil {
 		errs.Append("body", o.BodyJSON.Validate())
 	}
@@ -218,7 +219,7 @@ type DeletePetServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *DeletePetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Filter != nil {
 		errs.Append("querystring", o.Filter.Validate())
 	}

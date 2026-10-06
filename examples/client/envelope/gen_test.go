@@ -201,7 +201,7 @@ func TestGetJobLogPlain(t *testing.T) {
 	_, err = c.GetJobLog(ctx, &GetJobLogRequestOptions{PathParams: &GetJobLogPathParams{ID: "j9"}})
 	var apiErr *runtime.APIError
 	require.ErrorAs(t, err, &apiErr)
-	assert.Equal(t, http.StatusNotFound, apiErr.Status)
+	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
 }
 
 func TestInterfaceListsBothStyles(t *testing.T) {

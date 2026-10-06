@@ -6,10 +6,11 @@ import (
 	"encoding/json"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type ShippingThen struct {
 	Address *string `json:"address,omitempty"`
@@ -73,8 +74,8 @@ func (s *Shipping) union() runtime.Union {
 
 // Validate checks the value against the constraints of the spec.
 func (s Shipping) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(s.Then != nil, s.Else != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(s.Then != nil, s.Else != nil))
 	errs.Append("", runtime.DiscriminatorError(s.MarshalJSON()))
 	return errs.Err()
 }

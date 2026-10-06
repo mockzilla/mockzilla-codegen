@@ -9,6 +9,7 @@ package gocode
 
 import (
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -19,7 +20,10 @@ import (
 
 // generatorLevel is the runtime API level generated code needs. Raise it when generated code
 // starts to use runtime API an older runtime lacks, and add the matching constant to the runtime.
-const generatorLevel = 2
+const generatorLevel = 1
+
+// runtimePackages are the packages of the runtime module that sit beside the runtime itself.
+var runtimePackages = []string{gomodel.ValidationPath, gomodel.MaskPath, gomodel.MCPToolPath}
 
 // Scope is the file code is written into. It qualifies types declared in other packages and
 // records the imports they need.
@@ -78,13 +82,21 @@ func (s *Scope) Qualified(expr string, imp gomodel.Import) string {
 	return Qualify(expr, s.Import(imp))
 }
 
-// RuntimeGuard returns the constant a file that imports the runtime refers to, so a runtime too
-// old or too new for the file fails to compile. It is empty when the file does not import it
-// under a name: its code then uses nothing of the runtime.
+// RuntimeGuard returns the constant a file that imports the runtime or one of its packages refers
+// to, so a runtime too old or too new for the file fails to compile. A file that imports only one
+// of its packages imports the runtime for it. It is empty when the file imports none of them under
+// a name: its code then uses nothing of the runtime.
 func (s *Scope) RuntimeGuard() string {
 	name, ok := s.Imports.Name(gomodel.RuntimePath)
 	if !ok {
-		return ""
+		isNamed := func(path string) bool {
+			_, named := s.Imports.Name(path)
+			return named
+		}
+		if !slices.ContainsFunc(runtimePackages, isNamed) {
+			return ""
+		}
+		name = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
 	}
 	return name + ".SupportsGeneratorV" + strconv.Itoa(generatorLevel)
 }

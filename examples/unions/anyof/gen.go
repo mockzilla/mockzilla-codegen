@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Named struct {
 	Name string `json:"name"`
@@ -63,8 +64,8 @@ func (p *Person) UnmarshalJSON(data []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (p Person) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.AtLeastOne(p.Named != nil, p.Aged != nil))
+	var errs validation.Errors
+	errs.Append("", validation.AtLeastOne(p.Named != nil, p.Aged != nil))
 	return errs.Err()
 }
 
@@ -166,15 +167,15 @@ func (c *Code) UnmarshalText(text []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (c Code) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.AtLeastOne(c.Time != nil, c.String != nil))
-	var errsString runtime.ValidationErrors
+	var errs validation.Errors
+	errs.Append("", validation.AtLeastOne(c.Time != nil, c.String != nil))
+	var errsString validation.Errors
 	if c.String != nil {
-		errsString.Append("", runtime.MaxLength(*c.String, 5))
+		errsString.Append("", validation.MaxLength(*c.String, 5))
 	}
-	errs.Append("", runtime.AnyValid(
-		runtime.VariantErrors{IsSet: c.Time != nil},
-		runtime.VariantErrors{IsSet: c.String != nil, Errs: errsString},
+	errs.Append("", validation.AnyValid(
+		validation.VariantErrors{IsSet: c.Time != nil},
+		validation.VariantErrors{IsSet: c.String != nil, Errs: errsString},
 	))
 	return errs.Err()
 }

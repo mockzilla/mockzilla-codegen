@@ -1,6 +1,9 @@
 package types
 
-import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+import (
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
+)
 
 // ListPetsRequestOptions is what ListPets sends.
 type ListPetsRequestOptions struct {
@@ -11,7 +14,7 @@ type ListPetsRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *ListPetsRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -40,7 +43,7 @@ type CreatePetRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreatePetRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.BodyJSON != nil {
 		errs.Append("body", o.BodyJSON.Validate())
 	}
@@ -64,7 +67,7 @@ type DeletePetRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *DeletePetRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Filter != nil {
 		errs.Append("querystring", o.Filter.Validate())
 	}
@@ -103,7 +106,7 @@ type ChatRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *ChatRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
