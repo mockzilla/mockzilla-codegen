@@ -158,6 +158,11 @@ func TestGenerateWithExtraFileSymbol(t *testing.T) {
 			text: "var All = {{symbol `./api/names.go` `names`}}",
 			want: "package api\n\nvar All = names\n",
 		},
+		{
+			name: "Path import gave that the code does not use, left out",
+			text: "{{$ctx := import `context`}}{{$time := import `time`}}var Now = {{$time}}.Now",
+			want: "package app\n\nimport \"time\"\n\nvar Now = time.Now\n",
+		},
 	}
 
 	for _, tc := range tests {

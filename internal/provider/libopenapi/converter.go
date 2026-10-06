@@ -397,6 +397,16 @@ func (c *converter) contents(m *orderedmap.Map[string, *v3.MediaType], ptr strin
 	var out []*spec.MediaType
 	for name, mt := range m.FromOldest() {
 		at := ptr + "/" + oasdoc.Escape(name)
+		if name == "" {
+			c.diags.Append(diag.Diagnostic{
+				Severity: diag.Warning,
+				Code:     diag.CodeMediaTypeEmpty,
+				Pointer:  at,
+				Origin:   c.position(at, mt.GoLow().GetRootNode()),
+				Message:  "media type key is empty; the content is left out",
+			})
+			continue
+		}
 		out = append(out, &spec.MediaType{
 			Name:       name,
 			Schema:     c.schema(mt.Schema, at+"/schema"),

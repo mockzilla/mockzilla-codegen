@@ -80,8 +80,8 @@ Operations:
           Name: application/json
           Schema:
             Types: object
-            Origin: bodies.yaml:32:44 /components/requestBodies/Pet/content/application~1json/schema
-          Origin: bodies.yaml:32:35 /components/requestBodies/Pet/content/application~1json
+            Origin: bodies.yaml:39:44 /components/requestBodies/Pet/content/application~1json/schema
+          Origin: bodies.yaml:39:35 /components/requestBodies/Pet/content/application~1json
       Extensions:
         -
           Name: x-kind
@@ -89,7 +89,7 @@ Operations:
       Ref:
         Pointer: /components/requestBodies/PetAlias
         Name: PetAlias
-      Origin: bodies.yaml:32:7 /components/requestBodies/Pet
+      Origin: bodies.yaml:39:7 /components/requestBodies/Pet
     Responses:
       -
         Status: 200
@@ -107,8 +107,8 @@ Operations:
           Name: application/json
           Schema:
             Types: object
-            Origin: bodies.yaml:32:44 /components/requestBodies/Pet/content/application~1json/schema
-          Origin: bodies.yaml:32:35 /components/requestBodies/Pet/content/application~1json
+            Origin: bodies.yaml:39:44 /components/requestBodies/Pet/content/application~1json/schema
+          Origin: bodies.yaml:39:35 /components/requestBodies/Pet/content/application~1json
       Extensions:
         -
           Name: x-kind
@@ -116,13 +116,33 @@ Operations:
       Ref:
         Pointer: /components/requestBodies/Pet
         Name: Pet
-      Origin: bodies.yaml:32:7 /components/requestBodies/Pet
+      Origin: bodies.yaml:39:7 /components/requestBodies/Pet
     Responses:
       -
         Status: 200
         Description: ok
         Origin: bodies.yaml:25:26 /paths/~1pets/post/responses/200
     Origin: bodies.yaml:24:7 /paths/~1pets/post
+  -
+    ID: postNotes
+    IsIDDerived: true
+    Method: POST
+    Path: /notes
+    Body:
+      Contents:
+        -
+          Name: application/json
+          Schema:
+            Types: string
+            Origin: bodies.yaml:34:38 /paths/~1notes/post/requestBody/content/application~1json/schema
+          Origin: bodies.yaml:34:29 /paths/~1notes/post/requestBody/content/application~1json
+      Origin: bodies.yaml:32:9 /paths/~1notes/post/requestBody
+    Responses:
+      -
+        Status: 200
+        Description: ok
+        Origin: bodies.yaml:35:26 /paths/~1notes/post/responses/200
+    Origin: bodies.yaml:31:7 /paths/~1notes/post
 Components:
   RequestBodies:
     -
@@ -133,13 +153,13 @@ Components:
             Name: application/json
             Schema:
               Types: object
-              Origin: bodies.yaml:32:44 /components/requestBodies/Pet/content/application~1json/schema
-            Origin: bodies.yaml:32:35 /components/requestBodies/Pet/content/application~1json
+              Origin: bodies.yaml:39:44 /components/requestBodies/Pet/content/application~1json/schema
+            Origin: bodies.yaml:39:35 /components/requestBodies/Pet/content/application~1json
         Extensions:
           -
             Name: x-kind
             Value: "pet"
-        Origin: bodies.yaml:32:7 /components/requestBodies/Pet
+        Origin: bodies.yaml:39:7 /components/requestBodies/Pet
     -
       Name: PetAlias
       Value:
@@ -148,8 +168,8 @@ Components:
             Name: application/json
             Schema:
               Types: object
-              Origin: bodies.yaml:32:44 /components/requestBodies/Pet/content/application~1json/schema
-            Origin: bodies.yaml:32:35 /components/requestBodies/Pet/content/application~1json
+              Origin: bodies.yaml:39:44 /components/requestBodies/Pet/content/application~1json/schema
+            Origin: bodies.yaml:39:35 /components/requestBodies/Pet/content/application~1json
         Extensions:
           -
             Name: x-kind
@@ -157,5 +177,6 @@ Components:
         Ref:
           Pointer: /components/requestBodies/Pet
           Name: Pet
-        Origin: bodies.yaml:32:7 /components/requestBodies/Pet
+        Origin: bodies.yaml:39:7 /components/requestBodies/Pet
 Diagnostics:
+  - warning media-type-empty bodies.yaml:33:15 /paths/~1notes/post/requestBody/content/: media type key is empty; the content is left out

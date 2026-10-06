@@ -49,13 +49,15 @@ type Result struct {
 }
 
 // File is one generated file. Path is resolved against the config folder; Parts lists the parts it
-// holds, such as models.types.
+// holds, such as models.types. IsOverwritten is set on a scaffold that server.scaffold.overwrite
+// lets Write replace.
 type File struct {
-	Path    string
-	Package string
-	Parts   []string
-	Kind    FileKind
-	Content []byte
+	Path          string
+	Package       string
+	Parts         []string
+	Kind          FileKind
+	IsOverwritten bool
+	Content       []byte
 }
 
 // generation is one Generate run.
@@ -308,11 +310,23 @@ func (g *generation) render() error {
 		for i, p := range f.Parts {
 			parts[i] = string(p)
 		}
-		g.files = append(g.files, File{Path: f.Path, Package: f.Package, Parts: parts, Kind: FileKind(f.Kind), Content: content})
+		g.files = append(g.files, File{
+			Path:          f.Path,
+			Package:       f.Package,
+			Parts:         parts,
+			Kind:          FileKind(f.Kind),
+			IsOverwritten: g.isOverwritten(f),
+			Content:       content,
+		})
 	}
 
 	g.reportUnusedImports()
 	return g.lay.CheckImports(g.imports)
+}
+
+// isOverwritten says whether f is a scaffold the config rewrites on every run.
+func (g *generation) isOverwritten(f *layout.File) bool {
+	return f.Kind == layout.Scaffold && g.cfg.Server != nil && g.cfg.Server.Scaffold.Overwrite
 }
 
 // file renders f with the imports of the config on offer. An offer no part took, which cost
