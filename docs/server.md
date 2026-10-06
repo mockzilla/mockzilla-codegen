@@ -151,7 +151,8 @@ mux.HandleFunc("GET /pets", adapter.ListPets)
   into a `runtime.File`, a string or bytes, whichever its field is. A `runtime.File`
   (`format: binary`) streams the body: the service reads it once, before it returns. A documented
   media type that does not fit its type, such as XML into a struct, is accepted and left to
-  `RawRequest`, and the generator warns about it (`server-body-unread`).
+  `RawRequest`, and the generator warns about it (`server-body-unread`). Content under an empty
+  key names no media type, so it is left out, with a warning (`media-type-empty`).
 - A form body follows its `encoding` object as the client writes it, see
   [the client](client.md#request-options): a property declared JSON is read as JSON, and
   text that is no JSON is a 400. A list of a multipart form is read from one part per item or
@@ -641,6 +642,9 @@ for the project's own code. The struct of the service scaffold is named after `s
 in a folder of its own, since it is `package main`, and imports the others by module path. It
 serves with an `http.Server`, except for fiber, fasthttp, hertz and goframe, whose servers are
 served in their own way, see their sections.
+
+With `overwrite` set, `Generate` sets `File.IsOverwritten` on every scaffold and `Write` writes it
+again.
 
 `TimeoutMiddleware` sets a deadline on the request's context, `timeout` after the request came,
 and serves the request on the same goroutine. A service that watches its context and returns the

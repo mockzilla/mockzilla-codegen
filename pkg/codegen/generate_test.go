@@ -165,7 +165,10 @@ func TestExamples(t *testing.T) {
 
 			stale := staleFiles(t, filepath.Dir(path), cfg.Header, res)
 			if os.Getenv("UPDATE") != "" {
-				_, err = Write(res, WriteOptions{OverwriteScaffolds: true})
+				for i := range res.Files {
+					res.Files[i].IsOverwritten = true
+				}
+				_, err = Write(res, WriteOptions{})
 				require.NoError(t, err)
 				for _, f := range stale {
 					require.NoError(t, os.Remove(f))
@@ -232,6 +235,38 @@ func TestGenerate(t *testing.T) {
 			Message:  "the spec has no operations, so nothing is pruned",
 		}},
 	}, res)
+}
+
+func TestGenerateScaffolds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		overwrite   string
+		isOverwrite bool
+	}{
+		{name: "Scaffold kept once written"},
+		{name: "Scaffold the config overwrites", overwrite: ", overwrite: true", isOverwrite: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg, err := config.Parse([]byte("package: pets\nserver: {framework: chi, scaffold: {service: ./service.go"+tc.overwrite+"}}\n"), t.TempDir())
+			require.NoError(t, err)
+
+			res, err := Generate(context.Background(), cfg, WithSpec([]byte(petSpec)))
+
+			require.NoError(t, err)
+			var overwritten []bool
+			for _, f := range res.Files {
+				overwritten = append(overwritten, f.IsOverwritten)
+			}
+			assert.Equal(t, []bool{false, tc.isOverwrite}, overwritten, "only the scaffold follows the config")
+			assert.Equal(t, FileScaffold, res.Files[1].Kind)
+		})
+	}
 }
 
 func TestGenerateErrors(t *testing.T) {

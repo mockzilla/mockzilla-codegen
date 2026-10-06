@@ -20,8 +20,10 @@ import (
 )
 
 // renderExtra runs text, the template of the extra file id, on data and checks that it wrote Go
-// declarations. Its expr, import and symbol funcs write for the file of s.
+// declarations. Its expr, import and symbol funcs write for the file of s; a path import gave whose
+// name the code does not use is dropped again.
 func renderExtra(id layout.PartID, text string, data any, s *gocode.Scope) ([]byte, error) {
+	var imported []string
 	funcs := template.FuncMap{
 		"expr": func(t TypeRef) (string, error) {
 			if err := t.check(); err != nil {
@@ -33,6 +35,7 @@ func renderExtra(id layout.PartID, text string, data any, s *gocode.Scope) ([]by
 			if path == "" {
 				return "", fmt.Errorf("%w without a path", errImport)
 			}
+			imported = append(imported, path)
 			return s.Import(gomodel.Import{Path: path}), nil
 		},
 		"symbol": func(part, name string) (string, error) {
@@ -47,6 +50,7 @@ func renderExtra(id layout.PartID, text string, data any, s *gocode.Scope) ([]by
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrExtraFile, err)
 	}
+	s.Imports.DropUnused(out, imported)
 	return out, nil
 }
 

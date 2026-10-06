@@ -369,6 +369,47 @@ func TestImportSetOffer(t *testing.T) {
 	}
 }
 
+func TestImportSetDropUnused(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		src   string
+		paths []string
+		want  string
+	}{
+		{
+			name:  "Unused path is dropped",
+			src:   "var x = time.Now()",
+			paths: []string{"context", "time"},
+			want:  `import "time"`,
+		},
+		{
+			name:  "Path not in the list stays",
+			src:   "var x = 1",
+			paths: []string{"time"},
+			want:  `import "context"`,
+		},
+		{
+			name:  "Every path dropped leaves no declaration",
+			src:   "var x = 1",
+			paths: []string{"context", "time"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := NewImportSet()
+			s.Add("context", "")
+			s.Add("time", "")
+			s.DropUnused([]byte(tc.src), tc.paths)
+			assert.Equal(t, tc.want, s.Decl())
+		})
+	}
+}
+
 func TestImportSetIdle(t *testing.T) {
 	t.Parallel()
 

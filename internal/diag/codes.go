@@ -16,6 +16,7 @@ const (
 	CodeKeywordVersion         = "keyword-version"
 	CodeKeywordUnsupported     = "keyword-unsupported"
 	CodeInvalidStatus          = "invalid-status"
+	CodeMediaTypeEmpty         = "media-type-empty"
 	CodeUnresolvedMapping      = "unresolved-mapping"
 	CodeOptionalPathParam      = "optional-path-param"
 	CodeParamIn                = "param-in"

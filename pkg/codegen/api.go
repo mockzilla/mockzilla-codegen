@@ -40,8 +40,9 @@ type API struct {
 // router registers it. RequestOptions and ResponseData are the types of the service contract,
 // empty without a server; ClientRequestOptions is what the client method takes and ClientResponse
 // the envelope its WithResponse method returns, empty without a client or without envelopes.
-// Responses come in the order of the generated code: codes, ranges, other keys, then default.
-// Success points to the first of them with a Code from 200 to 299, nil without one.
+// Bodies are the request bodies, in spec order. Responses come in the order of the generated code:
+// codes, ranges, other keys, then default. Success points to the first of them with a Code from
+// 200 to 299, nil without one.
 type Operation struct {
 	ID                   string
 	Method               string
@@ -54,8 +55,17 @@ type Operation struct {
 	ResponseData         TypeRef
 	ClientRequestOptions TypeRef
 	ClientResponse       TypeRef
+	Bodies               []Body
 	Responses            []Response
 	Success              *Response
+}
+
+// Body is one request body of an operation: its media type, the field of the request options
+// that holds it, server and client alike, and the type of that field.
+type Body struct {
+	ContentType string
+	Field       string
+	Type        TypeRef
 }
 
 // Response is one response of an operation. Status is its key as the spec writes it, such as 200,
@@ -149,6 +159,7 @@ func describeOperation(namer *naming.Namer, op *gomodel.Operation, lay *layout.L
 		Tags:       op.Spec.Tags,
 		HasOptions: len(op.Params)+len(op.Bodies) > 0,
 		IsRouted:   isRouted,
+		Bodies:     describeBodies(namer, op, lay),
 		Responses:  describeResponses(namer, op, lay),
 	}
 	if i := slices.IndexFunc(o.Responses, func(r Response) bool { return r.Code >= 200 && r.Code <= 299 }); i >= 0 {
@@ -169,6 +180,19 @@ func describeOperation(namer *naming.Namer, op *gomodel.Operation, lay *layout.L
 		o.ClientResponse = inFile(namer.ClientResponse(op.Name), f)
 	}
 	return o
+}
+
+func describeBodies(namer *naming.Namer, op *gomodel.Operation, lay *layout.Layout) []Body {
+	if len(op.Bodies) == 0 {
+		return nil
+	}
+
+	fields := operation.BodyFields(op.Bodies, namer)
+	out := make([]Body, 0, len(op.Bodies))
+	for i, c := range op.Bodies {
+		out = append(out, Body{ContentType: c.MediaType, Field: fields[i], Type: typeRef(operation.BodyType(c), lay)})
+	}
+	return out
 }
 
 // describeResponses leaves the constructors empty when lay holds no service.

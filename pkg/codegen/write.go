@@ -21,10 +21,8 @@ const (
 )
 
 // WriteOptions control Write. DryRun reports what Write would do and writes nothing.
-// OverwriteScaffolds writes scaffold files that already exist.
 type WriteOptions struct {
-	DryRun             bool
-	OverwriteScaffolds bool
+	DryRun bool
 }
 
 // WriteReport says what Write did with one file.
@@ -45,12 +43,12 @@ func (a WriteAction) String() string {
 }
 
 // Write writes the files of res, making folders as needed. A scaffold that exists is skipped
-// unless opts.OverwriteScaffolds is set. It stops at the first failure and returns the reports of
-// the files before it.
+// unless its IsOverwritten is set. It stops at the first failure and returns the reports of the
+// files before it.
 func Write(res *Result, opts WriteOptions) ([]WriteReport, error) {
 	reports := make([]WriteReport, 0, len(res.Files))
 	for _, f := range res.Files {
-		action, err := actionFor(f, opts)
+		action, err := actionFor(f)
 		if err == nil && action == ActionWrite && !opts.DryRun {
 			err = writeFile(f)
 		}
@@ -62,8 +60,8 @@ func Write(res *Result, opts WriteOptions) ([]WriteReport, error) {
 	return reports, nil
 }
 
-func actionFor(f File, opts WriteOptions) (WriteAction, error) {
-	if f.Kind != FileScaffold || opts.OverwriteScaffolds {
+func actionFor(f File) (WriteAction, error) {
+	if f.Kind != FileScaffold || f.IsOverwritten {
 		return ActionWrite, nil
 	}
 

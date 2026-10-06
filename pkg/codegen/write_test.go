@@ -20,6 +20,7 @@ func TestWrite(t *testing.T) {
 	tests := []struct {
 		name        string
 		opts        WriteOptions
+		isOverwrite bool
 		wantActions []WriteAction
 		wantGen     string
 		wantMain    string
@@ -31,8 +32,8 @@ func TestWrite(t *testing.T) {
 			wantMain:    "package main // mine\n",
 		},
 		{
-			name:        "Existing scaffold is overwritten when asked",
-			opts:        WriteOptions{OverwriteScaffolds: true},
+			name:        "Existing scaffold is overwritten when it says so",
+			isOverwrite: true,
 			wantActions: []WriteAction{ActionWrite, ActionWrite, ActionWrite},
 			wantGen:     "package api\n",
 			wantMain:    "package main\n",
@@ -55,8 +56,8 @@ func TestWrite(t *testing.T) {
 			require.NoError(t, os.WriteFile(main, []byte("package main // mine\n"), 0o600))
 			res := &Result{Files: []File{
 				{Path: filepath.Join(dir, "api", "gen.go"), Content: []byte("package api\n")},
-				{Path: main, Kind: FileScaffold, Content: []byte("package main\n")},
-				{Path: filepath.Join(dir, "api", "service.go"), Kind: FileScaffold, Content: []byte("package api\n")},
+				{Path: main, Kind: FileScaffold, IsOverwritten: tc.isOverwrite, Content: []byte("package main\n")},
+				{Path: filepath.Join(dir, "api", "service.go"), Kind: FileScaffold, IsOverwritten: tc.isOverwrite, Content: []byte("package api\n")},
 			}}
 
 			reports, err := Write(res, tc.opts)
