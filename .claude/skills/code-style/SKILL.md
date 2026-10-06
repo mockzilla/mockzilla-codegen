@@ -57,15 +57,6 @@ Uber baseline and the project rules. Record each violation as one line:
 - **Any violations**: stop. Ask the user to fix, accept (override), or go case-by-case. Do not
   complete the task or create the PR until the answer is in.
 
-### Step 4 - PR footer (PR-create checkpoint only)
-
-```
----
-Code style gate: passed (N files reviewed)
-```
-
-or `Code style gate: overridden (<one-line reason>)`.
-
 ## Baseline: Uber Go Style Guide
 
 Canonical source: https://github.com/uber-go/guide/blob/master/style.md. For anything not listed,
