@@ -25,7 +25,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *types.ListPetsRequestOpt
 	}
 
 	var out types.Pets
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
 	}); err != nil {
@@ -46,7 +46,7 @@ func (c *PetClient) ListPetsWithResponse(ctx context.Context, opts *types.ListPe
 	}
 
 	out := &types.ListPetsResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/xml", Dst: &out.XML200},
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
@@ -93,7 +93,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *types.CreatePetRequestO
 	}
 
 	var out *types.Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "202"},
 		{Status: "4XX", MediaType: "application/problem+json", Dst: new(types.Problem)},
@@ -116,7 +116,7 @@ func (c *PetClient) CreatePetWithResponse(ctx context.Context, opts *types.Creat
 	}
 
 	out := &types.CreatePetResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "202", MediaType: "application/json", Dst: &out.JSON202},
 		{Status: "201", MediaType: "application/json", Dst: &out.JSON201},
 		{Status: "409", MediaType: "application/json", Dst: &out.JSON409},
@@ -170,7 +170,7 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *types.DeletePetRequestO
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, []runtime.Target{
+	return runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "404", MediaType: "application/json", Dst: new(types.Problem)},
 	})
 }
@@ -187,7 +187,7 @@ func (c *PetClient) DeletePetWithResponse(ctx context.Context, opts *types.Delet
 	}
 
 	out := &types.DeletePetResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "404", MediaType: "application/json", Dst: &out.JSON404},
 	}); err != nil {
 		return out, err
@@ -224,7 +224,7 @@ func (c *PetClient) Ping(ctx context.Context, opts *types.PingRequestOptions, ed
 	}
 
 	var out string
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
 	}); err != nil {
 		return "", err
@@ -244,7 +244,7 @@ func (c *PetClient) PingWithResponse(ctx context.Context, opts *types.PingReques
 	}
 
 	out := &types.PingResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out.Text200},
 		{Status: "200", MediaType: "text/xml", Dst: &out.XML200},
 		{Status: "200", MediaType: "image/*", Dst: &out.Image200},
@@ -322,7 +322,7 @@ func (c *PetClient) Chat(ctx context.Context, opts *types.ChatRequestOptions, ed
 	}
 
 	var out *types.Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
 	}); err != nil {
@@ -343,7 +343,7 @@ func (c *PetClient) ChatWithResponse(ctx context.Context, opts *types.ChatReques
 	}
 
 	out := &types.ChatResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
@@ -363,7 +363,7 @@ func (c *PetClient) ChatStream(ctx context.Context, opts *types.ChatRequestOptio
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[types.ChatResponseItem](res, body, []runtime.Target{
+	return runtime.OpenStream[types.ChatResponseItem](res, body, []runtime.ResponseTarget{
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
 	})
 }
@@ -380,7 +380,7 @@ func (c *PetClient) ChatStreamWithResponse(ctx context.Context, opts *types.Chat
 	}
 
 	out := &types.ChatResponse{HTTPResponse: res, Body: body}
-	out.Stream200, err = runtime.DecodeStream[types.ChatResponseItem](res, body, []runtime.Target{
+	out.Stream200, err = runtime.DecodeStream[types.ChatResponseItem](res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
@@ -418,7 +418,7 @@ func (c *PetClient) Tail(ctx context.Context, opts *types.TailRequestOptions, ed
 	}
 
 	var out *string
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -438,7 +438,7 @@ func (c *PetClient) TailWithResponse(ctx context.Context, opts *types.TailReques
 	}
 
 	out := &types.TailResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 	}); err != nil {
 		return out, err
@@ -471,7 +471,7 @@ func (c *PetClient) TailStreamWithResponse(ctx context.Context, opts *types.Tail
 	}
 
 	out := &types.TailResponse{HTTPResponse: res, Body: body}
-	out.Stream200, err = runtime.DecodeStream[[]byte](res, body, []runtime.Target{
+	out.Stream200, err = runtime.DecodeStream[[]byte](res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 	})
 	if err != nil {

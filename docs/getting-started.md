@@ -118,15 +118,16 @@ file.
 
 ## Runtime guard
 
-A generated file that imports the runtime package has this line:
+A generated file that imports the runtime package, or one of the packages beside it, has this
+line:
 
 ```go
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 ```
 
 Each release of mockzilla-codegen writes code for one level of the runtime API, and the runtime
 declares the levels it supports. When the runtime your module requires does not support the level
-of the code, the build stops on this line with `undefined: runtime.SupportsGeneratorV2`. Generate
+of the code, the build stops on this line with `undefined: runtime.SupportsGeneratorV1`. Generate
 again with the version your `go.mod` requires, or update the requirement to the version that
 generated the code. With `go tool` both come from the same line of `go.mod`, so this does not
 happen.

@@ -10,10 +10,11 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Prompt struct {
 	Text   string `json:"text"`
@@ -62,7 +63,7 @@ func ListEventsResponseItemKindValues() []ListEventsResponseItemKind {
 
 // Validate checks the value against the constraints of the spec.
 func (l ListEventsResponseItemKind) Validate() error {
-	return runtime.OneOf(l, ListEventsResponseItemKindCreated, ListEventsResponseItemKindDeleted)
+	return validation.Enum(l, ListEventsResponseItemKindCreated, ListEventsResponseItemKindDeleted)
 }
 
 type TailLogPathParams struct {
@@ -83,7 +84,7 @@ type ListEventsResponseItem struct {
 
 // Validate checks the value against the constraints of the spec.
 func (l ListEventsResponseItem) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	errs.Append("kind", l.Kind.Validate())
 	return errs.Err()
 }
@@ -282,7 +283,7 @@ func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions, editors ...
 	}
 
 	var out *Reply
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "400", MediaType: "application/problem+json", Dst: new(Problem)},
 	}); err != nil {
@@ -303,7 +304,7 @@ func (c *Client) ChatWithResponse(ctx context.Context, opts *ChatRequestOptions,
 	}
 
 	out := &ChatResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
@@ -324,7 +325,7 @@ func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[Chunk](res, body, []runtime.Target{
+	return runtime.OpenStream[Chunk](res, body, []runtime.ResponseTarget{
 		{Status: "400", MediaType: "application/problem+json", Dst: new(Problem)},
 	})
 }
@@ -341,7 +342,7 @@ func (c *Client) ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOp
 	}
 
 	out := &ChatResponse{HTTPResponse: res, Body: body}
-	out.Stream200, err = runtime.DecodeStream[Chunk](res, body, []runtime.Target{
+	out.Stream200, err = runtime.DecodeStream[Chunk](res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
@@ -452,7 +453,7 @@ func (c *Client) TailLog(ctx context.Context, opts *TailLogRequestOptions, edito
 	}
 
 	var out *TailLogResponseItem
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out},
 		{Status: "404", MediaType: "application/problem+json", Dst: new(Problem)},
 	}); err != nil {
@@ -473,7 +474,7 @@ func (c *Client) TailLogWithResponse(ctx context.Context, opts *TailLogRequestOp
 	}
 
 	out := &TailLogResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 		{Status: "404", MediaType: "application/problem+json", Dst: &out.ProblemJSON404},
 	}); err != nil {
@@ -492,7 +493,7 @@ func (c *Client) TailLogStream(ctx context.Context, opts *TailLogRequestOptions,
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[[]byte](res, body, []runtime.Target{
+	return runtime.OpenStream[[]byte](res, body, []runtime.ResponseTarget{
 		{Status: "404", MediaType: "application/problem+json", Dst: new(Problem)},
 	})
 }
@@ -509,7 +510,7 @@ func (c *Client) TailLogStreamWithResponse(ctx context.Context, opts *TailLogReq
 	}
 
 	out := &TailLogResponse{HTTPResponse: res, Body: body}
-	out.Stream200, err = runtime.DecodeStream[[]byte](res, body, []runtime.Target{
+	out.Stream200, err = runtime.DecodeStream[[]byte](res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 		{Status: "404", MediaType: "application/problem+json", Dst: &out.ProblemJSON404},
 	})

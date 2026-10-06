@@ -199,7 +199,7 @@ func (a *HTTPAdapter) failDecode(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Reques
 
 func (a *HTTPAdapter) failBody(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, err error) {
 	kind := {{.Runtime}}.ErrorDecode
-	if {{.Runtime}}.IsValidation(err) {
+	if {{.Validation}}.Failed(err) {
 		kind = {{.Runtime}}.ErrorValidation
 	}
 	a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: kind, OperationID: id, Err: err})

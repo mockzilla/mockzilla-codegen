@@ -17,14 +17,14 @@ func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}, 
 {{- if .Result}}
 
 	var out {{.Result}}
-	if err = {{$.Runtime}}.DecodeSuccess(res, body, []{{$.Runtime}}.Target{
+	if err = {{$.Runtime}}.DecodeSuccess(res, body, []{{$.Runtime}}.ResponseTarget{
 {{- template "client/targets.tmpl" .Targets}}
 	}); err != nil {
 		return {{.Zero}}, err
 	}
 	return out, nil
 {{- else if .Targets}}
-	return {{$.Runtime}}.DecodeSuccess(res, body, []{{$.Runtime}}.Target{
+	return {{$.Runtime}}.DecodeSuccess(res, body, []{{$.Runtime}}.ResponseTarget{
 {{- template "client/targets.tmpl" .Targets}}
 	})
 {{- else}}
@@ -46,7 +46,7 @@ func (c *{{$.Client}}) {{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{
 
 	out := &{{.Response}}{HTTPResponse: res, Body: body}
 {{- if .EnvelopeTargets}}
-	if err = {{$.Runtime}}.Decode(res, body, []{{$.Runtime}}.Target{
+	if err = {{$.Runtime}}.DecodeResponse(res, body, []{{$.Runtime}}.ResponseTarget{
 {{- template "client/targets.tmpl" .EnvelopeTargets}}
 	}); err != nil {
 		return out, err
@@ -68,7 +68,7 @@ func (c *{{$.Client}}) {{.Name}}Stream(ctx {{$.Context}}.Context, opts *{{.Optio
 		return nil, err
 	}
 {{- if .Stream.Targets}}
-	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](res, body, []{{$.Runtime}}.Target{
+	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](res, body, []{{$.Runtime}}.ResponseTarget{
 {{- template "client/targets.tmpl" .Stream.Targets}}
 	})
 {{- else}}
@@ -90,7 +90,7 @@ func (c *{{$.Client}}) {{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, op
 
 	out := &{{.Response}}{HTTPResponse: res, Body: body}
 {{- if .EnvelopeTargets}}
-	out.{{.Stream.Field}}, err = {{$.Runtime}}.DecodeStream[{{.Stream.Frame}}](res, body, []{{$.Runtime}}.Target{
+	out.{{.Stream.Field}}, err = {{$.Runtime}}.DecodeStream[{{.Stream.Frame}}](res, body, []{{$.Runtime}}.ResponseTarget{
 {{- template "client/targets.tmpl" .EnvelopeTargets}}
 	})
 	if err != nil {

@@ -10,10 +10,11 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Point struct {
 	X *int `json:"x,omitempty"`
@@ -77,8 +78,8 @@ func (q *QueryStylesQueryID) UnmarshalText(text []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (q QueryStylesQueryID) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(q.Int != nil, q.String != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(q.Int != nil, q.String != nil))
 	return errs.Err()
 }
 
@@ -132,8 +133,8 @@ func (h *HeaderStylesHeadersXLimit) UnmarshalText(text []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (h HeaderStylesHeadersXLimit) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.AtLeastOne(h.Int != nil, h.Bool != nil))
+	var errs validation.Errors
+	errs.Append("", validation.AtLeastOne(h.Int != nil, h.Bool != nil))
 	return errs.Err()
 }
 
@@ -146,7 +147,7 @@ type PathStylesPathParams struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p PathStylesPathParams) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if p.List == nil {
 		errs.Required("list")
 	}
@@ -169,7 +170,7 @@ type QueryStylesQuery struct {
 
 // Validate checks the value against the constraints of the spec.
 func (q QueryStylesQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if q.ID != nil {
 		errs.Append("id", q.ID.Validate())
 	}
@@ -185,7 +186,7 @@ type HeaderStylesHeaders struct {
 
 // Validate checks the value against the constraints of the spec.
 func (h HeaderStylesHeaders) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if h.XLimit != nil {
 		errs.Append("X-Limit", h.XLimit.Validate())
 	}
@@ -204,7 +205,7 @@ type PathStylesRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *PathStylesRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.PathParams != nil {
 		errs.Append("path", o.PathParams.Validate())
 	}
@@ -218,7 +219,7 @@ type QueryStylesRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *QueryStylesRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -232,7 +233,7 @@ type HeaderStylesRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *HeaderStylesRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Headers != nil {
 		errs.Append("header", o.Headers.Validate())
 	}
@@ -362,7 +363,7 @@ func (c *Client) PathStyles(ctx context.Context, opts *PathStylesRequestOptions,
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -397,7 +398,7 @@ func (c *Client) QueryStyles(ctx context.Context, opts *QueryStylesRequestOption
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -439,7 +440,7 @@ func (c *Client) HeaderStyles(ctx context.Context, opts *HeaderStylesRequestOpti
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -474,7 +475,7 @@ func (c *Client) CookieStyles(ctx context.Context, opts *CookieStylesRequestOpti
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -507,7 +508,7 @@ func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions, editors
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -537,7 +538,7 @@ func (c *Client) Find(ctx context.Context, opts *FindRequestOptions, editors ...
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err

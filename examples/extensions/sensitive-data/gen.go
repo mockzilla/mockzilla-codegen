@@ -7,10 +7,12 @@ import (
 	"regexp"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mask"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 var (
 	patternUserSsn = regexp.MustCompile(`\d`)
@@ -28,9 +30,9 @@ type User struct {
 
 // Validate checks the value against the constraints of the spec.
 func (u User) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	for idx, item := range u.Contacts {
-		errs.Append(runtime.Index("contacts", idx), item.Validate())
+		errs.Append(validation.Index("contacts", idx), item.Validate())
 	}
 	return errs.Err()
 }
@@ -38,17 +40,17 @@ func (u User) Validate() error {
 // Masked returns a copy with the sensitive values masked. JSON encoding is left as it is.
 func (u User) Masked() User {
 	if u.Password != nil {
-		u.Password = runtime.Ptr(runtime.MaskFull(*u.Password))
+		u.Password = runtime.Ptr(mask.Full(*u.Password))
 	}
-	u.Ssn = runtime.MaskRegex(u.Ssn, patternUserSsn)
+	u.Ssn = mask.Regex(u.Ssn, patternUserSsn)
 	if u.Card != nil {
-		u.Card = runtime.Ptr(runtime.MaskPartial(*u.Card, 0, 4))
+		u.Card = runtime.Ptr(mask.Partial(*u.Card, 0, 4))
 	}
 	if u.APIKey != nil {
-		u.APIKey = runtime.Ptr(runtime.MaskHash(*u.APIKey))
+		u.APIKey = runtime.Ptr(mask.Hash(*u.APIKey))
 	}
-	u.Pin = runtime.Zero(u.Pin)
-	u.Contacts = runtime.MaskSlice(u.Contacts)
+	u.Pin = mask.Zero(u.Pin)
+	u.Contacts = mask.Slice(u.Contacts)
 	return u
 }
 
@@ -63,7 +65,7 @@ type Contact struct {
 
 // Validate checks the value against the constraints of the spec.
 func (c Contact) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if c.Email != nil {
 		errs.Append("email", c.Email.Validate())
 	}
@@ -73,7 +75,7 @@ func (c Contact) Validate() error {
 // Masked returns a copy with the sensitive values masked. JSON encoding is left as it is.
 func (c Contact) Masked() Contact {
 	if c.Email != nil {
-		c.Email = runtime.Ptr(runtime.MaskFull(*c.Email))
+		c.Email = runtime.Ptr(mask.Full(*c.Email))
 	}
 	return c
 }

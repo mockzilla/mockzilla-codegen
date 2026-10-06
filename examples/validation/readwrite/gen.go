@@ -2,10 +2,13 @@
 
 package readwrite
 
-import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+import (
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
+)
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type User struct {
 	ID       string   `json:"id,omitempty"`
@@ -16,17 +19,17 @@ type User struct {
 
 // Validate checks the value against the constraints of the spec, as a request carries it.
 func (u User) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(u.Name, 1))
-	errs.Append("password", runtime.MinLength(u.Password, 8))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(u.Name, 1))
+	errs.Append("password", validation.MinLength(u.Password, 8))
 	return errs.Err()
 }
 
 // ValidateResponse checks the value against the constraints of the spec, as a response carries it.
 func (u User) ValidateResponse() error {
-	var errs runtime.ValidationErrors
-	errs.Append("id", runtime.Format(u.ID, "uuid"))
-	errs.Append("name", runtime.MinLength(u.Name, 1))
+	var errs validation.Errors
+	errs.Append("id", validation.Format(u.ID, "uuid"))
+	errs.Append("name", validation.MinLength(u.Name, 1))
 	if u.Roles == nil {
 		errs.Required("roles")
 	}
@@ -39,7 +42,7 @@ type Team struct {
 
 // Validate checks the value against the constraints of the spec, as a request carries it.
 func (t Team) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if t.Lead != nil {
 		errs.Append("lead", t.Lead.Validate())
 	}
@@ -48,7 +51,7 @@ func (t Team) Validate() error {
 
 // ValidateResponse checks the value against the constraints of the spec, as a response carries it.
 func (t Team) ValidateResponse() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if t.Lead != nil {
 		errs.Append("lead", t.Lead.ValidateResponse())
 	}

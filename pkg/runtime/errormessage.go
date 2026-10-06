@@ -3,6 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
+// The message of a generated error type, read from a path in its JSON.
+
 package runtime
 
 import (

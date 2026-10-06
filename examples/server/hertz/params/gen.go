@@ -15,10 +15,11 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/config"
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Point struct {
 	X *int `json:"x,omitempty"`
@@ -76,8 +77,8 @@ func (q *QueryStylesQueryID) UnmarshalText(text []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (q QueryStylesQueryID) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(q.Int != nil, q.String != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(q.Int != nil, q.String != nil))
 	return errs.Err()
 }
 
@@ -131,8 +132,8 @@ func (h *HeaderStylesHeadersXLimit) UnmarshalText(text []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (h HeaderStylesHeadersXLimit) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.AtLeastOne(h.Int != nil, h.Bool != nil))
+	var errs validation.Errors
+	errs.Append("", validation.AtLeastOne(h.Int != nil, h.Bool != nil))
 	return errs.Err()
 }
 
@@ -145,7 +146,7 @@ type PathStylesPathParams struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p PathStylesPathParams) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if p.List == nil {
 		errs.Required("list")
 	}
@@ -175,7 +176,7 @@ func (q *QueryStylesQuery) GetLimit() int {
 
 // Validate checks the value against the constraints of the spec.
 func (q QueryStylesQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if q.ID != nil {
 		errs.Append("id", q.ID.Validate())
 	}
@@ -191,7 +192,7 @@ type HeaderStylesHeaders struct {
 
 // Validate checks the value against the constraints of the spec.
 func (h HeaderStylesHeaders) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if h.XLimit != nil {
 		errs.Append("X-Limit", h.XLimit.Validate())
 	}
@@ -230,7 +231,7 @@ type PathStylesServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *PathStylesServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.PathParams != nil {
 		errs.Append("path", o.PathParams.Validate())
 	}
@@ -291,7 +292,7 @@ type QueryStylesServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *QueryStylesServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -352,7 +353,7 @@ type HeaderStylesServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *HeaderStylesServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Headers != nil {
 		errs.Append("header", o.Headers.Validate())
 	}

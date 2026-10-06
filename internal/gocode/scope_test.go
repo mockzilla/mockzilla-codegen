@@ -133,7 +133,12 @@ func TestScopeRuntimeGuard(t *testing.T) {
 
 	s.Imports.Add("example.com/runtime", "")
 	s.Import(gomodel.Import{Path: gomodel.RuntimePath})
-	assert.Equal(t, "runtime2.SupportsGeneratorV2", s.RuntimeGuard())
+	assert.Equal(t, "runtime2.SupportsGeneratorV1", s.RuntimeGuard())
+
+	only := NewScope(l.FileOf(gomodel.PartParams), l)
+	only.Import(gomodel.Import{Path: gomodel.ValidationPath})
+	assert.Equal(t, "runtime.SupportsGeneratorV1", only.RuntimeGuard(), "a file of a runtime package alone imports the runtime")
+	assert.True(t, only.Imports.Has(gomodel.RuntimePath))
 }
 
 func TestScopeValue(t *testing.T) {

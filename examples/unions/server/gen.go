@@ -14,10 +14,11 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Shape struct {
 	Name   *string      `json:"name,omitempty"`
@@ -29,7 +30,7 @@ type Shape struct {
 
 // Validate checks the value against the constraints of the spec.
 func (s Shape) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if s.Vertex != nil {
 		errs.Append("vertex", s.Vertex.Validate())
 	}
@@ -148,8 +149,8 @@ func (v *Vertex) union() runtime.Union {
 
 // Validate checks the value against the constraints of the spec.
 func (v Vertex) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(v.String != nil, v.Point != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(v.String != nil, v.Point != nil))
 	return errs.Err()
 }
 
@@ -196,8 +197,8 @@ func (f *Fault) UnmarshalJSON(data []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (f Fault) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(f.Busy != nil, f.Invalid != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(f.Busy != nil, f.Invalid != nil))
 	return errs.Err()
 }
 
@@ -259,8 +260,8 @@ func (a *Attachment) union() runtime.Union {
 
 // Validate checks the value against the constraints of the spec.
 func (a Attachment) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(a.Link != nil, a.Upload != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(a.Link != nil, a.Upload != nil))
 	return errs.Err()
 }
 
@@ -285,7 +286,7 @@ type PostFormServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *PostFormServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -352,7 +353,7 @@ type PostMultipartServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *PostMultipartServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -416,7 +417,7 @@ type PostAttachmentServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *PostAttachmentServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.BodyForm != nil {
 		errs.Append("body", o.BodyForm.Validate())
 	}
@@ -725,7 +726,7 @@ type PostFormRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *PostFormRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -740,7 +741,7 @@ type PostMultipartRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *PostMultipartRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -757,7 +758,7 @@ type PostAttachmentRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *PostAttachmentRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.BodyForm != nil {
 		errs.Append("body", o.BodyForm.Validate())
 	}
@@ -852,7 +853,7 @@ func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions, edi
 	}
 
 	var out *Shape
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(Fault)},
 	}); err != nil {
@@ -888,7 +889,7 @@ func (c *Client) PostMultipart(ctx context.Context, opts *PostMultipartRequestOp
 	}
 
 	var out *Shape
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -923,7 +924,7 @@ func (c *Client) PostAttachment(ctx context.Context, opts *PostAttachmentRequest
 	}
 
 	var out *PostAttachmentResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
 	}); err != nil {
 		return nil, err

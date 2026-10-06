@@ -49,7 +49,7 @@ func TestAcrossPackages(t *testing.T) {
 	_, err = c.GetOrder(ctx, &api.GetOrderRequestOptions{PathParams: &models.GetOrderPathParams{ID: "9"}})
 	var apiErr *runtime.APIError
 	require.ErrorAs(t, err, &apiErr)
-	assert.Equal(t, http.StatusNotFound, apiErr.Status)
+	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
 
 	items := []models.Item{{Sku: "tea", Quantity: 2}}
 	created, err := c.CreateOrder(ctx, &api.CreateOrderRequestOptions{Body: &models.CreateOrderRequestBody{Items: items}})

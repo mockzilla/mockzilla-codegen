@@ -12,7 +12,7 @@ type {{.Type}} struct {
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *{{.Type}}) Validate() error {
 {{- if .Checks}}
-	var errs {{$.Runtime}}.ValidationErrors
+	var errs {{.Validation}}.Errors
 {{- range .Checks}}
 	if o.{{.Field}} != nil {
 		errs.Append({{.Path}}, o.{{.Field}}.Validate())

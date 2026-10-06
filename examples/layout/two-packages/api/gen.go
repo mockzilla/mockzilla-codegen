@@ -13,10 +13,11 @@ import (
 
 	"github.com/mockzilla/mockzilla-codegen/examples/layout/two-packages/models"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
@@ -35,7 +36,7 @@ type CreateOrderServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreateOrderServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -97,7 +98,7 @@ type GetOrderServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *GetOrderServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -364,7 +365,7 @@ type CreateOrderRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreateOrderRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -379,7 +380,7 @@ type GetOrderRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *GetOrderRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -469,7 +470,7 @@ func (c *Client) CreateOrder(ctx context.Context, opts *CreateOrderRequestOption
 	}
 
 	var out *models.Order
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -504,7 +505,7 @@ func (c *Client) GetOrder(ctx context.Context, opts *GetOrderRequestOptions, edi
 	}
 
 	var out *models.Order
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err

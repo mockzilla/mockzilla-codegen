@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 func validItem() Item {
@@ -86,7 +87,7 @@ func TestItemValidate(t *testing.T) {
 				return
 			}
 			require.EqualError(t, err, tc.want)
-			var errs runtime.ValidationErrors
+			var errs *validation.Errors
 			assert.True(t, errors.As(err, &errs))
 		})
 	}
@@ -98,42 +99,42 @@ func TestItemValidateRule(t *testing.T) {
 	tests := []struct {
 		name string
 		edit func(i *Item)
-		want runtime.ValidationError
+		want validation.Error
 	}{
 		{
 			name: "Length",
 			edit: func(i *Item) { i.Name = "L" },
-			want: runtime.ValidationError{Field: "name", Message: "must be at least 2 characters long", Rule: runtime.RuleMinLength, Limit: 2},
+			want: validation.Error{Field: "name", Message: "must be at least 2 characters long", Rule: validation.RuleMinLength, Limit: 2},
 		},
 		{
 			name: "Pattern as the spec writes it",
 			edit: func(i *Item) { i.Code = "lmp" },
-			want: runtime.ValidationError{Field: "code", Message: "must match ^[A-Z]{3}$", Rule: runtime.RulePattern, Limit: "^[A-Z]{3}$"},
+			want: validation.Error{Field: "code", Message: "must match ^[A-Z]{3}$", Rule: validation.RulePattern, Limit: "^[A-Z]{3}$"},
 		},
 		{
 			name: "Exclusive bound",
 			edit: func(i *Item) { i.Price = new(1000.0) },
-			want: runtime.ValidationError{Field: "price", Message: "must be less than 1000", Rule: runtime.RuleExclusiveMaximum, Limit: 1000.0},
+			want: validation.Error{Field: "price", Message: "must be less than 1000", Rule: validation.RuleExclusiveMaximum, Limit: 1000.0},
 		},
 		{
 			name: "Email",
 			edit: func(i *Item) { i.Email = new(runtime.Email("shop")) },
-			want: runtime.ValidationError{Field: "email", Message: "must be a valid email", Rule: runtime.RuleFormat, Limit: "email"},
+			want: validation.Error{Field: "email", Message: "must be a valid email", Rule: validation.RuleFormat, Limit: "email"},
 		},
 		{
 			name: "Required",
 			edit: func(i *Item) { i.Tags = nil },
-			want: runtime.ValidationError{Field: "tags", Message: "is required", Rule: runtime.RuleRequired},
+			want: validation.Error{Field: "tags", Message: "is required", Rule: validation.RuleRequired},
 		},
 		{
 			name: "Enum",
 			edit: func(i *Item) { i.Size = new(Size("xl")) },
-			want: runtime.ValidationError{Field: "size", Message: "must be one of s, m, l", Rule: runtime.RuleEnum, Limit: []Size{SizeS, SizeM, SizeL}},
+			want: validation.Error{Field: "size", Message: "must be one of s, m, l", Rule: validation.RuleEnum, Limit: []Size{SizeS, SizeM, SizeL}},
 		},
 		{
 			name: "Enum compared as JSON",
 			edit: func(i *Item) { i.Dims = []int{3} },
-			want: runtime.ValidationError{Field: "dims", Message: "must be one of [1,2], [2,4]", Rule: runtime.RuleEnum, Limit: [][]int{{1, 2}, {2, 4}}},
+			want: validation.Error{Field: "dims", Message: "must be one of [1,2], [2,4]", Rule: validation.RuleEnum, Limit: [][]int{{1, 2}, {2, 4}}},
 		},
 	}
 
@@ -144,9 +145,9 @@ func TestItemValidateRule(t *testing.T) {
 			item := validItem()
 			tc.edit(&item)
 
-			var errs runtime.ValidationErrors
+			var errs *validation.Errors
 			require.ErrorAs(t, item.Validate(), &errs)
-			assert.Equal(t, runtime.ValidationErrors{tc.want}, errs)
+			assert.Equal(t, validation.Errors{tc.want}, *errs)
 		})
 	}
 }

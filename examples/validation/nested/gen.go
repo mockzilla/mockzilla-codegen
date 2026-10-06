@@ -6,10 +6,11 @@ import (
 	"regexp"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Pet struct {
 	Name string `json:"name"`
@@ -17,8 +18,8 @@ type Pet struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p Pet) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(p.Name, 1))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(p.Name, 1))
 	return errs.Err()
 }
 
@@ -32,23 +33,23 @@ type Owner struct {
 
 // Validate checks the value against the constraints of the spec.
 func (o Owner) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Pets == nil {
 		errs.Required("pets")
 	}
 	for idx, item := range o.Pets {
-		errs.Append(runtime.Index("pets", idx), item.Validate())
+		errs.Append(validation.Index("pets", idx), item.Validate())
 	}
 	if o.Best != nil {
 		errs.Append("best", o.Best.Validate())
 	}
-	for _, key := range runtime.SortedKeys(o.ByName) {
+	for _, key := range validation.SortedKeys(o.ByName) {
 		item := o.ByName[key]
-		errs.Append(runtime.Key("byName", key), item.Validate())
+		errs.Append(validation.Key("byName", key), item.Validate())
 	}
 	for idx, item := range o.Grid {
 		for idx2, item2 := range item {
-			errs.Append(runtime.Index(runtime.Index("grid", idx), idx2), runtime.Minimum(item2, 0, false))
+			errs.Append(validation.Index(validation.Index("grid", idx), idx2), validation.Minimum(item2, 0, false))
 		}
 	}
 	if o.Contact != nil {
@@ -61,11 +62,11 @@ type Pets []Pet
 
 // Validate checks the value against the constraints of the spec.
 func (p Pets) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if p != nil {
-		errs.Append("", runtime.MaxItems(p, 2))
+		errs.Append("", validation.MaxItems(p, 2))
 		for idx, item := range p {
-			errs.Append(runtime.Index("", idx), item.Validate())
+			errs.Append(validation.Index("", idx), item.Validate())
 		}
 	}
 	return errs.Err()
@@ -124,13 +125,13 @@ func (o *OwnerContact) UnmarshalText(text []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (o OwnerContact) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(o.Email != nil, o.String != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(o.Email != nil, o.String != nil))
 	if o.Email != nil {
 		errs.Append("", o.Email.Validate())
 	}
 	if o.String != nil {
-		errs.Append("", runtime.Pattern(*o.String, patternOwnerContactString, `^\+[0-9]+$`))
+		errs.Append("", validation.Pattern(*o.String, patternOwnerContactString, `^\+[0-9]+$`))
 	}
 	return errs.Err()
 }

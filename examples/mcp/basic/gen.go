@@ -14,11 +14,13 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Pet struct {
 	// A number that is unique among pets.
@@ -29,8 +31,8 @@ type Pet struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p Pet) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(p.Name, 1))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(p.Name, 1))
 	if p.Kind != nil {
 		errs.Append("kind", p.Kind.Validate())
 	}
@@ -72,7 +74,7 @@ func PetKindValues() []PetKind {
 
 // Validate checks the value against the constraints of the spec.
 func (p PetKind) Validate() error {
-	return runtime.OneOf(p, PetKindDog, PetKindCat, PetKindBird)
+	return validation.Enum(p, PetKindDog, PetKindCat, PetKindBird)
 }
 
 type ListPetsQuery struct {
@@ -82,10 +84,10 @@ type ListPetsQuery struct {
 
 // Validate checks the value against the constraints of the spec.
 func (l ListPetsQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if l.Limit != nil {
-		errs.Append("limit", runtime.Minimum(*l.Limit, 1, false))
-		errs.Append("limit", runtime.Maximum(*l.Limit, 100, false))
+		errs.Append("limit", validation.Minimum(*l.Limit, 1, false))
+		errs.Append("limit", validation.Maximum(*l.Limit, 100, false))
 	}
 	return errs.Err()
 }
@@ -103,9 +105,9 @@ type ListPetsResponse200 []Pet
 
 // Validate checks the value against the constraints of the spec.
 func (l ListPetsResponse200) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	for idx, item := range l {
-		errs.Append(runtime.Index("", idx), item.Validate())
+		errs.Append(validation.Index("", idx), item.Validate())
 	}
 	return errs.Err()
 }
@@ -146,7 +148,7 @@ type ListPetsServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *ListPetsServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -208,7 +210,7 @@ type CreatePetServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreatePetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -717,7 +719,7 @@ type ListPetsRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *ListPetsRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -732,7 +734,7 @@ type CreatePetRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreatePetRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -873,7 +875,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions, 
 	}
 
 	var out ListPetsResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -907,7 +909,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "409", MediaType: "application/problem+json", Dst: new(Problem)},
 	}); err != nil {
@@ -945,7 +947,7 @@ func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions, edit
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "404", MediaType: "application/problem+json", Dst: new(Problem)},
 	}); err != nil {
@@ -1007,7 +1009,7 @@ func (c *PetClient) Ping(ctx context.Context, opts *PingRequestOptions, editors 
 	}
 
 	var out *PingResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -1098,7 +1100,7 @@ func (t *MCPTools) ListPetsTool() *mcp.Tool {
 
 // ListPets handles the list_pets tool.
 func (t *MCPTools) ListPets(ctx context.Context, req *mcp.CallToolRequest, in ListPetsToolInput) (*mcp.CallToolResult, any, error) {
-	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := mcptool.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 
@@ -1109,9 +1111,9 @@ func (t *MCPTools) ListPets(ctx context.Context, req *mcp.CallToolRequest, in Li
 	}
 	out, err := t.client.ListPets(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // CreatePetTool is the definition of the create_pet tool.
@@ -1126,7 +1128,7 @@ func (t *MCPTools) CreatePetTool() *mcp.Tool {
 
 // CreatePet handles the create_pet tool.
 func (t *MCPTools) CreatePet(ctx context.Context, req *mcp.CallToolRequest, in CreatePetToolInput) (*mcp.CallToolResult, any, error) {
-	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := mcptool.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 
@@ -1135,9 +1137,9 @@ func (t *MCPTools) CreatePet(ctx context.Context, req *mcp.CallToolRequest, in C
 	}
 	out, err := t.client.CreatePet(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // GetPetTool is the definition of the get_pet tool.
@@ -1152,7 +1154,7 @@ func (t *MCPTools) GetPetTool() *mcp.Tool {
 
 // GetPet handles the get_pet tool.
 func (t *MCPTools) GetPet(ctx context.Context, req *mcp.CallToolRequest, in GetPetToolInput) (*mcp.CallToolResult, any, error) {
-	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := mcptool.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 
@@ -1163,9 +1165,9 @@ func (t *MCPTools) GetPet(ctx context.Context, req *mcp.CallToolRequest, in GetP
 	}
 	out, err := t.client.GetPet(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // DeletePetTool is the definition of the delete_pet tool.
@@ -1180,7 +1182,7 @@ func (t *MCPTools) DeletePetTool() *mcp.Tool {
 
 // DeletePet handles the delete_pet tool.
 func (t *MCPTools) DeletePet(ctx context.Context, req *mcp.CallToolRequest, in DeletePetToolInput) (*mcp.CallToolResult, any, error) {
-	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := mcptool.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 
@@ -1190,7 +1192,7 @@ func (t *MCPTools) DeletePet(ctx context.Context, req *mcp.CallToolRequest, in D
 		},
 	}
 	if err := t.client.DeletePet(ctx, opts); err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "ok"}}}, nil, nil
 }
@@ -1210,7 +1212,7 @@ func (t *MCPTools) Ping(ctx context.Context, _ *mcp.CallToolRequest, _ PingToolI
 	opts := &PingRequestOptions{}
 	out, err := t.client.Ping(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
 	if out == nil {
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "ok"}}}, nil, nil

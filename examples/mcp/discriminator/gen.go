@@ -14,11 +14,13 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Cat struct {
 	Kind   string `json:"kind"`
@@ -76,8 +78,8 @@ func (a *Animal) union() runtime.Union {
 
 // Validate checks the value against the constraints of the spec.
 func (a Animal) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(a.Cat != nil, a.Dog != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(a.Cat != nil, a.Dog != nil))
 	errs.Append("", runtime.DiscriminatorError(a.MarshalJSON()))
 	return errs.Err()
 }
@@ -99,7 +101,7 @@ type AddAnimalServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *AddAnimalServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -331,7 +333,7 @@ type AddAnimalRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *AddAnimalRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -423,7 +425,7 @@ func (c *Client) AddAnimal(ctx context.Context, opts *AddAnimalRequestOptions, e
 	}
 
 	var out *Animal
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -501,7 +503,7 @@ func (t *MCPTools) AddAnimal(ctx context.Context, _ *mcp.CallToolRequest, in Add
 	}
 	out, err := t.client.AddAnimal(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }

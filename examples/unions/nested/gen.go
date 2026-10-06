@@ -2,10 +2,13 @@
 
 package nested
 
-import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+import (
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
+)
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Visa struct {
 	Number string `json:"number"`
@@ -94,8 +97,8 @@ func (p *Payment) UnmarshalJSON(data []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (p Payment) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(p.Card != nil, p.Bank != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(p.Card != nil, p.Bank != nil))
 	if p.Card != nil {
 		errs.Append("", p.Card.Validate())
 	}
@@ -148,8 +151,8 @@ func (c *Card) UnmarshalJSON(data []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (c Card) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(c.Visa != nil, c.Amex != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(c.Visa != nil, c.Amex != nil))
 	return errs.Err()
 }
 
@@ -204,8 +207,8 @@ func (b *Bank) UnmarshalJSON(data []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (b Bank) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(b.Sepa != nil, b.Domestic != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(b.Sepa != nil, b.Domestic != nil))
 	if b.Domestic != nil {
 		errs.Append("", b.Domestic.Validate())
 	}
@@ -255,7 +258,7 @@ func (d *Domestic) UnmarshalJSON(data []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (d Domestic) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(d.Ach != nil, d.Wire != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(d.Ach != nil, d.Wire != nil))
 	return errs.Err()
 }

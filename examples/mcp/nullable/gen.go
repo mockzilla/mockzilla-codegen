@@ -14,11 +14,13 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Pet struct {
 	Name string `json:"name"`
@@ -33,7 +35,7 @@ type Adoption struct {
 
 // Validate checks the value against the constraints of the spec.
 func (a Adoption) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if a.Priority != nil {
 		errs.Append("priority", a.Priority.Validate())
 	}
@@ -57,7 +59,7 @@ func AdoptionPriorityValues() []AdoptionPriority {
 
 // Validate checks the value against the constraints of the spec.
 func (a AdoptionPriority) Validate() error {
-	return runtime.OneOf(a, AdoptionPriorityHigh, AdoptionPriorityLow)
+	return validation.Enum(a, AdoptionPriorityHigh, AdoptionPriorityLow)
 }
 
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
@@ -77,7 +79,7 @@ type AdoptServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *AdoptServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -309,7 +311,7 @@ type AdoptRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *AdoptRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -401,7 +403,7 @@ func (c *Client) Adopt(ctx context.Context, opts *AdoptRequestOptions, editors .
 	}
 
 	var out *Adoption
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -479,7 +481,7 @@ func (t *MCPTools) Adopt(ctx context.Context, _ *mcp.CallToolRequest, in AdoptTo
 	}
 	out, err := t.client.Adopt(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }

@@ -2,10 +2,13 @@
 
 package errors
 
-import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+import (
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
+)
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type SimpleError struct {
 	Message string `json:"message"`
@@ -115,8 +118,8 @@ func (e *EitherError) UnmarshalJSON(data []byte) error {
 
 // Validate checks the value against the constraints of the spec.
 func (e EitherError) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("", runtime.ExactlyOne(e.Option1 != nil, e.Option2 != nil))
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(e.Option1 != nil, e.Option2 != nil))
 	return errs.Err()
 }
 

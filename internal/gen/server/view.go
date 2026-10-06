@@ -33,7 +33,8 @@ type ServiceView struct {
 }
 
 // OperationView is one operation: its method, options type and response data type. Method and
-// Path are as the spec writes them. Fields are the parameter groups, then the bodies.
+// Path are as the spec writes them. Fields are the parameter groups, then the bodies; Validation
+// is set when there are checks.
 type OperationView struct {
 	Name         string
 	Method       string
@@ -41,6 +42,7 @@ type OperationView struct {
 	Doc          string
 	Options      string
 	Data         string
+	Validation   string
 	User         map[string]any
 	Fields       []FieldView
 	Checks       []CheckView
@@ -156,6 +158,10 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Operati
 		if gomodel.Validates(t) {
 			v.Checks = append(v.Checks, CheckView{Field: fields[i], Path: gocode.Quote("body")})
 		}
+	}
+
+	if len(v.Checks) > 0 {
+		v.Validation = s.Import(gomodel.Import{Path: gomodel.ValidationPath})
 	}
 
 	for _, r := range op.Responses {

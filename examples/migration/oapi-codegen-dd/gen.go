@@ -14,11 +14,13 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type NewPet struct {
 	Name   string  `json:"name" db:"name" yaml:"name"`
@@ -28,8 +30,8 @@ type NewPet struct {
 
 // Validate checks the value against the constraints of the spec.
 func (n NewPet) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(n.Name, 1))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(n.Name, 1))
 	if n.Status != nil {
 		errs.Append("status", n.Status.Validate())
 	}
@@ -45,8 +47,8 @@ type Pet struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p Pet) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.MinLength(p.Name, 1))
+	var errs validation.Errors
+	errs.Append("name", validation.MinLength(p.Name, 1))
 	if p.Status != nil {
 		errs.Append("status", p.Status.Validate())
 	}
@@ -89,7 +91,7 @@ func StatusValues() []Status {
 
 // Validate checks the value against the constraints of the spec.
 func (s Status) Validate() error {
-	return runtime.OneOf(s, StatusAvailable, StatusPending, StatusSold)
+	return validation.Enum(s, StatusAvailable, StatusPending, StatusSold)
 }
 
 type ListPetsQuery struct {
@@ -99,9 +101,9 @@ type ListPetsQuery struct {
 
 // Validate checks the value against the constraints of the spec.
 func (l ListPetsQuery) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if l.Limit != nil {
-		errs.Append("limit", runtime.Minimum(*l.Limit, 1, false))
+		errs.Append("limit", validation.Minimum(*l.Limit, 1, false))
 	}
 	if l.Status != nil {
 		errs.Append("status", l.Status.Validate())
@@ -121,9 +123,9 @@ type ListPetsResponse200 []Pet
 
 // Validate checks the value against the constraints of the spec.
 func (l ListPetsResponse200) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	for idx, item := range l {
-		errs.Append(runtime.Index("", idx), item.Validate())
+		errs.Append(validation.Index("", idx), item.Validate())
 	}
 	return errs.Err()
 }
@@ -152,7 +154,7 @@ type ListPetsServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *ListPetsServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -219,7 +221,7 @@ type CreatePetServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreatePetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -664,7 +666,7 @@ func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id stri
 
 func (a *HTTPAdapter) failBody(w http.ResponseWriter, r *http.Request, id string, err error) {
 	kind := runtime.ErrorDecode
-	if runtime.IsValidation(err) {
+	if validation.Failed(err) {
 		kind = runtime.ErrorValidation
 	}
 	a.fail(w, r, &runtime.HandlerError{Kind: kind, OperationID: id, Err: err})
@@ -734,7 +736,7 @@ type ListPetsRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *ListPetsRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Query != nil {
 		errs.Append("query", o.Query.Validate())
 	}
@@ -749,7 +751,7 @@ type CreatePetRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *CreatePetRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -925,7 +927,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions, 
 	}
 
 	var out ListPetsResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(Error)},
 	}); err != nil {
@@ -946,7 +948,7 @@ func (c *PetClient) ListPetsWithResponse(ctx context.Context, opts *ListPetsRequ
 	}
 
 	out := &ListPetsResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
 	}); err != nil {
@@ -980,7 +982,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(Error)},
 	}); err != nil {
@@ -1001,7 +1003,7 @@ func (c *PetClient) CreatePetWithResponse(ctx context.Context, opts *CreatePetRe
 	}
 
 	out := &CreatePetResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out.JSON201},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
 		{Status: "201", IsHeaders: true, Dst: &out.Headers201},
@@ -1038,7 +1040,7 @@ func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions, edit
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "404", MediaType: "application/json", Dst: new(Error)},
 	}); err != nil {
@@ -1059,7 +1061,7 @@ func (c *PetClient) GetPetWithResponse(ctx context.Context, opts *GetPetRequestO
 	}
 
 	out := &GetPetResponse{HTTPResponse: res, Body: body}
-	if err = runtime.Decode(res, body, []runtime.Target{
+	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "404", MediaType: "application/json", Dst: &out.JSON404},
 	}); err != nil {
@@ -1197,9 +1199,9 @@ func (t *MCPTools) ListPets(ctx context.Context, _ *mcp.CallToolRequest, in List
 	}
 	out, err := t.client.ListPets(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // CreatePetTool is the definition of the create_pet tool.
@@ -1219,9 +1221,9 @@ func (t *MCPTools) CreatePet(ctx context.Context, _ *mcp.CallToolRequest, in Cre
 	}
 	out, err := t.client.CreatePet(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // GetPetTool is the definition of the get_pet tool.
@@ -1236,7 +1238,7 @@ func (t *MCPTools) GetPetTool() *mcp.Tool {
 
 // GetPet handles the get_pet tool.
 func (t *MCPTools) GetPet(ctx context.Context, req *mcp.CallToolRequest, in GetPetToolInput) (*mcp.CallToolResult, any, error) {
-	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := mcptool.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 
@@ -1247,9 +1249,9 @@ func (t *MCPTools) GetPet(ctx context.Context, req *mcp.CallToolRequest, in GetP
 	}
 	out, err := t.client.GetPet(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // DeletePetTool is the definition of the delete_pet tool.
@@ -1264,7 +1266,7 @@ func (t *MCPTools) DeletePetTool() *mcp.Tool {
 
 // DeletePet handles the delete_pet tool.
 func (t *MCPTools) DeletePet(ctx context.Context, req *mcp.CallToolRequest, in DeletePetToolInput) (*mcp.CallToolResult, any, error) {
-	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := mcptool.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 
@@ -1274,7 +1276,7 @@ func (t *MCPTools) DeletePet(ctx context.Context, req *mcp.CallToolRequest, in D
 		},
 	}
 	if err := t.client.DeletePet(ctx, opts); err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "ok"}}}, nil, nil
 }

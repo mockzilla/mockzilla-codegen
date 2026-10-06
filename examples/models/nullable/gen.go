@@ -13,10 +13,11 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Pet struct {
 	ID   int    `json:"id"`
@@ -31,15 +32,15 @@ type Pet struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p Pet) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if value, ok := p.Nickname.Get(); ok {
-		errs.Append("nickname", runtime.MaxLength(value, 20))
+		errs.Append("nickname", validation.MaxLength(value, 20))
 	}
-	errs.Append("age", runtime.NotNull(p.Age))
+	errs.Append("age", validation.NotNull(p.Age))
 	if value, ok := p.Age.Get(); ok {
-		errs.Append("age", runtime.Minimum(value, 0, false))
+		errs.Append("age", validation.Minimum(value, 0, false))
 	}
-	errs.Append("owner", runtime.NotNull(p.Owner))
+	errs.Append("owner", validation.NotNull(p.Owner))
 	return errs.Err()
 }
 
@@ -56,14 +57,14 @@ type PetPatch struct {
 
 // Validate checks the value against the constraints of the spec.
 func (p PetPatch) Validate() error {
-	var errs runtime.ValidationErrors
-	errs.Append("name", runtime.NotNull(p.Name))
+	var errs validation.Errors
+	errs.Append("name", validation.NotNull(p.Name))
 	if value, ok := p.Nickname.Get(); ok {
-		errs.Append("nickname", runtime.MaxLength(value, 20))
+		errs.Append("nickname", validation.MaxLength(value, 20))
 	}
-	errs.Append("age", runtime.NotNull(p.Age))
+	errs.Append("age", validation.NotNull(p.Age))
 	if value, ok := p.Age.Get(); ok {
-		errs.Append("age", runtime.Minimum(value, 0, false))
+		errs.Append("age", validation.Minimum(value, 0, false))
 	}
 	return errs.Err()
 }
@@ -97,7 +98,7 @@ type UpdatePetServiceRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *UpdatePetServiceRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -328,7 +329,7 @@ func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id stri
 
 func (a *HTTPAdapter) failBody(w http.ResponseWriter, r *http.Request, id string, err error) {
 	kind := runtime.ErrorDecode
-	if runtime.IsValidation(err) {
+	if validation.Failed(err) {
 		kind = runtime.ErrorValidation
 	}
 	a.fail(w, r, &runtime.HandlerError{Kind: kind, OperationID: id, Err: err})
@@ -386,7 +387,7 @@ type UpdatePetRequestOptions struct {
 
 // Validate checks the parameters and the body against the constraints of the spec.
 func (o *UpdatePetRequestOptions) Validate() error {
-	var errs runtime.ValidationErrors
+	var errs validation.Errors
 	if o.Body != nil {
 		errs.Append("body", o.Body.Validate())
 	}
@@ -474,7 +475,7 @@ func (c *Client) UpdatePet(ctx context.Context, opts *UpdatePetRequestOptions, e
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err

@@ -14,11 +14,12 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
-const _ = runtime.SupportsGeneratorV2
+const _ = runtime.SupportsGeneratorV1
 
 type Item struct {
 	ID       int    `json:"id"`
@@ -690,7 +691,7 @@ func (c *Client) GetItem(ctx context.Context, opts *GetItemRequestOptions, edito
 	}
 
 	var out *Item
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -730,7 +731,7 @@ func (c *Client) PutItem(ctx context.Context, opts *PutItemRequestOptions, edito
 	}
 
 	var out *Item
-	if err = runtime.DecodeSuccess(res, body, []runtime.Target{
+	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -866,7 +867,7 @@ func (t *MCPTools) GetItemTool() *mcp.Tool {
 
 // GetItem handles the fetch_item tool.
 func (t *MCPTools) GetItem(ctx context.Context, req *mcp.CallToolRequest, in GetItemToolInput) (*mcp.CallToolResult, any, error) {
-	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := mcptool.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 
@@ -883,9 +884,9 @@ func (t *MCPTools) GetItem(ctx context.Context, req *mcp.CallToolRequest, in Get
 	}
 	out, err := t.client.GetItem(ctx, opts)
 	if err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
-	return nil, runtime.ToolResult{Value: out}, nil
+	return nil, mcptool.Result{Value: out}, nil
 }
 
 // DeleteItemTool is the definition of the delete_item tool.
@@ -900,7 +901,7 @@ func (t *MCPTools) DeleteItemTool() *mcp.Tool {
 
 // DeleteItem handles the delete_item tool.
 func (t *MCPTools) DeleteItem(ctx context.Context, req *mcp.CallToolRequest, in DeleteItemToolInput) (*mcp.CallToolResult, any, error) {
-	if err := runtime.ToolInput(req.Params.Arguments, &in); err != nil {
+	if err := mcptool.Input(req.Params.Arguments, &in); err != nil {
 		return nil, nil, err
 	}
 
@@ -910,7 +911,7 @@ func (t *MCPTools) DeleteItem(ctx context.Context, req *mcp.CallToolRequest, in 
 		},
 	}
 	if err := t.client.DeleteItem(ctx, opts); err != nil {
-		return nil, nil, runtime.ToolError(err)
+		return nil, nil, mcptool.Error(err)
 	}
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "ok"}}}, nil, nil
 }
