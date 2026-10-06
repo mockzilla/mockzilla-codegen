@@ -12,7 +12,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -95,9 +94,8 @@ func (gf *generateFlags) edit(c *config.Config) {
 
 // output prints what generate did, with paths relative to the config folder.
 type output struct {
-	dir    string
-	stdout io.Writer
-	stderr io.Writer
+	cmd *Command
+	dir string
 }
 
 // diagnostics prints warnings and errors, and info too when verbose.
@@ -108,7 +106,7 @@ func (o *output) diagnostics(list []codegen.Diagnostic, isVerbose bool) {
 		}
 
 		d.File = o.rel(d.File)
-		_, _ = fmt.Fprintln(o.stderr, d.String())
+		_, _ = fmt.Fprintln(o.cmd.Stderr, d.String())
 	}
 }
 
@@ -138,7 +136,7 @@ func (o *output) verdict(list []codegen.Diagnostic, isStrict bool) int {
 	if len(counts) == 0 {
 		return ExitOK
 	}
-	_, _ = fmt.Fprintf(o.stderr, "%s: failed on %s\n", program, strings.Join(counts, " and "))
+	_, _ = fmt.Fprintf(o.cmd.Stderr, "%s: failed on %s\n", o.cmd.name(), strings.Join(counts, " and "))
 	return ExitFail
 }
 
@@ -146,13 +144,13 @@ func (o *output) verdict(list []codegen.Diagnostic, isStrict bool) int {
 func (o *output) write(res *codegen.Result, opts codegen.WriteOptions, isTable bool) int {
 	reports, err := codegen.Write(res, opts)
 	if err != nil {
-		return fail(o.stderr, err)
+		return o.cmd.fail(err)
 	}
 	if !isTable {
 		return ExitOK
 	}
 
-	tw := tabwriter.NewWriter(o.stdout, 0, 0, 2, ' ', 0)
+	tw := tabwriter.NewWriter(o.cmd.Stdout, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintln(tw, "FILE\tPACKAGE\tPARTS\tACTION")
 	for i, f := range res.Files {
 		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", o.rel(f.Path), f.Package, strings.Join(f.Parts, ","), reports[i].Action)
@@ -174,7 +172,7 @@ func (o *output) check(res *codegen.Result) int {
 		case errors.Is(err, fs.ErrNotExist):
 			stale = append(stale, o.rel(f.Path)+": missing")
 		case err != nil:
-			return fail(o.stderr, err)
+			return o.cmd.fail(err)
 		case !bytes.Equal(data, f.Content):
 			stale = append(stale, o.rel(f.Path)+": differs")
 		}
@@ -183,9 +181,9 @@ func (o *output) check(res *codegen.Result) int {
 	if len(stale) == 0 {
 		return ExitOK
 	}
-	_, _ = fmt.Fprintf(o.stdout, "generated files are out of date, run %s generate:\n", program)
+	_, _ = fmt.Fprintf(o.cmd.Stdout, "generated files are out of date, run %s generate:\n", o.cmd.name())
 	for _, line := range stale {
-		_, _ = fmt.Fprintln(o.stdout, "  "+line)
+		_, _ = fmt.Fprintln(o.cmd.Stdout, "  "+line)
 	}
 	return ExitFail
 }
@@ -198,10 +196,10 @@ func (o *output) rel(p string) string {
 	return p
 }
 
-func generate(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func (c *Command) generate(ctx context.Context, args []string) int {
 	var gf generateFlags
 	set := flag.NewFlagSet("generate", flag.ContinueOnError)
-	set.SetOutput(stderr)
+	set.SetOutput(c.Stderr)
 	set.StringVar(&gf.configPath, "c", "", "config file; without it, "+defaultConfig+" when it exists, else the defaults")
 	set.BoolVar(&gf.isDryRun, "dry-run", false, "print the files and what would happen to each, write nothing")
 	set.BoolVar(&gf.isCheck, "check", false, "exit 1 when a generated file is missing or differs")
@@ -221,15 +219,15 @@ func generate(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	case err != nil:
 		return usageCode(err)
 	case len(specs) > 1:
-		return misuse(stderr, fmt.Sprintf("generate takes at most one spec, got %d", len(specs)))
+		return c.misuse(fmt.Sprintf("generate takes at most one spec, got %d", len(specs)))
 	case gf.isDryRun && gf.isCheck:
-		return misuse(stderr, "-dry-run and -check do not go together")
+		return c.misuse("-dry-run and -check do not go together")
 	case gf.framework != "" && gf.isNoServer:
-		return misuse(stderr, "-server and -no-server do not go together")
+		return c.misuse("-server and -no-server do not go together")
 	case gf.isClient && gf.isNoClient:
-		return misuse(stderr, "-client and -no-client do not go together")
+		return c.misuse("-client and -no-client do not go together")
 	case gf.isMCP && gf.isNoMCP:
-		return misuse(stderr, "-mcp and -no-mcp do not go together")
+		return c.misuse("-mcp and -no-mcp do not go together")
 	}
 	if len(specs) == 1 {
 		gf.specPath = specs[0]
@@ -243,16 +241,16 @@ func generate(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	}
 	switch {
 	case errors.Is(err, errNoSpec):
-		return misuse(stderr, err.Error())
+		return c.misuse(err.Error())
 	case err != nil:
-		return fail(stderr, err)
+		return c.fail(err)
 	}
 
 	res, err := codegen.Generate(ctx, cfg)
 	if err != nil {
-		return fail(stderr, err)
+		return c.fail(err)
 	}
-	out := &output{dir: cfg.Resolve("."), stdout: stdout, stderr: stderr}
+	out := &output{cmd: c, dir: cfg.Resolve(".")}
 	out.diagnostics(res.Diagnostics, gf.isVerbose)
 
 	var code int

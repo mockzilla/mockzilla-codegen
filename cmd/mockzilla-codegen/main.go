@@ -12,12 +12,12 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/mockzilla/mockzilla-codegen/internal/cli"
+	"github.com/mockzilla/mockzilla-codegen/pkg/cli"
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	code := cli.Run(ctx, os.Args[1:], os.Stdout, os.Stderr)
+	code := (&cli.Command{Stdout: os.Stdout, Stderr: os.Stderr}).Run(ctx, os.Args[1:])
 	stop()
 	os.Exit(code)
 }

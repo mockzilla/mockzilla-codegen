@@ -479,7 +479,7 @@ func TestOutputDiagnostics(t *testing.T) {
 			t.Parallel()
 
 			var stderr strings.Builder
-			o := &output{dir: "/work", stderr: &stderr}
+			o := &output{cmd: &Command{Stderr: &stderr}, dir: "/work"}
 			o.diagnostics(list, tc.isVerbose)
 
 			assert.Equal(t, tc.want, stderr.String())
@@ -520,7 +520,7 @@ func TestOutputVerdict(t *testing.T) {
 			t.Parallel()
 
 			var stderr strings.Builder
-			o := &output{stderr: &stderr}
+			o := &output{cmd: &Command{Stderr: &stderr}}
 
 			assert.Equal(t, tc.wantCode, o.verdict(tc.list, tc.isStrict))
 			assert.Equal(t, tc.wantStderr, stderr.String())
@@ -532,7 +532,7 @@ func TestOutputCheckSkipsScaffolds(t *testing.T) {
 	t.Parallel()
 
 	var stdout strings.Builder
-	o := &output{dir: "/work", stdout: &stdout}
+	o := &output{cmd: &Command{Stdout: &stdout}, dir: "/work"}
 	res := &codegen.Result{Files: []codegen.File{{Path: filepath.Join(t.TempDir(), "main.go"), Kind: codegen.FileScaffold}}}
 
 	assert.Equal(t, ExitOK, o.check(res))

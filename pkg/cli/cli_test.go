@@ -30,7 +30,7 @@ func run(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 
 	var stdout, stderr strings.Builder
-	code := Run(context.Background(), args, &stdout, &stderr)
+	code := (&Command{Stdout: &stdout, Stderr: &stderr}).Run(context.Background(), args)
 	return code, stdout.String(), stderr.String()
 }
 
@@ -39,6 +39,7 @@ func TestRun(t *testing.T) {
 
 	schema, err := config.Schema()
 	require.NoError(t, err)
+	usage := (&Command{}).usage()
 
 	tests := []struct {
 		name       string
@@ -77,10 +78,31 @@ func TestRunSchemaWriteError(t *testing.T) {
 	t.Parallel()
 
 	var stderr strings.Builder
-	code := Run(context.Background(), []string{"schema"}, failWriter{}, &stderr)
+	code := (&Command{Stdout: failWriter{}, Stderr: &stderr}).Run(context.Background(), []string{"schema"})
 
 	assert.Equal(t, ExitFail, code)
 	assert.Equal(t, "mockzilla-codegen: closed pipe\n", stderr.String())
+}
+
+func TestRunName(t *testing.T) {
+	t.Parallel()
+
+	var stdout strings.Builder
+	code := (&Command{Name: "mock codegen", Stdout: &stdout}).Run(context.Background(), []string{"help"})
+
+	assert.Equal(t, ExitOK, code)
+	assert.Equal(t, `Usage: mock codegen <command> [flags]
+
+Commands:
+  generate [-c codegen.yaml] [-dry-run | -check] [-strict] [-v] [flags] [spec]
+            Generate the files the config lists. A spec argument replaces spec.path.
+            Without a config file the defaults hold: models only, in ./gen.go.
+            -server <framework>, -client and -mcp turn a part on, -no-server,
+            -no-client and -no-mcp turn it off, -o and -package set the output.
+            Run mock codegen generate -h for every flag.
+  schema    Print the JSON schema of the config file.
+  version   Print the mockzilla-codegen version.
+`, stdout.String())
 }
 
 func TestParseFlags(t *testing.T) {

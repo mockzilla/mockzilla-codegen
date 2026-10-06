@@ -35,7 +35,8 @@ Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33f/libop
 - Every `.go` file starts with the MIT license header (copyright line, SPDX tag, and the MIT
   condition that the notice stays in every copy), then a blank line. Copy it from any existing file;
   the exact text is the goheader template in `.golangci.yaml`, which enforces it.
-- Library code never logs or prints; it returns errors and diagnostics. Only `cmd/` prints.
+- Library code never logs or prints; it returns errors and diagnostics. Only `pkg/cli` prints, to the
+  writers it is given.
 - Output must be deterministic: sort before ranging over maps, never use libopenapi hashes for names
   or ordering.
 - Templates hold no logic beyond `range`/`if` on precomputed fields.
@@ -49,8 +50,9 @@ Public packages live under `pkg/`, private ones under `internal/`. No Go files i
 |---|---|
 | `pkg/codegen` | public API: `Generate`, `Prepare`, `Write`, `Version` |
 | `pkg/config` | config structs, loading, validation, JSON schema |
+| `pkg/cli` | the command line, also for programs that offer it as one of their commands |
 | `pkg/runtime` | helpers imported by generated code, standard library only; `validation`, `mask` and `mcptool` below it |
-| `cmd/mockzilla-codegen` | CLI, installed as `mockzilla-codegen` |
+| `cmd/mockzilla-codegen` | runs `pkg/cli`, installed as `mockzilla-codegen` |
 | `internal/...` | provider, spec IR, transforms, naming, Go model, rendering, layout |
 | `examples/` | separate module: golden examples and tests of generated code |
 | `test/` | parse sweep, integration test, benchmarks (build tags) |

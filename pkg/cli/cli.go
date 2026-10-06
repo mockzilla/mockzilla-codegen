@@ -3,10 +3,12 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Package cli is the mockzilla-codegen command line. It is the only place that prints.
+// Package cli is the mockzilla-codegen command line, for its own binary and for programs that
+// run it as one of their commands. It is the only place that prints.
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"flag"
@@ -18,8 +20,8 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
 )
 
-// program is the name of the executable, the folder of its main package.
-const program = "mockzilla-codegen"
+// defaultName is the name of the executable, the folder of its main package.
+const defaultName = "mockzilla-codegen"
 
 // Exit codes.
 const (
@@ -28,7 +30,7 @@ const (
 	ExitUsage = 2
 )
 
-const usage = `Usage: mockzilla-codegen <command> [flags]
+const usageFormat = `Usage: %[1]s <command> [flags]
 
 Commands:
   generate [-c codegen.yaml] [-dry-run | -check] [-strict] [-v] [flags] [spec]
@@ -36,44 +38,70 @@ Commands:
             Without a config file the defaults hold: models only, in ./gen.go.
             -server <framework>, -client and -mcp turn a part on, -no-server,
             -no-client and -no-mcp turn it off, -o and -package set the output.
-            Run mockzilla-codegen generate -h for every flag.
+            Run %[1]s generate -h for every flag.
   schema    Print the JSON schema of the config file.
   version   Print the mockzilla-codegen version.
 `
 
+// Command is the command line. It writes to Stdout and Stderr only.
+type Command struct {
+	// Name is what usage and messages call the program, mockzilla-codegen when empty.
+	Name   string
+	Stdout io.Writer
+	Stderr io.Writer
+}
+
 // Run runs the command line with args, the program name left out, and returns the exit code.
-func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func (c *Command) Run(ctx context.Context, args []string) int {
 	if len(args) == 0 {
-		_, _ = fmt.Fprint(stderr, usage)
+		_, _ = fmt.Fprint(c.Stderr, c.usage())
 		return ExitUsage
 	}
 
 	switch args[0] {
 	case "generate":
-		return generate(ctx, args[1:], stdout, stderr)
+		return c.generate(ctx, args[1:])
 	case "schema":
-		return schema(stdout, stderr)
+		return c.schema()
 	case "version":
-		_, _ = fmt.Fprintln(stdout, codegen.Version())
+		_, _ = fmt.Fprintln(c.Stdout, codegen.Version())
 		return ExitOK
 	case "help", "-h", "-help", "--help":
-		_, _ = fmt.Fprint(stdout, usage)
+		_, _ = fmt.Fprint(c.Stdout, c.usage())
 		return ExitOK
 	default:
-		_, _ = fmt.Fprintf(stderr, "%s: unknown command %q\n\n%s", program, args[0], usage)
+		_, _ = fmt.Fprintf(c.Stderr, "%s: unknown command %q\n\n%s", c.name(), args[0], c.usage())
 		return ExitUsage
 	}
 }
 
-func schema(stdout, stderr io.Writer) int {
+func (c *Command) schema() int {
 	data, err := config.Schema()
 	if err == nil {
-		_, err = stdout.Write(data)
+		_, err = c.Stdout.Write(data)
 	}
 	if err != nil {
-		return fail(stderr, err)
+		return c.fail(err)
 	}
 	return ExitOK
+}
+
+func (c *Command) usage() string {
+	return fmt.Sprintf(usageFormat, c.name())
+}
+
+func (c *Command) fail(err error) int {
+	_, _ = fmt.Fprintf(c.Stderr, "%s: %v\n", c.name(), err)
+	return ExitFail
+}
+
+func (c *Command) misuse(message string) int {
+	_, _ = fmt.Fprintf(c.Stderr, "%s: %s\n", c.name(), message)
+	return ExitUsage
+}
+
+func (c *Command) name() string {
+	return cmp.Or(c.Name, defaultName)
 }
 
 // parseFlags parses args with fs and returns the arguments that are not flags. Flags may follow
@@ -98,16 +126,6 @@ func usageCode(err error) int {
 	if errors.Is(err, flag.ErrHelp) {
 		return ExitOK
 	}
-	return ExitUsage
-}
-
-func fail(stderr io.Writer, err error) int {
-	_, _ = fmt.Fprintf(stderr, "%s: %v\n", program, err)
-	return ExitFail
-}
-
-func misuse(stderr io.Writer, message string) int {
-	_, _ = fmt.Fprintf(stderr, "%s: %s\n", program, message)
 	return ExitUsage
 }
 

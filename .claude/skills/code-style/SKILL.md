@@ -165,7 +165,7 @@ Generated code follows this rule too, read in the output, not in the template:
   `importShadow`, revive `import-shadowing`); names from the own package are a manual check: for
   every new local and parameter, grep the package for a declaration with the same name.
 - **Default to unexported.** Export only what another package needs. Anything not in the public API
-  (`pkg/codegen`, `pkg/config`, `pkg/runtime`) lives under `internal/`.
+  (`pkg/cli`, `pkg/codegen`, `pkg/config`, `pkg/runtime`) lives under `internal/`.
 
 ### 4. Errors
 
@@ -214,8 +214,8 @@ helper adds behavior: validation, defaults, an error return, type translation.
 ### 10. No logging or printing in library code
 
 Library packages never log and never print (`fmt.Print*`, `println`, `log.*`, `slog.*`). They return
-errors and diagnostics; the caller decides what to show. Only `cmd/` and `scripts/` print. forbidigo
-enforces the print half.
+errors and diagnostics; the caller decides what to show. Only `pkg/cli`, to the writers it is
+given, and `scripts/` print. forbidigo enforces the print half.
 
 ### 11. Package naming and location
 

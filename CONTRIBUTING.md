@@ -24,7 +24,7 @@ takes a while; run one spec, or `make test-integration-ci` for the set CI uses.
 short version:
 
 - Every `.go` file starts with the MIT license header. Copy it from any file.
-- Library code returns errors and diagnostics. Only `cmd/` prints.
+- Library code returns errors and diagnostics. Only `pkg/cli` prints, to the writers it is given.
 - Output is deterministic: the same spec and config give the same bytes on every run.
 - Templates hold no logic beyond `range` and `if` on precomputed fields.
 - Golden files change only through `UPDATE=1` runs, never by hand.

@@ -97,6 +97,18 @@ Exit codes: 0 on success; 1 on a failure, an error printed (a warning too with `
 files with `-check`; 2 on wrong usage. `generate -dry-run -strict` checks a spec in CI without
 writing anything.
 
+## Inside another program
+
+Package `pkg/cli` is this command line, for a Go program that offers it as one of its own
+commands. `Name` is what usage and messages call the program. A program whose `generate` command
+runs the generator passes its arguments as they are:
+
+```go
+code := (&cli.Command{Name: "mytool", Stdout: os.Stdout, Stderr: os.Stderr}).Run(ctx, os.Args[1:])
+```
+
+`mytool generate -c codegen.yaml` then takes the same flags as `mockzilla-codegen generate`.
+
 ## Check in CI
 
 ```sh
