@@ -6,13 +6,16 @@
 package codegen
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"errors"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -71,18 +74,52 @@ func (failingParse) Parse(context.Context, []byte, provider.ParseOptions) (*spec
 	return nil, nil, errParse
 }
 
-// examples returns the config files of the golden examples.
+// examples returns the config files of the golden examples, at any depth below examples/.
 func examples(t *testing.T) []string {
 	t.Helper()
 
+	var paths []string
 	root := filepath.Join("..", "..", "examples")
-	paths, err := filepath.Glob(filepath.Join(root, "*", "*", "codegen.yaml"))
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		switch {
+		case err != nil:
+			return err
+		case d.IsDir() && d.Name() == "stash":
+			return filepath.SkipDir
+		case d.Name() == "codegen.yaml":
+			paths = append(paths, path)
+		}
+		return nil
+	})
 	require.NoError(t, err)
-	nested, err := filepath.Glob(filepath.Join(root, "*", "*", "*", "codegen.yaml"))
-	require.NoError(t, err)
-	paths = append(paths, nested...)
 	require.NotEmpty(t, paths)
 	return paths
+}
+
+// staleFiles lists the Go files below dir that open with header and that res no longer writes.
+func staleFiles(t *testing.T, dir, header string, res *Result) []string {
+	t.Helper()
+
+	written := map[string]bool{}
+	for _, f := range res.Files {
+		written[f.Path] = true
+	}
+	first, _, _ := strings.Cut(header, "\n")
+	abs, absErr := filepath.Abs(dir)
+	require.NoError(t, absErr)
+	var stale []string
+	err := filepath.WalkDir(abs, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(path) != ".go" || written[path] {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if bytes.HasPrefix(data, []byte("// "+first+"\n")) {
+			stale = append(stale, path)
+		}
+		return err
+	})
+	require.NoError(t, err)
+	return stale
 }
 
 // exampleName is the path of an example inside examples/.
@@ -126,9 +163,13 @@ func TestExamples(t *testing.T) {
 			res, err := Generate(context.Background(), cfg)
 			require.NoError(t, err)
 
+			stale := staleFiles(t, filepath.Dir(path), cfg.Header, res)
 			if os.Getenv("UPDATE") != "" {
 				_, err = Write(res, WriteOptions{OverwriteScaffolds: true})
 				require.NoError(t, err)
+				for _, f := range stale {
+					require.NoError(t, os.Remove(f))
+				}
 				return
 			}
 			for _, f := range res.Files {
@@ -136,6 +177,7 @@ func TestExamples(t *testing.T) {
 				require.NoError(t, readErr, "run make examples")
 				assert.Equal(t, string(want), string(f.Content), f.Path)
 			}
+			assert.Empty(t, stale, "no longer generated, run make examples")
 		})
 	}
 }

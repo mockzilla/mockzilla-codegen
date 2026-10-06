@@ -23,7 +23,7 @@ const (
 
 // Report is the text summary of a run: totals, failures by stage, generated lines, the slowest
 // jobs, the first failures with their output, and every failed job.
-func Report(results []Result, known map[string]Known) string {
+func Report(results []Result) string {
 	var failed, slow []Result
 	cached, lines, fresh := 0, 0, 0
 	byStage := map[string]int{}
@@ -40,11 +40,10 @@ func Report(results []Result, known map[string]Known) string {
 		fresh++
 		slow = append(slow, r)
 	}
-	v := Compare(results, known)
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "%d jobs, %d cached: %d passed, %d failed (%d new), %d fixed\n",
-		len(results), cached, len(results)-len(failed), len(failed), len(v.New), len(v.Fixed))
+	fmt.Fprintf(&b, "%d jobs, %d cached: %d passed, %d failed\n",
+		len(results), cached, len(results)-len(failed), len(failed))
 	for _, stage := range slices.Sorted(maps.Keys(byStage)) {
 		fmt.Fprintf(&b, "failed at %s: %d\n", stage, byStage[stage])
 	}
@@ -58,14 +57,12 @@ func Report(results []Result, known map[string]Known) string {
 		fmt.Fprintf(&b, "  %8s  %s\n", r.Elapsed.Round(time.Millisecond), label(r))
 	}
 
-	slices.SortStableFunc(failed, func(a, c Result) int {
-		return cmp.Or(cmp.Compare(rank(a, known), rank(c, known)), cmp.Compare(label(a), label(c)))
-	})
+	slices.SortStableFunc(failed, func(a, c Result) int { return cmp.Compare(label(a), label(c)) })
 	if len(failed) > 0 {
 		fmt.Fprintf(&b, "\nfailures, first %d of %d:\n", min(shownFailures, len(failed)), len(failed))
 	}
 	for _, r := range failed[:min(shownFailures, len(failed))] {
-		fmt.Fprintf(&b, "\n%s at %s%s\n", label(r), r.Stage, newMark(r, known))
+		fmt.Fprintf(&b, "\n%s at %s\n", label(r), r.Stage)
 		writeOutput(&b, r.Output)
 	}
 
@@ -73,26 +70,13 @@ func Report(results []Result, known map[string]Known) string {
 		b.WriteString("\nfailed:\n")
 	}
 	for _, r := range failed {
-		fmt.Fprintf(&b, "  %s at %s%s\n", label(r), r.Stage, newMark(r, known))
-	}
-	if len(v.Fixed) > 0 {
-		b.WriteString("\npassing now, remove from the known failures:\n")
-	}
-	for _, name := range v.Fixed {
-		b.WriteString("  " + name + "\n")
+		fmt.Fprintf(&b, "  %s at %s\n", label(r), r.Stage)
 	}
 	return b.String()
 }
 
 func label(r Result) string {
 	return r.Job.Spec.Name + " (" + r.Job.Variant.Name + ")"
-}
-
-func newMark(r Result, known map[string]Known) string {
-	if isNew(r, known) {
-		return " [new]"
-	}
-	return ""
 }
 
 // writeOutput writes the first lines of out, indented and cut to lineWidth.
@@ -107,12 +91,4 @@ func writeOutput(b *strings.Builder, out string) {
 	if len(lines) > shownLines {
 		fmt.Fprintf(b, "    ... %d more lines\n", len(lines)-shownLines)
 	}
-}
-
-// rank sorts new failures before known ones.
-func rank(r Result, known map[string]Known) int {
-	if isNew(r, known) {
-		return 0
-	}
-	return 1
 }

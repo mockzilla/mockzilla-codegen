@@ -12,5 +12,4 @@ var (
 	ErrCommand      = errors.New("command failed")
 	ErrTimeout      = errors.New("timed out")
 	ErrCache        = errors.New("read cache")
-	ErrKnownLine    = errors.New("bad known-failures line")
 )

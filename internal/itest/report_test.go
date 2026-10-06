@@ -26,16 +26,14 @@ func TestReport(t *testing.T) {
 	for i := 2; i <= 17; i++ {
 		output = append(output, fmt.Sprintf("l%d", i))
 	}
-	known := map[string]Known{"3.0/b.yml": {Stage: StageBuild, Reason: "r"}, "3.1/e.yml": {Stage: StageGenerate, Reason: "r"}}
-
 	tests := []struct {
 		name    string
 		results []Result
 		want    string
 	}{
-		{name: "Empty run", want: "0 jobs, 0 cached: 0 passed, 0 failed (0 new), 0 fixed\ngenerated 0 lines in 0 jobs\n"},
+		{name: "Empty run", want: "0 jobs, 0 cached: 0 passed, 0 failed\ngenerated 0 lines in 0 jobs\n"},
 		{
-			name: "Failures, fixed specs and cached jobs",
+			name: "Failures and cached jobs",
 			results: []Result{
 				{Job: job("3.0/a.yml"), Lines: 100, Elapsed: 2 * time.Second},
 				{Job: job("3.0/c.yml"), IsCached: true},
@@ -43,7 +41,7 @@ func TestReport(t *testing.T) {
 				{Job: job("3.1/d.yml"), Stage: StageGenerate, Output: strings.Join(output, "\n"), Elapsed: 3 * time.Second},
 				{Job: job("3.1/e.yml"), Lines: 10, Elapsed: 500 * time.Millisecond},
 			},
-			want: "5 jobs, 1 cached: 3 passed, 2 failed (1 new), 1 fixed\n" +
+			want: "5 jobs, 1 cached: 3 passed, 2 failed\n" +
 				"failed at build: 1\n" +
 				"failed at generate: 1\n" +
 				"generated 160 lines in 4 jobs\n" +
@@ -53,17 +51,15 @@ func TestReport(t *testing.T) {
 				"        1s  3.0/b.yml (models)\n" +
 				"     500ms  3.1/e.yml (models)\n" +
 				"\nfailures, first 2 of 2:\n" +
-				"\n3.1/d.yml (models) at generate [new]\n" +
+				"\n3.0/b.yml (models) at build\n" +
+				"    err1\n    err2\n" +
+				"\n3.1/d.yml (models) at generate\n" +
 				"    " + long[:200] + "...\n" +
 				"    l2\n    l3\n    l4\n    l5\n    l6\n    l7\n    l8\n    l9\n    l10\n    l11\n    l12\n    l13\n    l14\n    l15\n" +
 				"    ... 2 more lines\n" +
-				"\n3.0/b.yml (models) at build\n" +
-				"    err1\n    err2\n" +
 				"\nfailed:\n" +
-				"  3.1/d.yml (models) at generate [new]\n" +
 				"  3.0/b.yml (models) at build\n" +
-				"\npassing now, remove from the known failures:\n" +
-				"  3.1/e.yml\n",
+				"  3.1/d.yml (models) at generate\n",
 		},
 	}
 
@@ -71,7 +67,7 @@ func TestReport(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, tc.want, Report(tc.results, known))
+			assert.Equal(t, tc.want, Report(tc.results))
 		})
 	}
 }
@@ -90,7 +86,7 @@ func TestReportCapsLongLists(t *testing.T) {
 		})
 	}
 
-	got := Report(results, nil)
+	got := Report(results)
 
 	assert.Contains(t, got, "\nfailures, first 50 of 60:\n")
 	assert.Equal(t, 50, strings.Count(got, "    bad\n"))

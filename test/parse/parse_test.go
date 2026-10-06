@@ -11,10 +11,8 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"io/fs"
 	"maps"
 	"os"
-	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -25,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
+	"github.com/mockzilla/mockzilla-codegen/internal/itest"
 	"github.com/mockzilla/mockzilla-codegen/internal/prepare"
 	"github.com/mockzilla/mockzilla-codegen/internal/provider"
 	"github.com/mockzilla/mockzilla-codegen/internal/provider/libopenapi"
@@ -32,10 +31,9 @@ import (
 )
 
 const (
-	specsDir          = "../../testdata/specs"
-	knownFailuresFile = "known-failures.txt"
-	slowestShown      = 10
-	preparedSample    = 20
+	specsDir       = "../../testdata/specs"
+	slowestShown   = 10
+	preparedSample = 20
 )
 
 type result struct {
@@ -46,13 +44,11 @@ type result struct {
 	codes   map[string]int
 }
 
-// TestParse fails on an unlisted failure and on a listed spec that now passes.
+// TestParse fails on every spec that does not load.
 func TestParse(t *testing.T) {
 	t.Parallel()
 
-	specs := collect(t)
-	known := loadKnown(t)
-	results := run(t, specs, "spec: {prune: false}")
+	results := run(t, collect(t), "spec: {prune: false}")
 
 	failed, passed := 0, 0
 	codes := map[string]int{}
@@ -60,21 +56,15 @@ func TestParse(t *testing.T) {
 		for code, n := range r.codes {
 			codes[code] += n
 		}
-		_, isKnown := known[r.spec]
-		switch {
-		case r.stage == "" && isKnown:
-			t.Errorf("%s passes now; remove it from %s", r.spec, knownFailuresFile)
-		case r.stage == "":
+		if r.stage == "" {
 			passed++
-		case !isKnown:
-			failed++
-			t.Errorf("%s failed at %s: %s", r.spec, r.stage, r.err)
-		default:
-			failed++
+			continue
 		}
+		failed++
+		t.Errorf("%s failed at %s: %s", r.spec, r.stage, r.err)
 	}
 
-	t.Logf("%d specs: %d passed, %d failed (%d known)", len(results), passed, failed, len(known))
+	t.Logf("%d specs: %d passed, %d failed", len(results), passed, failed)
 	for _, code := range slices.Sorted(maps.Keys(codes)) {
 		t.Logf("diagnostics %s: %d", code, codes[code])
 	}
@@ -89,16 +79,9 @@ func TestParse(t *testing.T) {
 func TestPrepared(t *testing.T) {
 	t.Parallel()
 
-	known := loadKnown(t)
-	var specs []string
-	for _, s := range collect(t) {
-		if _, isKnown := known[s]; !isKnown {
-			specs = append(specs, s)
-		}
-	}
-
+	specs := collect(t)
 	step := max(len(specs)/preparedSample, 1)
-	var sample []string
+	var sample []itest.Spec
 	for i := 0; i < len(specs) && len(sample) < preparedSample; i += step {
 		sample = append(sample, specs[i])
 	}
@@ -111,59 +94,21 @@ func TestPrepared(t *testing.T) {
 	t.Logf("%d prepared specs parsed", len(sample))
 }
 
-func collect(t *testing.T) []string {
+// collect returns the specs SPEC and SPECS name, or every spec in testdata/specs, sorted by name.
+func collect(t *testing.T) []itest.Spec {
 	t.Helper()
 
-	var named []string
-	if s := os.Getenv("SPEC"); s != "" {
-		named = append(named, s)
-	}
-	named = append(named, strings.Fields(os.Getenv("SPECS"))...)
-	if len(named) > 0 {
-		return named
-	}
-
-	if _, err := os.Stat(specsDir); err != nil {
+	named := strings.Fields(os.Getenv("SPEC") + " " + os.Getenv("SPECS"))
+	specs, err := itest.Collect("../..", specsDir, named)
+	require.NoError(t, err)
+	if len(specs) == 0 {
 		t.Skip("no specs in testdata/specs")
 	}
-	var specs []string
-	err := filepath.WalkDir(specsDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
-		}
-		if ext := filepath.Ext(path); ext == ".yml" || ext == ".yaml" || ext == ".json" {
-			rel, _ := filepath.Rel(specsDir, path)
-			specs = append(specs, filepath.ToSlash(rel))
-		}
-		return nil
-	})
-	require.NoError(t, err)
-	slices.Sort(specs)
+	slices.SortFunc(specs, func(a, b itest.Spec) int { return cmp.Compare(a.Name, b.Name) })
 	return specs
 }
 
-func loadKnown(t *testing.T) map[string]string {
-	t.Helper()
-
-	data, err := os.ReadFile(knownFailuresFile)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	require.NoError(t, err)
-
-	known := map[string]string{}
-	for line := range strings.Lines(string(data)) {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		spec, reason, _ := strings.Cut(line, " ")
-		known[spec] = strings.TrimSpace(reason)
-	}
-	return known
-}
-
-func run(t *testing.T, specs []string, cfgSrc string) []result {
+func run(t *testing.T, specs []itest.Spec, cfgSrc string) []result {
 	t.Helper()
 
 	cfg, err := config.Parse([]byte(cfgSrc), "")
@@ -184,17 +129,17 @@ func run(t *testing.T, specs []string, cfgSrc string) []result {
 	return results
 }
 
-func parseOne(p *libopenapi.Provider, cfg *config.Config, spec string) (r result) {
+func parseOne(p *libopenapi.Provider, cfg *config.Config, spec itest.Spec) (r result) {
 	start := time.Now()
-	r.spec = spec
+	r.spec = spec.Name
 	defer func() { r.elapsed = time.Since(start) }()
 
 	ctx := context.Background()
-	out, err := prepare.Run(ctx, p, prepare.Input{Path: filepath.Join(specsDir, spec), Config: cfg})
+	out, err := prepare.Run(ctx, p, prepare.Input{Path: spec.Path, Config: cfg})
 	if err != nil {
 		return fail(r, "prepare", err)
 	}
-	_, diags, err := p.Parse(ctx, out.Bytes, provider.ParseOptions{File: spec, Positions: out.Positions})
+	_, diags, err := p.Parse(ctx, out.Bytes, provider.ParseOptions{File: spec.Name, Positions: out.Positions})
 	if err != nil {
 		return fail(r, "parse", err)
 	}

@@ -9,6 +9,10 @@ on:
 
 permissions: read-all
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -40,5 +44,6 @@ jobs:
       - name: runtime dependencies
         run: make runtime-deps
 
+      # cover-check already compared the examples with a fresh run
       - name: examples
-        run: make examples-check
+        run: make examples-build
