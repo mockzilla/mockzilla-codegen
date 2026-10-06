@@ -77,8 +77,8 @@ func TestMethodNotAllowed(t *testing.T) {
 	rec := httptest.NewRecorder()
 	adaptor.FiberApp(NewRouter(&service{pets: map[int]Pet{}})).ServeHTTP(rec, httptest.NewRequest("PUT", "/ping", nil))
 
-	assert.Equal(t, 404, rec.Code)
-	assert.Equal(t, "404 page not found\n", rec.Body.String())
+	assert.Equal(t, 405, rec.Code)
+	assert.Empty(t, rec.Body.String())
 }
 
 func TestWithRouterAndMiddleware(t *testing.T) {

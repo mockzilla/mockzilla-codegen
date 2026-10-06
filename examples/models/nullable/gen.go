@@ -272,7 +272,7 @@ func (a *HTTPAdapter) UpdatePet(w http.ResponseWriter, r *http.Request) {
 	opts := &UpdatePetServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.PathParams = &UpdatePetPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "UpdatePet", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}

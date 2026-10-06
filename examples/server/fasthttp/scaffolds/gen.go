@@ -320,7 +320,8 @@ func NewRouter(svc TodoInterface, opts ...ServerOption) *router.Router {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
 		}
-		return h
+		// fasthttp would end the process on a panic.
+		return runtime.Recover(h, o.ErrorHandler)
 	}
 	register := func(r *router.Router, route func(http.Handler) http.Handler) {
 		r.GET("/todos", handle(route(http.HandlerFunc(a.ListTodos))))
@@ -343,9 +344,11 @@ func NewRouter(svc TodoInterface, opts ...ServerOption) *router.Router {
 func handle(h http.Handler) fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
 		fasthttpadaptor.NewFastHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// fasthttp reuses the memory of the request's strings for the next request.
+			r = runtime.DetachRequest(r)
 			ctx.VisitUserValues(func(key []byte, value any) {
 				if s, ok := value.(string); ok {
-					r.SetPathValue(string(key), s)
+					r.SetPathValue(string(key), runtime.DetachPathValue(s))
 				}
 			})
 			h.ServeHTTP(w, r)

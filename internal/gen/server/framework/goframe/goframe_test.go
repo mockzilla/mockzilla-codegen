@@ -23,8 +23,13 @@ func TestFramework(t *testing.T) {
 	fw := Framework{}
 
 	assert.Equal(t, "goframe", fw.Name())
-	assert.Equal(t, framework.NetHTTP, fw.Family())
-	assert.Equal(t, []gomodel.Import{{Path: "github.com/gogf/gf/v2/net/ghttp"}, {Path: "github.com/gogf/gf/v2/util/guid"}, {Path: "net/http"}}, fw.Imports())
+	assert.Equal(t, []gomodel.Import{
+		{Path: "github.com/gogf/gf/v2/net/ghttp"},
+		{Path: "github.com/gogf/gf/v2/text/gregex"},
+		{Path: "github.com/gogf/gf/v2/util/guid"},
+		{Path: "net/http"},
+		{Path: "net/url"},
+	}, fw.Imports())
 	for _, name := range []string{"templates/router.tmpl", "templates/scaffold-main.tmpl"} {
 		_, err := fw.Templates().Open(name)
 		require.NoError(t, err)
@@ -51,6 +56,10 @@ func TestRoutePattern(t *testing.T) {
 		{name: "A parameter named twice", path: "/pets/{id}/{id}", wantErr: `the router rejects the path: parameter "id" is named twice`},
 		{name: "A literal colon", path: "/pets:search", wantErr: "the router rejects the path: a colon or an at sign is read as the start of a parameter or a domain"},
 		{name: "A literal at sign", path: "/users/{id}@home", wantErr: "the router rejects the path: a colon or an at sign is read as the start of a parameter or a domain"},
+		{name: "A dollar sign", path: "/odata/$metadata", wantErr: "the router rejects the path: $ is read as part of a regular expression"},
+		{name: "A parenthesis", path: "/Products({id})", wantErr: "the router rejects the path: ( is read as part of a regular expression"},
+		{name: "Two names that are one identifier", path: "/pets/{pet-id}/{pet_id}", wantErr: `the router rejects the path: parameters "pet-id" and "pet_id" are both pet_id on the router`},
+		{name: "The wildcard takes a name no parameter has", path: "/files/{rest}/*", want: "GET:/files/{rest}/*rest_"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

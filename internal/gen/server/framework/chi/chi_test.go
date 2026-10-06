@@ -23,7 +23,6 @@ func TestFramework(t *testing.T) {
 	fw := Framework{}
 
 	assert.Equal(t, "chi", fw.Name())
-	assert.Equal(t, framework.NetHTTP, fw.Family())
 	assert.Equal(t, []gomodel.Import{{Path: "github.com/go-chi/chi/v5"}}, fw.Imports())
 	_, err := fw.Templates().Open("templates/router.tmpl")
 	require.NoError(t, err)
@@ -44,6 +43,8 @@ func TestRoutePattern(t *testing.T) {
 		{name: "Unclosed brace", path: "/pets/{id", wantErr: "the router rejects the path: a { has no }"},
 		{name: "Wildcard not last", path: "/files/*/meta", wantErr: "the router rejects the path: * must be last"},
 		{name: "Parameter named twice", path: "/pets/{id}/{id}", wantErr: `the router rejects the path: parameter "id" is named twice`},
+		{name: "A colon in a name", path: "/geo/{lat:lng}", want: "/geo/{lat_lng}"},
+		{name: "A parameter without a name", path: "/pets/{}", wantErr: "the router rejects the path: a parameter has no name"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -103,6 +104,7 @@ func TestPathParam(t *testing.T) {
 	f := &layout.File{Path: "/work/gen.go", Package: "api"}
 	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
 
-	assert.Equal(t, `chi.URLParam(r, "petId")`, Framework{}.PathParam(s, "petId"))
-	assert.Equal(t, "import chi \"github.com/go-chi/chi/v5\"", s.Imports.Decl())
+	assert.Equal(t, `runtime.UnescapePath(r, chi.URLParam(r, "petId"))`, Framework{}.PathParam(s, "petId"))
+	assert.Equal(t, `runtime.UnescapePath(r, chi.URLParam(r, "lat_lng"))`, Framework{}.PathParam(s, "lat:lng"))
+	assert.Equal(t, "import (\n\tchi \"github.com/go-chi/chi/v5\"\n\t\"github.com/mockzilla/mockzilla-codegen/pkg/runtime\"\n)", s.Imports.Decl())
 }

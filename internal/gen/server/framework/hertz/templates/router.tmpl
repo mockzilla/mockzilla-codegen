@@ -5,6 +5,13 @@ func WithRouter(h *{{.Framework}}.Hertz) {{.Option}} {
 	}
 }
 
+// WithConfig makes the new Hertz with opts, such as its address and timeouts.
+func WithConfig(opts ...{{.Packages.config}}.Option) {{.Option}} {
+	return func(o *{{.Options}}) {
+		o.Router = opts
+	}
+}
+
 // NewRouter registers every operation on a Hertz server.
 func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Hertz {
 	o := {{.NewOptions}}(opts...)
@@ -19,7 +26,11 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Hertz {
 	}
 	register := func(h *{{.Framework}}.Hertz, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
 {{- range .Routes}}
+{{- if .IsShortcut}}
 		h.{{.HTTPMethod}}({{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(a.{{.Operation}}))))
+{{- else}}
+		h.Handle("{{.HTTPMethod}}", {{.Pattern}}, handle(route({{$.Packages.http}}.HandlerFunc(a.{{.Operation}}))))
+{{- end}}
 {{- end}}
 {{- override "server.router-extra" .}}
 	}
@@ -28,7 +39,8 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Hertz {
 		register(h, wrap)
 		return h
 	}
-	h := {{.Framework}}.New()
+	serverOpts, _ := o.Router.([]{{.Packages.config}}.Option)
+	h := {{.Framework}}.New(serverOpts...)
 	register(h, wrap)
 	h.NoRoute(handle(wrap({{.Packages.http}}.NotFoundHandler())))
 	return h
@@ -48,7 +60,13 @@ func handle(h {{.Packages.http}}.Handler) {{.Packages.app}}.HandlerFunc {
 			r.SetPathValue(p.Key, p.Value)
 		}
 		r.RemoteAddr = c.RemoteAddr().String()
-		h.ServeHTTP(&responseWriter{response: &c.Response, header: {{.Packages.http}}.Header{}}, r)
+		r.RequestURI = string(c.Request.RequestURI())
+		w := &responseWriter{response: &c.Response, header: {{.Packages.http}}.Header{}}
+		h.ServeHTTP(w, r)
+		// A handler that writes no body still sets its headers.
+		if !w.isWritten {
+			w.WriteHeader({{.Packages.http}}.StatusOK)
+		}
 	}
 }
 

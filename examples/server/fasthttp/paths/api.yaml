@@ -1,0 +1,113 @@
+openapi: 3.1.0
+info:
+  title: Paths
+  version: "1"
+  description: Paths that routers read in ways of their own.
+components:
+  parameters:
+    name:
+      name: name
+      in: path
+      required: true
+      schema: {type: string}
+  responses:
+    text:
+      description: The operation and the values it got.
+      content:
+        text/plain:
+          schema: {type: string}
+paths:
+  /v1/{name}:
+    parameters:
+      - $ref: "#/components/parameters/name"
+    get:
+      operationId: getName
+      summary: A parameter alone, with a query.
+      parameters:
+        - {name: tag, in: query, schema: {type: string}}
+      responses:
+        "200": {$ref: "#/components/responses/text"}
+    delete:
+      operationId: deleteName
+      summary: A form body on DELETE.
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                reason: {type: string}
+      responses:
+        "200": {$ref: "#/components/responses/text"}
+    trace:
+      operationId: traceName
+      summary: TRACE, which some routers have no function for.
+      responses:
+        "200": {$ref: "#/components/responses/text"}
+  /v1/{name}/:
+    get:
+      operationId: getNameSlash
+      summary: The same path with a trailing slash.
+      parameters:
+        - $ref: "#/components/parameters/name"
+      responses:
+        "200": {$ref: "#/components/responses/text"}
+  /v1/{name}:getIamPolicy:
+    get:
+      operationId: getPolicy
+      summary: A parameter with a literal after it, next to the parameter alone.
+      parameters:
+        - $ref: "#/components/parameters/name"
+      responses:
+        "200": {$ref: "#/components/responses/text"}
+  /v1/{id}/children:
+    get:
+      operationId: getChildren
+      summary: A parameter named otherwise at the position of name.
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "200": {$ref: "#/components/responses/text"}
+  /v1/:batch:
+    put:
+      operationId: putBatch
+      summary: A literal segment that begins with a colon, next to a parameter.
+      responses:
+        "200": {$ref: "#/components/responses/text"}
+  /geo/{lat:lng}:
+    get:
+      operationId: getGeo
+      summary: A parameter name with a colon.
+      parameters:
+        - {name: "lat:lng", in: path, required: true, schema: {type: string}}
+      responses:
+        "200": {$ref: "#/components/responses/text"}
+  /files/{name}.{ext}:
+    get:
+      operationId: getFile
+      summary: Two parameters in one segment.
+      parameters:
+        - $ref: "#/components/parameters/name"
+        - {name: ext, in: path, required: true, schema: {type: string}}
+      responses:
+        "200": {$ref: "#/components/responses/text"}
+  /products({id}):
+    get:
+      operationId: getProduct
+      summary: A parameter between parentheses.
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "200": {$ref: "#/components/responses/text"}
+  /$metadata:
+    get:
+      operationId: getMetadata
+      summary: A literal with a dollar sign.
+      responses:
+        "200": {$ref: "#/components/responses/text"}
+  /a:b:
+    get:
+      operationId: getColon
+      summary: A literal with a colon.
+      responses:
+        "200": {$ref: "#/components/responses/text"}

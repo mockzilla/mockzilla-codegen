@@ -12,6 +12,7 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/app/server"
+	"github.com/cloudwego/hertz/pkg/common/config"
 	"github.com/cloudwego/hertz/pkg/protocol"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
@@ -810,6 +811,13 @@ func WithRouter(h *server.Hertz) ServerOption {
 	}
 }
 
+// WithConfig makes the new Hertz with opts, such as its address and timeouts.
+func WithConfig(opts ...config.Option) ServerOption {
+	return func(o *ServerOptions) {
+		o.Router = opts
+	}
+}
+
 // NewRouter registers every operation on a Hertz server.
 func NewRouter(svc ServiceInterface, opts ...ServerOption) *server.Hertz {
 	o := NewServerOptions(opts...)
@@ -832,7 +840,8 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *server.Hertz {
 		register(h, wrap)
 		return h
 	}
-	h := server.New()
+	serverOpts, _ := o.Router.([]config.Option)
+	h := server.New(serverOpts...)
 	register(h, wrap)
 	h.NoRoute(handle(wrap(http.NotFoundHandler())))
 	return h
@@ -852,7 +861,13 @@ func handle(h http.Handler) app.HandlerFunc {
 			r.SetPathValue(p.Key, p.Value)
 		}
 		r.RemoteAddr = c.RemoteAddr().String()
-		h.ServeHTTP(&responseWriter{response: &c.Response, header: http.Header{}}, r)
+		r.RequestURI = string(c.Request.RequestURI())
+		w := &responseWriter{response: &c.Response, header: http.Header{}}
+		h.ServeHTTP(w, r)
+		// A handler that writes no body still sets its headers.
+		if !w.isWritten {
+			w.WriteHeader(http.StatusOK)
+		}
 	}
 }
 

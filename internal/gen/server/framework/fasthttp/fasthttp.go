@@ -12,6 +12,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"regexp"
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
@@ -19,14 +20,13 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
 
-const (
-	importPath = "github.com/fasthttp/router"
-	// wildcard is the catch-all a trailing /* becomes.
-	wildcard = "{rest:*}"
-)
+const importPath = "github.com/fasthttp/router"
 
 //go:embed templates/*.tmpl
 var templates embed.FS
+
+// braced is a parameter of a pattern.
+var braced = regexp.MustCompile(`\{[^{}]*\}`)
 
 var _ framework.Framework = Framework{}
 
@@ -35,10 +35,6 @@ type Framework struct{}
 
 func (Framework) Name() string {
 	return "fasthttp"
-}
-
-func (Framework) Family() framework.Family {
-	return framework.NetHTTP
 }
 
 func (Framework) Imports() []gomodel.Import {
@@ -50,11 +46,7 @@ func (Framework) Imports() []gomodel.Import {
 	}
 }
 
-// RoutePattern keeps the path as it is, since the router writes parameters as {name} too, with a
-// trailing /* as the catch-all /{rest:*}. It fails on what the router panics on or misreads: a
-// path without a leading slash, an unclosed brace, a wildcard that is not a segment of its own,
-// last, two parameters with nothing between them, a parameter without a name, one whose name
-// holds a colon, which starts a regular expression, and a parameter named twice.
+// RoutePattern keeps {name} parameters and quotes a literal after one, read as a regexp otherwise.
 func (Framework) RoutePattern(method, path string) (string, error) {
 	if err := framework.CheckMethod(method); err != nil {
 		return "", err
@@ -63,14 +55,14 @@ func (Framework) RoutePattern(method, path string) (string, error) {
 	if strings.Contains(path, "}{") {
 		return "", fmt.Errorf("%w: two parameters must have a character between them", framework.ErrPattern)
 	}
-	return framework.Brace(path, wildcard)
+	out, err := framework.Brace(path, framework.Unmarked, wildcard)
+	if err != nil {
+		return "", err
+	}
+	return quoted(out), nil
 }
 
-// Conflicts drops every route the router panics on next to an earlier one of its method: a
-// route that matches the same requests, which the trailing slash does not tell apart, the parent
-// of an earlier catch-all, which the router registers with it, and a route that differs from an
-// earlier one in one segment alone where both have a parameter after one literal prefix, since
-// the router keys such parameters by position.
+// Conflicts drops every route the router panics on next to an earlier one of its method.
 func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
 	var kept []framework.Route
 	var dropped []framework.Conflict
@@ -89,7 +81,7 @@ func (Framework) Handler(s *gocode.Scope) framework.Handler {
 }
 
 func (Framework) PathParam(_ *gocode.Scope, name string) string {
-	return gocode.Call(gocode.Selector("r", "PathValue"), gocode.Quote(name))
+	return gocode.Call(gocode.Selector("r", "PathValue"), gocode.Quote(framework.Unmarked(name)))
 }
 
 func (Framework) Templates() fs.FS {
@@ -102,11 +94,12 @@ func conflict(r framework.Route, kept []framework.Route) string {
 		if k.Method != r.Method {
 			continue
 		}
-		parent, isCatchAll := strings.CutSuffix(k.Pattern, "/"+wildcard)
+		i := strings.LastIndex(k.Pattern, "/")
+		parent, isCatchAll := k.Pattern[:i], strings.HasSuffix(k.Pattern[i:], ":*}")
 		switch {
 		case k.Path == r.Path:
 			return "repeats the route of " + k.Operation
-		case strings.TrimSuffix(k.Pattern, "/") == strings.TrimSuffix(r.Pattern, "/"), isCatchAll && r.Pattern == parent:
+		case strings.TrimSuffix(framework.Shape(k.Pattern), "/") == strings.TrimSuffix(framework.Shape(r.Pattern), "/"), isCatchAll && r.Pattern == parent:
 			return "matches the same requests as " + k.Operation + " at " + k.Path
 		case clashes(k.Pattern, r.Pattern):
 			return "clashes with the parameter of " + k.Operation + " at " + k.Path
@@ -138,4 +131,32 @@ func clashes(p, q string) bool {
 	prefixA, _, isParamA := strings.Cut(a[differing], "{")
 	prefixB, _, isParamB := strings.Cut(b[differing], "{")
 	return isParamA && isParamB && prefixA == prefixB
+}
+
+// quoted writes each segment of pattern with the literals after its first parameter quoted.
+func quoted(pattern string) string {
+	segments := strings.Split(pattern, "/")
+	for i, seg := range segments {
+		params := braced.FindAllStringIndex(seg, -1)
+		if params == nil {
+			continue
+		}
+		var b strings.Builder
+		b.WriteString(seg[:params[0][0]])
+		for j, p := range params {
+			end := len(seg)
+			if j+1 < len(params) {
+				end = params[j+1][0]
+			}
+			b.WriteString(seg[p[0]:p[1]])
+			b.WriteString(regexp.QuoteMeta(seg[p[1]:end]))
+		}
+		segments[i] = b.String()
+	}
+	return strings.Join(segments, "/")
+}
+
+// wildcard is the catch-all a trailing /* becomes.
+func wildcard(name string) string {
+	return "{" + name + ":*}"
 }

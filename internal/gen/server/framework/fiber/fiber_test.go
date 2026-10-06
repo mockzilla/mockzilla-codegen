@@ -23,9 +23,9 @@ func TestFramework(t *testing.T) {
 	fw := Framework{}
 
 	assert.Equal(t, "fiber", fw.Name())
-	assert.Equal(t, framework.NetHTTP, fw.Family())
 	assert.Equal(t, []gomodel.Import{
 		{Path: "github.com/gofiber/fiber/v3"},
+		{Path: "errors"},
 		{Path: "github.com/valyala/fasthttp/fasthttpadaptor"},
 		{Path: "net/http"},
 		{Path: "strings"},
@@ -87,13 +87,15 @@ func TestConflicts(t *testing.T) {
 	index := framework.Route{Operation: "GetIndex", Method: "GET", Path: "/files/index", Pattern: "/files/index"}
 	newPet := framework.Route{Operation: "NewPet", Method: "GET", Path: "/pets/new", Pattern: "/pets/new"}
 	renamed := framework.Route{Operation: "GetAnimal", Method: "GET", Path: "/pets/{petId}", Pattern: "/pets/:petId"}
+	upper := framework.Route{Operation: "GetPetUpper", Method: "GET", Path: "/Pets/{id}", Pattern: "/Pets/:id"}
 
-	kept, dropped := Framework{}.Conflicts([]framework.Route{get, slash, files, index, newPet, renamed})
+	kept, dropped := Framework{}.Conflicts([]framework.Route{get, slash, files, index, newPet, renamed, upper})
 
 	assert.Equal(t, []framework.Route{index, newPet, get, files}, kept, "literals first, the wildcard last")
 	assert.Equal(t, []framework.Conflict{
 		{Route: slash, Reason: "matches the same requests as GetPet at /pets/{id}"},
 		{Route: renamed, Reason: "names its path parameters otherwise than GetPet at /pets/{id}"},
+		{Route: upper, Reason: "matches the same requests as GetPet at /pets/{id}"},
 	}, dropped)
 }
 

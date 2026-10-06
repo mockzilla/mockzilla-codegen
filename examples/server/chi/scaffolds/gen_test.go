@@ -7,6 +7,8 @@ package scaffolds
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -39,6 +41,9 @@ func TestMiddleware(t *testing.T) {
 		case <-time.After(time.Second):
 			w.WriteHeader(http.StatusOK)
 		case <-r.Context().Done():
+			if errors.Is(r.Context().Err(), context.DeadlineExceeded) {
+				w.WriteHeader(http.StatusServiceUnavailable)
+			}
 		}
 	})
 	router := NewRouter(NewTodo(), WithMiddleware(RequestIDMiddleware, RecoverMiddleware, LoggingMiddleware, CORSMiddleware, TimeoutMiddleware(10*time.Millisecond)))
@@ -66,7 +71,7 @@ func TestMiddleware(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, httptest.NewRequest("GET", "/slow", nil))
-	assert.Equal(t, 503, rec.Code, "the timeout applies")
+	assert.Equal(t, 503, rec.Code, "the request's context ends after the timeout")
 }
 
 func dropTimeAndDuration(_ []string, a slog.Attr) slog.Attr {

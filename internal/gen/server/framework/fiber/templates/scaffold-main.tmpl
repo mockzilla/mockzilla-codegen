@@ -9,8 +9,7 @@ func run() error {
 	ctx, stop := {{.Signal}}.NotifyContext({{.Context}}.Background(), {{.OS}}.Interrupt, {{.Syscall}}.SIGTERM)
 	defer stop()
 
-	app := {{.Framework}}.New({{.Framework}}.Config{ReadTimeout: {{.Timeout}}})
-	{{.NewRouter}}({{.NewService}}(), {{.WithRouter}}(app){{if .Middleware}}, {{.WithMiddleware}}(
+	app := {{.NewRouter}}({{.NewService}}(), {{.WithConfig}}({{.Framework}}.Config{ReadTimeout: {{.Timeout}}}){{if .Middleware}}, {{.WithMiddleware}}(
 {{- range .Middleware}}
 		{{.}},
 {{- end}}

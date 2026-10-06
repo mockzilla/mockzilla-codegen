@@ -221,7 +221,9 @@ line below adds `GET /health`, with `health` an `http.HandlerFunc` of yours, as 
 
 Pass a route through `route`, or `m...` on echo, and the middleware of `WithMiddleware` wraps it
 like the generated ones. On chi and kratos the router `r` adds the middleware itself. `handle`
-makes the framework's handler from an `http.Handler`.
+makes the framework's handler from an `http.Handler`. On gin it also takes the names of the path
+values after the handler, in path order, `handle(route(h), "id")`; a value without one keeps the
+name in gin's pattern.
 
 ## Imports
 

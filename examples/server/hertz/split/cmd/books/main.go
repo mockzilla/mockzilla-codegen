@@ -26,8 +26,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	h := server.New(server.WithHostPorts(":8080"), server.WithReadTimeout(30*time.Second))
-	api.NewRouter(books.NewBooks(), api.WithRouter(h), api.WithMiddleware(
+	h := api.NewRouter(books.NewBooks(), api.WithConfig(server.WithHostPorts(":8080"), server.WithReadTimeout(30*time.Second)), api.WithMiddleware(
 		books.RequestIDMiddleware,
 		books.RecoverMiddleware,
 		books.LoggingMiddleware,

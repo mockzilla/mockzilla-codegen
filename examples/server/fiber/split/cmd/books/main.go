@@ -26,8 +26,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	app := fiber.New(fiber.Config{ReadTimeout: 30 * time.Second})
-	api.NewRouter(books.NewBooks(), api.WithRouter(app), api.WithMiddleware(
+	app := api.NewRouter(books.NewBooks(), api.WithConfig(fiber.Config{ReadTimeout: 30 * time.Second}), api.WithMiddleware(
 		books.RequestIDMiddleware,
 		books.RecoverMiddleware,
 		books.LoggingMiddleware,

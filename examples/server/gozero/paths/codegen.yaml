@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=../../../../config.schema.json
+spec: {path: api.yaml}
+package: paths
+server:
+  framework: go-zero

@@ -25,8 +25,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	h := server.New(server.WithHostPorts(":9000"), server.WithReadTimeout(5*time.Second))
-	scaffolds.NewRouter(scaffolds.NewTodo(), scaffolds.WithRouter(h), scaffolds.WithMiddleware(
+	h := scaffolds.NewRouter(scaffolds.NewTodo(), scaffolds.WithConfig(server.WithHostPorts(":9000"), server.WithReadTimeout(5*time.Second)), scaffolds.WithMiddleware(
 		scaffolds.RequestIDMiddleware,
 		scaffolds.RecoverMiddleware,
 		scaffolds.LoggingMiddleware,

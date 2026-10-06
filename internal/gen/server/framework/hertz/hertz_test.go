@@ -23,7 +23,6 @@ func TestFramework(t *testing.T) {
 	fw := Framework{}
 
 	assert.Equal(t, "hertz", fw.Name())
-	assert.Equal(t, framework.NetHTTP, fw.Family())
 	assert.Equal(t, gomodel.Import{Path: "github.com/cloudwego/hertz/pkg/app/server"}, fw.Imports()[0])
 	for _, name := range []string{"templates/router.tmpl", "templates/scaffold-main.tmpl"} {
 		_, err := fw.Templates().Open(name)
@@ -43,6 +42,8 @@ func TestRoutePattern(t *testing.T) {
 		{name: "Parameters become colon parameters", path: "/pets/{id}/photos/{photo-id}", want: "/pets/:id/photos/:photo-id"},
 		{name: "A parameter with a prefix", path: "/pets/v{id}", want: "/pets/v:id"},
 		{name: "A wildcard is named", path: "/files/*", want: "/files/*rest"},
+		{name: "The wildcard takes a name no parameter has", path: "/files/{rest}/*", want: "/files/:rest/*rest_"},
+		{name: "A colon in a name", path: "/geo/{lat:lng}", want: "/geo/:lat_lng"},
 		{name: "A literal colon", path: "/pets:search", wantErr: "the router rejects the path: : is read as the start of a parameter in pets:search"},
 		{name: "A parameter with a suffix", path: "/pets/{id}.json", wantErr: "the router rejects the path: a parameter must end its segment, unlike {id}.json"},
 	}
@@ -101,5 +102,6 @@ func TestPathParam(t *testing.T) {
 	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
 
 	assert.Equal(t, `r.PathValue("pet-id")`, Framework{}.PathParam(s, "pet-id"))
+	assert.Equal(t, `r.PathValue("lat_lng")`, Framework{}.PathParam(s, "lat:lng"))
 	assert.Empty(t, s.Imports.Decl())
 }

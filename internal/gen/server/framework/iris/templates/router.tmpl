@@ -1,3 +1,5 @@
+type routerKey struct{}
+
 // WithRouter registers the routes on app instead of a new Application. The caller builds app.
 func WithRouter(app *{{.Framework}}.Application) {{.Option}} {
 	return func(o *{{.Options}}) {
@@ -30,8 +32,12 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Applicatio
 	}
 	app := {{.Framework}}.New()
 	app.Configure({{.Framework}}.WithoutAutoFireStatusCode)
+	// The router comes with the request, so the middleware is set up once and follows a refresh.
+	routed := wrap({{.Packages.http}}.HandlerFunc(func(w {{.Packages.http}}.ResponseWriter, r *{{.Packages.http}}.Request) {
+		r.Context().Value(routerKey{}).({{.Packages.http}}.HandlerFunc)(w, r)
+	}))
 	app.WrapRouter(func(w {{.Packages.http}}.ResponseWriter, r *{{.Packages.http}}.Request, router {{.Packages.http}}.HandlerFunc) {
-		wrap(router).ServeHTTP(w, r)
+		routed.ServeHTTP(w, r.WithContext({{.Packages.context}}.WithValue(r.Context(), routerKey{}, router)))
 	})
 	register(app, func(h {{.Packages.http}}.Handler) {{.Packages.http}}.Handler { return h })
 	if err := app.Build(); err != nil {

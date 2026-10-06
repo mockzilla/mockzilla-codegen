@@ -382,7 +382,7 @@ func (a *HTTPAdapter) GetPet(c *echo.Context) error {
 	opts := &GetPetServiceRequestOptions{RawRequest: r}
 	query := r.URL.Query()
 	opts.PathParams = &GetPetPathParams{}
-	if err := runtime.DecodePath(c.Param("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetPet", ParamName: "id", ParamLocation: "path", Err: err})
 		return nil
 	}
@@ -420,7 +420,7 @@ func (a *HTTPAdapter) PutPet(c *echo.Context) error {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "PutPet"))
 	opts := &PutPetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PutPetPathParams{}
-	if err := runtime.DecodePath(c.Param("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PutPet", ParamName: "id", ParamLocation: "path", Err: err})
 		return nil
 	}

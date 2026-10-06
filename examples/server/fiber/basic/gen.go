@@ -585,6 +585,13 @@ func WithRouter(app *fiber.App) ServerOption {
 	}
 }
 
+// WithConfig makes the new App with cfg.
+func WithConfig(cfg fiber.Config) ServerOption {
+	return func(o *ServerOptions) {
+		o.Router = cfg
+	}
+}
+
 // NewRouter registers every operation on a fiber App.
 func NewRouter(svc PetsInterface, opts ...ServerOption) *fiber.App {
 	o := NewServerOptions(opts...)
@@ -593,7 +600,8 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *fiber.App {
 		for i := len(o.Middleware) - 1; i >= 0; i-- {
 			h = o.Middleware[i](h)
 		}
-		return h
+		// fasthttp would end the process on a panic.
+		return runtime.Recover(h, o.ErrorHandler)
 	}
 	register := func(app *fiber.App, route func(http.Handler) http.Handler) {
 		app.Get("/pets", handle(route(http.HandlerFunc(a.ListPets))))
@@ -607,18 +615,44 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *fiber.App {
 		register(app, wrap)
 		return app
 	}
-	app := fiber.New()
+	cfg, _ := o.Router.(fiber.Config)
+	answer := cfg.ErrorHandler
+	if answer == nil {
+		answer = fiber.DefaultErrorHandler
+	}
+	notFound := handle(wrap(http.NotFoundHandler()))
+	methodNotAllowed := handle(wrap(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	})))
+	// Answered from the error handler, so that a route added later is still served.
+	cfg.ErrorHandler = func(c fiber.Ctx, err error) error {
+		var e *fiber.Error
+		switch {
+		case !errors.As(err, &e):
+		case e.Code == fiber.StatusNotFound:
+			return notFound(c)
+		case e.Code == fiber.StatusMethodNotAllowed:
+			return methodNotAllowed(c)
+		}
+		return answer(c, err)
+	}
+	app := fiber.New(cfg)
 	register(app, wrap)
-	app.Use(handle(wrap(http.NotFoundHandler())))
 	return app
 }
 
 func handle(h http.Handler) fiber.Handler {
 	return func(c fiber.Ctx) error {
+		isEscaped := !c.App().Config().UnescapePath
 		fasthttpadaptor.NewFastHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// fiber's strings live for the request alone.
+			// fiber reuses the memory of the request's strings for the next request.
+			r = runtime.DetachRequest(r)
 			for _, name := range c.Route().Params {
-				r.SetPathValue(name, strings.Clone(c.Params(name)))
+				if isEscaped {
+					r.SetPathValue(name, runtime.DetachPathValue(c.Params(name)))
+				} else {
+					r.SetPathValue(name, strings.Clone(c.Params(name)))
+				}
 			}
 			h.ServeHTTP(w, r)
 		}))(c.RequestCtx())

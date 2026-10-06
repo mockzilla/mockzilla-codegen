@@ -160,7 +160,7 @@ func (a *HTTPAdapter) GetBook(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetBook"))
 	opts := &GetBookServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &models.GetBookPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "isbn"), runtime.Param{Name: "isbn", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Isbn); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "isbn")), runtime.Param{Name: "isbn", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Isbn); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetBook", ParamName: "isbn", ParamLocation: "path", Err: err})
 		return
 	}

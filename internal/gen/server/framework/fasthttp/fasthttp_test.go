@@ -6,6 +6,7 @@
 package fasthttp
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -24,7 +25,6 @@ func TestFramework(t *testing.T) {
 	fw := Framework{}
 
 	assert.Equal(t, "fasthttp", fw.Name())
-	assert.Equal(t, framework.NetHTTP, fw.Family())
 	assert.Equal(t, gomodel.Import{Path: "github.com/fasthttp/router"}, fw.Imports()[0])
 	for _, name := range []string{"templates/router.tmpl", "templates/scaffold-main.tmpl"} {
 		_, err := fw.Templates().Open(name)
@@ -41,8 +41,11 @@ func TestRoutePattern(t *testing.T) {
 		want    string
 		wantErr string
 	}{
-		{name: "Parameters stay", path: "/pets/{id}/photos/{photo-id}.jpg", want: "/pets/{id}/photos/{photo-id}.jpg"},
-		{name: "Two parameters apart", path: "/pets/{a}-{b}", want: "/pets/{a}-{b}"},
+		{name: "Parameters stay, what follows one quoted", path: "/pets/{id}/photos/{photo-id}.jpg", want: `/pets/{id}/photos/{photo-id}\.jpg`},
+		{name: "Two parameters apart", path: "/files/{name}.{ext}", want: `/files/{name}\.{ext}`},
+		{name: "A prefix stays and a suffix is quoted", path: "/Products({id})", want: `/Products({id}\)`},
+		{name: "A colon in a name", path: "/geo/{lat:lng}", want: "/geo/{lat_lng}"},
+		{name: "The wildcard takes a name no parameter has", path: "/files/{rest}/*", want: "/files/{rest}/{rest_:*}"},
 		{name: "A wildcard becomes the catch-all", path: "/files/*", want: "/files/{rest:*}"},
 		{name: "The root wildcard", path: "/*", want: "/{rest:*}"},
 		{name: "No leading slash", path: "pets", wantErr: "the router rejects the path: it must begin with /"},
@@ -51,7 +54,6 @@ func TestRoutePattern(t *testing.T) {
 		{name: "Wildcard with a prefix", path: "/files*", wantErr: "the router rejects the path: * must be a segment of its own"},
 		{name: "Two parameters together", path: "/pets/{a}{b}", wantErr: "the router rejects the path: two parameters must have a character between them"},
 		{name: "A parameter without a name", path: "/pets/{}", wantErr: "the router rejects the path: a parameter has no name"},
-		{name: "A parameter with a colon", path: "/pets/{id:x}", wantErr: `the router rejects the path: parameter "id:x" holds a colon`},
 		{name: "A parameter named twice", path: "/pets/{id}/{id}", wantErr: `the router rejects the path: parameter "id" is named twice`},
 	}
 	for _, tc := range tests {
@@ -92,29 +94,29 @@ func TestConflicts(t *testing.T) {
 	}{
 		{
 			name:     "Literals, parameters and catch-alls that the router holds together",
-			routes:   routes("GET /pets/{id}", "GET /pets/new", "POST /pets/{petId}", "GET /pets/v{id}", "GET /pets/{id}/x", "GET /pets/{a}/y", "GET /pets/{a}", "GET /files", "GET /files/*", "GET /files/x", "GET /a/{x}/", "GET /a/{x}/{y}"),
+			routes:   routes(t, "GET /pets/{id}", "GET /pets/new", "POST /pets/{petId}", "GET /pets/v{id}", "GET /pets/{id}/x", "GET /pets/{a}/y", "GET /pets/{a}", "GET /files", "GET /files/*", "GET /files/x", "GET /a/{x}/", "GET /a/{x}/{y}"),
 			wantKept: []string{"GET /pets/{id}", "GET /pets/new", "POST /pets/{petId}", "GET /pets/v{id}", "GET /pets/{id}/x", "GET /pets/{a}/y", "GET /files", "GET /files/*", "GET /files/x", "GET /a/{x}/", "GET /a/{x}/{y}"},
 			wantReasons: []string{
-				"clashes with the parameter of Op1 at /pets/{id}",
+				"matches the same requests as Op1 at /pets/{id}",
 			},
 		},
 		{
 			name:        "A repeat and the trailing slash",
-			routes:      routes("GET /pets/{id}", "GET /pets/{id}", "GET /pets/{id}/", "GET /x/", "GET /x"),
+			routes:      routes(t, "GET /pets/{id}", "GET /pets/{id}", "GET /pets/{id}/", "GET /x/", "GET /x", "GET /pets/{petId}/"),
 			wantKept:    []string{"GET /pets/{id}", "GET /x/"},
-			wantReasons: []string{"repeats the route of Op1", "matches the same requests as Op1 at /pets/{id}", "matches the same requests as Op4 at /x/"},
+			wantReasons: []string{"repeats the route of Op1", "matches the same requests as Op1 at /pets/{id}", "matches the same requests as Op4 at /x/", "matches the same requests as Op1 at /pets/{id}"},
 		},
 		{
 			name:        "The parent of a catch-all",
-			routes:      routes("GET /files/*", "GET /files", "GET /files/"),
+			routes:      routes(t, "GET /files/*", "GET /files", "GET /files/"),
 			wantKept:    []string{"GET /files/*", "GET /files/"},
 			wantReasons: []string{"matches the same requests as Op1 at /files/*"},
 		},
 		{
 			name:        "Parameters after one prefix in one segment",
-			routes:      routes("GET /pets/{id}.json", "GET /pets/{id}.xml", "GET /pets/v{id}", "GET /pets/v{x}", "GET /pets/w{x}"),
+			routes:      routes(t, "GET /pets/{id}.json", "GET /pets/{id}.xml", "GET /pets/v{id}", "GET /pets/v{x}", "GET /pets/w{x}"),
 			wantKept:    []string{"GET /pets/{id}.json", "GET /pets/v{id}", "GET /pets/w{x}"},
-			wantReasons: []string{"clashes with the parameter of Op1 at /pets/{id}.json", "clashes with the parameter of Op3 at /pets/v{id}"},
+			wantReasons: []string{"clashes with the parameter of Op1 at /pets/{id}.json", "matches the same requests as Op3 at /pets/v{id}"},
 		},
 	}
 	for _, tc := range tests {
@@ -161,20 +163,21 @@ func TestPathParam(t *testing.T) {
 	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
 
 	assert.Equal(t, `r.PathValue("pet-id")`, Framework{}.PathParam(s, "pet-id"))
+	assert.Equal(t, `r.PathValue("lat_lng")`, Framework{}.PathParam(s, "lat:lng"))
 	assert.Empty(t, s.Imports.Decl())
 }
 
 // routes makes routes named Op1, Op2 and so on from "METHOD /path" strings, with the pattern
 // RoutePattern gives each.
-func routes(specs ...string) []framework.Route {
+func routes(t *testing.T, specs ...string) []framework.Route {
+	t.Helper()
+
 	out := make([]framework.Route, len(specs))
 	for i, spec := range specs {
 		method, path, _ := strings.Cut(spec, " ")
 		pattern, err := Framework{}.RoutePattern(method, path)
-		if err != nil {
-			panic(err)
-		}
-		out[i] = framework.Route{Operation: "Op" + string(rune('1'+i)), Method: method, Path: path, Pattern: pattern}
+		require.NoError(t, err)
+		out[i] = framework.Route{Operation: "Op" + strconv.Itoa(i+1), Method: method, Path: path, Pattern: pattern}
 	}
 	return out
 }

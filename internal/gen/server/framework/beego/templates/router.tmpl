@@ -42,8 +42,9 @@ func handle(h {{.Packages.http}}.Handler) {{.Framework}}.HandleFunc {
 				r.SetPathValue(key[1:], value)
 			}
 		}
-		// beego has read a form body already, so it goes back into the body for h.
-		if r.PostForm != nil && {{.Packages.strings}}.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+		// beego has read the form body of these methods, so it goes back for h.
+		isRead := r.Method == {{.Packages.http}}.MethodPost || r.Method == {{.Packages.http}}.MethodPut || r.Method == {{.Packages.http}}.MethodPatch
+		if isRead && r.PostForm != nil && {{.Packages.strings}}.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
 			r.Body = {{.Packages.io}}.NopCloser({{.Packages.strings}}.NewReader(r.PostForm.Encode()))
 		}
 		h.ServeHTTP(c.ResponseWriter, r)

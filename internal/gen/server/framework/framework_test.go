@@ -26,6 +26,17 @@ func TestHTTPHandler(t *testing.T) {
 	assert.Equal(t, `import "net/http"`, s.Imports.Decl())
 }
 
+func TestContextHandler(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, Handler{
+		Signature: "(c echo.Context) error",
+		Prologue:  "w, r := c.Response(), c.Request()",
+		Return:    "return nil",
+		Epilogue:  "return nil",
+	}, ContextHandler("echo.Context"))
+}
+
 func TestParams(t *testing.T) {
 	t.Parallel()
 
@@ -86,10 +97,12 @@ func TestStaticFirst(t *testing.T) {
 	newPet := Route{Operation: "NewPet", Path: "/pets/new"}
 	index := Route{Operation: "Index", Path: "/files/index"}
 	root := Route{Operation: "Root", Path: "/"}
-	in := []Route{files, pet, photo, newPet, index, root}
+	json := Route{Operation: "JSON", Path: "/pets/{id}.json"}
+	policy := Route{Operation: "Policy", Path: "/pets/{id}:getPolicy"}
+	in := []Route{files, pet, photo, newPet, index, root, json, policy}
 
-	assert.Equal(t, []Route{root, newPet, index, pet, photo, files}, StaticFirst(in))
-	assert.Equal(t, []Route{files, pet, photo, newPet, index, root}, in, "the routes given stay as they are")
+	assert.Equal(t, []Route{root, newPet, index, policy, json, pet, photo, files}, StaticFirst(in))
+	assert.Equal(t, []Route{files, pet, photo, newPet, index, root, json, policy}, in, "the routes given stay as they are")
 }
 
 func TestIdentifier(t *testing.T) {
@@ -176,7 +189,7 @@ func TestColonPattern(t *testing.T) {
 	t.Parallel()
 
 	escaping := Colon{Literal: Escaping(":"), Name: Same, Wildcard: "*", IsPrefixAllowed: true}
-	rejecting := Colon{Literal: Rejecting(":*"), Name: Identifier, Wildcard: "*rest"}
+	rejecting := Colon{Literal: Rejecting(":*"), Name: Identifier, Wildcard: "*", IsWildcardNamed: true}
 	tests := []struct {
 		name    string
 		colon   Colon
@@ -188,6 +201,8 @@ func TestColonPattern(t *testing.T) {
 		{name: "The wildcard", colon: escaping, path: "/files/*", want: "/files/*"},
 		{name: "The root", colon: escaping, path: "/", want: "/"},
 		{name: "A name made an identifier and the wildcard named", colon: rejecting, path: "/pets/{pet-id}/*", want: "/pets/:pet_id/*rest"},
+		{name: "The wildcard takes a name no parameter has", colon: rejecting, path: "/pets/{rest}/*", want: "/pets/:rest/*rest_"},
+		{name: "Two names the router gives one name", colon: rejecting, path: "/pets/{pet-id}/{pet_id}", wantErr: `the router rejects the path: parameters "pet-id" and "pet_id" are both pet_id on the router`},
 		{name: "No leading slash", colon: escaping, path: "pets", wantErr: "the router rejects the path: it must begin with /"},
 		{name: "A parameter with a suffix", colon: escaping, path: "/pets/{id}.json", wantErr: "the router rejects the path: a parameter must end its segment, unlike {id}.json"},
 		{name: "Two parameters in one segment", colon: escaping, path: "/pets/{a}{b}", wantErr: "the router rejects the path: a parameter must end its segment, unlike {a}{b}"},
@@ -218,6 +233,7 @@ func TestColonPattern(t *testing.T) {
 func TestBrace(t *testing.T) {
 	t.Parallel()
 
+	wildcard := func(name string) string { return "{" + name + ":.*}" }
 	tests := []struct {
 		name    string
 		path    string
@@ -226,17 +242,63 @@ func TestBrace(t *testing.T) {
 	}{
 		{name: "Parameters stay", path: "/pets/{id}/photos/{photo-id}.jpg", want: "/pets/{id}/photos/{photo-id}.jpg"},
 		{name: "The wildcard", path: "/files/*", want: "/files/{rest:.*}"},
+		{name: "The wildcard takes a name no parameter has", path: "/files/{rest}/*", want: "/files/{rest}/{rest_:.*}"},
+		{name: "A colon in a name", path: "/geo/{lat:lng}", want: "/geo/{lat_lng}"},
 		{name: "Unclosed brace", path: "/pets/{id", wantErr: "the router rejects the path: a { has no }"},
 		{name: "Wildcard with a prefix", path: "/files*", wantErr: "the router rejects the path: * must be a segment of its own"},
 		{name: "A parameter without a name", path: "/pets/{}", wantErr: "the router rejects the path: a parameter has no name"},
-		{name: "A parameter with a colon", path: "/pets/{id:x}", wantErr: `the router rejects the path: parameter "id:x" holds a colon`},
 		{name: "A parameter named twice", path: "/pets/{id}/{id}", wantErr: `the router rejects the path: parameter "id" is named twice`},
+		{name: "Two names the router gives one name", path: "/geo/{a:b}/{a_b}", wantErr: `the router rejects the path: parameters "a:b" and "a_b" are both a_b on the router`},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := Brace(tc.path, "{rest:.*}")
+			got, err := Brace(tc.path, Unmarked, wildcard)
+
+			if tc.wantErr != "" {
+				require.ErrorIs(t, err, ErrPattern)
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestUnmarked(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "lat_lng_x", Unmarked("lat:lng*x"))
+	assert.Equal(t, "pet-id", Unmarked("pet-id"))
+}
+
+func TestRestName(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "rest", RestName([]string{"id"}))
+	assert.Equal(t, "rest__", RestName([]string{"rest", "rest_"}))
+}
+
+func TestEscapingColon(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		in      string
+		want    string
+		wantErr string
+	}{
+		{name: "A colon inside is escaped", in: "a:b", want: `a\:b`},
+		{name: "A colon that begins the segment", in: ":tid", wantErr: "the router rejects the path: a segment beginning with : is read as a parameter"},
+		{name: "A star", in: "a*", wantErr: "the router rejects the path: * is read as a wildcard in a*"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := EscapingColon(tc.in)
 
 			if tc.wantErr != "" {
 				require.ErrorIs(t, err, ErrPattern)

@@ -282,6 +282,11 @@ func TestGenerateErrors(t *testing.T) {
 			wantErr: ErrTemplateFile,
 		},
 		{
+			name:    "Router override file that is missing",
+			cfg:     "server: {framework: chi}\ntemplates: {server.router-extra: {file: ./extra.tmpl}}\n",
+			wantErr: ErrTemplateFile,
+		},
+		{
 			name: "Template override whose text is a path",
 			cfg:  "server: {framework: chi}\n",
 			edit: func(cfg *config.Config) {

@@ -314,7 +314,7 @@ func TestBlocks(t *testing.T) {
 				blockServiceHeader:         "// Owned by {{.User.owner}}.",
 				blockRequestOptionsExtra:   "Owner string // {{.User.owner}}",
 				blockResponseDataExtra:     "Owner string // {{.User.owner}}",
-				blockRouterExtra:           `r.Get("/owner", {{.User.handler}})`,
+				BlockRouterExtra:           `r.Get("/owner", {{.User.handler}})`,
 				blockScaffoldServiceFields: "owner string // {{.User.owner}}",
 				blockScaffoldServiceMethod: "return nil, errors.New({{quote .Name}} + {{quote .User.owner}})",
 			},
@@ -325,7 +325,7 @@ func TestBlocks(t *testing.T) {
 				blockServiceHeader:         "// Owned by {{.User.owner}}.\n",
 				blockRequestOptionsExtra:   "\n\tOwner string // {{.User.owner}}",
 				blockResponseDataExtra:     "\n\tOwner string // {{.User.owner}}\n\n",
-				blockRouterExtra:           "\n\t\tr.Get(\"/owner\", {{.User.handler}})\n",
+				BlockRouterExtra:           "\n\t\tr.Get(\"/owner\", {{.User.handler}})\n",
 				blockScaffoldServiceFields: "\n\towner string // {{.User.owner}}\n\n",
 				blockScaffoldServiceMethod: "\n\treturn nil, errors.New({{quote .Name}} + {{quote .User.owner}})\n",
 			},
@@ -366,7 +366,7 @@ func TestBlocksOfEveryFramework(t *testing.T) {
 			opts := allOptions()
 			opts.Framework = Frameworks()[name]
 			g, _ := New(m, opts)
-			f := fixture{m: m, g: g, cfg: scaffoldConfig, templates: map[string]string{blockRouterExtra: "// The routes of {{.User.owner}} end here."}}
+			f := fixture{m: m, g: g, cfg: scaffoldConfig, templates: map[string]string{BlockRouterExtra: "// The routes of {{.User.owner}} end here."}}
 
 			router := string(f.render(t, PartRouter))
 
@@ -444,7 +444,9 @@ func TestViewRendersParts(t *testing.T) {
 	for _, name := range slices.Sorted(maps.Keys(Frameworks())) {
 		fw := Frameworks()[name]
 		perFramework := []layout.PartID{PartRouter}
-		if fw.Family() == framework.Native {
+		f := &layout.File{Path: "/work/gen.go", Package: "api"}
+		s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
+		if fw.Handler(s) != framework.HTTPHandler(s) {
 			perFramework = append(perFramework, PartAdapter)
 		}
 		if ownsMain(fw) {

@@ -36,25 +36,17 @@ func (Framework) Name() string {
 	return "fiber"
 }
 
-func (Framework) Family() framework.Family {
-	return framework.NetHTTP
-}
-
 func (Framework) Imports() []gomodel.Import {
 	return []gomodel.Import{
 		{Path: importPath},
+		{Path: "errors"},
 		{Path: "github.com/valyala/fasthttp/fasthttpadaptor"},
 		{Path: "net/http"},
 		{Path: "strings"},
 	}
 }
 
-// RoutePattern writes each parameter as :name, with a name that is an identifier since fiber
-// ends a name at any other character, and escapes a literal colon, star, plus or question mark
-// with a backslash, since fiber reads them as the start of a parameter. A parameter runs to the
-// end of its segment, so a path fails when one has a suffix or shares a segment with another; a
-// path also fails without a leading slash, with an unclosed brace, a parameter without a name or
-// named twice, and a wildcard that is not a segment of its own, last.
+// RoutePattern writes each parameter as :name, an identifier, and escapes what fiber reads as one.
 func (Framework) RoutePattern(method, path string) (string, error) {
 	if err := framework.CheckMethod(method); err != nil {
 		return "", err
@@ -63,14 +55,10 @@ func (Framework) RoutePattern(method, path string) (string, error) {
 	return pattern.Pattern(path)
 }
 
-// Conflicts drops every route that matches the same requests as an earlier one of its method: a
-// repeat of it, one whose path parameters are named otherwise, or one that differs in the
-// trailing slash alone, which fiber does not tell apart. It then puts literals before parameters
-// and parameters before the wildcard at each position, since fiber takes the first route that
-// matches.
+// Conflicts drops every route fiber cannot tell from an earlier one and orders the rest for it.
 func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
 	kept, dropped := framework.ConflictsByKey(routes, func(r framework.Route) string {
-		return r.Method + " " + strings.TrimSuffix(framework.Shape(r.Path), "/")
+		return r.Method + " " + strings.ToLower(strings.TrimSuffix(framework.Shape(r.Path), "/"))
 	})
 	return framework.StaticFirst(kept), dropped
 }
