@@ -32,17 +32,18 @@ type Dog struct {
 	Breed *string `json:"breed,omitempty"`
 }
 
+// Animal is one of Cat or Dog.
 type Animal struct {
 	Cat *Cat `json:"-"`
 	Dog *Dog `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
+// MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (a Animal) MarshalJSON() ([]byte, error) {
 	return runtime.MarshalTagged(nil, a.union(), a.Cat, a.Dog)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (a *Animal) UnmarshalJSON(data []byte) error {
 	*a = Animal{}
 	return runtime.UnmarshalUnion(data, a.union())

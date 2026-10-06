@@ -138,9 +138,27 @@ func TestUnmarshalUnion(t *testing.T) {
 		},
 		{
 			name: "A closed variant is ruled out by an unknown key",
-			data: `{"name":"a","meow":true,"x":1}`,
+			data: `{"name":"a","meow":true,"bark":true,"x":1}`,
 			edit: func(u *Union) { u.Variants[0].IsClosed = true },
-			want: holder{Dog: &dog{Name: "a"}},
+			want: holder{Dog: &dog{Name: "a", Bark: true}},
+		},
+		{
+			name:       "Two objects with the required properties of each tie",
+			data:       `{"meow":true,"bark":true}`,
+			wantErr:    ErrAmbiguous,
+			wantErrMsg: "more than one union variant matches: Cat and Dog",
+		},
+		{
+			name:       "An object without the required properties of any variant",
+			data:       `{"name":"a"}`,
+			wantErr:    ErrNoVariant,
+			wantErrMsg: "no union variant matches for a JSON object: Cat needs meow, Dog needs bark",
+		},
+		{
+			name: "A variant with the required properties that fails to decode",
+			data: `{"meow":"loud"}`,
+			wantErrMsg: "no union variant matches for a JSON object: " +
+				"Cat: json: cannot unmarshal string into Go struct field cat.meow of type bool",
 		},
 		{
 			name: "Shared keys are not unknown",
@@ -188,7 +206,15 @@ func TestUnmarshalUnion(t *testing.T) {
 			want: holder{Cat: &cat{Name: "a"}},
 		},
 		{name: "Any of sets every match", data: `{"name":"a"}`, edit: func(u *Union) { noRequired(u); u.IsAnyOf = true }, want: holder{Cat: &cat{Name: "a"}, Dog: &dog{Name: "a"}}},
-		{name: "Any of falls back to the first that decodes", data: `{"name":"a"}`, edit: func(u *Union) { u.IsAnyOf = true }, want: holder{Cat: &cat{Name: "a"}}},
+		{name: "Any of sets every match that decodes", data: `{"meow":true,"bark":"x"}`, edit: func(u *Union) { u.IsAnyOf = true }, want: holder{Cat: &cat{Meow: true}}},
+		{name: "Any of where no match decodes", data: `{"meow":1,"bark":1}`, edit: func(u *Union) { u.IsAnyOf = true }, wantErr: ErrNoVariant},
+		{
+			name:       "Any of needs the required properties of a variant",
+			data:       `{"name":"a"}`,
+			edit:       func(u *Union) { u.IsAnyOf = true },
+			wantErr:    ErrNoVariant,
+			wantErrMsg: "no union variant matches for a JSON object: Cat needs meow, Dog needs bark",
+		},
 		{name: "Any of over strings", data: `"2026-09-30T00:00:00Z"`, edit: func(u *Union) { u.IsAnyOf = true }, want: holder{When: &when, Text: new("2026-09-30T00:00:00Z")}},
 		{name: "Any of without candidates", data: `true`, edit: func(u *Union) { u.IsAnyOf = true }, wantErr: ErrNoVariant},
 	}
@@ -241,16 +267,18 @@ func TestUnmarshalUnionShapes(t *testing.T) {
 		return Shape{Required: required, Known: required}
 	}
 	tests := []struct {
-		name     string
-		data     string
-		variants func(first, second *map[string]any) []Variant
-		want     string
-		wantErr  error
+		name       string
+		data       string
+		variants   func(first, second *map[string]any) []Variant
+		want       string
+		wantErr    error
+		wantErrMsg string
 	}{
 		{name: "A key only the first variant's shapes require", data: `{"a":1}`, want: "first"},
 		{name: "Its other shape", data: `{"b":1}`, want: "first"},
 		{name: "All keys of a shape of the second", data: `{"a":1,"c":2}`, want: "second"},
 		{name: "A closed shape that fits", data: `{"d":1}`, want: "second"},
+		{name: "What each shape needs", data: `{"x":1}`, wantErr: ErrNoVariant, wantErrMsg: "no union variant matches for a JSON object: First needs a or b, Second needs a and c"},
 		{
 			name: "A variant whose shapes are all closed to a key is left out",
 			data: `{"q":1}`,
@@ -289,6 +317,9 @@ func TestUnmarshalUnionShapes(t *testing.T) {
 
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
+				if tc.wantErrMsg != "" {
+					require.EqualError(t, err, tc.wantErrMsg)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -428,8 +459,14 @@ func TestUnmarshalUnionFormPicks(t *testing.T) {
 		{
 			name:    "A form no object variant takes",
 			u:       (*holder).union,
-			values:  url.Values{"meow": {"loud"}, "bark": {"loud"}},
+			values:  url.Values{"meow": {"loud"}},
 			wantErr: ErrNoVariant,
+		},
+		{
+			name:    "A form that matches two variants alike",
+			u:       (*holder).union,
+			values:  url.Values{"meow": {"true"}, "bark": {"true"}},
+			wantErr: ErrAmbiguous,
 		},
 	}
 

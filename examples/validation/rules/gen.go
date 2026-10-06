@@ -162,12 +162,13 @@ func (s Size) Validate() error {
 	return runtime.OneOf(s, SizeS, SizeM, SizeL)
 }
 
+// ItemUnit is one of String or Int.
 type ItemUnit struct {
 	String *string `json:"-"`
 	Int    *int    `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (i ItemUnit) MarshalJSON() ([]byte, error) {
 	var set []any
 	if i.String != nil {
@@ -176,10 +177,10 @@ func (i ItemUnit) MarshalJSON() ([]byte, error) {
 	if i.Int != nil {
 		set = append(set, i.Int)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (i *ItemUnit) UnmarshalJSON(data []byte) error {
 	*i = ItemUnit{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -203,7 +204,7 @@ func (i ItemUnit) MarshalText() ([]byte, error) {
 	return runtime.MarshalUnionText(i.MarshalJSON())
 }
 
-// UnmarshalText sets the variants text matches.
+// UnmarshalText sets the variant text matches.
 func (i *ItemUnit) UnmarshalText(text []byte) error {
 	return runtime.UnmarshalUnionText(text, i.UnmarshalJSON)
 }

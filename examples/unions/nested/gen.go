@@ -31,12 +31,13 @@ type Wire struct {
 	Account string `json:"account"`
 }
 
+// Payment is one of Card or Bank.
 type Payment struct {
 	Card *Card `json:"-"`
 	Bank *Bank `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (p Payment) MarshalJSON() ([]byte, error) {
 	var set []any
 	if p.Card != nil {
@@ -45,10 +46,10 @@ func (p Payment) MarshalJSON() ([]byte, error) {
 	if p.Bank != nil {
 		set = append(set, p.Bank)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (p *Payment) UnmarshalJSON(data []byte) error {
 	*p = Payment{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -104,12 +105,13 @@ func (p Payment) Validate() error {
 	return errs.Err()
 }
 
+// Card is one of Visa or Amex.
 type Card struct {
 	Visa *Visa `json:"-"`
 	Amex *Amex `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (c Card) MarshalJSON() ([]byte, error) {
 	var set []any
 	if c.Visa != nil {
@@ -118,10 +120,10 @@ func (c Card) MarshalJSON() ([]byte, error) {
 	if c.Amex != nil {
 		set = append(set, c.Amex)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (c *Card) UnmarshalJSON(data []byte) error {
 	*c = Card{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -151,12 +153,13 @@ func (c Card) Validate() error {
 	return errs.Err()
 }
 
+// Bank is one of Sepa or Domestic.
 type Bank struct {
 	Sepa     *Sepa     `json:"-"`
 	Domestic *Domestic `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (b Bank) MarshalJSON() ([]byte, error) {
 	var set []any
 	if b.Sepa != nil {
@@ -165,10 +168,10 @@ func (b Bank) MarshalJSON() ([]byte, error) {
 	if b.Domestic != nil {
 		set = append(set, b.Domestic)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (b *Bank) UnmarshalJSON(data []byte) error {
 	*b = Bank{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -209,12 +212,13 @@ func (b Bank) Validate() error {
 	return errs.Err()
 }
 
+// Domestic is one of Ach or Wire.
 type Domestic struct {
 	Ach  *Ach  `json:"-"`
 	Wire *Wire `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (d Domestic) MarshalJSON() ([]byte, error) {
 	var set []any
 	if d.Ach != nil {
@@ -223,10 +227,10 @@ func (d Domestic) MarshalJSON() ([]byte, error) {
 	if d.Wire != nil {
 		set = append(set, d.Wire)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (d *Domestic) UnmarshalJSON(data []byte) error {
 	*d = Domestic{}
 	return runtime.UnmarshalUnion(data, runtime.Union{

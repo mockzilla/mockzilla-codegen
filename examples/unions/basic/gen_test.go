@@ -47,10 +47,46 @@ func TestPetJSON(t *testing.T) {
 func TestPetNoMatch(t *testing.T) {
 	t.Parallel()
 
-	var got Pet
-	err := json.Unmarshal([]byte(`"Tom"`), &got)
+	tests := []struct {
+		name       string
+		data       string
+		wantErr    error
+		wantErrMsg string
+	}{
+		{name: "A kind no variant takes", data: `"Tom"`, wantErr: runtime.ErrNoVariant, wantErrMsg: "no union variant matches for a JSON string"},
+		{
+			name:       "No required property",
+			data:       `{"name":"Tom"}`,
+			wantErr:    runtime.ErrNoVariant,
+			wantErrMsg: "no union variant matches for a JSON object: Cat needs meow, Dog needs bark",
+		},
+		{
+			name:       "The required properties of both",
+			data:       `{"meow":true,"bark":true}`,
+			wantErr:    runtime.ErrAmbiguous,
+			wantErrMsg: "more than one union variant matches: Cat and Dog",
+		},
+	}
 
-	require.ErrorIs(t, err, runtime.ErrNoVariant)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got Pet
+			err := json.Unmarshal([]byte(tc.data), &got)
+
+			require.ErrorIs(t, err, tc.wantErr)
+			require.EqualError(t, err, tc.wantErrMsg)
+		})
+	}
+}
+
+func TestPetMarshalTwo(t *testing.T) {
+	t.Parallel()
+
+	_, err := json.Marshal(Pet{Cat: &Cat{}, Dog: &Dog{}})
+
+	require.ErrorContains(t, err, "at most one variant may be set, found 2")
 }
 
 func TestPetValidate(t *testing.T) {

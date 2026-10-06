@@ -10,13 +10,14 @@ import (
 
 type Cat struct{}
 
+// Pet is one of Cat, Float or Nested.
 type Pet struct {
 	Cat    *Cat     `json:"-"`
 	Float  *float64 `json:"-"`
 	Nested *string  `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (p Pet) MarshalJSON() ([]byte, error) {
 	var set []any
 	if p.Cat != nil {
@@ -28,16 +29,16 @@ func (p Pet) MarshalJSON() ([]byte, error) {
 	if p.Nested != nil {
 		set = append(set, p.Nested)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (p *Pet) UnmarshalJSON(data []byte) error {
 	*p = Pet{}
 	return runtime.UnmarshalUnion(data, p.union())
 }
 
-// UnmarshalForm sets the variants the form matches.
+// UnmarshalForm sets the variant the form matches.
 func (p *Pet) UnmarshalForm(form *multipart.Form) error {
 	*p = Pet{}
 	return runtime.UnmarshalUnionForm(form, nil, p.union())
@@ -78,13 +79,14 @@ func (p *Pet) union() runtime.Union {
 	}
 }
 
+// Stamp is any of Time, Any or Loop, or null.
 type Stamp struct {
 	Time *time.Time `json:"-"`
 	Any  any        `json:"-"`
 	Loop *string    `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variants that are set, merged.
 func (s Stamp) MarshalJSON() ([]byte, error) {
 	var set []any
 	if s.Time != nil {
@@ -99,7 +101,7 @@ func (s Stamp) MarshalJSON() ([]byte, error) {
 	return runtime.MarshalUnion(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets every variant data matches.
 func (s *Stamp) UnmarshalJSON(data []byte) error {
 	*s = Stamp{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -124,12 +126,13 @@ func (s *Stamp) UnmarshalJSON(data []byte) error {
 	})
 }
 
+// ID is one of Int or String.
 type ID struct {
 	Int    *int    `json:"-"`
 	String *string `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (i ID) MarshalJSON() ([]byte, error) {
 	var set []any
 	if i.Int != nil {
@@ -138,10 +141,10 @@ func (i ID) MarshalJSON() ([]byte, error) {
 	if i.String != nil {
 		set = append(set, i.String)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (i *ID) UnmarshalJSON(data []byte) error {
 	*i = ID{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -165,7 +168,7 @@ func (i ID) MarshalText() ([]byte, error) {
 	return runtime.MarshalUnionText(i.MarshalJSON())
 }
 
-// UnmarshalText sets the variants text matches.
+// UnmarshalText sets the variant text matches.
 func (i *ID) UnmarshalText(text []byte) error {
 	return runtime.UnmarshalUnionText(text, i.UnmarshalJSON)
 }
@@ -177,13 +180,13 @@ type Contact struct {
 	Other *string `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
+// MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (c Contact) MarshalJSON() ([]byte, error) {
 	type plain Contact
 	return runtime.MarshalTagged(plain(c), c.union(), c.Email, c.Other)
 }
 
-// UnmarshalJSON sets the variants data matches, and the shared properties.
+// UnmarshalJSON sets the variant data matches, and the shared properties.
 func (c *Contact) UnmarshalJSON(data []byte) error {
 	*c = Contact{}
 	type plain Contact
@@ -193,7 +196,7 @@ func (c *Contact) UnmarshalJSON(data []byte) error {
 	return runtime.UnmarshalUnion(data, c.union())
 }
 
-// UnmarshalForm sets the variants the form matches, and the shared properties.
+// UnmarshalForm sets the variant the form matches, and the shared properties.
 func (c *Contact) UnmarshalForm(form *multipart.Form) error {
 	*c = Contact{}
 	type plain Contact
@@ -223,6 +226,7 @@ func (c *Contact) union() runtime.Union {
 	}
 }
 
+// Person is any of Name.
 type Person struct {
 	Kind string  `json:"kind"`
 	Name *string `json:"-"`
@@ -234,7 +238,7 @@ func (p Person) MarshalJSON() ([]byte, error) {
 	return runtime.MarshalTagged(plain(p), p.union(), p.Name)
 }
 
-// UnmarshalJSON sets the variants data matches, and the shared properties.
+// UnmarshalJSON sets every variant data matches, and the shared properties.
 func (p *Person) UnmarshalJSON(data []byte) error {
 	*p = Person{}
 	type plain Person

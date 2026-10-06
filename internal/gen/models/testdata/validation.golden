@@ -261,12 +261,13 @@ func (s Status) Validate() error {
 	return runtime.OneOf(s, StatusOn, StatusOff)
 }
 
+// Choice is one of Status or Number.
 type Choice struct {
 	Status *Status  `json:"-"`
 	Number *float64 `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (c Choice) MarshalJSON() ([]byte, error) {
 	var set []any
 	if c.Status != nil {
@@ -275,10 +276,10 @@ func (c Choice) MarshalJSON() ([]byte, error) {
 	if c.Number != nil {
 		set = append(set, c.Number)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (c *Choice) UnmarshalJSON(data []byte) error {
 	*c = Choice{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -312,17 +313,18 @@ func (c Choice) Error() string {
 	return runtime.ErrorMessage(c, "detail", "Choice")
 }
 
+// Tagged is one of Owner or Empty.
 type Tagged struct {
 	Owner *Owner `json:"-"`
 	Empty *Empty `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
+// MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (t Tagged) MarshalJSON() ([]byte, error) {
 	return runtime.MarshalTagged(nil, t.union(), t.Owner, t.Empty)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (t *Tagged) UnmarshalJSON(data []byte) error {
 	*t = Tagged{}
 	return runtime.UnmarshalUnion(data, t.union())
@@ -354,5 +356,75 @@ func (t Tagged) Validate() error {
 	var errs runtime.ValidationErrors
 	errs.Append("", runtime.ExactlyOne(t.Owner != nil, t.Empty != nil))
 	errs.Append("", runtime.DiscriminatorError(t.MarshalJSON()))
+	return errs.Err()
+}
+
+// Either is any of Number, Code or Tags.
+type Either struct {
+	Number *float64 `json:"-"`
+	Code   *string  `json:"-"`
+	Tags   []string `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged.
+func (e Either) MarshalJSON() ([]byte, error) {
+	var set []any
+	if e.Number != nil {
+		set = append(set, e.Number)
+	}
+	if e.Code != nil {
+		set = append(set, e.Code)
+	}
+	if e.Tags != nil {
+		set = append(set, e.Tags)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets every variant data matches.
+func (e *Either) UnmarshalJSON(data []byte) error {
+	*e = Either{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		IsAnyOf: true,
+		Variants: []runtime.Variant{
+			{
+				Name: "Number",
+				Kind: runtime.KindNumber,
+				Into: runtime.Into(&e.Number),
+			},
+			{
+				Name: "Code",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&e.Code),
+			},
+			{
+				Name: "Tags",
+				Kind: runtime.KindArray,
+				Into: runtime.Into(&e.Tags),
+			},
+		},
+	})
+}
+
+// Validate checks the value against the constraints of the spec.
+func (e Either) Validate() error {
+	var errs runtime.ValidationErrors
+	errs.Append("", runtime.AtLeastOne(e.Number != nil, e.Code != nil, e.Tags != nil))
+	var errsCode runtime.ValidationErrors
+	if e.Code != nil {
+		errsCode.Append("", runtime.MaxLength(*e.Code, 5))
+	}
+	var errsTags runtime.ValidationErrors
+	if e.Tags != nil {
+		errsTags.Append("", runtime.MinItems(e.Tags, 1))
+		for idx, item := range e.Tags {
+			errsTags.Append(runtime.Index("", idx), runtime.MinLength(item, 1))
+		}
+	}
+	errs.Append("", runtime.AnyValid(
+		runtime.VariantErrors{IsSet: e.Number != nil},
+		runtime.VariantErrors{IsSet: e.Code != nil, Errs: errsCode},
+		runtime.VariantErrors{IsSet: e.Tags != nil, Errs: errsTags},
+	))
 	return errs.Err()
 }
