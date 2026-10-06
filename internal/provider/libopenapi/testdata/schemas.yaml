@@ -61,3 +61,5 @@ components:
     Broken: {type: array, items: [{type: string}]}
     Numbers: {type: number, minimum: 1e3, maximum: 1.50, multipleOf: 0.5, default: 10, enum: [0x1F, 1_000, +1.5, .inf]}
     BrokenSibling: {$ref: '#/components/schemas/Pet', type: array, items: [{type: string}]}
+    EarlyBroken: {$ref: '#/components/schemas/LateBroken/properties/list'}
+    LateBroken: {type: object, properties: {list: {type: array, items: [{type: string}]}}}

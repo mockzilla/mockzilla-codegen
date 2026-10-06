@@ -55,3 +55,12 @@ components:
       properties:
         list: {type: array, prefixItems: [{type: string}], contains: {type: string}, minContains: 1}
         other: {not: {type: string}}
+    Unbuildable:
+      type: object
+      properties:
+        tuple: {type: array, description: kept, items: [{type: string}]}
+        word: {type: array, items: type:string}
+        flagged: {not: true}
+        merged: {allOf: {type: string}}
+        open: {type: array, items: false, allOf: [{type: array}], contains: [{type: string}]}
+        broken: {type: object, dependentRequired: {a: b}}

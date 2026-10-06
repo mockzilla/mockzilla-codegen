@@ -7,6 +7,7 @@ package jsonschema
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -168,6 +169,29 @@ func TestSchemaLeavesOutAPatternThatIsNotRE2(t *testing.T) {
 		Pointer:  "/components/schemas/Owner",
 		Origin:   diag.Origin{File: "api.yaml", Line: 9, Col: 7},
 		Message:  "pattern \"^(?!root$).+$\" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?!`), so the tool input leaves it out",
+	}}, b.Diagnostics())
+}
+
+func TestSchemaLeavesOutACountAboveInt32(t *testing.T) {
+	t.Parallel()
+
+	most, above := int64(math.MaxInt32), int64(math.MaxInt32)+1
+	name := &spec.Schema{
+		Types:  spec.TypeString,
+		Limits: spec.Limits{MinLength: &most, MaxLength: &above},
+		Origin: spec.Origin{Pointer: "/components/schemas/Name", File: "api.yaml", Line: 4, Col: 7},
+	}
+	b := NewBuilder()
+
+	got := b.Document(b.Schema(name))
+
+	assert.JSONEq(t, `{"type":"string","minLength":2147483647}`, string(got))
+	assert.Equal(t, []diag.Diagnostic{{
+		Severity: diag.Warning,
+		Code:     diag.CodeLimitUnsupported,
+		Pointer:  "/components/schemas/Name",
+		Origin:   diag.Origin{File: "api.yaml", Line: 4, Col: 7},
+		Message:  "maxLength 2147483648 is above 2147483647, the most the MCP SDK takes, so the tool input leaves it out",
 	}}, b.Diagnostics())
 }
 
