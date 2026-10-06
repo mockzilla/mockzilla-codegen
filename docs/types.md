@@ -289,6 +289,17 @@ Variant fields:
 - Members with the same Go type share one field, with an info diagnostic.
 - A member that is the union itself is left out, with a warning.
 
+### oneOf and anyOf
+
+Both become the same struct. A union the spec does not describe gets a doc line that names its
+kind: `Pet is one of Cat or Dog.`, `Person is any of Named or Aged.` The methods follow the kind:
+
+| | `oneOf` | `anyOf` |
+|---|---|---|
+| `UnmarshalJSON` | sets the variant that matches best; two objects that rank the same are an error | sets every variant that matches |
+| `MarshalJSON` | writes the variant that is set; more than one set is an error | writes the variants that are set, objects merged |
+| `Validate` | one variant set, or none when nullable; checks that variant | one or more set, or none when nullable; passes when one set variant passes its checks |
+
 Decoding, in `UnmarshalJSON`:
 
 1. With a discriminator, its value picks the variant: the values the mapping lists for it, else the
@@ -297,19 +308,22 @@ Decoding, in `UnmarshalJSON`:
    allowed ones. A missing property falls back to step 2.
 2. Only variants that take the JSON kind are tried (object, array, string, number, boolean). An
    integer goes to integer variants before float ones.
-3. Objects are ranked by required properties present less unknown keys. A variant with
+3. An object must have the required properties of a variant. When it has those of none, decoding
+   fails and says what each variant needs: `Cat needs meow, Dog needs bark`. A variant with
    `additionalProperties: false` is ruled out by an unknown key. A variant that is itself a union
-   ranks by the best of the objects it can be, at any depth. For `oneOf`, two variants that
-   match exactly with the same rank are an error. Generation warns (`union-ambiguous`) when object
-   variants of a `oneOf` without a discriminator require the same properties, or none: an object
-   with only those always hits this error.
-4. The first variant in that order that decodes is set. For `anyOf`, every variant whose required
-   properties are present and that decodes is set.
+   matches when one of the objects it can be matches, at any depth.
+4. Objects are ranked by required properties present less unknown keys. For `oneOf`, two variants
+   with the same top rank are an error: `{"meow":true,"bark":true}` is a Cat and a Dog alike.
+   Generation warns (`union-ambiguous`) when object variants of a `oneOf` without a discriminator
+   require the same properties, or none: an object with only those always hits this error.
+5. For `oneOf`, the first variant in that order that decodes is set. For `anyOf`, every variant
+   that decodes is set.
 
 `null` sets nothing. Decoding resets the union first.
 
-`MarshalJSON` writes the variant that is set. When several are set, objects are merged, a later key
-replacing an earlier one; otherwise the first set variant is written. Nothing set writes `null`.
+`MarshalJSON` writes the variant that is set. A `oneOf` with more than one set is an error. An
+`anyOf` with several set merges objects, a later key replacing an earlier one, and writes the first
+set variant otherwise. Nothing set writes `null`.
 
 With a discriminator, `MarshalJSON` also writes the discriminator value. An empty one gets the
 variant's value when it has exactly one: `Pet{Cat: &Cat{}}` writes `{"kind":"cat"}`. The variant
@@ -336,7 +350,10 @@ body the client writes the fields of the variant that is set. An object with add
 properties that a form holds gets `UnmarshalForm` too, which keeps the other names of the form.
 
 `Validate` checks the count: exactly one for `oneOf`, at most one when nullable, at least one for
-`anyOf`, anything for a nullable `anyOf`. With a discriminator it also checks the value, as above.
+`anyOf`, anything for a nullable `anyOf`. A `oneOf` checks the variant that is set. An `anyOf`
+passes when one set variant passes its checks, and reports the failed checks of every set variant
+otherwise: `"2026-09-30T00:00:00Z"` sets both variants of `anyOf: [{format: date-time},
+{maxLength: 5}]`, and passes. With a discriminator it also checks the value, as above.
 
 ### Shared properties
 

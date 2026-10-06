@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 func TestPersonJSON(t *testing.T) {
@@ -42,10 +44,50 @@ func TestPersonJSON(t *testing.T) {
 	}
 }
 
+func TestPersonNoMatch(t *testing.T) {
+	t.Parallel()
+
+	var got Person
+	err := json.Unmarshal([]byte(`{"nick":"Ann"}`), &got)
+
+	require.ErrorIs(t, err, runtime.ErrNoVariant)
+	require.EqualError(t, err, "no union variant matches for a JSON object: Named needs name, Aged needs age")
+}
+
 func TestPersonValidate(t *testing.T) {
 	t.Parallel()
 
 	require.EqualError(t, Person{}.Validate(), "at least one variant must be set")
+}
+
+func TestCodeValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		data    string
+		wantErr string
+	}{
+		{name: "A short string", data: `"abc"`},
+		{name: "A time passes though the string is too long", data: `"2026-09-30T00:00:00Z"`},
+		{name: "A long string that is no time", data: `"abcdefgh"`, wantErr: "must be at most 5 characters long"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got Code
+			require.NoError(t, json.Unmarshal([]byte(tc.data), &got))
+			err := got.Validate()
+
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.EqualError(t, err, tc.wantErr)
+		})
+	}
 }
 
 func TestStampJSON(t *testing.T) {

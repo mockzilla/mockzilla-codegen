@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -241,6 +242,42 @@ func TestViewRendersUnions(t *testing.T) {
 	}}
 	g := New(&gomodel.Model{Decls: []*gomodel.Decl{cat, pet, stamp, id, contact, person}})
 	checkRender(t, g, "unions")
+}
+
+func TestUnionDoc(t *testing.T) {
+	t.Parallel()
+
+	variants := func(names ...string) []*gomodel.Variant {
+		var out []*gomodel.Variant
+		for _, name := range names {
+			out = append(out, &gomodel.Variant{Name: name})
+		}
+		return out
+	}
+	many := make([]string, 12)
+	for i := range many {
+		many[i] = "LongVariantName" + strconv.Itoa(i)
+	}
+	tests := []struct {
+		name  string
+		union gomodel.Union
+		want  string
+	}{
+		{name: "No variant", want: ""},
+		{name: "One variant", union: gomodel.Union{Variants: variants("Cat")}, want: "Pet is one of Cat."},
+		{name: "Two variants", union: gomodel.Union{Variants: variants("Cat", "Dog")}, want: "Pet is one of Cat or Dog."},
+		{name: "Three variants of an anyOf", union: gomodel.Union{IsAnyOf: true, Variants: variants("Cat", "Dog", "Fox")}, want: "Pet is any of Cat, Dog or Fox."},
+		{name: "Nullable", union: gomodel.Union{IsNullable: true, Variants: variants("Cat", "Dog")}, want: "Pet is one of Cat or Dog, or null."},
+		{name: "Names too long for one line", union: gomodel.Union{Variants: variants(many...)}, want: "Pet is one of 12 variants."},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, unionDoc(&gomodel.Decl{Name: "Pet", Union: &tc.union}))
+		})
+	}
 }
 
 func TestViewRendersGetters(t *testing.T) {

@@ -72,12 +72,13 @@ type EitherErrorOption2 struct {
 	Reason string `json:"reason"`
 }
 
+// EitherError is one of Option1 or Option2.
 type EitherError struct {
 	Option1 *EitherErrorOption1 `json:"-"`
 	Option2 *EitherErrorOption2 `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (e EitherError) MarshalJSON() ([]byte, error) {
 	var set []any
 	if e.Option1 != nil {
@@ -86,10 +87,10 @@ func (e EitherError) MarshalJSON() ([]byte, error) {
 	if e.Option2 != nil {
 		set = append(set, e.Option2)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (e *EitherError) UnmarshalJSON(data []byte) error {
 	*e = EitherError{}
 	return runtime.UnmarshalUnion(data, runtime.Union{

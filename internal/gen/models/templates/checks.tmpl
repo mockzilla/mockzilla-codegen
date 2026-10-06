@@ -1,4 +1,4 @@
-{{- if or .Count .Discriminator .Checks}}
+{{- if or .Count .Discriminator .Checks .Variants}}
 	var errs {{.Runtime}}.ValidationErrors
 {{- with .Count}}
 	errs.Append("", {{.}})
@@ -8,6 +8,19 @@
 {{- end}}
 {{- range .Checks}}
 {{- template "models/check.tmpl" .}}
+{{- end}}
+{{- range .Variants}}
+{{- with .Check}}
+	var {{.Errs}} {{$.Runtime}}.ValidationErrors
+{{- template "models/check.tmpl" .}}
+{{- end}}
+{{- end}}
+{{- with .Variants}}
+	errs.Append("", {{$.Runtime}}.AnyValid(
+{{- range .}}
+		{{$.Runtime}}.VariantErrors{IsSet: {{.IsSet}}{{with .Check}}, Errs: {{.Errs}}{{end}}},
+{{- end}}
+	))
 {{- end}}
 	return errs.Err()
 {{- else}}

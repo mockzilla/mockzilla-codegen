@@ -68,12 +68,12 @@ type Payment struct {
 	Wallet *Wallet `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
+// MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (p Payment) MarshalJSON() ([]byte, error) {
 	return runtime.MarshalTagged(nil, p.union(), p.Card, p.Bank, p.Wallet)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (p *Payment) UnmarshalJSON(data []byte) error {
 	*p = Payment{}
 	return runtime.UnmarshalUnion(data, p.union())
@@ -129,12 +129,12 @@ type Tolerant struct {
 	Unknown *Unknown `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
+// MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (t Tolerant) MarshalJSON() ([]byte, error) {
 	return runtime.MarshalTagged(nil, t.union(), t.Card, t.Unknown)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (t *Tolerant) UnmarshalJSON(data []byte) error {
 	*t = Tolerant{}
 	return runtime.UnmarshalUnion(data, t.union())
@@ -173,17 +173,18 @@ func (t Tolerant) Validate() error {
 	return errs.Err()
 }
 
+// Inline is one of Circle or Square.
 type Inline struct {
 	Circle *InlineCircle `json:"-"`
 	Square *InlineSquare `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set, with the discriminator value that picks them.
+// MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (i Inline) MarshalJSON() ([]byte, error) {
 	return runtime.MarshalTagged(nil, i.union(), i.Circle, i.Square)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (i *Inline) UnmarshalJSON(data []byte) error {
 	*i = Inline{}
 	return runtime.UnmarshalUnion(data, i.union())

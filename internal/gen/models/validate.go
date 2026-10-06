@@ -46,18 +46,26 @@ type ValidateView struct {
 	Response *MethodView
 }
 
-// MethodView is the body of one Validate method; Count and Discriminator are union checks.
+// MethodView is the body of one Validate method; Count, Discriminator, Variants are union checks.
 type MethodView struct {
 	Runtime       string
 	Count         string
 	Discriminator string
 	Checks        []CheckView
+	Variants      []VariantCheckView
+}
+
+// VariantCheckView is one variant of an anyOf; Check is nil when it checks nothing.
+type VariantCheckView struct {
+	IsSet string
+	Check *CheckView
 }
 
 // CheckView checks one value. Every text is a Go expression: Calls return an error that is added
-// under Path, Deref is Value behind its pointer. Guard is what the calls run under, NullCheck the
-// call that rejects a null Nullable.
+// to Errs under Path, Deref is Value behind its pointer. Guard is what the calls run under,
+// NullCheck the call that rejects a null Nullable.
 type CheckView struct {
+	Errs       string
 	Path       string
 	Value      string
 	Deref      string
@@ -103,12 +111,13 @@ type methodSide struct {
 	isResponse bool
 }
 
-// checkAt is where a check is written: its value and error path as Go expressions, and how deep in
-// loops it sits.
+// checkAt is where a check is written: its value and error path as Go expressions, how deep in
+// loops it sits, and the variable that collects its errors.
 type checkAt struct {
 	value string
 	path  string
 	depth int
+	errs  string
 }
 
 func validateView(d *gomodel.Decl, s *gocode.Scope) *ValidateView {
@@ -145,15 +154,28 @@ func methodView(d *gomodel.Decl, rt string, side methodSide) MethodView {
 		m.Discriminator = gocode.Call(gocode.Selector(rt, "DiscriminatorError"), gocode.Call(gocode.Selector(r, "MarshalJSON")))
 	}
 
+	isAnyOf := d.Union != nil && d.Union.IsAnyOf
+	byVariant := map[string]*CheckView{}
 	for _, c := range v.Checks {
 		if c.Side == side.skip {
 			continue
 		}
-		value := r
+		at := checkAt{value: r, path: gocode.Quote(c.Path), depth: 1, errs: "errs"}
 		if c.Field != "" {
-			value = gocode.Selector(r, c.Field)
+			at.value = gocode.Selector(r, c.Field)
 		}
-		m.Checks = append(m.Checks, checkView(c, checkAt{value: value, path: gocode.Quote(c.Path), depth: 1}, rt, side))
+		if isAnyOf && c.IsVariant {
+			at.errs = "errs" + c.Field
+			byVariant[c.Field] = new(checkView(c, at, rt, side))
+			continue
+		}
+		m.Checks = append(m.Checks, checkView(c, at, rt, side))
+	}
+
+	if len(byVariant) > 0 {
+		for _, vr := range d.Union.Variants {
+			m.Variants = append(m.Variants, VariantCheckView{IsSet: gocode.NotNil(gocode.Selector(r, vr.Name)), Check: byVariant[vr.Name]})
+		}
 	}
 	return m
 }
@@ -175,7 +197,7 @@ func checkView(c *gomodel.Check, at checkAt, rt string, side methodSide) CheckVi
 		deref = gocode.Deref(value)
 	}
 
-	cv := CheckView{Path: path, Value: value, Deref: deref, IsRequired: c.IsRequired}
+	cv := CheckView{Errs: at.errs, Path: path, Value: value, Deref: deref, IsRequired: c.IsRequired}
 	if c.IsNullRejected {
 		cv.NullCheck = gocode.Call(gocode.Selector(rt, "NotNull"), value)
 	}
@@ -201,7 +223,7 @@ func checkView(c *gomodel.Check, at checkAt, rt string, side methodSide) CheckVi
 			Index: index,
 			Item:  item,
 			Range: deref,
-			Check: new(checkView(c.Items, checkAt{value: item, path: gocode.Call(gocode.Selector(rt, "Index"), path, index), depth: at.depth + 1}, rt, side)),
+			Check: new(checkView(c.Items, checkAt{value: item, path: gocode.Call(gocode.Selector(rt, "Index"), path, index), depth: at.depth + 1, errs: at.errs}, rt, side)),
 		}
 	}
 	if c.Values != nil || len(c.Keys) > 0 {
@@ -209,13 +231,13 @@ func checkView(c *gomodel.Check, at checkAt, rt string, side methodSide) CheckVi
 		keyPath := gocode.Call(gocode.Selector(rt, "Key"), path, key)
 		loop := &LoopView{Index: key, Item: item, Range: gocode.Call(gocode.Selector(rt, "SortedKeys"), deref), Map: deref}
 		if len(c.Keys) > 0 {
-			loop.Key = &CheckView{Path: keyPath, Value: key, Deref: key}
+			loop.Key = &CheckView{Errs: at.errs, Path: keyPath, Value: key, Deref: key}
 			for _, r := range c.Keys {
 				loop.Key.Calls = append(loop.Key.Calls, ruleCall(r, rt, key))
 			}
 		}
 		if c.Values != nil {
-			loop.Check = new(checkView(c.Values, checkAt{value: item, path: keyPath, depth: at.depth + 1}, rt, side))
+			loop.Check = new(checkView(c.Values, checkAt{value: item, path: keyPath, depth: at.depth + 1, errs: at.errs}, rt, side))
 		}
 		cv.Values = loop
 	}

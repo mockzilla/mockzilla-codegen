@@ -13,7 +13,7 @@ import (
 	"strconv"
 )
 
-// MarshalTagged is MarshalUnion that fills or checks the discriminator; variants follow u.Variants.
+// MarshalTagged is MarshalOneOf, or MarshalUnion for anyOf, that fills or checks the discriminator.
 func MarshalTagged(shared any, u Union, variants ...any) ([]byte, error) {
 	var set []any
 	var picked []int
@@ -21,6 +21,11 @@ func MarshalTagged(shared any, u Union, variants ...any) ([]byte, error) {
 		if !isNil(v) {
 			set = append(set, v)
 			picked = append(picked, i)
+		}
+	}
+	if !u.IsAnyOf {
+		if err := atMostOne(len(set)); err != nil {
+			return nil, err
 		}
 	}
 	data, err := MarshalUnion(shared, set...)
@@ -34,10 +39,18 @@ func MarshalTagged(shared any, u Union, variants ...any) ([]byte, error) {
 func DiscriminatorError(_ []byte, err error) error {
 	var wrapped *json.MarshalerError
 	var e ValidationError
-	if errors.As(err, &wrapped) || !errors.As(err, &e) {
+	if errors.As(err, &wrapped) || !errors.As(err, &e) || e.Rule != RuleDiscriminator {
 		return nil
 	}
 	return e
+}
+
+// MarshalOneOf is MarshalUnion for a oneOf, where more than one set variant is an error.
+func MarshalOneOf(shared any, set ...any) ([]byte, error) {
+	if err := atMostOne(len(set)); err != nil {
+		return nil, err
+	}
+	return MarshalUnion(shared, set...)
 }
 
 // MarshalUnion writes the set variants of a union merged with shared, its own properties or nil.

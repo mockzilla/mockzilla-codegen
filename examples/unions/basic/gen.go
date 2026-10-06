@@ -42,12 +42,13 @@ func (o Owner) Validate() error {
 	return errs.Err()
 }
 
+// Pet is one of Cat or Dog.
 type Pet struct {
 	Cat *Cat `json:"-"`
 	Dog *Dog `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (p Pet) MarshalJSON() ([]byte, error) {
 	var set []any
 	if p.Cat != nil {
@@ -56,10 +57,10 @@ func (p Pet) MarshalJSON() ([]byte, error) {
 	if p.Dog != nil {
 		set = append(set, p.Dog)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (p *Pet) UnmarshalJSON(data []byte) error {
 	*p = Pet{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -89,6 +90,7 @@ func (p Pet) Validate() error {
 	return errs.Err()
 }
 
+// Value is one of Time, String, Int64, Float64, Bool or Strings.
 type Value struct {
 	Time    *time.Time `json:"-"`
 	String  *string    `json:"-"`
@@ -98,7 +100,7 @@ type Value struct {
 	Strings []string   `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (v Value) MarshalJSON() ([]byte, error) {
 	var set []any
 	if v.Time != nil {
@@ -119,10 +121,10 @@ func (v Value) MarshalJSON() ([]byte, error) {
 	if v.Strings != nil {
 		set = append(set, v.Strings)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (v *Value) UnmarshalJSON(data []byte) error {
 	*v = Value{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -168,12 +170,13 @@ func (v Value) Validate() error {
 	return errs.Err()
 }
 
+// Shape is one of Pet or Option2.
 type Shape struct {
 	Pet     *Pet          `json:"-"`
 	Option2 *ShapeOption2 `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (s Shape) MarshalJSON() ([]byte, error) {
 	var set []any
 	if s.Pet != nil {
@@ -182,10 +185,10 @@ func (s Shape) MarshalJSON() ([]byte, error) {
 	if s.Option2 != nil {
 		set = append(set, s.Option2)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (s *Shape) UnmarshalJSON(data []byte) error {
 	*s = Shape{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -227,12 +230,13 @@ func (s Shape) Validate() error {
 	return errs.Err()
 }
 
+// ShapeOption2 is one of String or Int.
 type ShapeOption2 struct {
 	String *string `json:"-"`
 	Int    *int    `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (s ShapeOption2) MarshalJSON() ([]byte, error) {
 	var set []any
 	if s.String != nil {
@@ -241,10 +245,10 @@ func (s ShapeOption2) MarshalJSON() ([]byte, error) {
 	if s.Int != nil {
 		set = append(set, s.Int)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (s *ShapeOption2) UnmarshalJSON(data []byte) error {
 	*s = ShapeOption2{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -268,7 +272,7 @@ func (s ShapeOption2) MarshalText() ([]byte, error) {
 	return runtime.MarshalUnionText(s.MarshalJSON())
 }
 
-// UnmarshalText sets the variants text matches.
+// UnmarshalText sets the variant text matches.
 func (s *ShapeOption2) UnmarshalText(text []byte) error {
 	return runtime.UnmarshalUnionText(text, s.UnmarshalJSON)
 }
@@ -280,12 +284,13 @@ func (s ShapeOption2) Validate() error {
 	return errs.Err()
 }
 
+// OwnerTagsValue is one of String or Int.
 type OwnerTagsValue struct {
 	String *string `json:"-"`
 	Int    *int    `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (o OwnerTagsValue) MarshalJSON() ([]byte, error) {
 	var set []any
 	if o.String != nil {
@@ -294,10 +299,10 @@ func (o OwnerTagsValue) MarshalJSON() ([]byte, error) {
 	if o.Int != nil {
 		set = append(set, o.Int)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (o *OwnerTagsValue) UnmarshalJSON(data []byte) error {
 	*o = OwnerTagsValue{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -321,7 +326,7 @@ func (o OwnerTagsValue) MarshalText() ([]byte, error) {
 	return runtime.MarshalUnionText(o.MarshalJSON())
 }
 
-// UnmarshalText sets the variants text matches.
+// UnmarshalText sets the variant text matches.
 func (o *OwnerTagsValue) UnmarshalText(text []byte) error {
 	return runtime.UnmarshalUnionText(text, o.UnmarshalJSON)
 }

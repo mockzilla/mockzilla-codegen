@@ -27,12 +27,13 @@ type Point struct {
 
 type Echo map[string]any
 
+// QueryStylesQueryID is one of Int or String.
 type QueryStylesQueryID struct {
 	Int    *int    `json:"-"`
 	String *string `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variant that is set.
 func (q QueryStylesQueryID) MarshalJSON() ([]byte, error) {
 	var set []any
 	if q.Int != nil {
@@ -41,10 +42,10 @@ func (q QueryStylesQueryID) MarshalJSON() ([]byte, error) {
 	if q.String != nil {
 		set = append(set, q.String)
 	}
-	return runtime.MarshalUnion(nil, set...)
+	return runtime.MarshalOneOf(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets the variant data matches.
 func (q *QueryStylesQueryID) UnmarshalJSON(data []byte) error {
 	*q = QueryStylesQueryID{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -68,7 +69,7 @@ func (q QueryStylesQueryID) MarshalText() ([]byte, error) {
 	return runtime.MarshalUnionText(q.MarshalJSON())
 }
 
-// UnmarshalText sets the variants text matches.
+// UnmarshalText sets the variant text matches.
 func (q *QueryStylesQueryID) UnmarshalText(text []byte) error {
 	return runtime.UnmarshalUnionText(text, q.UnmarshalJSON)
 }
@@ -80,12 +81,13 @@ func (q QueryStylesQueryID) Validate() error {
 	return errs.Err()
 }
 
+// HeaderStylesHeadersXLimit is any of Int or Bool.
 type HeaderStylesHeadersXLimit struct {
 	Int  *int  `json:"-"`
 	Bool *bool `json:"-"`
 }
 
-// MarshalJSON writes the variants that are set.
+// MarshalJSON writes the variants that are set, merged.
 func (h HeaderStylesHeadersXLimit) MarshalJSON() ([]byte, error) {
 	var set []any
 	if h.Int != nil {
@@ -97,7 +99,7 @@ func (h HeaderStylesHeadersXLimit) MarshalJSON() ([]byte, error) {
 	return runtime.MarshalUnion(nil, set...)
 }
 
-// UnmarshalJSON sets the variants data matches.
+// UnmarshalJSON sets every variant data matches.
 func (h *HeaderStylesHeadersXLimit) UnmarshalJSON(data []byte) error {
 	*h = HeaderStylesHeadersXLimit{}
 	return runtime.UnmarshalUnion(data, runtime.Union{
@@ -122,7 +124,7 @@ func (h HeaderStylesHeadersXLimit) MarshalText() ([]byte, error) {
 	return runtime.MarshalUnionText(h.MarshalJSON())
 }
 
-// UnmarshalText sets the variants text matches.
+// UnmarshalText sets every variant text matches.
 func (h *HeaderStylesHeadersXLimit) UnmarshalText(text []byte) error {
 	return runtime.UnmarshalUnionText(text, h.UnmarshalJSON)
 }

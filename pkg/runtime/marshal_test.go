@@ -69,6 +69,8 @@ func TestMarshalTagged(t *testing.T) {
 		{Name: "Cat", Values: []string{"cat", "kitty"}},
 		{Name: "Dog", Values: []string{"dog"}, IsDefault: true},
 	}}
+	anyPets := pets
+	anyPets.IsAnyOf = true
 	open := Union{Discriminator: "type", Variants: []Variant{
 		{Name: "Cat", Values: []string{"cat"}},
 		{Name: "Other"},
@@ -94,7 +96,8 @@ func TestMarshalTagged(t *testing.T) {
 		{name: "An empty value needs a default", u: Union{Discriminator: "type", Variants: kitties.Variants[:1]}, variants: []any{&cat{}}, wantErr: `type: must be set, Cat takes cat or kitty`},
 		{name: "The default takes an empty value", u: kitties, variants: []any{nil, &tagged{}}, want: `{"type":"dog","name":""}`},
 		{name: "A variant without values takes any value", u: open, variants: []any{nil, &tagged{Type: "x"}}, want: `{"type":"x","name":""}`},
-		{name: "Two variants set and an empty value", u: pets, variants: []any{&cat{}, &dog{}}, wantErr: `type: must be set, Cat takes cat`},
+		{name: "Two variants of a oneOf", u: pets, variants: []any{&cat{}, &dog{}}, wantErr: "at most one variant may be set, found 2"},
+		{name: "Two variants of an anyOf and an empty value", u: anyPets, variants: []any{&cat{}, &dog{}}, wantErr: `type: must be set, Cat takes cat`},
 		{name: "A value that is no object is written as it is", u: pets, variants: []any{new("x"), nil}, want: `"x"`},
 		{name: "A variant that fails to marshal", u: pets, variants: []any{func() {}, nil}, wantErr: "json: unsupported type: func()"},
 	}
@@ -118,7 +121,7 @@ func TestMarshalTagged(t *testing.T) {
 func TestDiscriminatorError(t *testing.T) {
 	t.Parallel()
 
-	own := ValidationError{Field: "type", Message: "picks no variant"}
+	own := ValidationError{Field: "type", Message: "picks no variant", Rule: RuleDiscriminator}
 	tests := []struct {
 		name string
 		err  error
@@ -126,6 +129,7 @@ func TestDiscriminatorError(t *testing.T) {
 	}{
 		{name: "No error", err: nil},
 		{name: "The discriminator error", err: own, want: own},
+		{name: "The count is checked apart", err: atMostOne(2)},
 		{name: "An error of a nested union is its own", err: &json.MarshalerError{Err: own}},
 		{name: "Any other error", err: errors.New("broken")},
 	}
@@ -135,6 +139,36 @@ func TestDiscriminatorError(t *testing.T) {
 			t.Parallel()
 
 			assert.Equal(t, tc.want, DiscriminatorError(nil, tc.err))
+		})
+	}
+}
+
+func TestMarshalOneOf(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		set     []any
+		want    string
+		wantErr string
+	}{
+		{name: "One variant", set: []any{&cat{Name: "a"}}, want: `{"name":"a","meow":false}`},
+		{name: "Nothing set is null", want: `null`},
+		{name: "Two variants", set: []any{&cat{}, &dog{}}, wantErr: "at most one variant may be set, found 2"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := MarshalOneOf(nil, tc.set...)
+
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, string(got))
 		})
 	}
 }
