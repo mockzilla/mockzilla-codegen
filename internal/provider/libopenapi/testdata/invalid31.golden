@@ -71,6 +71,11 @@ Components:
             Name: rest
             Schema:
               Origin: invalid31.yaml:20:15 /components/schemas/Forms/properties/rest
+          -
+            Name: negated
+            Schema:
+              Types: string
+              Origin: invalid31.yaml:21:18 /components/schemas/Forms/properties/negated
         Origin: invalid31.yaml:12:7 /components/schemas/Forms
 Diagnostics:
   - warning schema-invalid invalid31.yaml:15:15 /components/schemas/Forms/properties/none: schema false allows no value, which no Go type can hold; it is read as any
@@ -81,3 +86,4 @@ Diagnostics:
   - warning keyword-unsupported invalid31.yaml:20:73 /components/schemas/Forms/properties/rest/unevaluatedItems: unevaluatedItems is not supported; generated types do not check it
   - warning keyword-unsupported invalid31.yaml:20:107 /components/schemas/Forms/properties/rest/dependentSchemas: dependentSchemas is not supported; generated types do not check it
   - warning keyword-unsupported invalid31.yaml:20:129 /components/schemas/Forms/properties/rest/maxContains: maxContains is not supported; generated types do not check it
+  - warning keyword-unsupported invalid31.yaml:21:38 /components/schemas/Forms/properties/negated/not: not false is not supported; it is left out

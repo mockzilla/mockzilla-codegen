@@ -315,6 +315,7 @@ Components:
     -
       Name: Broken
       Value:
+        Types: array
         Origin: schemas.yaml:61:13 /components/schemas/Broken
     -
       Name: Numbers
@@ -339,12 +340,31 @@ Components:
         Ref:
           Pointer: /components/schemas/Pet
           Name: Pet
-        Origin: schemas.yaml:63:20 /components/schemas/BrokenSibling
+        Types: array
+        Origin: schemas.yaml:0:0 /components/schemas/BrokenSibling
+    -
+      Name: EarlyBroken
+      Value:
+        Ref:
+          Pointer: /components/schemas/LateBroken/properties/list
+        Origin: schemas.yaml:64:18 /components/schemas/EarlyBroken
+    -
+      Name: LateBroken
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: list
+            Schema:
+              Types: array
+              Origin: schemas.yaml:65:51 /components/schemas/LateBroken/properties/list
+        Origin: schemas.yaml:65:17 /components/schemas/LateBroken
 Diagnostics:
   - warning keyword-unsupported schemas.yaml:31:43 /components/schemas/Pet/properties/tuple/prefixItems: prefixItems is not supported; generated types do not check it
   - warning unknown-type schemas.yaml:36:16 /components/schemas/Pet/properties/weird: unknown type "file" is ignored
   - warning unresolved-mapping schemas.yaml:45:16 /components/schemas/Shape/discriminator/mapping/ext: discriminator mapping "shapes.yaml" names no schema
   - warning unresolved-mapping schemas.yaml:46:17 /components/schemas/Shape/discriminator/mapping/gone: discriminator mapping "#/components/schemas/Gone" names no schema
   - warning keyword-unsupported schemas.yaml:52:12 /components/schemas/Mixed/not: not is not supported; generated types do not check it
-  - error schema-build schemas.yaml:61:13 /components/schemas/Broken: schema cannot be built: failed to build schema: build schema failed: expected a single schema object for 'array', but found an array or scalar at line 61, col 34
-  - error schema-build schemas.yaml:63:20 /components/schemas/BrokenSibling: schema cannot be built: failed to build schema: build schema failed: expected a single schema object for 'array', but found an array or scalar at line 63, col 75
+  - warning keyword-invalid schemas.yaml:61:34 /components/schemas/Broken/items: items must be a schema, not a list; it is left out
+  - warning keyword-invalid schemas.yaml:63:75 /components/schemas/BrokenSibling/items: items must be a schema, not a list; it is left out
+  - warning keyword-invalid schemas.yaml:65:72 /components/schemas/LateBroken/properties/list/items: items must be a schema, not a list; it is left out

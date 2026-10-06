@@ -11,14 +11,18 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+	lowmodel "github.com/pb33f/libopenapi/datamodel/low"
+	lowbase "github.com/pb33f/libopenapi/datamodel/low/base"
 	"github.com/pb33f/libopenapi/index"
 	"github.com/pb33f/libopenapi/orderedmap"
+	"github.com/pb33f/libopenapi/utils"
 	"go.yaml.in/yaml/v4"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
@@ -30,6 +34,10 @@ import (
 var lowerMethods = []string{"get", "put", "post", "delete", "options", "head", "patch", "trace", "query"}
 
 var locations = []string{spec.InPath, spec.InQuery, spec.InHeader, spec.InCookie, spec.InQueryString}
+
+// libraryLine is the line libopenapi names in a message: one of the spec as prepared, which a
+// pruned or bundled spec does not share with the file.
+var libraryLine = regexp.MustCompile(`,? (at )?line \d+, col \d+`)
 
 const (
 	styleSimple = "simple"
@@ -575,13 +583,16 @@ func (c *converter) known(ptr string) *spec.Schema {
 func (c *converter) fill(s *spec.Schema, p *base.SchemaProxy, ptr string, n *yaml.Node) {
 	h, err := p.BuildSchema()
 	if h == nil {
+		h = c.rebuild(p, ptr)
+	}
+	if h == nil {
 		s.Origin = c.origin(ptr, n)
 		c.diags.Append(diag.Diagnostic{
 			Severity: diag.Error,
 			Code:     diag.CodeSchemaBuild,
 			Pointer:  ptr,
 			Origin:   c.position(ptr, n),
-			Message:  fmt.Sprintf("schema cannot be built: %v", err),
+			Message:  "schema cannot be built: " + libraryLine.ReplaceAllString(err.Error(), ""),
 		})
 		return
 	}
@@ -630,6 +641,24 @@ func (c *converter) fill(s *spec.Schema, p *base.SchemaProxy, ptr string, n *yam
 	s.Extensions = extensions(h.Extensions)
 	s.Origin = c.origin(ptr, h.GoLow().RootNode)
 	k.unsupported()
+}
+
+// rebuild builds the schema of p again without the keywords libopenapi refuses it for. It is nil
+// when p has none of them or still cannot be built.
+func (c *converter) rebuild(p *base.SchemaProxy, ptr string) *base.Schema {
+	lp := p.GoLow()
+	ctx, node, idx := lp.GetContext(), lp.GetValueNode(), lp.GetIndex()
+	if isRef, _, _ := utils.IsNodeRefValue(node); isRef {
+		// A spec with a $ref libopenapi cannot find has no model, so the target is there.
+		node, idx, _, ctx = lowmodel.LocateRefNodeWithContext(ctx, node, idx)
+	}
+
+	kept := keywords{c: c, node: utils.NodeAlias(node), ptr: ptr}.buildable()
+	ls := &lowbase.Schema{}
+	if kept == nil || ls.Build(ctx, kept, idx) != nil {
+		return nil
+	}
+	return base.NewSchema(ls)
 }
 
 // notObject reports a schema that is no object, which reads as any; since 3.1 true is a schema.

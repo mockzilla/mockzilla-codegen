@@ -18,3 +18,4 @@ components:
         alone: {type: integer, exclusiveMaximum: false}
         number: {type: integer, exclusiveMinimum: 0}
         rest: {unevaluatedProperties: {type: string}, unevaluatedItems: {type: string}, dependentSchemas: {a: {}}, maxContains: 2}
+        negated: {type: string, not: false}

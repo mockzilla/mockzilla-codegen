@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/pb33f/libopenapi/utils"
 	"go.yaml.in/yaml/v4"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
@@ -25,6 +26,17 @@ var unsupportedKeywords = []string{
 	"patternProperties", "prefixItems", "not", "contains", "minContains", "maxContains",
 	"dependentRequired", "dependentSchemas", "unevaluatedProperties", "unevaluatedItems",
 }
+
+// schemaKeywords hold one schema; those set to true also take true or false. libopenapi refuses
+// the whole schema when one of them holds anything else.
+var schemaKeywords = map[string]bool{
+	"items": true, "additionalProperties": true, "unevaluatedProperties": true,
+	"not": false, "contains": false, "if": false, "then": false, "else": false,
+	"propertyNames": false, "unevaluatedItems": false, "contentSchema": false,
+}
+
+// schemaListKeywords hold a list of schemas; libopenapi refuses the whole schema when one does not.
+var schemaListKeywords = []string{"allOf", "anyOf", "oneOf", "prefixItems"}
 
 // keywords reads the keywords of the schema at ptr from its mapping node.
 type keywords struct {
@@ -104,6 +116,40 @@ func (k keywords) unsupported() {
 			k.warn(diag.CodeKeywordUnsupported, key, key+" is not supported; generated types do not check it")
 		}
 	}
+}
+
+// buildable is the schema without each keyword libopenapi refuses it for, each one reported as
+// left out. It is nil when there is none.
+func (k keywords) buildable() *yaml.Node {
+	out := *k.node
+	out.Content = nil
+	for i := 0; i+1 < len(k.node.Content); i += 2 {
+		key, v := k.node.Content[i].Value, utils.NodeAlias(k.node.Content[i+1])
+		if code, msg := k.misplaced(key, v); code != "" {
+			k.warn(code, key, msg)
+			continue
+		}
+		out.Content = append(out.Content, k.node.Content[i], k.node.Content[i+1])
+	}
+	if len(out.Content) == len(k.node.Content) {
+		return nil
+	}
+	return &out
+}
+
+// misplaced is the warning for the keyword key holding v when libopenapi cannot build a schema
+// with it; code is empty when it can.
+func (k keywords) misplaced(key string, v *yaml.Node) (code, msg string) {
+	takesBool, isSchema := schemaKeywords[key]
+	switch {
+	case slices.Contains(schemaListKeywords, key) && !utils.IsNodeArray(v):
+		return diag.CodeKeywordInvalid, fmt.Sprintf("%s must be a list of schemas, not %s; it is left out", key, written(value(v), v))
+	case !isSchema || utils.IsNodeMap(v) || takesBool && utils.IsNodeBoolValue(v):
+		return "", ""
+	case utils.IsNodeBoolValue(v) && k.c.version != spec.V30:
+		return diag.CodeKeywordUnsupported, fmt.Sprintf("%s %s is not supported; it is left out", key, v.Value)
+	}
+	return diag.CodeKeywordInvalid, fmt.Sprintf("%s must be a schema, not %s; it is left out", key, written(value(v), v))
 }
 
 func (k keywords) warn(code, key, msg string) {
