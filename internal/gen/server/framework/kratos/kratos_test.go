@@ -23,7 +23,6 @@ func TestFramework(t *testing.T) {
 	fw := Framework{}
 
 	assert.Equal(t, "kratos", fw.Name())
-	assert.Equal(t, framework.Native, fw.Family())
 	assert.Equal(t, []gomodel.Import{{Path: "github.com/go-kratos/kratos/v2/transport/http", Alias: "khttp"}}, fw.Imports())
 	_, err := fw.Templates().Open("templates/router.tmpl")
 	require.NoError(t, err)
@@ -44,7 +43,8 @@ func TestRoutePattern(t *testing.T) {
 		{name: "A trailing slash", path: "/pets/", wantErr: "the router rejects the path: it is not a clean path"},
 		{name: "A double slash", path: "/a//b", wantErr: "the router rejects the path: it is not a clean path"},
 		{name: "No leading slash", path: "pets", wantErr: "the router rejects the path: it must begin with /"},
-		{name: "A parameter with a colon", path: "/pets/{id:x}", wantErr: `the router rejects the path: parameter "id:x" holds a colon`},
+		{name: "A colon in a name", path: "/geo/{lat:lng}", want: "/geo/{lat_lng}"},
+		{name: "The wildcard takes a name no parameter has", path: "/files/{rest}/*", want: "/files/{rest}/{rest_:.*}"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -78,10 +78,11 @@ func TestConflicts(t *testing.T) {
 	get := framework.Route{Operation: "GetPet", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/{id}"}
 	newPet := framework.Route{Operation: "NewPet", Method: "GET", Path: "/pets/new", Pattern: "/pets/new"}
 	again := framework.Route{Operation: "GetPetAgain", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/{id}"}
+	policy := framework.Route{Operation: "GetPolicy", Method: "GET", Path: "/pets/{id}:getPolicy", Pattern: "/pets/{id}:getPolicy"}
 
-	kept, dropped := Framework{}.Conflicts([]framework.Route{get, newPet, again})
+	kept, dropped := Framework{}.Conflicts([]framework.Route{get, newPet, again, policy})
 
-	assert.Equal(t, []framework.Route{newPet, get}, kept, "literals first")
+	assert.Equal(t, []framework.Route{newPet, policy, get}, kept, "literals first, then a parameter next to a literal")
 	assert.Equal(t, []framework.Conflict{{Route: again, Reason: "repeats the route of GetPet"}}, dropped)
 }
 
@@ -107,5 +108,6 @@ func TestPathParam(t *testing.T) {
 	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
 
 	assert.Equal(t, `c.Vars().Get("pet-id")`, Framework{}.PathParam(s, "pet-id"))
+	assert.Equal(t, `c.Vars().Get("lat_lng")`, Framework{}.PathParam(s, "lat:lng"))
 	assert.Empty(t, s.Imports.Decl())
 }

@@ -3,7 +3,7 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Small Go expressions as text: selectors, calls, derefs, comparisons, literals and durations.
+// Small Go expressions and statements as text: selectors, calls, signatures, returns and literals.
 
 package gocode
 
@@ -66,6 +66,33 @@ func Composite(typ string, elems []KeyValue) string {
 // AddressOf writes &x.
 func AddressOf(x string) string {
 	return "&" + x
+}
+
+// Param writes one parameter of a func: name typ.
+func Param(name, typ string) string {
+	return name + " " + typ
+}
+
+// Signature writes the parameters of a func and its result, when it has one: (params) result.
+func Signature(params []string, result string) string {
+	out := "(" + strings.Join(params, ", ") + ")"
+	if result != "" {
+		out += " " + result
+	}
+	return out
+}
+
+// Define writes names := values, one value per name.
+func Define(names []string, values ...string) string {
+	return strings.Join(names, ", ") + " := " + strings.Join(values, ", ")
+}
+
+// Return writes return, with the values when there are any.
+func Return(values ...string) string {
+	if len(values) == 0 {
+		return "return"
+	}
+	return "return " + strings.Join(values, ", ")
 }
 
 // Duration writes d in the largest unit that holds it whole, such as 30 * time.Second, where

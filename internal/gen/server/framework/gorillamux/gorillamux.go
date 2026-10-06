@@ -29,31 +29,20 @@ func (Framework) Name() string {
 	return "gorilla-mux"
 }
 
-func (Framework) Family() framework.Family {
-	return framework.NetHTTP
-}
-
 func (Framework) Imports() []gomodel.Import {
 	return []gomodel.Import{{Path: importPath}, {Path: "net/http"}}
 }
 
-// RoutePattern keeps the path as it is, since mux writes parameters as {name} too, with a
-// trailing /* as /{rest:.*}. It fails on what mux rejects or misreads: a path without a leading
-// slash, an unclosed brace, a wildcard that is not a segment of its own, last, a parameter
-// without a name, one whose name holds a colon, which starts a regular expression, and a
-// parameter named twice.
+// RoutePattern keeps {name} parameters, a colon in a name as an underscore, and a /* as /{rest:.*}.
 func (Framework) RoutePattern(method, path string) (string, error) {
 	if err := framework.CheckMethod(method); err != nil {
 		return "", err
 	}
 
-	return framework.Brace(path, "{rest:.*}")
+	return framework.Brace(path, framework.Unmarked, wildcard)
 }
 
-// Conflicts drops every route that has the method and shape of an earlier one: a repeat of it,
-// or one whose path parameters are named otherwise, since mux takes the first route that
-// matches. For the same reason it puts literals before parameters and parameters before the
-// wildcard at each position.
+// Conflicts drops every route with the shape of an earlier one and orders the rest as mux tries them.
 func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
 	kept, dropped := framework.ConflictsByShape(routes)
 	return framework.StaticFirst(kept), dropped
@@ -65,9 +54,14 @@ func (Framework) Handler(s *gocode.Scope) framework.Handler {
 
 func (Framework) PathParam(s *gocode.Scope, name string) string {
 	vars := gocode.Call(gocode.Selector(s.Import(gomodel.Import{Path: importPath}), "Vars"), "r")
-	return gocode.Index(vars, gocode.Quote(name))
+	return gocode.Index(vars, gocode.Quote(framework.Unmarked(name)))
 }
 
 func (Framework) Templates() fs.FS {
 	return templates
+}
+
+// wildcard is the parameter a trailing /* becomes, which takes the rest of the path.
+func wildcard(name string) string {
+	return "{" + name + ":.*}"
 }

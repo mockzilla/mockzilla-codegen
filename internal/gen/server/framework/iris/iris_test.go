@@ -23,8 +23,7 @@ func TestFramework(t *testing.T) {
 	fw := Framework{}
 
 	assert.Equal(t, "iris", fw.Name())
-	assert.Equal(t, framework.NetHTTP, fw.Family())
-	assert.Equal(t, []gomodel.Import{{Path: "github.com/kataras/iris/v12"}, {Path: "net/http"}}, fw.Imports())
+	assert.Equal(t, []gomodel.Import{{Path: "github.com/kataras/iris/v12"}, {Path: "context"}, {Path: "net/http"}}, fw.Imports())
 	_, err := fw.Templates().Open("templates/router.tmpl")
 	require.NoError(t, err)
 }
@@ -41,8 +40,12 @@ func TestRoutePattern(t *testing.T) {
 		{name: "Parameters are named as identifiers", path: "/pets/{id}/photos/{photo-id}", want: "/pets/{id}/photos/{photo_id}"},
 		{name: "A wildcard becomes a path parameter", path: "/files/*", want: "/files/{rest:path}"},
 		{name: "The root", path: "/", want: "/"},
-		{name: "A trailing slash", path: "/pets/", want: "/pets/"},
+		{name: "A trailing slash is dropped", path: "/pets/", want: "/pets"},
+		{name: "The wildcard takes a name no parameter has", path: "/files/{rest}/*", want: "/files/{rest}/{rest_:path}"},
+		{name: "A colon in a name", path: "/geo/{lat:lng}", want: "/geo/{lat_lng}"},
+		{name: "Two names that are one identifier", path: "/pets/{pet-id}/{pet_id}", wantErr: `the router rejects the path: parameters "pet-id" and "pet_id" are both pet_id on the router`},
 		{name: "A literal colon", path: "/pets:search", want: "/pets:search"},
+		{name: "A literal segment that begins with a colon", path: "/pets/:search", wantErr: "the router rejects the path: a segment beginning with : is read as a parameter"},
 		{name: "No leading slash", path: "pets", wantErr: "the router rejects the path: it must begin with /"},
 		{name: "Unclosed brace", path: "/pets/{id", wantErr: "the router rejects the path: a { has no }"},
 		{name: "Wildcard not last", path: "/files/*/meta", wantErr: "the router rejects the path: * must be last"},
@@ -83,11 +86,15 @@ func TestConflicts(t *testing.T) {
 
 	get := framework.Route{Operation: "GetPet", Method: "GET", Path: "/pets/{id}", Pattern: "/pets/{id}"}
 	renamed := framework.Route{Operation: "GetAnimal", Method: "GET", Path: "/pets/{petId}", Pattern: "/pets/{petId}"}
+	slash := framework.Route{Operation: "GetPetSlash", Method: "GET", Path: "/pets/{id}/", Pattern: "/pets/{id}"}
 
-	kept, dropped := Framework{}.Conflicts([]framework.Route{get, renamed})
+	kept, dropped := Framework{}.Conflicts([]framework.Route{get, renamed, slash})
 
 	assert.Equal(t, []framework.Route{get}, kept)
-	assert.Equal(t, []framework.Conflict{{Route: renamed, Reason: "names its path parameters otherwise than GetPet at /pets/{id}"}}, dropped)
+	assert.Equal(t, []framework.Conflict{
+		{Route: renamed, Reason: "names its path parameters otherwise than GetPet at /pets/{id}"},
+		{Route: slash, Reason: "matches the same requests as GetPet at /pets/{id}"},
+	}, dropped)
 }
 
 func TestHandler(t *testing.T) {

@@ -165,7 +165,9 @@ mux.HandleFunc("GET /pets", adapter.ListPets)
 - A service that returns an error type of the spec (see `models.error-mapping`), as a value, a
   pointer or wrapped, is answered with the status and the media type of the first response that
   carries the type and the error as the body: the adapter sets the `Content-Type` before it calls
-  the error handler. Any other error is a 500 whose message does not reach the client.
+  the error handler. An error that wraps `context.DeadlineExceeded`, as a service that gave up on a
+  request whose context ran out returns, is a 503. Any other error is a 500 whose message does not
+  reach the client.
 - A service that returns nil for both values is a 500 with `ErrNoResponse`.
 - The response is written with its status, headers and content type, the body by its media type:
   JSON as JSON, a string too; a form through `EncodeForm`; `multipart/form-data` as a form of the
@@ -304,7 +306,7 @@ type ErrorHandler interface {
 | `ErrorParse` | a parameter cannot be read | 400 |
 | `ErrorDecode` | the body cannot be read, or has a media type the operation does not take | 400, 415 |
 | `ErrorValidation` | the request fails the checks of the spec | 400 |
-| `ErrorService` | the service returned an error, or no response | 500 |
+| `ErrorService` | the service returned an error, or no response; on fiber and fasthttp also a panic, wrapping `ErrPanic` | 500, or 503 for `context.DeadlineExceeded` |
 | `ErrorResponse` | the response fails the checks of the spec, or has no encoder for its media type | 500 |
 
 `DefaultErrorHandler` writes `{"error": "..."}` when the request accepts JSON, and plain text
@@ -361,15 +363,21 @@ NewRouter(svc, WithErrorHandler(ErrorHandlerFunc(func(w http.ResponseWriter, r *
 | `kratos` | github.com/go-kratos/kratos/v2/transport/http | `*http.Server` of kratos | `*http.Server` of kratos |
 | `std-http` | `http.ServeMux` with method and wildcard patterns | `http.Handler` | `*http.ServeMux` |
 
+A router that is an `http.Handler`, all but fiber, fasthttp, hertz and goframe, serves as one:
+
 ```go
 router := NewRouter(svc, WithMiddleware(RequestIDMiddleware, RecoverMiddleware))
 http.ListenAndServe(":8080", router)
 ```
 
+The other four serve in their own way, see their sections and the main scaffold.
+
 On a new router the middleware wraps everything, unknown paths included, so a CORS preflight is
 answered. With `WithRouter(existing)` the routes are registered on the given router and the
 middleware wraps those routes only: in a group of a chi router, around each handler on a
-`ServeMux`, as the middleware of each route on an Echo, around each handler on the others.
+`ServeMux`, as the middleware of each route on an Echo, around each handler on the others. A
+redirect the router makes on its own, for a trailing slash or a path it cleans, is answered before
+the middleware on gin, gorilla-mux, kratos, iris, fasthttp and hertz.
 
 Most routers take the handlers as `http.HandlerFunc`s, straight or through a small function of
 the generated router that serves one from the framework's context and puts the path parameters
@@ -378,20 +386,49 @@ takes with the standard library's 404 through the middleware, so a logging or CO
 sees it; a router given with `WithRouter` keeps its own answer. Echo and kratos take handlers of
 their own shape instead, see below.
 
+A path value reaches the service unescaped once on every router, `/pets/john%40example.com` as
+`john@example.com` and `/pets/100%25` as `100%`; a `+` stays a `+`. An escaped slash, `a%2Fb`, is
+part of the value, `a/b`, on chi, echo, echo-v5, fasthttp, fiber, goframe and std-http. The other
+routers match the path with it unescaped, so the request finds no route and is a 404.
+
 An operation the router cannot serve is left out with a `route-dropped` warning: a method the
 router does not take, a path it rejects, or a route it cannot hold next to an earlier one. Every
-router takes `GET`, `PUT`, `POST`, `DELETE`, `OPTIONS`, `HEAD`, `PATCH` and `TRACE`; std-http
-takes any other method too, such as `QUERY` and the `additionalOperations` of OpenAPI 3.2. Every
-router rejects a path without a leading slash, an unclosed brace and a parameter without a name or
-named twice, and every router but std-http a `*` that is not last; the sections below name what
-each rejects on top, and how each writes its routes.
+router takes `GET`, `PUT`, `POST`, `DELETE`, `OPTIONS`, `HEAD` and `PATCH`, and all but go-zero
+`TRACE`; std-http takes any other method too, such as `QUERY` and the `additionalOperations` of
+OpenAPI 3.2. Every router rejects a path without a leading slash, an unclosed brace and a parameter
+without a name or named twice, and every router but std-http a `*` that is not last. A parameter
+name a router cannot hold is written for it: with underscores for a colon or a star, which routers
+read as a pattern, or as an identifier where the router takes no other; two names it would write
+the same, `{pet-id}` and `{pet_id}`, are rejected. The table shows what each router holds and how
+it answers; the sections below name the rest. The `paths` example of each router runs these
+shapes against the real router.
+
+| Framework | `v{id}` | `{id}.json` | `{name}.{ext}` | a literal `:` | `/a` and `/a/` | unknown path | wrong method | `HEAD` of a `GET` route | `%2F` in a value |
+|---|---|---|---|---|---|---|---|---|---|
+| `beego` | no | no | no | no | one route | 404 | 404 | 404 | 404 |
+| `chi` | yes | yes | yes | yes | two routes | 404 | 405 | 405 | yes |
+| `echo`, `echo-v5` | yes | no | no | not first in a segment | two routes | 404, JSON | 405, JSON | 405 | yes |
+| `fasthttp` | yes | yes | yes | yes | one route, `/a/` redirects | 404 | 405 | 405 | yes |
+| `fiber` | yes | no | no | yes | one route | 404 | 405 | 200 | yes |
+| `gin` | yes | no | no | yes | two routes | 404 | 404 | 404 | 404 |
+| `go-zero` | no | no | no | not first in a segment | one route | 404 | 405 | 405 | 404 |
+| `goframe` | yes | yes | yes | no | one route | 404 | 404 | 404 | yes |
+| `gorilla-mux` | yes | yes | yes | yes | two routes | 404 | 405 | 405 | 404 |
+| `hertz` | yes | no | no | no | two routes | 404 | 404 | 404 | 404 |
+| `iris` | no | no | no | not first in a segment | one route, `/a/` redirects | 404, empty | 404, empty | 404 | 404 |
+| `kratos` | yes | yes | yes | yes | `/a` alone, `/a/` redirects | 404 | 405 | 405 | 404 |
+| `std-http` | no | no | no | yes | two routes | 404 | 405 | 200 | yes |
+
+Fiber, fasthttp and hertz do not end a request's context when the client goes away.
 
 ### chi
 
-Routes keep the spec's `{name}` parameters and a trailing `*`. chi rejects a path without a
-leading slash, an unclosed brace, a parameter named twice and `*` not last. A route that repeats
-an earlier one, or whose path parameters are named otherwise than an earlier route of the same
-shape, is dropped, since chi keys parameters by position.
+Routes keep the spec's `{name}` parameters and a trailing `*`, a colon in a name as an underscore,
+`{lat:lng}` as `{lat_lng}`, since chi reads what follows a colon as a pattern. chi rejects a path
+without a leading slash, an unclosed brace, a parameter named twice and `*` not last. A route that
+repeats an earlier one, or whose path parameters are named otherwise than an earlier route of the
+same shape, is dropped, since chi keys parameters by position. chi matches the escaped path when a
+request has one, so the handlers unescape each value with `runtime.UnescapePath`.
 
 ### std-http
 
@@ -412,13 +449,15 @@ first and drops each one that panics there, so `NewRouter` never panics. A `GET`
 ### echo
 
 Routes write parameters as echo does, `/pets/{id}` as `/pets/:id`, and the handlers read them
-with `c.Param`. A parameter runs to the end of its segment on echo, so a literal prefix is fine,
+with `c.Param`, unescaped with `runtime.UnescapePath` since echo matches the escaped path when a
+request has one. A parameter runs to the end of its segment on echo, so a literal prefix is fine,
 `/pets/v{id}`, while a suffix, `{id}.json`, or two parameters in one segment are rejected. A
-literal colon is escaped, `/pets:search` as `/pets\:search`, since echo reads a colon as the
-start of a parameter. A trailing `*` stays and takes the rest of the path. Echo also rejects a
-path without a leading slash, an unclosed brace, a parameter without a name or named twice and `*`
-not last. It replaces an earlier route with a later one of the same method and shape without a
-word, so the generator drops the later one, as for chi.
+literal colon is escaped, `/pets:search` as `/pets\:search`, since echo reads a colon as the start
+of a parameter; a segment that begins with a colon, `/pets/:search`, and a literal star, which echo
+reads as a wildcard, are rejected. A trailing `*` stays and takes the rest of the path. Echo also
+rejects a path without a leading slash, an unclosed brace, a parameter without a name or named
+twice and `*` not last. It replaces an earlier route with a later one of the same method and shape
+without a word, so the generator drops the later one, as for chi.
 
 The handlers have echo's shape, `func (a *HTTPAdapter) ListPets(c echo.Context) error`, and
 write their response through `c.Response()`, so echo's own middleware sees the status. They
@@ -438,24 +477,30 @@ so the generator drops the later one.
 
 ### gin
 
-Routes write parameters as gin does, `/pets/{id}` as `/pets/:id`, and a trailing `*` as `/*rest`,
-the catch-all gin asks a name for. A parameter runs to the end of its segment, so a literal prefix
-is fine, `/pets/v{id}`, while a suffix or two parameters in one segment are rejected, and so is a
-literal colon or star, which gin reads as the start of a parameter and cannot escape. Gin panics
-on a route that names the parameter at some position otherwise than an earlier route, `/pets/{id}`
-next to `/pets/{petId}/photos`, and on anything next to a catch-all, `/files/*` next to `/files/x`;
-the generator drops such routes by the same rules. A new Engine comes from `gin.New()`, without
-gin's logger and recovery; gin middleware goes on an Engine before `WithRouter` gives it, since
-gin applies `Use` to the routes registered after it. A wrong method is a 404 on gin.
+Routes write parameters as gin does, `/pets/{id}` as `/pets/:id`, a colon in a name as an
+underscore, and a trailing `*` as `/*rest`, the catch-all gin asks a name for. A parameter runs to
+the end of its segment, so a literal prefix is fine, `/pets/v{id}`, while a suffix or two
+parameters in one segment are rejected. A literal colon is escaped, `/pets:search` as
+`/pets\:search`; a literal star is rejected, and so is a path that is not clean, which gin cleans
+before it matches. Gin holds one name at a position for every route that shares it, so a route
+that names the parameter there otherwise, `/pets/{petId}/photos` next to `/pets/{id}`, takes the
+earlier name in its pattern, and the generated `handle` puts each value on the request under the
+spec's name. Gin panics on anything next to a catch-all, `/files/*` next to `/files/x`, and on a
+route that then matches the same requests as an earlier one; the generator drops such routes.
+`TRACE`, which gin has no function for, is registered with `e.Handle`. A new Engine comes from
+`gin.New()`, without gin's logger and recovery; gin middleware goes on an Engine before
+`WithRouter` gives it, since gin applies `Use` to the routes registered after it. A wrong method
+is a 404 on gin.
 
 ### gorilla-mux
 
-Routes keep the spec's `{name}` parameters, with a trailing `*` as `{rest:.*}`, and the handlers
-read them with `mux.Vars`. A name that holds a colon is rejected, since mux reads what follows as
-a pattern. Mux takes the first route that matches, so the generator drops a route that repeats
-the shape of an earlier one and registers literals before parameters and parameters before the
-wildcard at each position, whatever the order of the spec. A wrong method is a 405 without a
-body.
+Routes keep the spec's `{name}` parameters, a colon in a name as an underscore, with a trailing
+`*` as `{rest:.*}`, and the handlers read them with `mux.Vars`. Mux takes the first route that
+matches, so the generator drops a route that repeats the shape of an earlier one and registers the
+routes in the order mux needs, whatever the order of the spec: at each position a literal, then a
+parameter next to a literal, the longer literal first, then a parameter alone, then the wildcard.
+So `/v1/{name}:getIamPolicy` comes before `/v1/{name}`, which would match its requests too. A wrong
+method is a 405 without a body.
 
 ### fiber
 
@@ -463,56 +508,75 @@ Routes write parameters as fiber does, `/pets/{id}` as `/pets/:id`, with a name 
 identifier, `{pet-id}` as `:pet_id`, since fiber ends a name at any other character; a literal
 colon, star, plus or question mark is escaped with a backslash. A parameter runs to the end of its
 segment, so a prefix is fine and a suffix or two parameters in one segment are rejected. Fiber
-does not tell `/pets` from `/pets/` and takes the first route that matches, so the generator
-drops a route that matches the same requests as an earlier one and registers literals before
-parameters and parameters before the wildcard. The handlers are served through fasthttp's
-adaptor: the strings of the request live for the request alone, so a service that keeps a
-parameter or header beyond it copies the string first. On a new App a request no route takes,
-by path or by method, is a 404 through the middleware. The main scaffold serves with
-`app.Listen` and stops with `app.ShutdownWithTimeout`.
+does not tell `/pets` from `/pets/`, nor `/Pets` from `/pets`, and takes the first route that
+matches, so the generator drops a route that matches the same requests as an earlier one and
+registers literals before parameters and parameters before the wildcard. The handlers are served
+through fasthttp's adaptor, from a copy of the request whose strings are its own, since fiber
+reuses the memory of a request for the next one on its connection. Fiber matches the escaped path,
+so the values are unescaped, unless the App sets `UnescapePath`. A panic in the service would end
+the process, so the router recovers and answers it with a 500 through the error handler.
+
+On a new App a request no route takes is a 404, and a wrong method a 405, through the middleware;
+both are answered from the App's error handler, so a route added to the App after `NewRouter` is
+served too. `WithConfig(fiber.Config{...})` sets the config of the new App. The main scaffold
+makes the App that way, with its read timeout, serves with `app.Listen` and stops with
+`app.ShutdownWithTimeout`.
 
 ### fasthttp
 
-Routes keep the spec's `{name}` parameters, with a trailing `*` as `{rest:*}`, on a router of
-github.com/fasthttp/router, and the handlers are served through fasthttp's adaptor, so the strings
-of the request live for the request alone, as for fiber. Two parameters with nothing between them
-and a name that holds a colon are rejected. The router panics on a route that matches the same
-requests as an earlier one, which the trailing slash does not tell apart, on the parent of an
+Routes keep the spec's `{name}` parameters, a colon in a name as an underscore, with a trailing
+`*` as `{rest:*}`, on a router of github.com/fasthttp/router. The router reads what follows a
+parameter in its segment as part of a regular expression, so the generator quotes it:
+`/files/{name}.{ext}` as `/files/{name}\.{ext}`, `/products({id})` as `/products({id}\)`. Two
+parameters with nothing between them are rejected. The router panics on a route that matches the
+same requests as an earlier one, which the trailing slash does not tell apart, on the parent of an
 earlier catch-all, `/files` after `/files/*`, and on a route that differs from an earlier one in a
 single segment where both have a parameter after the same literal, `/pets/{id}.json` next to
-`/pets/{id}.xml`; the generator drops such routes by the same rules. A new router leaves OPTIONS
-requests to the routes and the middleware, and answers a wrong method with a 405 and the Allow
-header through the middleware. The main scaffold serves with a `fasthttp.Server`.
+`/pets/{id}.xml`; the generator drops such routes by the same rules. The handlers are served
+through fasthttp's adaptor as for fiber: from a copy of the request, with the values unescaped,
+and a panic answered with a 500. A new router leaves OPTIONS requests to the routes and the
+middleware, and answers a wrong method with a 405 and the Allow header through the middleware.
+The main scaffold serves with a `fasthttp.Server`.
 
 ### hertz
 
-Routes write parameters as hertz does, as gin: `/pets/{id}` as `/pets/:id`, a trailing `*` as
-`/*rest`, a prefix allowed and a suffix, two parameters in one segment or a literal colon or star
-rejected. Hertz panics on a route that repeats the shape of an earlier one, so the generator drops
-it. The handlers are served from hertz's request context: the request is read into an
+Routes write parameters as hertz does, as gin: `/pets/{id}` as `/pets/:id`, a colon in a name as
+an underscore, a trailing `*` as `/*rest`, a prefix allowed and a suffix, two parameters in one
+segment or a literal colon or star rejected. Hertz panics on a route that repeats the shape of an
+earlier one, so the generator drops it. `TRACE`, which hertz has no function for, is registered
+with `h.Handle`. The handlers are served from hertz's request context: the request is read into an
 `http.Request` and the response written into hertz's, so `ut.PerformRequest` drives the router in
-tests. A wrong method is a 404 on a new server. The main scaffold builds the server with
-`server.New` and `WithHostPorts`, serves with `h.Run` and stops with `h.Shutdown`.
+tests. The writer is no `http.Flusher`, and the body is sent when the handler returns. A wrong
+method is a 404 on a new server. `WithConfig(server.WithHostPorts(...), ...)` sets the options of
+the new server; the main scaffold makes it that way, serves with `h.Run` and stops with
+`h.Shutdown`.
 
 ### beego
 
 Routes write parameters as beego does, `/pets/{id}` as `/pets/:id`, with a name that is an
 identifier since beego ends a name at any other character, and a trailing `*` stays. A parameter
 fills its segment, so a prefix or a suffix is rejected, and so is a literal colon, star or
-question mark, which beego reads as the start of a parameter. Beego holds one route of a shape
-and takes literals before parameters on its own; the generator drops a route that repeats the
-shape of an earlier one. Beego reads a form body before the handler, so the generated router
-puts the form back into the body. A new `ControllerRegister` answers a request no route takes,
-by path or by method, with a 404 through the middleware, on a route for `/*`.
+question mark, which beego reads as the start of a parameter. Beego holds one route of a shape and
+takes literals before parameters on its own, and does not tell `/pets` from `/pets/`; the
+generator drops a route that matches the same requests as an earlier one. Beego reads the form
+body of a POST, PUT or PATCH before the handler, so the generated router puts the form back into
+the body. A new `ControllerRegister` answers a request no route takes, by path or by method, with
+a 404 through the middleware, on a route for `/*`. Beego routes `/all.html` to the route of `/all`.
 
 ### goframe
 
 Routes are GoFrame patterns such as `GET:/pets/{id}`, with each parameter as a field whose name is
 an identifier, a prefix or a suffix allowed, `/pets/{id}.json`, and a trailing `*` as `/*rest`.
-A trailing slash is dropped, since GoFrame drops it, and a literal colon or at sign is rejected,
-which GoFrame reads as the start of a parameter or of a domain. GoFrame exits the process on a
-route registered twice, so the generator drops a route that matches the same requests as an
-earlier one. The routes are bound when the server starts, so a test starts it on a free port, as
+A trailing slash is dropped, since GoFrame drops it. A literal colon or at sign is rejected, which
+GoFrame reads as the start of a parameter or of a domain, and so is a literal with `$`, `^`, `(`,
+`)`, `|`, `[`, `]`, `?` or a backslash, which GoFrame leaves as they are in the regular expression
+it makes of a path. GoFrame exits the process on a route registered twice, so the generator drops a
+route that matches the same requests as an earlier one. GoFrame picks the route of an OPTIONS
+request by its `Access-Control-Request-Method` header, and of any request by an `X-Url-Path`
+header; the generated router answers such a request with a 404 past the middleware, so a CORS
+preflight is still answered and no other operation runs. GoFrame unescapes a value twice, so the
+router reads the values from the escaped path and unescapes them once. A route for `/store/*` also
+takes `/store`. The routes are bound when the server starts, so a test starts it on a free port, as
 the examples do. The handlers write past GoFrame's buffer, so a status without a body stays
 without one. A new server is named after a fresh id, since GoFrame keeps its servers by name;
 `WithRouter(ghttp.GetServer())` uses the default one, which the config file sets up, as the main
@@ -522,36 +586,41 @@ scaffold does before it serves with `s.Start` and stops with `s.Shutdown`.
 
 Routes write parameters as go-zero does, `/pets/{id}` as `/pets/:id`, on the router of the rest
 package, which `rest.WithRouter` gives a rest server; the handlers read them with `pathvar.Vars`.
-A parameter fills its segment, so a prefix or a suffix is rejected, and so are a wildcard, which
-go-zero has none of, a path that is not clean and a literal segment that begins with a colon. A
-trailing slash is dropped, since go-zero does not tell it apart, and a route that then matches the
-same requests as an earlier one is dropped, which go-zero refuses as a duplicate. `NewRouter`
-returns `httpx.Router`; a new one is served through the middleware as a whole, and a wrong method
-is a 405 with the Allow header.
+A parameter fills its segment, so a prefix or a suffix is rejected, and so are `TRACE`, which
+go-zero has no route for, a wildcard, which go-zero has none of, a path that is not clean and a
+literal segment that begins with a colon. A trailing slash is dropped, since go-zero does not tell
+it apart, and a route that then matches the same requests as an earlier one is dropped, which
+go-zero refuses as a duplicate. `NewRouter` returns `httpx.Router`; a new one is served through the
+middleware as a whole, and a wrong method is a 405 with the Allow header.
 
 ### iris
 
 Routes keep the spec's `{name}` parameters, with a name that is an identifier since iris takes no
 other, and a trailing `*` as `{rest:path}`. A parameter fills its segment, so a prefix or a suffix
-is rejected. Iris holds one route of a shape and takes literals before parameters on its own; the
-generator drops a route that repeats the shape of an earlier one. A new Application is built by
-`NewRouter`, ready to serve, keeps the status a handler writes as it is and answers a request no
-route takes with an empty 404, through the middleware, which wraps the router as a whole. An
-Application given with `WithRouter` is left for its owner to build, with `app.Build` or
-`app.Listen`.
+is rejected, and so is a literal segment that begins with a colon, which iris reads as a
+parameter. A trailing slash is dropped, since iris redirects `/pets/` to `/pets`. Iris holds one
+route of a shape and takes literals before parameters on its own; the generator drops a route that
+matches the same requests as an earlier one. A new Application is built by `NewRouter`, ready to
+serve, keeps the status a handler writes as it is and answers a request no route takes with an
+empty 404, through the middleware, which wraps the router as a whole. A route added to it after
+`NewRouter` is served once `app.RefreshRouter` has run. An Application given with `WithRouter` is
+left for its owner to build, with `app.Build` or `app.Listen`, and answers an unknown path with
+iris's own `Not Found`.
 
 ### kratos
 
-Routes keep the spec's `{name}` parameters, with a trailing `*` as `{rest:.*}`, on the HTTP
-transport of kratos, which routes with gorilla/mux; the handlers have kratos's shape,
-`func (a *HTTPAdapter) ListPets(c khttp.Context) error`, and read the parameters with
-`c.Vars()`. A path that is not clean, such as one with a trailing slash, is rejected, since kratos
-cleans it without a word, and so is a name that holds a colon. As for mux, the generator drops a
-route that repeats the shape of an earlier one and registers literals first. The middleware wraps
-a new server as its filters, and each route as filters of its own on a server `WithRouter` gives;
-kratos middleware goes on the server with `Use`. A new server listens on kratos's default address
-and times requests out after its default second: `WithRouter(khttp.NewServer(khttp.Address(...),
-khttp.Timeout(...)))` sets both.
+Routes keep the spec's `{name}` parameters, a colon in a name as an underscore, with a trailing
+`*` as `{rest:.*}`, on the HTTP transport of kratos, which routes with gorilla/mux; the handlers
+have kratos's shape, `func (a *HTTPAdapter) ListPets(c khttp.Context) error`, and read the
+parameters with `c.Vars()`. A path that is not clean, such as one with a trailing slash, is
+rejected, since kratos cleans it without a word and redirects `/pets/` to `/pets`. As for mux, the
+generator drops a route that repeats the shape of an earlier one and registers the routes in the
+order mux needs. The middleware wraps a new server as its filters, and each route as filters of
+its own on a server `WithRouter` gives; kratos middleware goes on the server with `Use`. A new
+server listens on kratos's default address, sets no timeout of its own, where kratos ends each
+request after a second, and answers a path no route takes with a 404 and a wrong method with a
+405, where kratos would hand both to `http.DefaultServeMux`.
+`WithRouter(khttp.NewServer(khttp.Address(...), ...))` sets the address.
 
 ## Scaffolds
 
@@ -572,6 +641,10 @@ for the project's own code. The struct of the service scaffold is named after `s
 in a folder of its own, since it is `package main`, and imports the others by module path. It
 serves with an `http.Server`, except for fiber, fasthttp, hertz and goframe, whose servers are
 served in their own way, see their sections.
+
+`TimeoutMiddleware` sets a deadline on the request's context, `timeout` after the request came,
+and serves the request on the same goroutine. A service that watches its context and returns the
+context's error is answered with a 503; one that does not runs to its end.
 
 ## Runtime codecs
 

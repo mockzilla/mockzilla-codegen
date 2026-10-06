@@ -63,9 +63,13 @@ func CORSMiddleware(next {{.HTTP}}.Handler) {{.HTTP}}.Handler {
 	})
 }
 
-// TimeoutMiddleware answers 503 when a request takes longer than timeout.
+// TimeoutMiddleware ends a request's context after timeout; a service that stops then gets a 503.
 func TimeoutMiddleware(timeout {{.Time}}.Duration) func({{.HTTP}}.Handler) {{.HTTP}}.Handler {
 	return func(next {{.HTTP}}.Handler) {{.HTTP}}.Handler {
-		return {{.HTTP}}.TimeoutHandler(next, timeout, {{.HTTP}}.StatusText({{.HTTP}}.StatusServiceUnavailable))
+		return {{.HTTP}}.HandlerFunc(func(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request) {
+			ctx, cancel := {{.Context}}.WithTimeout(r.Context(), timeout)
+			defer cancel()
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
 	}
 }

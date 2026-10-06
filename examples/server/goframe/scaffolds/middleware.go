@@ -3,6 +3,7 @@
 package scaffolds
 
 import (
+	"context"
 	"crypto/rand"
 	"log/slog"
 	"net/http"
@@ -75,9 +76,13 @@ func CORSMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// TimeoutMiddleware answers 503 when a request takes longer than timeout.
+// TimeoutMiddleware ends a request's context after timeout; a service that stops then gets a 503.
 func TimeoutMiddleware(timeout time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return http.TimeoutHandler(next, timeout, http.StatusText(http.StatusServiceUnavailable))
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(r.Context(), timeout)
+			defer cancel()
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
 	}
 }

@@ -10,6 +10,7 @@ package beego
 import (
 	"embed"
 	"io/fs"
+	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
 	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
@@ -34,10 +35,6 @@ func (Framework) Name() string {
 	return "beego"
 }
 
-func (Framework) Family() framework.Family {
-	return framework.NetHTTP
-}
-
 func (Framework) Imports() []gomodel.Import {
 	return []gomodel.Import{
 		{Path: importPath},
@@ -48,12 +45,7 @@ func (Framework) Imports() []gomodel.Import {
 	}
 }
 
-// RoutePattern writes each parameter as :name, with a name that is an identifier since beego
-// ends a name at any other character, and a trailing /* as beego's own. A parameter fills its
-// segment on beego, so a path fails when one has a prefix or a suffix or shares a segment with
-// another, and a literal colon, star or question mark fails since beego reads them as the start
-// of a parameter; a path also fails without a leading slash, with an unclosed brace, a parameter
-// without a name or named twice, and a wildcard that is not a segment of its own, last.
+// RoutePattern writes each parameter as :name, with the name an identifier, as beego takes no other.
 func (Framework) RoutePattern(method, path string) (string, error) {
 	if err := framework.CheckMethod(method); err != nil {
 		return "", err
@@ -62,11 +54,11 @@ func (Framework) RoutePattern(method, path string) (string, error) {
 	return pattern.Pattern(path)
 }
 
-// Conflicts drops every route that has the method and shape of an earlier one: a repeat of it,
-// or one whose path parameters are named otherwise, since beego holds one route of a shape and
-// takes literals before parameters on its own.
+// Conflicts drops every route with the method and shape of an earlier one, trailing slash aside.
 func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
-	return framework.ConflictsByShape(routes)
+	return framework.ConflictsByKey(routes, func(r framework.Route) string {
+		return r.Method + " " + strings.TrimSuffix(framework.Shape(r.Path), "/")
+	})
 }
 
 func (Framework) Handler(s *gocode.Scope) framework.Handler {

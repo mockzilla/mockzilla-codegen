@@ -596,7 +596,7 @@ func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetPet"))
 	opts := &GetPetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetPetPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetPet", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}
@@ -627,7 +627,7 @@ func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "DeletePet"))
 	opts := &DeletePetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeletePetPathParams{}
-	if err := runtime.DecodePath(chi.URLParam(r, "id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "DeletePet", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}

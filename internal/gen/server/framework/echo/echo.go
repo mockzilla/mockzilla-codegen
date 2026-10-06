@@ -22,7 +22,7 @@ const importPath = "github.com/labstack/echo/v4"
 var templates embed.FS
 
 // pattern writes routes as echo takes them.
-var pattern = framework.Colon{Literal: framework.Escaping(":"), Name: framework.Same, Wildcard: "*", IsPrefixAllowed: true}
+var pattern = framework.Colon{Literal: framework.EscapingColon, Name: framework.Same, Wildcard: "*", IsPrefixAllowed: true}
 
 var _ framework.Framework = Framework{}
 
@@ -33,19 +33,11 @@ func (Framework) Name() string {
 	return "echo"
 }
 
-func (Framework) Family() framework.Family {
-	return framework.Native
-}
-
 func (Framework) Imports() []gomodel.Import {
 	return []gomodel.Import{{Path: importPath}}
 }
 
-// RoutePattern writes each parameter as :name and escapes a literal colon as \:, since echo reads
-// a colon as the start of a parameter. A parameter runs to the end of its segment on echo, so a
-// path fails when one has a suffix or shares a segment with another; it also fails on a path
-// without a leading slash, an unclosed brace, a parameter without a name or named twice, and a
-// wildcard that is not a segment of its own, last.
+// RoutePattern writes each parameter as :name and a literal colon as \:, which echo would misread.
 func (Framework) RoutePattern(method, path string) (string, error) {
 	if err := framework.CheckMethod(method); err != nil {
 		return "", err
@@ -54,26 +46,20 @@ func (Framework) RoutePattern(method, path string) (string, error) {
 	return pattern.Pattern(path)
 }
 
-// Conflicts drops every route that has the method and shape of an earlier one: a repeat of it,
-// or one whose path parameters are named otherwise, since echo keys parameters by position and
-// lets a later route replace an earlier one without a word.
+// Conflicts drops every route with the method and shape of an earlier one, which echo would replace.
 func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
 	return framework.ConflictsByShape(routes)
 }
 
-// Handler is echo's own shape: the handler takes the context c and returns an error, which stays
-// nil since the error handler writes every failed request.
+// Handler is echo's own shape, a handler of its context.
 func (Framework) Handler(s *gocode.Scope) framework.Handler {
-	return framework.Handler{
-		Signature: "(c " + s.Import(gomodel.Import{Path: importPath}) + ".Context) error",
-		Prologue:  "w, r := c.Response(), c.Request()",
-		Return:    "return nil",
-		Epilogue:  "return nil",
-	}
+	return framework.ContextHandler(gocode.Selector(s.Import(gomodel.Import{Path: importPath}), "Context"))
 }
 
-func (Framework) PathParam(_ *gocode.Scope, name string) string {
-	return gocode.Call(gocode.Selector("c", "Param"), gocode.Quote(name))
+// PathParam unescapes the value, which echo cuts from the raw path when the request has one.
+func (Framework) PathParam(s *gocode.Scope, name string) string {
+	value := gocode.Call(gocode.Selector("c", "Param"), gocode.Quote(name))
+	return gocode.Call(gocode.Selector(s.Import(gomodel.Import{Path: gomodel.RuntimePath}), "UnescapePath"), "r", value)
 }
 
 func (Framework) Templates() fs.FS {

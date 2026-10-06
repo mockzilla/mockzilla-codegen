@@ -23,7 +23,6 @@ func TestFramework(t *testing.T) {
 	fw := Framework{}
 
 	assert.Equal(t, "go-zero", fw.Name())
-	assert.Equal(t, framework.NetHTTP, fw.Family())
 	assert.Equal(t, gomodel.Import{Path: "github.com/zeromicro/go-zero/rest/httpx"}, fw.Imports()[0])
 	_, err := fw.Templates().Open("templates/router.tmpl")
 	require.NoError(t, err)
@@ -69,10 +68,12 @@ func TestRoutePattern(t *testing.T) {
 func TestRoutePatternMethod(t *testing.T) {
 	t.Parallel()
 
-	_, err := Framework{}.RoutePattern("QUERY", "/pets")
+	for _, method := range []string{"QUERY", "TRACE"} {
+		_, err := Framework{}.RoutePattern(method, "/pets")
 
-	require.EqualError(t, err, "the router does not take the method QUERY")
-	require.ErrorIs(t, err, framework.ErrMethod)
+		require.EqualError(t, err, "the router does not take the method "+method)
+		require.ErrorIs(t, err, framework.ErrMethod)
+	}
 }
 
 func TestConflicts(t *testing.T) {

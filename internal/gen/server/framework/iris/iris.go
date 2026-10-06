@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io/fs"
 	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/server/framework"
@@ -37,19 +36,11 @@ func (Framework) Name() string {
 	return "iris"
 }
 
-func (Framework) Family() framework.Family {
-	return framework.NetHTTP
-}
-
 func (Framework) Imports() []gomodel.Import {
-	return []gomodel.Import{{Path: importPath}, {Path: "net/http"}}
+	return []gomodel.Import{{Path: importPath}, {Path: "context"}, {Path: "net/http"}}
 }
 
-// RoutePattern keeps each parameter as {name}, with a name that is an identifier since iris
-// takes no other, and writes a trailing /* as /{rest:path}. A parameter fills its segment on
-// iris, so a path fails when one has a prefix or a suffix or shares a segment with another; a
-// path also fails without a leading slash, with an unclosed brace, a wildcard that is not a
-// segment of its own, last, and a parameter without a name or named twice.
+// RoutePattern writes each parameter as an identifier {name}, a /* as {rest:path}, no trailing slash.
 func (Framework) RoutePattern(method, path string) (string, error) {
 	if err := framework.CheckMethod(method); err != nil {
 		return "", err
@@ -58,37 +49,34 @@ func (Framework) RoutePattern(method, path string) (string, error) {
 	if err := framework.Check(path); err != nil {
 		return "", err
 	}
+	if path != "/" {
+		path = strings.TrimSuffix(path, "/")
+	}
+	out, given, err := framework.Rename(path, framework.Identifier)
+	if err != nil {
+		return "", err
+	}
 
-	segments := strings.Split(path[1:], "/")
-	var names []string
+	segments, renamed := strings.Split(path[1:], "/"), strings.Split(out[1:], "/")
 	for i, seg := range segments {
-		isLast := i == len(segments)-1
 		switch {
-		case seg == "*" && isLast:
-			segments[i] = "{rest:path}"
+		case seg == "*" && i == len(segments)-1:
+			renamed[i] = "{" + framework.RestName(given) + ":path}"
+		case strings.HasPrefix(seg, ":"):
+			return "", fmt.Errorf("%w: a segment beginning with : is read as a parameter", framework.ErrPattern)
 		case !strings.ContainsAny(seg, "{}*"):
 		case !wholeSegment.MatchString(seg):
 			return "", fmt.Errorf("%w: a parameter must fill its segment, unlike %s", framework.ErrPattern, seg)
-		default:
-			name := seg[1 : len(seg)-1]
-			switch {
-			case name == "":
-				return "", fmt.Errorf("%w: a parameter has no name", framework.ErrPattern)
-			case slices.Contains(names, name):
-				return "", fmt.Errorf("%w: parameter %q is named twice", framework.ErrPattern, name)
-			}
-			names = append(names, name)
-			segments[i] = "{" + framework.Identifier(name) + "}"
 		}
 	}
-	return "/" + strings.Join(segments, "/"), nil
+	return "/" + strings.Join(renamed, "/"), nil
 }
 
-// Conflicts drops every route that has the method and shape of an earlier one: a repeat of it,
-// or one whose path parameters are named otherwise, since iris holds one route of a shape and
-// takes literals before parameters on its own.
+// Conflicts drops every route with the method and shape of an earlier one, trailing slash aside.
 func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
-	return framework.ConflictsByShape(routes)
+	return framework.ConflictsByKey(routes, func(r framework.Route) string {
+		return r.Method + " " + strings.TrimSuffix(framework.Shape(r.Path), "/")
+	})
 }
 
 func (Framework) Handler(s *gocode.Scope) framework.Handler {

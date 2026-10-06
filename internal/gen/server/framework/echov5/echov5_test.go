@@ -23,7 +23,6 @@ func TestFramework(t *testing.T) {
 	fw := Framework{}
 
 	assert.Equal(t, "echo-v5", fw.Name())
-	assert.Equal(t, framework.Native, fw.Family())
 	assert.Equal(t, []gomodel.Import{{Path: "github.com/labstack/echo/v5"}}, fw.Imports())
 	_, err := fw.Templates().Open("templates/router.tmpl")
 	require.NoError(t, err)
@@ -44,6 +43,8 @@ func TestRoutePattern(t *testing.T) {
 		{name: "A wildcard last", path: "/files/*", want: "/files/*"},
 		{name: "No leading slash", path: "pets", wantErr: "the router rejects the path: it must begin with /"},
 		{name: "A parameter with a suffix", path: "/pets/{id}.json", wantErr: "the router rejects the path: a parameter must end its segment, unlike {id}.json"},
+		{name: "A literal segment that begins with a colon", path: "/t/:tid", wantErr: "the router rejects the path: a segment beginning with : is read as a parameter"},
+		{name: "A star in a literal", path: "/l/a*", wantErr: "the router rejects the path: * is read as a wildcard in a*"},
 		{name: "A parameter named twice", path: "/pets/{id}/{id}", wantErr: `the router rejects the path: parameter "id" is named twice`},
 	}
 	for _, tc := range tests {
@@ -105,6 +106,6 @@ func TestPathParam(t *testing.T) {
 	f := &layout.File{Path: "/work/gen.go", Package: "api"}
 	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
 
-	assert.Equal(t, `c.Param("pet-id")`, Framework{}.PathParam(s, "pet-id"))
-	assert.Empty(t, s.Imports.Decl())
+	assert.Equal(t, `runtime.UnescapePath(r, c.Param("pet-id"))`, Framework{}.PathParam(s, "pet-id"))
+	assert.Equal(t, `import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"`, s.Imports.Decl())
 }

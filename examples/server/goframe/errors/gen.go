@@ -7,8 +7,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/gogf/gf/v2/net/ghttp"
+	"github.com/gogf/gf/v2/text/gregex"
 	"github.com/gogf/gf/v2/util/guid"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
@@ -533,8 +535,8 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *ghttp.Server {
 		return h
 	}
 	register := func(s *ghttp.Server, route func(http.Handler) http.Handler) {
-		s.BindHandler("GET:/pets/{id}", handle(route(http.HandlerFunc(a.GetPet))))
-		s.BindHandler("PUT:/pets/{id}", handle(route(http.HandlerFunc(a.PutPet))))
+		s.BindHandler("GET:/pets/{id}", handle(route(strict("GET", http.HandlerFunc(a.GetPet)))))
+		s.BindHandler("PUT:/pets/{id}", handle(route(strict("PUT", http.HandlerFunc(a.PutPet)))))
 	}
 
 	if s, _ := o.Router.(*ghttp.Server); s != nil {
@@ -550,7 +552,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *ghttp.Server {
 
 func handle(h http.Handler) ghttp.HandlerFunc {
 	return func(r *ghttp.Request) {
-		for name, value := range r.GetRouterMap() {
+		for name, value := range values(r) {
 			r.Request.SetPathValue(name, value)
 		}
 		// Past GoFrame's buffer, so a status without a body stays without one.
@@ -565,4 +567,34 @@ func notFound(h http.Handler) ghttp.HandlerFunc {
 			handle(h)(r)
 		}
 	}
+}
+
+func strict(method string, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// GoFrame also picks a route by Access-Control-Request-Method on OPTIONS and by X-Url-Path.
+		if routed := r.Header.Get("X-Url-Path"); r.Method != method || routed != "" && routed != r.URL.Path {
+			http.NotFound(w, r)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+}
+
+func values(r *ghttp.Request) map[string]string {
+	// GoFrame unescapes each value of the path it already unescaped, so they are read again here.
+	if r.Router == nil {
+		return r.GetRouterMap()
+	}
+	match, _ := gregex.MatchString(r.Router.RegRule, r.URL.EscapedPath())
+	if len(match) != len(r.Router.RegNames)+1 {
+		return r.GetRouterMap()
+	}
+	out := make(map[string]string, len(r.Router.RegNames))
+	for i, name := range r.Router.RegNames {
+		out[name] = match[i+1]
+		if value, err := url.PathUnescape(match[i+1]); err == nil {
+			out[name] = value
+		}
+	}
+	return out
 }

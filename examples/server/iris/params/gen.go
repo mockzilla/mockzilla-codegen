@@ -800,6 +800,8 @@ func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, r
 	}
 }
 
+type routerKey struct{}
+
 // WithRouter registers the routes on app instead of a new Application. The caller builds app.
 func WithRouter(app *iris.Application) ServerOption {
 	return func(o *ServerOptions) {
@@ -831,8 +833,12 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *iris.Application {
 	}
 	app := iris.New()
 	app.Configure(iris.WithoutAutoFireStatusCode)
+	// The router comes with the request, so the middleware is set up once and follows a refresh.
+	routed := wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Context().Value(routerKey{}).(http.HandlerFunc)(w, r)
+	}))
 	app.WrapRouter(func(w http.ResponseWriter, r *http.Request, router http.HandlerFunc) {
-		wrap(router).ServeHTTP(w, r)
+		routed.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), routerKey{}, router)))
 	})
 	register(app, func(h http.Handler) http.Handler { return h })
 	if err := app.Build(); err != nil {

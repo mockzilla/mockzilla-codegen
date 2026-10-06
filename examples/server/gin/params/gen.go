@@ -818,7 +818,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *gin.Engine {
 		return h
 	}
 	register := func(e *gin.Engine, route func(http.Handler) http.Handler) {
-		e.GET("/path/:simple/:label/:matrix/:list", handle(route(http.HandlerFunc(a.PathStyles))))
+		e.GET("/path/:simple/:label/:matrix/:list", handle(route(http.HandlerFunc(a.PathStyles)), "simple", "label", "matrix", "list"))
 		e.GET("/query", handle(route(http.HandlerFunc(a.QueryStyles))))
 		e.GET("/header", handle(route(http.HandlerFunc(a.HeaderStyles))))
 		e.GET("/cookie", handle(route(http.HandlerFunc(a.CookieStyles))))
@@ -835,10 +835,15 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *gin.Engine {
 	return e
 }
 
-func handle(h http.Handler) gin.HandlerFunc {
+func handle(h http.Handler, names ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		for _, p := range c.Params {
-			c.Request.SetPathValue(p.Key, p.Value)
+		// gin holds one name at a position for every route, so the spec's names come by position.
+		for i, p := range c.Params {
+			name := p.Key
+			if i < len(names) {
+				name = names[i]
+			}
+			c.Request.SetPathValue(name, p.Value)
 		}
 		h.ServeHTTP(c.Writer, c.Request)
 	}

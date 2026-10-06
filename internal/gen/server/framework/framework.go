@@ -19,16 +19,6 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
 
-// Family says how a framework's handlers are shaped.
-type Family int
-
-const (
-	// NetHTTP frameworks take http.HandlerFunc handlers.
-	NetHTTP Family = iota
-	// Native frameworks take handlers of their own shape.
-	Native
-)
-
 // param is a path parameter as OpenAPI writes it; paramSegment is a segment that ends in one
 // parameter, with a literal prefix or without.
 var (
@@ -40,11 +30,13 @@ var (
 var methods = []string{"GET", "PUT", "POST", "DELETE", "OPTIONS", "HEAD", "PATCH", "TRACE"}
 
 // Route is one operation on the router. Pattern is the route as the framework writes it.
+// Names, when set, name its path values in the order the router holds them.
 type Route struct {
 	Operation string
 	Method    string
 	Path      string
 	Pattern   string
+	Names     []string
 }
 
 // Conflict is a route the router cannot hold next to an earlier one.
@@ -68,7 +60,6 @@ type Handler struct {
 // Framework is one HTTP framework a router is generated for.
 type Framework interface {
 	Name() string
-	Family() Family
 	Imports() []gomodel.Import
 	// RoutePattern writes an operation's method and OpenAPI path as the router takes them, or
 	// fails for a method or a path the router rejects.
@@ -88,28 +79,33 @@ type Framework interface {
 // Colon writes routes for a router that takes parameters as :name, running to the end of their
 // segment. Literal writes a literal piece of the path, or fails for one the router cannot hold;
 // Name writes the name of a parameter; Wildcard is what a trailing /* becomes. A parameter may
-// follow a literal prefix in its segment when IsPrefixAllowed is set.
+// follow a literal prefix in its segment when IsPrefixAllowed is set. IsWildcardNamed adds a free
+// name to the wildcard.
 type Colon struct {
 	Literal         func(s string) (string, error)
 	Name            func(name string) string
 	Wildcard        string
+	IsWildcardNamed bool
 	IsPrefixAllowed bool
 }
 
 // Pattern writes path as the router takes it. Besides what Check fails on, it fails on a
 // parameter with a suffix or one that shares its segment with another, a parameter with a prefix
 // unless IsPrefixAllowed, a parameter without a name or named twice, a * that is not a segment of
-// its own, and a literal Literal rejects.
+// its own, and a literal Literal rejects. It also fails on two names Name makes one.
 func (c Colon) Pattern(path string) (string, error) {
 	if err := Check(path); err != nil {
 		return "", err
 	}
 
 	segments := strings.Split(path[1:], "/")
-	var names []string
+	var names, given []string
 	for i, seg := range segments {
 		if seg == "*" {
 			segments[i] = c.Wildcard
+			if c.IsWildcardNamed {
+				segments[i] += RestName(given)
+			}
 			continue
 		}
 		if !strings.ContainsAny(seg, "{}") {
@@ -125,28 +121,41 @@ func (c Colon) Pattern(path string) (string, error) {
 			return "", fmt.Errorf("%w: a parameter must end its segment, unlike %s", ErrPattern, seg)
 		}
 		prefix := strings.TrimSuffix(seg, "{"+m[1]+"}")
+		name := c.Name(m[1])
 		switch {
 		case prefix != "" && !c.IsPrefixAllowed:
 			return "", fmt.Errorf("%w: a parameter must fill its segment, unlike %s", ErrPattern, seg)
 		case m[1] == "":
 			return "", fmt.Errorf("%w: a parameter has no name", ErrPattern)
-		case slices.Contains(names, m[1]):
-			return "", fmt.Errorf("%w: parameter %q is named twice", ErrPattern, m[1])
 		}
-		names = append(names, m[1])
+		if err := checkName(names, m[1], given, name); err != nil {
+			return "", err
+		}
+		names, given = append(names, m[1]), append(given, name)
 		lit, err := c.Literal(prefix)
 		if err != nil {
 			return "", err
 		}
-		segments[i] = lit + ":" + c.Name(m[1])
+		segments[i] = lit + ":" + name
 	}
 	return "/" + strings.Join(segments, "/"), nil
 }
 
-// HTTPHandler is the handler shape of the NetHTTP family: an http.HandlerFunc.
+// HTTPHandler is the handler shape of an http.HandlerFunc.
 func HTTPHandler(s *gocode.Scope) Handler {
 	pkg := s.Import(gomodel.Import{Path: "net/http"})
-	return Handler{Signature: "(w " + pkg + ".ResponseWriter, r *" + pkg + ".Request)", Return: "return"}
+	params := []string{gocode.Param("w", gocode.Selector(pkg, "ResponseWriter")), gocode.Param("r", gocode.Deref(gocode.Selector(pkg, "Request")))}
+	return Handler{Signature: gocode.Signature(params, ""), Return: gocode.Return()}
+}
+
+// ContextHandler is the shape of a handler that takes the router's context and returns nil.
+func ContextHandler(ctxType string) Handler {
+	return Handler{
+		Signature: gocode.Signature([]string{gocode.Param("c", ctxType)}, "error"),
+		Prologue:  gocode.Define([]string{"w", "r"}, gocode.Call(gocode.Selector("c", "Response")), gocode.Call(gocode.Selector("c", "Request"))),
+		Return:    gocode.Return("nil"),
+		Epilogue:  gocode.Return("nil"),
+	}
 }
 
 // Params lists the path parameters of a path, in order.
@@ -198,7 +207,8 @@ func ConflictsByKey(routes []Route, key func(Route) string) ([]Route, []Conflict
 
 // StaticFirst orders routes for a router that takes the first route that matches: at each
 // segment a literal comes before a parameter and a parameter before a wildcard, and routes that
-// tie keep their order, so no route shadows a more specific one after it.
+// tie keep their order, so no route shadows a more specific one after it. A parameter next to a
+// literal comes before one alone, the longer literal first.
 func StaticFirst(routes []Route) []Route {
 	out := slices.Clone(routes)
 	slices.SortStableFunc(out, func(a, b Route) int { return slices.Compare(ranks(a.Path), ranks(b.Path)) })
@@ -221,6 +231,11 @@ func Identifier(name string) string {
 		}
 	}
 	return b.String()
+}
+
+// Unmarked writes each colon and star of name, which routers read as a pattern, as an underscore.
+func Unmarked(name string) string {
+	return strings.NewReplacer(":", "_", "*", "_").Replace(name)
 }
 
 // CheckMethod fails on a method a router with one function per method has none for, such as
@@ -247,32 +262,48 @@ func Check(path string) error {
 	return nil
 }
 
-// Brace writes path for a router that takes parameters as {name} too, with a trailing /* as
-// wildcard. Besides what Check fails on, it fails on a * that is not a segment of its own, a
-// parameter without a name, one whose name holds a colon, which such routers read as the start
-// of a pattern, and a parameter named twice.
-func Brace(path, wildcard string) (string, error) {
+// Brace writes path for a router that takes {name} too, with names and a trailing /* as given.
+func Brace(path string, name, wildcard func(string) string) (string, error) {
 	if err := Check(path); err != nil {
 		return "", err
 	}
-	names := Params(path)
-	for i, name := range names {
-		switch {
-		case name == "":
-			return "", fmt.Errorf("%w: a parameter has no name", ErrPattern)
-		case strings.Contains(name, ":"):
-			return "", fmt.Errorf("%w: parameter %q holds a colon", ErrPattern, name)
-		case slices.Contains(names[:i], name):
-			return "", fmt.Errorf("%w: parameter %q is named twice", ErrPattern, name)
-		}
+	out, given, err := Rename(path, name)
+	if err != nil {
+		return "", err
 	}
-	switch rest, isWildcard := strings.CutSuffix(path, "/*"); {
+	switch rest, isWildcard := strings.CutSuffix(out, "/*"); {
 	case isWildcard:
-		return rest + "/" + wildcard, nil
-	case strings.HasSuffix(path, "*"):
+		return rest + "/" + wildcard(RestName(given)), nil
+	case strings.HasSuffix(out, "*"):
 		return "", fmt.Errorf("%w: * must be a segment of its own", ErrPattern)
 	}
-	return path, nil
+	return out, nil
+}
+
+// Rename writes each {name} of path as name gives it; a missing, repeated or merged name fails.
+func Rename(path string, name func(string) string) (string, []string, error) {
+	var names, given []string
+	for _, n := range Params(path) {
+		if n == "" {
+			return "", nil, fmt.Errorf("%w: a parameter has no name", ErrPattern)
+		}
+		if err := checkName(names, n, given, name(n)); err != nil {
+			return "", nil, err
+		}
+		names, given = append(names, n), append(given, name(n))
+	}
+	out := param.ReplaceAllStringFunc(path, func(m string) string { return "{" + name(m[1:len(m)-1]) + "}" })
+	return out, given, nil
+}
+
+// RestName names the value a trailing * takes the rest of the path into: rest, with an
+// underscore added for as long as a parameter of the path has the name.
+func RestName(taken []string) string {
+	name := "rest"
+	for slices.Contains(taken, name) {
+		name += "_"
+	}
+	return name
 }
 
 // Escaping writes a literal with each of the characters in special escaped by a backslash, as
@@ -288,6 +319,17 @@ func Escaping(special string) func(string) (string, error) {
 		}
 		return b.String(), nil
 	}
+}
+
+// EscapingColon escapes the colons of a literal, and fails on a leading colon or a star.
+func EscapingColon(s string) (string, error) {
+	switch {
+	case strings.HasPrefix(s, ":"):
+		return "", fmt.Errorf("%w: a segment beginning with : is read as a parameter", ErrPattern)
+	case strings.Contains(s, "*"):
+		return "", fmt.Errorf("%w: * is read as a wildcard in %s", ErrPattern, s)
+	}
+	return Escaping(":")(s)
 }
 
 // Rejecting writes a literal as it is, or fails when it holds one of the characters in special,
@@ -306,17 +348,31 @@ func Same(name string) string {
 	return name
 }
 
-// ranks is how general each segment of path is: 0 for a literal, 1 for a parameter, 2 for *.
+// checkName fails on a name given twice, or on one the router names as an earlier one.
+func checkName(names []string, name string, given []string, as string) error {
+	switch i := slices.Index(given, as); {
+	case slices.Contains(names, name):
+		return fmt.Errorf("%w: parameter %q is named twice", ErrPattern, name)
+	case i >= 0:
+		return fmt.Errorf("%w: parameters %q and %q are both %s on the router", ErrPattern, names[i], name, as)
+	}
+	return nil
+}
+
+// ranks is how general each segment of path is, two numbers each, in the order StaticFirst sorts by.
 func ranks(path string) []int {
 	var out []int
 	for _, seg := range strings.Split(strings.TrimPrefix(path, "/"), "/") {
+		literal := len(param.ReplaceAllString(seg, ""))
 		switch {
 		case seg == "*":
-			out = append(out, 2)
-		case strings.Contains(seg, "{"):
-			out = append(out, 1)
+			out = append(out, 3, 0)
+		case !strings.Contains(seg, "{"):
+			out = append(out, 0, 0)
+		case literal > 0:
+			out = append(out, 1, -literal)
 		default:
-			out = append(out, 0)
+			out = append(out, 2, 0)
 		}
 	}
 	return out

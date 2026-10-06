@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -77,6 +78,9 @@ func (e *HandlerError) Error() string {
 	case ErrorResponse:
 		return fmt.Sprintf("invalid response: %v", e.Err)
 	case ErrorService:
+		if errors.Is(e.Err, context.DeadlineExceeded) {
+			return "service unavailable"
+		}
 	}
 	return "internal server error"
 }
@@ -86,11 +90,13 @@ func (e *HandlerError) Unwrap() error {
 }
 
 // StatusCode is Status, or the code the kind implies: 400 for a bad request, 500 for the service
-// and its response.
+// and its response. A service out of time gets 503.
 func (e *HandlerError) StatusCode() int {
 	switch {
 	case e.Status != 0:
 		return e.Status
+	case e.Kind == ErrorService && errors.Is(e.Err, context.DeadlineExceeded):
+		return http.StatusServiceUnavailable
 	case e.Kind == ErrorService, e.Kind == ErrorResponse:
 		return http.StatusInternalServerError
 	}

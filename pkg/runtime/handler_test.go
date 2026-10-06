@@ -6,6 +6,7 @@
 package runtime
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -81,6 +82,15 @@ func TestHandlerError(t *testing.T) {
 	assert.Equal(t, "validation", ErrorValidation.String())
 	assert.Equal(t, "response", ErrorResponse.String())
 	assert.Equal(t, "unknown", ErrorKind(9).String())
+}
+
+func TestHandlerErrorDeadline(t *testing.T) {
+	t.Parallel()
+
+	err := HandlerError{Kind: ErrorService, Err: fmt.Errorf("query: %w", context.DeadlineExceeded)}
+
+	assert.Equal(t, "service unavailable", err.Error())
+	assert.Equal(t, http.StatusServiceUnavailable, err.StatusCode())
 }
 
 func TestDefaultErrorHandler(t *testing.T) {

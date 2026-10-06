@@ -613,7 +613,8 @@ func NewRouter(svc PetsInterface, opts ...ServerOption) *khttp.Server {
 		register(s.Route("/", filters...))
 		return s
 	}
-	s := khttp.NewServer(khttp.Filter(filters...))
+	// Without these, kratos ends each request after 1s and serves http.DefaultServeMux.
+	s := khttp.NewServer(khttp.Filter(filters...), khttp.Timeout(0), khttp.NotFoundHandler(nil), khttp.MethodNotAllowedHandler(nil))
 	register(s.Route("/"))
 	return s
 }

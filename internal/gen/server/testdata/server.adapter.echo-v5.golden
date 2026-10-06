@@ -208,7 +208,7 @@ func (a *HTTPAdapter) DeletePet(c *echo.Context) error {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "DeletePet"))
 	opts := &DeletePetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeletePetPathParams{}
-	if err := runtime.DecodePath(c.Param("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
+	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "DeletePet", ParamName: "id", ParamLocation: "path", Err: err})
 		return nil
 	}

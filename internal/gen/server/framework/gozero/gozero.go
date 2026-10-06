@@ -11,6 +11,7 @@ import (
 	"embed"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"path"
 	"strings"
 
@@ -40,10 +41,6 @@ func (Framework) Name() string {
 	return "go-zero"
 }
 
-func (Framework) Family() framework.Family {
-	return framework.NetHTTP
-}
-
 func (Framework) Imports() []gomodel.Import {
 	return []gomodel.Import{
 		{Path: importPath},
@@ -53,14 +50,13 @@ func (Framework) Imports() []gomodel.Import {
 	}
 }
 
-// RoutePattern writes each parameter as :name and drops a trailing slash, which go-zero does not
-// tell from none. A parameter fills its segment on go-zero, so a path fails when one has a prefix
-// or a suffix or shares a segment with another; a path also fails with a wildcard, which go-zero
-// has none of, when it is not clean, without a leading slash, with an unclosed brace, a literal
-// segment that begins with a colon, and a parameter without a name or named twice.
+// RoutePattern writes each parameter as :name without a trailing slash, and fails on TRACE and a *.
 func (Framework) RoutePattern(method, oasPath string) (string, error) {
 	if err := framework.CheckMethod(method); err != nil {
 		return "", err
+	}
+	if method == http.MethodTrace {
+		return "", fmt.Errorf("%w %s", framework.ErrMethod, method)
 	}
 
 	if strings.Contains(oasPath, "*") {
@@ -76,9 +72,7 @@ func (Framework) RoutePattern(method, oasPath string) (string, error) {
 	return pattern.Pattern(trimmed)
 }
 
-// Conflicts drops every route that matches the same requests as an earlier one of its method: a
-// repeat of it, one whose path parameters are named otherwise, or one that differs in the
-// trailing slash alone, which go-zero refuses as a duplicate.
+// Conflicts drops every route go-zero refuses as a duplicate of an earlier one, trailing slash aside.
 func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []framework.Conflict) {
 	return framework.ConflictsByKey(routes, func(r framework.Route) string {
 		return r.Method + " " + strings.TrimSuffix(framework.Shape(r.Path), "/")

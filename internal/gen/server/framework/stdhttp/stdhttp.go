@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
-	"path"
 	"regexp"
 	"slices"
 	"strings"
@@ -43,10 +42,6 @@ func (Framework) Name() string {
 	return "std-http"
 }
 
-func (Framework) Family() framework.Family {
-	return framework.NetHTTP
-}
-
 func (Framework) Imports() []gomodel.Import {
 	return []gomodel.Import{{Path: importPath}}
 }
@@ -60,8 +55,9 @@ func (Framework) RoutePattern(method, oasPath string) (string, error) {
 		return "", fmt.Errorf("%w %q", framework.ErrMethod, method)
 	case !strings.HasPrefix(oasPath, "/"):
 		return "", fmt.Errorf("%w: it must begin with /", framework.ErrPattern)
-	case oasPath != cleanPath(oasPath):
-		return "", fmt.Errorf("%w: it is not a clean path", framework.ErrPattern)
+	}
+	if err := framework.CheckClean(oasPath); err != nil {
+		return "", err
 	}
 
 	segments := strings.Split(oasPath[1:], "/")
@@ -72,7 +68,7 @@ func (Framework) RoutePattern(method, oasPath string) (string, error) {
 		case seg == "" && isLast:
 			segments[i] = "{$}"
 		case seg == "*" && isLast:
-			segments[i] = "{" + restName(names) + "...}"
+			segments[i] = "{" + framework.RestName(names) + "...}"
 		case !strings.Contains(seg, "{"):
 		case len(framework.Params(seg)) == 0:
 			return "", fmt.Errorf("%w: a { has no }", framework.ErrPattern)
@@ -132,25 +128,6 @@ func isToken(method string) bool {
 		return !isAlnum && !strings.ContainsRune(methodMarks, r)
 	}
 	return method != "" && !strings.ContainsFunc(method, isRejected)
-}
-
-// cleanPath is the path as ServeMux cleans it, which keeps a trailing slash.
-func cleanPath(p string) string {
-	np := path.Clean(p)
-	if strings.HasSuffix(p, "/") && np != "/" {
-		np += "/"
-	}
-	return np
-}
-
-// restName names the wildcard a trailing * becomes: rest, with an underscore added for as long as
-// a parameter of the path has the name.
-func restName(taken []string) string {
-	name := "rest"
-	for slices.Contains(taken, name) {
-		name += "_"
-	}
-	return name
 }
 
 // reason is why ServeMux panics on r: the earliest kept route it conflicts with, or its pattern

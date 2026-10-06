@@ -12,6 +12,7 @@ import (
 	"cmp"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -33,6 +34,21 @@ type Request struct {
 	WantStatus  int
 	WantBody    string
 	WantHeaders map[string]string
+}
+
+// Paths are the requests of the paths example that every router answers alike.
+var Paths = []Request{
+	{Name: "A parameter", Path: "/v1/rex", WantBody: "getName rex"},
+	{Name: "An escaped at sign", Path: "/v1/john%40example.com", WantBody: "getName john@example.com"},
+	{Name: "An escaped space", Path: "/v1/a%20b", WantBody: "getName a b"},
+	{Name: "A plus stays a plus", Path: "/v1/a+b", WantBody: "getName a+b"},
+	{Name: "An escaped percent sign", Path: "/v1/100%25", WantBody: "getName 100%"},
+	{Name: "An escaped letter", Path: "/v1/h%C3%A9", WantBody: "getName hé"},
+	{Name: "An escaped colon", Path: "/v1/x%3Ay", WantBody: "getName x:y"},
+	{Name: "A query", Path: "/v1/rex?tag=a", WantBody: "getName rex a"},
+	{Name: "A parameter named otherwise at one position", Path: "/v1/rex/children", WantBody: "getChildren rex"},
+	{Name: "A colon in a parameter name", Path: "/geo/1:2", WantBody: "getGeo 1:2"},
+	{Name: "A form body on DELETE", Method: "DELETE", Path: "/v1/rex", Body: "reason=old", ContentType: "application/x-www-form-urlencoded", WantBody: "deleteName rex old"},
 }
 
 // Basic are the requests of the basic example, in an order that creates a pet before it reads
@@ -184,6 +200,25 @@ var Params = []Request{
 		Path:     "/search",
 		WantBody: `{"search":null}`,
 	},
+}
+
+// KeepAlive sends /v1/rex with the tags a, b and c on one connection to the server serve runs.
+func KeepAlive(t *testing.T, serve func(net.Listener)) {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = ln.Close() })
+	go serve(ln)
+	client := &http.Client{}
+	for _, tag := range []string{"a", "b", "c"} {
+		res, getErr := client.Get("http://" + ln.Addr().String() + "/v1/rex?tag=" + tag)
+		require.NoError(t, getErr)
+		_, err = io.Copy(io.Discard, res.Body)
+		require.NoError(t, err)
+		require.NoError(t, res.Body.Close())
+	}
+	client.CloseIdleConnections()
 }
 
 // Run sends every request to h, in order, and checks its response.

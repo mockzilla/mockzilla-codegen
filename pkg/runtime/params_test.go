@@ -7,6 +7,7 @@ package runtime
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"reflect"
 	"testing"
@@ -36,6 +37,31 @@ var (
 
 func explode(s Style, isExplode bool) Param {
 	return Param{Name: "color", Style: s, IsExplode: isExplode}
+}
+
+func TestUnescapePath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		path  string
+		value string
+		want  string
+	}{
+		{name: "A value cut from the raw path", path: "/users/john%40example.com", value: "john%40example.com", want: "john@example.com"},
+		{name: "An escaped slash", path: "/users/a%2Fb", value: "a%2Fb", want: "a/b"},
+		{name: "Without a raw path the value is unescaped already", path: "/users/100%25", value: "100%", want: "100%"},
+		{name: "A value that does not unescape", path: "/users/a%2Fb", value: "a%zz", want: "a%zz"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			r := httptest.NewRequest(http.MethodGet, tc.path, nil)
+
+			assert.Equal(t, tc.want, UnescapePath(r, tc.value))
+		})
+	}
 }
 
 func TestPathStyles(t *testing.T) {

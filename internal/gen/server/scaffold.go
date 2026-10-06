@@ -39,18 +39,19 @@ type ScaffoldOperationView struct {
 
 // ScaffoldMiddlewareView is the data of the middleware scaffold: the packages it imports.
 type ScaffoldMiddlewareView struct {
-	HTTP  string
-	Slog  string
-	Time  string
-	Rand  string
-	Debug string
+	Context string
+	HTTP    string
+	Slog    string
+	Time    string
+	Rand    string
+	Debug   string
 }
 
 // ScaffoldMainView is the data of the main scaffold. Middleware lists the middleware
 // expressions main passes, empty without the middleware scaffold; Timeout is a duration
 // expression. HTTP is set for the shared template, which serves with an http.Server; Framework
 // and Packages for the template of a framework that serves in its own way, as in the router's
-// view.
+// view. WithConfig is the option fiber and hertz make a new server with.
 type ScaffoldMainView struct {
 	Context        string
 	HTTP           string
@@ -62,6 +63,7 @@ type ScaffoldMainView struct {
 	Syscall        string
 	NewRouter      string
 	WithRouter     string
+	WithConfig     string
 	NewService     string
 	WithMiddleware string
 	Middleware     []string
@@ -94,11 +96,12 @@ func scaffoldServiceView(g *Generator, s *gocode.Scope) *ScaffoldServiceView {
 
 func scaffoldMiddlewareView(s *gocode.Scope) *ScaffoldMiddlewareView {
 	return &ScaffoldMiddlewareView{
-		HTTP:  s.Import(gomodel.Import{Path: "net/http"}),
-		Slog:  s.Import(gomodel.Import{Path: "log/slog"}),
-		Time:  s.Import(gomodel.Import{Path: "time"}),
-		Rand:  s.Import(gomodel.Import{Path: "crypto/rand"}),
-		Debug: s.Import(gomodel.Import{Path: "runtime/debug"}),
+		Context: s.Import(gomodel.Import{Path: "context"}),
+		HTTP:    s.Import(gomodel.Import{Path: "net/http"}),
+		Slog:    s.Import(gomodel.Import{Path: "log/slog"}),
+		Time:    s.Import(gomodel.Import{Path: "time"}),
+		Rand:    s.Import(gomodel.Import{Path: "crypto/rand"}),
+		Debug:   s.Import(gomodel.Import{Path: "runtime/debug"}),
 	}
 }
 
@@ -112,16 +115,17 @@ func scaffoldMainView(g *Generator, s *gocode.Scope) *ScaffoldMainView {
 		Syscall:        s.Import(gomodel.Import{Path: "syscall"}),
 		NewRouter:      s.Symbol(PartRouter, "NewRouter"),
 		WithRouter:     s.Symbol(PartRouter, "WithRouter"),
+		WithConfig:     s.Symbol(PartRouter, "WithConfig"),
 		NewService:     s.Symbol(layout.PartScaffoldService, "New"+g.opts.Name),
 		WithMiddleware: s.Symbol(PartAdapter, "WithMiddleware"),
 		Port:           g.opts.Port,
 		Timeout:        gocode.Duration(g.opts.Timeout, timePkg),
 	}
 	if fw := g.opts.Framework; ownsMain(fw) {
-		if uses(fw, mainTemplate, ".Framework") {
+		if uses(fw, mainTemplate, "", ".Framework") {
 			v.Framework = s.Import(fw.Imports()[0])
 		}
-		v.Packages = packages(fw, s, mainTemplate)
+		v.Packages = packages(fw, s, mainTemplate, "")
 	} else {
 		v.HTTP = s.Import(gomodel.Import{Path: "net/http"})
 	}
