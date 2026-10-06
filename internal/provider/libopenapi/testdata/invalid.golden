@@ -193,6 +193,44 @@ Components:
           Pattern: ^[a-z]+$
           Origin: invalid.yaml:53:22 /components/schemas/Unsupported/propertyNames
         Origin: invalid.yaml:51:7 /components/schemas/Unsupported
+    -
+      Name: Unbuildable
+      Value:
+        Types: object
+        Properties:
+          -
+            Name: tuple
+            Schema:
+              Types: array
+              Description: kept
+              Origin: invalid.yaml:61:16 /components/schemas/Unbuildable/properties/tuple
+          -
+            Name: word
+            Schema:
+              Types: array
+              Origin: invalid.yaml:62:15 /components/schemas/Unbuildable/properties/word
+          -
+            Name: flagged
+            Schema:
+              Origin: invalid.yaml:63:18 /components/schemas/Unbuildable/properties/flagged
+          -
+            Name: merged
+            Schema:
+              Origin: invalid.yaml:64:17 /components/schemas/Unbuildable/properties/merged
+          -
+            Name: open
+            Schema:
+              Types: array
+              AllOf:
+                -
+                  Types: array
+                  Origin: invalid.yaml:65:51 /components/schemas/Unbuildable/properties/open/allOf/0
+              Origin: invalid.yaml:65:15 /components/schemas/Unbuildable/properties/open
+          -
+            Name: broken
+            Schema:
+              Origin: invalid.yaml:66:17 /components/schemas/Unbuildable/properties/broken
+        Origin: invalid.yaml:59:7 /components/schemas/Unbuildable
   Parameters:
     -
       Name: Bogus
@@ -237,3 +275,9 @@ Diagnostics:
   - warning keyword-unsupported invalid.yaml:56:70 /components/schemas/Unsupported/properties/list/contains: contains is not supported; generated types do not check it
   - warning keyword-unsupported invalid.yaml:56:99 /components/schemas/Unsupported/properties/list/minContains: minContains is not supported; generated types do not check it
   - warning keyword-unsupported invalid.yaml:57:22 /components/schemas/Unsupported/properties/other/not: not is not supported; generated types do not check it
+  - warning keyword-invalid invalid.yaml:61:56 /components/schemas/Unbuildable/properties/tuple/items: items must be a schema, not a list; it is left out
+  - warning keyword-invalid invalid.yaml:62:36 /components/schemas/Unbuildable/properties/word/items: items must be a schema, not "type:string"; it is left out
+  - warning keyword-invalid invalid.yaml:63:24 /components/schemas/Unbuildable/properties/flagged/not: not must be a schema, not true; it is left out
+  - warning keyword-invalid invalid.yaml:64:25 /components/schemas/Unbuildable/properties/merged/allOf: allOf must be a list of schemas, not an object; it is left out
+  - warning keyword-invalid invalid.yaml:65:77 /components/schemas/Unbuildable/properties/open/contains: contains must be a schema, not a list; it is left out
+  - error schema-build invalid.yaml:66:17 /components/schemas/Unbuildable/properties/broken: schema cannot be built: dependentRequired value must be an array, found 8

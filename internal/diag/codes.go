@@ -36,6 +36,7 @@ const (
 	CodeUnionSelf              = "union-self"
 	CodeUnionAmbiguous         = "union-ambiguous"
 	CodePatternUnsupported     = "pattern-unsupported"
+	CodeLimitUnsupported       = "limit-unsupported"
 	CodeErrorMapping           = "error-mapping"
 	CodeExtensionUnknown       = "extension-unknown"
 	CodeExtensionValue         = "extension-value"

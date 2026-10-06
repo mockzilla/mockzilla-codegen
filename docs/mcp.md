@@ -135,6 +135,8 @@ validates every call against:
   cannot compile, such as one with a lookahead or a repeat count above 1000, is left out with a
   `pattern-unsupported` warning, since the SDK panics on it too. A default that does not match
   its pattern is left out as above.
+- A count, such as `maxLength` or `minItems`, above 2147483647 is left out with a
+  `limit-unsupported` warning. The SDK holds counts as 32-bit numbers and panics on a larger one.
 - No other property is allowed, so a misspelled parameter is an error the assistant sees, not a
   parameter silently dropped.
 

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"iter"
 	"maps"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -95,7 +96,7 @@ func (b *Builder) schema(s *spec.Schema, hidden []string) *Object {
 	b.objects(o, s, hidden)
 	b.arrays(o, s)
 	b.values(o, s)
-	limits(o, s)
+	b.limits(o, s)
 	b.pattern(o, s)
 	return o
 }
@@ -261,6 +262,35 @@ func (b *Builder) pattern(o *Object, s *spec.Schema) {
 	o.Set("pattern", re.String())
 }
 
+// limits sets the bounds; an exclusive one is written as 2020-12 does, with the bound as the value.
+func (b *Builder) limits(o *Object, s *spec.Schema) {
+	l := s.Limits
+	setBound(o, "minimum", "exclusiveMinimum", l.Minimum)
+	setBound(o, "maximum", "exclusiveMaximum", l.Maximum)
+	if l.MultipleOf != nil {
+		o.Set("multipleOf", *l.MultipleOf)
+	}
+	b.count(o, s, "minLength", l.MinLength)
+	b.count(o, s, "maxLength", l.MaxLength)
+	b.count(o, s, "minItems", l.MinItems)
+	b.count(o, s, "maxItems", l.MaxItems)
+	setBool(o, "uniqueItems", l.UniqueItems)
+	b.count(o, s, "minProperties", l.MinProperties)
+	b.count(o, s, "maxProperties", l.MaxProperties)
+}
+
+// count sets the count keyword key. One above what the MCP SDK holds is left out with a warning,
+// since the SDK panics on it when the tool is added.
+func (b *Builder) count(o *Object, s *spec.Schema, key string, n *int64) {
+	switch {
+	case n == nil:
+	case *n > math.MaxInt32:
+		b.diags = append(b.diags, tooLarge(s, key, *n))
+	default:
+		o.Set(key, json.Number(strconv.FormatInt(*n, 10)))
+	}
+}
+
 // Value converts a spec value into what Object holds.
 func Value(v spec.Value) any {
 	switch v.Kind {
@@ -301,23 +331,6 @@ func core(o *Object, s *spec.Schema) {
 	}
 	setString(o, "contentEncoding", encoding)
 	setString(o, "contentMediaType", s.ContentMediaType)
-}
-
-// limits sets the bounds; an exclusive one is written as 2020-12 does, with the bound as the value.
-func limits(o *Object, s *spec.Schema) {
-	l := s.Limits
-	setBound(o, "minimum", "exclusiveMinimum", l.Minimum)
-	setBound(o, "maximum", "exclusiveMaximum", l.Maximum)
-	if l.MultipleOf != nil {
-		o.Set("multipleOf", *l.MultipleOf)
-	}
-	setCount(o, "minLength", l.MinLength)
-	setCount(o, "maxLength", l.MaxLength)
-	setCount(o, "minItems", l.MinItems)
-	setCount(o, "maxItems", l.MaxItems)
-	setBool(o, "uniqueItems", l.UniqueItems)
-	setCount(o, "minProperties", l.MinProperties)
-	setCount(o, "maxProperties", l.MaxProperties)
 }
 
 func valueList(vs []spec.Value) []any {
@@ -409,12 +422,6 @@ func setBound(o *Object, key, exclusiveKey string, b *spec.Bound) {
 	}
 }
 
-func setCount(o *Object, key string, n *int64) {
-	if n != nil {
-		o.Set(key, json.Number(strconv.FormatInt(*n, 10)))
-	}
-}
-
 func setString(o *Object, key, s string) {
 	if s != "" {
 		o.Set(key, s)
@@ -450,6 +457,17 @@ func unsupported(s *spec.Schema, err error) diag.Diagnostic {
 		Pointer:  s.Origin.Pointer,
 		Origin:   diag.Origin{File: s.Origin.File, Line: s.Origin.Line, Col: s.Origin.Col},
 		Message:  fmt.Sprintf("pattern %q is not RE2 (%v), so the tool input leaves it out", s.Pattern, err),
+	}
+}
+
+// tooLarge is the warning for the count n under key in s, which the MCP SDK cannot hold.
+func tooLarge(s *spec.Schema, key string, n int64) diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.Warning,
+		Code:     diag.CodeLimitUnsupported,
+		Pointer:  s.Origin.Pointer,
+		Origin:   diag.Origin{File: s.Origin.File, Line: s.Origin.Line, Col: s.Origin.Col},
+		Message:  fmt.Sprintf("%s %d is above %d, the most the MCP SDK takes, so the tool input leaves it out", key, n, math.MaxInt32),
 	}
 }
 

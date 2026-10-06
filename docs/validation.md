@@ -84,9 +84,10 @@ that checks nothing has no `Validate`.
 - `exclusiveMinimum` and `exclusiveMaximum` are read by their value: a number is the bound, `true`
   or `false` makes `minimum` or `maximum` exclusive. The form of the other version, a number in a
   3.0 spec or a boolean in a 3.1 one, still counts, with a warning (`keyword-version`).
-- A keyword whose value is of the wrong kind, such as `minLength: abc` or `required: true` on a
-  property, is left out, with a warning (`keyword-invalid`). A schema that is no object, such as
-  `name: string`, reads as any, with a warning (`schema-invalid`).
+- A keyword whose value is of the wrong kind, such as `minLength: abc`, `required: true` on a
+  property or `items` holding a list, is left out, with a warning (`keyword-invalid`). The rest of
+  the schema still counts. A schema that is no object, such as `name: string`, reads as any, with a
+  warning (`schema-invalid`).
 - `patternProperties`, `prefixItems`, `not`, `contains`, `minContains`, `maxContains`,
   `dependentRequired`, `dependentSchemas`, `unevaluatedProperties` and `unevaluatedItems` are not
   checked, with a warning (`keyword-unsupported`). So is `propertyNames` on a struct without
