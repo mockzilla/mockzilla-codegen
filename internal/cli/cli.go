@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/codegen"
 	"github.com/mockzilla/mockzilla-codegen/pkg/config"
@@ -30,8 +31,12 @@ const (
 const usage = `Usage: mockzilla-codegen <command> [flags]
 
 Commands:
-  generate [-c codegen.yaml] [-dry-run | -check] [-v] [spec]
+  generate [-c codegen.yaml] [-dry-run | -check] [-strict] [-v] [flags] [spec]
             Generate the files the config lists. A spec argument replaces spec.path.
+            Without a config file the defaults hold: models only, in ./gen.go.
+            -server <framework>, -client and -mcp turn a part on, -no-server,
+            -no-client and -no-mcp turn it off, -o and -package set the output.
+            Run mockzilla-codegen generate -h for every flag.
   schema    Print the JSON schema of the config file.
   version   Print the mockzilla-codegen version.
 `
@@ -99,4 +104,17 @@ func usageCode(err error) int {
 func fail(stderr io.Writer, err error) int {
 	_, _ = fmt.Fprintf(stderr, "%s: %v\n", program, err)
 	return ExitFail
+}
+
+func misuse(stderr io.Writer, message string) int {
+	_, _ = fmt.Fprintf(stderr, "%s: %s\n", program, message)
+	return ExitUsage
+}
+
+// plural writes n with the noun, which takes an s unless n is 1.
+func plural(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return strconv.Itoa(n) + " " + noun + "s"
 }

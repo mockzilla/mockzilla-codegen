@@ -6,8 +6,11 @@
 package cli
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -104,6 +107,181 @@ func TestGenerateSpecArgument(t *testing.T) {
 	assert.Equal(t, petGo, string(got))
 }
 
+func TestGenerateWithoutConfig(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "pets")
+	require.NoError(t, os.Mkdir(dir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "api.yaml"), []byte(petSpec), 0o600))
+	t.Chdir(dir)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(petSpec))
+	}))
+	t.Cleanup(srv.Close)
+	elsewhere := filepath.Join(t.TempDir(), "gen.go")
+
+	tests := []struct {
+		name        string
+		args        []string
+		wantCode    int
+		wantStderr  string
+		wantFile    string
+		wantPackage string
+	}{
+		{name: "Spec alone writes models to gen.go", args: []string{"api.yaml"}, wantFile: "gen.go", wantPackage: "pets"},
+		{name: "Spec URL", args: []string{srv.URL + "/api.yaml"}, wantFile: "gen.go", wantPackage: "pets"},
+		{
+			name:        "Output and package",
+			args:        []string{"api.yaml", "-o", "./out/models.go", "-package", "models"},
+			wantFile:    filepath.Join("out", "models.go"),
+			wantPackage: "models",
+		},
+		{name: "Absolute output", args: []string{"-o", elsewhere, "api.yaml"}, wantFile: elsewhere, wantPackage: "api"},
+		{name: "No spec", wantCode: ExitUsage, wantStderr: "mockzilla-codegen: no spec: pass one or create codegen.yaml\n"},
+		{
+			name:       "Missing named config",
+			args:       []string{"-c", "other.yaml", "api.yaml"},
+			wantCode:   ExitFail,
+			wantStderr: "mockzilla-codegen: read config: open " + filepath.Join(dir, "other.yaml") + ": no such file or directory\n",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			code, _, stderr := run(t, append([]string{"generate"}, tc.args...)...)
+
+			assert.Equal(t, tc.wantCode, code)
+			assert.Equal(t, tc.wantStderr, stderr)
+			if tc.wantFile == "" {
+				return
+			}
+			got, err := os.ReadFile(tc.wantFile)
+			require.NoError(t, err)
+			assert.Equal(t, strings.Replace(petGo, "package api", "package "+tc.wantPackage, 1), string(got))
+		})
+	}
+}
+
+func TestGenerateReadsConfigOfTheFolder(t *testing.T) {
+	cfg := project(t, "package: fromconfig\n")
+	t.Chdir(filepath.Dir(cfg))
+
+	code, _, stderr := run(t, "generate", "api.yaml")
+
+	assert.Equal(t, ExitOK, code, stderr)
+	got, err := os.ReadFile("gen.go")
+	require.NoError(t, err)
+	assert.Contains(t, string(got), "package fromconfig\n")
+}
+
+func TestGenerateFlags(t *testing.T) {
+	t.Parallel()
+
+	const (
+		models = "models.types,models.enums,models.unions,models.params,models.bodies,models.responses"
+		server = ",server.service,server.errors,server.adapter,server.router"
+		client = ",client.options,client.core,client.operations"
+		tools  = ",mcp.inputs,mcp.tools"
+	)
+	tests := []struct {
+		name      string
+		cfg       string
+		flags     []string
+		wantParts string
+	}{
+		{name: "Models by default", wantParts: models},
+		{name: "Server, client and MCP turned on", flags: []string{"-server", "chi", "-client", "-mcp"}, wantParts: models + server + client + tools},
+		{name: "Flags turn off what the config has", cfg: "server: {framework: chi}\nclient: {}\nmcp: {}\n", flags: []string{"-no-server", "-no-client", "-no-mcp"}, wantParts: models},
+		{name: "Flags that are on keep the config block", cfg: "client: {name: Pets}\n", flags: []string{"-client"}, wantParts: models + client},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := project(t, "spec: {path: api.yaml}\n"+tc.cfg)
+
+			code, stdout, stderr := run(t, append([]string{"generate", "-c", cfg, "-dry-run"}, tc.flags...)...)
+
+			require.Equal(t, ExitOK, code, stderr)
+			lines := strings.Split(strings.TrimSpace(stdout), "\n")
+			require.Len(t, lines, 2)
+			assert.Equal(t, tc.wantParts, strings.Fields(lines[1])[2])
+		})
+	}
+}
+
+func TestGenerateServerFlagReplacesTheFramework(t *testing.T) {
+	t.Parallel()
+
+	cfg := project(t, "spec: {path: api.yaml}\nserver: {framework: echo, name: Pets}\n")
+
+	code, _, stderr := run(t, "generate", "-c", cfg, "-server", "chi")
+
+	require.Equal(t, ExitOK, code, stderr)
+	got, err := os.ReadFile(filepath.Join(filepath.Dir(cfg), "gen.go"))
+	require.NoError(t, err)
+	assert.Contains(t, string(got), `"github.com/go-chi/chi/v5"`)
+	assert.NotContains(t, string(got), "labstack")
+	assert.Contains(t, string(got), "type PetsInterface interface")
+}
+
+func TestGenerateExitCode(t *testing.T) {
+	t.Parallel()
+
+	const warnSpec = `openapi: 3.1.0
+info: {title: pets, version: "1"}
+paths: {}
+components:
+  schemas:
+    Pet:
+      type: object
+      not: {required: [id]}
+      properties: {name: {type: string}}
+`
+	const errSpec = warnSpec + `    Loop1:
+      allOf: [{$ref: '#/components/schemas/Loop2'}, {properties: {one: {type: string}}}]
+    Loop2:
+      allOf: [{$ref: '#/components/schemas/Loop1'}, {properties: {two: {type: string}}}]
+`
+	tests := []struct {
+		name     string
+		spec     string
+		flags    []string
+		wantCode int
+		wantLast string
+	}{
+		{name: "Info passes with -strict", spec: petSpec, flags: []string{"-strict"}},
+		{name: "Warning passes", spec: warnSpec},
+		{name: "Warning fails with -strict", spec: warnSpec, flags: []string{"-strict"}, wantCode: ExitFail, wantLast: "mockzilla-codegen: failed on 1 warning"},
+		{name: "Error fails", spec: errSpec, wantCode: ExitFail, wantLast: "mockzilla-codegen: failed on 1 error"},
+		{name: "Dry run fails on an error", spec: errSpec, flags: []string{"-dry-run"}, wantCode: ExitFail, wantLast: "mockzilla-codegen: failed on 1 error"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "api.yaml"), []byte(tc.spec), 0o600))
+			cfg := filepath.Join(dir, "codegen.yaml")
+			require.NoError(t, os.WriteFile(cfg, []byte("spec: {path: api.yaml}\n"), 0o600))
+
+			code, _, stderr := run(t, append([]string{"generate", "-c", cfg}, tc.flags...)...)
+
+			assert.Equal(t, tc.wantCode, code, stderr)
+			lines := strings.Split(strings.TrimSpace(stderr), "\n")
+			if tc.wantLast != "" {
+				assert.Equal(t, tc.wantLast, lines[len(lines)-1])
+			}
+			if slices.Contains(tc.flags, "-dry-run") {
+				assert.NoFileExists(t, filepath.Join(dir, "gen.go"))
+				return
+			}
+			assert.FileExists(t, filepath.Join(dir, "gen.go"))
+		})
+	}
+}
+
 func TestGenerateDryRun(t *testing.T) {
 	t.Parallel()
 
@@ -163,6 +341,38 @@ func TestGenerateFailures(t *testing.T) {
 			args:       []string{"-dry-run", "-check"},
 			wantCode:   ExitUsage,
 			wantStderr: "mockzilla-codegen: -dry-run and -check do not go together\n",
+		},
+		{
+			name:       "Server on and off",
+			args:       []string{"-server", "chi", "-no-server"},
+			wantCode:   ExitUsage,
+			wantStderr: "mockzilla-codegen: -server and -no-server do not go together\n",
+		},
+		{
+			name:       "Client on and off",
+			args:       []string{"-client", "-no-client"},
+			wantCode:   ExitUsage,
+			wantStderr: "mockzilla-codegen: -client and -no-client do not go together\n",
+		},
+		{
+			name:       "MCP on and off",
+			args:       []string{"-mcp", "-no-mcp"},
+			wantCode:   ExitUsage,
+			wantStderr: "mockzilla-codegen: -mcp and -no-mcp do not go together\n",
+		},
+		{
+			name:       "MCP without a client",
+			cfg:        "spec: {path: api.yaml}\n",
+			args:       []string{"-mcp"},
+			wantCode:   ExitFail,
+			wantStderr: "mockzilla-codegen: invalid config: mcp: needs a client block\n",
+		},
+		{
+			name:       "Unknown framework",
+			cfg:        "spec: {path: api.yaml}\n",
+			args:       []string{"-server", "express"},
+			wantCode:   ExitFail,
+			wantStderr: `mockzilla-codegen: invalid config: server.framework: "express" is not one of beego, chi, echo, echo-v5, fasthttp, fiber, gin, go-zero, goframe, gorilla-mux, hertz, iris, kratos, std-http` + "\n",
 		},
 		{
 			name:     "Unknown flag",
@@ -273,6 +483,47 @@ func TestOutputDiagnostics(t *testing.T) {
 			o.diagnostics(list, tc.isVerbose)
 
 			assert.Equal(t, tc.want, stderr.String())
+		})
+	}
+}
+
+func TestOutputVerdict(t *testing.T) {
+	t.Parallel()
+
+	warning := codegen.Diagnostic{Severity: codegen.SeverityWarning}
+	tests := []struct {
+		name       string
+		list       []codegen.Diagnostic
+		isStrict   bool
+		wantCode   int
+		wantStderr string
+	}{
+		{name: "Info only", list: []codegen.Diagnostic{{Severity: codegen.SeverityInfo}}, isStrict: true},
+		{name: "Warnings without -strict", list: []codegen.Diagnostic{warning}},
+		{
+			name:       "Warnings with -strict",
+			list:       []codegen.Diagnostic{warning, warning},
+			isStrict:   true,
+			wantCode:   ExitFail,
+			wantStderr: "mockzilla-codegen: failed on 2 warnings\n",
+		},
+		{
+			name:       "One error",
+			list:       []codegen.Diagnostic{warning, {Severity: codegen.SeverityError}},
+			wantCode:   ExitFail,
+			wantStderr: "mockzilla-codegen: failed on 1 error\n",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var stderr strings.Builder
+			o := &output{stderr: &stderr}
+
+			assert.Equal(t, tc.wantCode, o.verdict(tc.list, tc.isStrict))
+			assert.Equal(t, tc.wantStderr, stderr.String())
 		})
 	}
 }

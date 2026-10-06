@@ -28,7 +28,20 @@ compile (see [Runtime guard](#runtime-guard)).
 
 ## First run
 
-Put the spec and a config next to each other:
+A spec is enough:
+
+```sh
+go tool mockzilla-codegen generate openapi.yaml
+```
+
+With no `codegen.yaml` in the current folder, the defaults hold: the models of the spec go to
+`./gen.go`, in a package named after the folder. Flags turn on more:
+
+```sh
+go tool mockzilla-codegen generate openapi.yaml -server chi -client -o ./api/gen.go
+```
+
+For anything else, put the spec and a config next to each other:
 
 ```yaml
 # codegen.yaml
@@ -55,23 +68,34 @@ To run it from `go generate`, add this line to any Go file of the package:
 
 ## Commands
 
-`mockzilla-codegen generate [-c codegen.yaml] [-dry-run | -check] [-v] [spec]`
+`mockzilla-codegen generate [-c codegen.yaml] [-dry-run | -check] [-strict] [-v] [flags] [spec]`
 
 | Flag | Meaning |
 |---|---|
-| `-c` | Config file. Defaults to `codegen.yaml` in the current folder. |
+| `-c` | Config file. Without it, `codegen.yaml` in the current folder when it exists, else the defaults. |
 | `-dry-run` | Print every file, its package, its parts and whether it would be written. Write nothing. |
 | `-check` | Write nothing. Exit 1 and list the generated files that are missing or differ from a new run. |
+| `-strict` | Exit 1 on a warning too, not only on an error. |
 | `-v` | Also print info diagnostics, and the table of files written. |
-| `spec` | A spec file that replaces `spec.path`, relative to the current folder. |
+| `-server <framework>` | Generate a server for the framework. Replaces `server.framework` of the config. |
+| `-client`, `-mcp` | Generate a client, or MCP tools, which need a client. |
+| `-no-server`, `-no-client`, `-no-mcp` | Leave that part out, whatever the config says. |
+| `-o <file>` | Replaces `output.file`, relative to the current folder. |
+| `-package <name>` | Replaces `package`. |
+| `spec` | A spec file or URL that replaces `spec.path`, relative to the current folder. |
 
-Warnings and errors about the spec go to stderr on every run, info only with `-v`. Flags may come
-before or after the spec.
+A flag wins over the config: `generate -no-client` skips the client a config has. A part turned
+on by a flag gets the defaults of its block. Flags may come before or after the spec.
+
+Warnings and errors about the spec go to stderr on every run, info only with `-v`. The files are
+written either way.
 
 `mockzilla-codegen schema` prints the JSON schema of the config file. `mockzilla-codegen version`
 prints the version.
 
-Exit codes: 0 on success, 1 on a failure or stale files with `-check`, 2 on wrong usage.
+Exit codes: 0 on success; 1 on a failure, an error printed (a warning too with `-strict`) or stale
+files with `-check`; 2 on wrong usage. `generate -dry-run -strict` checks a spec in CI without
+writing anything.
 
 ## Check in CI
 
