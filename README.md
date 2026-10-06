@@ -1,192 +1,129 @@
+<p align="center">
+  <img src="docs/images/gopher.svg" alt="A gopher turning an OpenAPI spec into Go code" width="280" />
+</p>
+
 # mockzilla-codegen
 
-Generate Go models, HTTP servers, clients and MCP tools from OpenAPI 3.0, 3.1 and 3.2 specs.
+[![CI](https://github.com/mockzilla/mockzilla-codegen/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/mockzilla/mockzilla-codegen/actions/workflows/ci.yaml?query=branch%3Amain)
+[![codecov](https://codecov.io/gh/mockzilla/mockzilla-codegen/graph/badge.svg)](https://codecov.io/gh/mockzilla/mockzilla-codegen)
+[![Go Reference](https://pkg.go.dev/badge/github.com/mockzilla/mockzilla-codegen.svg)](https://pkg.go.dev/github.com/mockzilla/mockzilla-codegen)
+[![License](https://img.shields.io/github/license/mockzilla/mockzilla-codegen?cacheSeconds=3600)](LICENSE)
+
+Go models, HTTP servers, clients and MCP tools from OpenAPI 3.0, 3.1 and 3.2 specs.
 
 Status: early development. The config format and the generated API may still change.
 
-## Goals
+The goal is a generator that fits your project. The config says where every file goes. Any block of
+the built-in templates can be replaced. The output reads like Go a person wrote.
 
-- Every file's location is written in the config. One file or many, one package or several.
-- Consistent, deterministic names, with clashes resolved the same way on every run
-  ([naming rules](docs/naming.md)).
-- Pointers only where a value can be missing or null, or `runtime.Nullable[T]` that tells `null`
-  from absent ([nullable](docs/types.md#nullable)), and `allOf` merged into one struct
-  ([type rules](docs/types.md)).
-- One shape for `oneOf`/`anyOf` unions, whatever the number of variants
-  ([unions](docs/types.md#unions)).
-- Plain Go validation code, no reflection ([validation](docs/validation.md)).
-- Response types that are Go errors, with a message path you choose ([error types](docs/errors.md)).
-- Filters, overlays, pruning and spec simplification before generation.
-- `x-go-*` extensions and masking of sensitive values in logs ([extensions](docs/extensions.md)).
-- A service interface to implement, an HTTP adapter that decodes every parameter style and body
-  type, a router for chi, echo, gin, fiber, gorilla/mux, `http.ServeMux` and eight more, and starter
-  files ([server](docs/server.md)).
-- A client with one method per operation that returns the success body and turns other statuses
-  into typed errors, an envelope variant with every documented body and header, and a stream
-  variant that reads Server-Sent Events and line-delimited JSON frame by frame
-  ([client](docs/client.md)).
-- MCP tools over the client, one per operation with an input schema built from the spec, for the
-  official Go SDK, so an AI assistant calls the API ([MCP](docs/mcp.md)).
-- Blocks of the built-in templates the config replaces, and extra files written from your own
-  templates ([templates](docs/templates.md)).
+## Why this one
 
-## Getting started
+- An integration test generates, builds and runs the code of 2,200+ real-world specs.
+- You place every file: one file, many files, or a package per part
+  ([output files](docs/config.md#output-files)).
+- Pointers only where a value can be missing, `allOf` merged into one struct, one shape for every
+  union ([types](docs/types.md)).
+- Validation is plain Go code, no reflection ([validation](docs/validation.md)).
+- Each documented error response can be a Go error type ([error types](docs/errors.md)).
+- One spec gives a server for 14 routers, a client that streams, and MCP tools for AI assistants
+  ([server](docs/server.md), [client](docs/client.md), [MCP](docs/mcp.md)).
+
+Coming from another generator? The [migration guides](docs/migration.md) map its config, extensions
+and generated code to this one.
+
+## Quick start
+
+Go 1.26 or newer.
 
 ```sh
 go get -tool github.com/mockzilla/mockzilla-codegen/cmd/mockzilla-codegen
-go tool mockzilla-codegen generate openapi.yaml            # models in ./gen.go
-go tool mockzilla-codegen generate openapi.yaml -client    # and a client
-go tool mockzilla-codegen generate -c codegen.yaml         # what the config lists
+go tool mockzilla-codegen generate openapi.yaml               # models in ./gen.go
+go tool mockzilla-codegen generate openapi.yaml -server chi   # and a chi server
+go tool mockzilla-codegen generate -c codegen.yaml            # what the config lists
 ```
 
-The executable is `mockzilla-codegen`. [Getting started](docs/getting-started.md) covers the
-install, the commands, checking generated files in CI and the runtime version guard. Go 1.26 or
-newer. Coming from another generator: [migration](docs/migration.md) maps its config, extensions
-and generated code to this one.
+## Example
 
-## Configuration
-
-The config is a YAML file. Unknown keys are errors, and every problem is reported at once with its
-key path (`server.scaffold.port`). Paths are relative to the config file. `config.schema.json`
-describes every key; the first line of the example points editors at it.
-
-Every key, with example values:
+This spec:
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla-codegen/main/config.schema.json
-spec:
-  path: ./openapi.yaml
-  overlays: [./overlays/go-names.yaml]
-  filter:
-    include:
-      paths: [/pets]
-      tags: [pets]
-      operation-ids: [listPets]
-      webhooks: [newPet]
-      extensions: [x-public]
-      schema-properties: {Pet: [name, tag]}
-    exclude:
-      tags: [internal]
-  prune: true
-  simplify:
-    unions: true
-    optional-properties: {min: 1, max: 3, seed: 1}
-package: api
-header: "Copyright 2026 Acme. Code generated by mockzilla-codegen. DO NOT EDIT."
-naming:
-  initialisms: [PSP]
-  enum-prefix: true
-imports:
-  - package: github.com/google/uuid
-  - {package: example.com/shop/tenant, alias: tn}
-models:
-  int-type: int64
-  descriptions: false
-  extra-tags: [yaml]
-  validation: {response: true}
-  error-mapping: {ErrorResponse: error.message}
-  format-types: {uuid: {type: uuid.UUID}}
-  nullable: true
-server:
-  framework: chi
-  name: PetService
-  validation: {request: true, response: false}
-  multipart-max-memory: 64MB
-  scaffold:
-    service: ./api/service.go
-    middleware: ./api/middleware.go
-    main: ./cmd/server/main.go
-    overwrite: false
-    port: 9090
-    timeout: 45s
-client:
-  name: PetClient
-  timeout: 5s
-  with-response: true
-  streaming: true
-mcp:
-  default-skip: false
-templates:
-  server.service-header: {file: ./templates/header.tmpl}
-  server.request-options-extra: Tenant tn.ID
-user-context:
-  owner: platform
-output:
-  file: ./api/gen.go
-  files:
-    ./api/server.gen.go: [server]
-  packages: {./models: models}
-  format: true
+paths:
+  /pets/{id}:
+    get:
+      operationId: getPet
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        "200":
+          description: ok
+          content: {application/json: {schema: {$ref: "#/components/schemas/Pet"}}}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: integer}
+        name: {type: string, maxLength: 64}
+        tag: {type: string}
 ```
 
-Blocks:
+gives, among the rest:
 
-- `spec`: the input spec and how to prepare it (overlays, filter, prune, simplify).
-- `models`, `server`, `client`, `mcp`: what to generate. Models are always on. The other blocks
-  are on when present, even as a bare key (`mcp:`). `mcp` needs `client`.
-- `templates`, `user-context`: overrides of the template blocks a config may replace, and the
-  values they see as `.User` ([blocks](docs/templates.md#blocks)).
-- `extra-files`: files written from your own templates, on the service, the operations and the
-  types ([extra files](docs/templates.md#extra-files)).
-- `imports`: the packages that the text of a block or an `x-go-type` names. A generated file
-  imports one when its code refers to it ([imports](docs/templates.md#imports)).
-- `output`: where the files go. Only this block says where.
+```go
+type Pet struct {
+	ID   int     `json:"id"`
+	Name string  `json:"name"`
+	Tag  *string `json:"tag,omitempty"`
+}
 
-### Output files
+func (p Pet) Validate() error {
+	var errs validation.Errors
+	errs.Append("name", validation.MaxLength(p.Name, 64))
+	return errs.Err()
+}
 
-`output.file` is the default file for every part. `output.files` moves parts to other files with
-selectors, and the most specific selector wins. A selector can be listed only once.
-
-| Selector | Parts |
-|---|---|
-| `models` | every model part |
-| `models.<part>` | `types`, `enums`, `unions`, `params`, `bodies`, `responses` |
-| `server` | every server part |
-| `server.<part>` | `service`, `adapter`, `router`, `errors` |
-| `client`, `client.<part>` | `core`, `options`, `operations`, `responses` |
-| `mcp`, `mcp.<part>` | `tools`, `inputs` |
-
-The folder of `output.file` uses `package`. Other folders use `output.packages`, else their own
-name. `output.packages` wins over `package` when both name the same folder. Output in more than one
-folder needs a module path for the imports between them: from the nearest `go.mod`, or
-`output.module`. Folders that import each other are an error.
-
-The model parts refer to each other's types, so they share one folder: split them into files, not
-packages. `client.operations` sits with `client.core`, whose methods it declares. Every other part
-can have a package of its own. [examples/layout](examples/layout) generates one spec in five
-layouts: parts in several files of one package, models apart from the rest, each family in its
-own package, the service interface apart from the router, and a client in a folder that
-`output.packages` names.
-
-### Defaults
-
-| Key | Default |
-|---|---|
-| `package` | folder name of `output.file` |
-| `header` | `Code generated by mockzilla-codegen. DO NOT EDIT.` |
-| `output.file` | `./gen.go` |
-| `output.format` | `true` |
-| `spec.prune` | `true` |
-| `naming.enum-prefix` | `true` |
-| `models.int-type` | `int` |
-| `models.descriptions` | `true` |
-| `server.name` | `Service` |
-| `server.multipart-max-memory` | `32MB` |
-| `server.scaffold.port` | `8080` |
-| `server.scaffold.timeout` | `30s` |
-| `client.name` | `Client` |
-| `client.timeout` | `3s` |
-
-## Development
-
-```sh
-make help                                   # list targets
-make test PKG=./scripts/covercheck          # run one package's tests
-make check                                  # lint, 100% coverage gate, examples, tidy
-make examples                               # regenerate the golden examples in examples/
-make schema                                 # regenerate config.schema.json
+type ServiceInterface interface {
+	// GetPet handles GET /pets/{id}.
+	GetPet(ctx context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error)
+}
 ```
+
+You implement the service. The generated router decodes the request and writes the response:
+
+```go
+type pets struct{}
+
+func (pets) GetPet(ctx context.Context, opts *api.GetPetServiceRequestOptions) (*api.GetPetResponseData, error) {
+	return api.NewGetPetResponseData(&api.Pet{ID: opts.PathParams.ID, Name: "Rex"}), nil
+}
+
+http.ListenAndServe(":8080", api.NewRouter(pets{}))
+```
+
+## Docs
+
+| Guide | What it covers |
+|---|---|
+| [Getting started](docs/getting-started.md) | install, commands, checking generated files in CI, the runtime guard |
+| [Configuration](docs/config.md) | every key, output files, defaults |
+| [Types](docs/types.md) | how schemas become Go types: unions, `allOf`, nullable values |
+| [Naming](docs/naming.md) | how names are built and how clashes are resolved |
+| [Validation](docs/validation.md) | the generated checks for requests and responses |
+| [Error types](docs/errors.md) | response types that are Go errors |
+| [Extensions](docs/extensions.md) | the `x-go-*` extensions and masking of sensitive values |
+| [Server](docs/server.md) | the service interface, the HTTP adapter, 14 routers, starter files |
+| [Client](docs/client.md) | one method per operation, envelopes, streams |
+| [MCP](docs/mcp.md) | MCP tools over the client |
+| [Templates](docs/templates.md) | replacing template blocks, extra files from your own templates |
+| [Migration](docs/migration.md) | moving from another generator |
+
+## Contributing
+
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) lists the make targets, the
+checks a pull request has to pass, and how to add a router.
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE). The Go gopher was designed by Renée French and is licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The gopher above is a new drawing of it.
