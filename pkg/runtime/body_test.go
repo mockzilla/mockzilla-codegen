@@ -79,6 +79,18 @@ type blob struct {
 	Tags  []string  `json:"tags"`
 }
 
+// parcel is a form body with a property for each kind of declared media type.
+type parcel struct {
+	ID    *string   `json:"id,omitempty"`
+	Doc   *File     `json:"doc,omitempty"`
+	Logo  *File     `json:"logo,omitempty"`
+	Pet   *address  `json:"pet,omitempty"`
+	Pets  []address `json:"pets,omitempty"`
+	Tags  []string  `json:"tags,omitempty"`
+	Note  string    `json:"note,omitempty"`
+	Plain []address `json:"plain,omitempty"`
+}
+
 type errReader struct{}
 
 func (errReader) Read([]byte) (int, error) {
@@ -188,7 +200,7 @@ func TestDecodeForm(t *testing.T) {
 			t.Parallel()
 
 			var got order
-			err := DecodeForm(strings.NewReader(tc.body), &got, tc.isRequired)
+			err := DecodeForm(strings.NewReader(tc.body), &got, tc.isRequired, nil)
 
 			if tc.wantErr != nil {
 				require.Error(t, err)
@@ -206,8 +218,8 @@ func TestDecodeForm(t *testing.T) {
 func TestDecodeFormEdges(t *testing.T) {
 	t.Parallel()
 
-	require.ErrorIs(t, DecodeForm(errReader{}, new(order), false), io.ErrUnexpectedEOF)
-	require.ErrorIs(t, DecodeForm(strings.NewReader("a=1"), order{}, false), ErrParamValue)
+	require.ErrorIs(t, DecodeForm(errReader{}, new(order), false, nil), io.ErrUnexpectedEOF)
+	require.ErrorIs(t, DecodeForm(strings.NewReader("a=1"), order{}, false, nil), ErrParamValue)
 }
 
 func TestDecodeFormText(t *testing.T) {
@@ -233,7 +245,7 @@ func TestDecodeFormText(t *testing.T) {
 			t.Parallel()
 
 			var got drawing
-			require.NoError(t, DecodeForm(strings.NewReader(tc.body), &got, false))
+			require.NoError(t, DecodeForm(strings.NewReader(tc.body), &got, false, nil))
 			assert.Equal(t, tc.want, got)
 		})
 	}
@@ -246,7 +258,7 @@ func TestDecodeFormTextErrors(t *testing.T) {
 		t.Run(body, func(t *testing.T) {
 			t.Parallel()
 
-			require.ErrorIs(t, DecodeForm(strings.NewReader(body), new(drawing), false), ErrParamValue)
+			require.ErrorIs(t, DecodeForm(strings.NewReader(body), new(drawing), false, nil), ErrParamValue)
 		})
 	}
 }
@@ -276,7 +288,7 @@ func TestDecodeFormBytesAndJSON(t *testing.T) {
 			t.Parallel()
 
 			var got blob
-			err := DecodeForm(strings.NewReader(tc.body), &got, false)
+			err := DecodeForm(strings.NewReader(tc.body), &got, false, nil)
 
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
@@ -292,7 +304,7 @@ func TestDecodeFormUnmarshaler(t *testing.T) {
 	t.Parallel()
 
 	var got *post
-	require.NoError(t, DecodeForm(strings.NewReader("id=1&name=Tom&meow=true"), &got, true))
+	require.NoError(t, DecodeForm(strings.NewReader("id=1&name=Tom&meow=true"), &got, true, nil))
 	assert.Equal(t, &post{ID: "1", Cat: &cat{Name: "Tom", Meow: true}}, got)
 
 	var feed struct {
@@ -300,7 +312,7 @@ func TestDecodeFormUnmarshaler(t *testing.T) {
 		Posts []post `json:"posts"`
 	}
 	body := "post[meow]=false&posts[0][image]=x&posts[0][caption]=c&posts[0][tags][0]=a&posts[0][tags][1]=b"
-	require.NoError(t, DecodeForm(strings.NewReader(body), &feed, true))
+	require.NoError(t, DecodeForm(strings.NewReader(body), &feed, true, nil))
 	assert.Equal(t, &post{Cat: &cat{}}, feed.Post)
 	assert.Equal(t, []post{{Photo: &photo{Caption: "c", Tags: []string{"a", "b"}}}}, feed.Posts)
 }
@@ -336,7 +348,7 @@ func TestDecodeMultipart(t *testing.T) {
 	})
 
 	var got upload
-	require.NoError(t, DecodeMultipart(r, &got, 0))
+	require.NoError(t, DecodeMultipart(r, &got, 0, nil))
 
 	assert.Equal(t, "Report", got.Title)
 	assert.Equal(t, []string{"a", "b"}, got.Tags)
@@ -364,7 +376,7 @@ func TestDecodeMultipartBytes(t *testing.T) {
 	})
 
 	var got blob
-	require.NoError(t, DecodeMultipart(r, &got, 0))
+	require.NoError(t, DecodeMultipart(r, &got, 0, nil))
 	assert.Equal(t, blob{Data: []byte("abc"), Opt: new([]byte{0, 1})}, got)
 
 	_, err := setFiles(reflect.ValueOf(&got.Data).Elem(), []*multipart.FileHeader{{Filename: "gone"}})
@@ -383,7 +395,7 @@ func TestDecodeMultipartUnmarshaler(t *testing.T) {
 	})
 
 	var got post
-	require.NoError(t, DecodeMultipart(r, &got, 0))
+	require.NoError(t, DecodeMultipart(r, &got, 0, nil))
 	assert.Equal(t, "9", got.ID)
 	require.NotNil(t, got.Photo)
 	assert.Equal(t, "a.png", got.Photo.Image.Name())
@@ -394,21 +406,21 @@ func TestDecodeMultipartEdges(t *testing.T) {
 
 	empty := multipartRequest(t, func(*multipart.Writer) {})
 	var got upload
-	require.NoError(t, DecodeMultipart(empty, &got, 1))
+	require.NoError(t, DecodeMultipart(empty, &got, 1, nil))
 	assert.Equal(t, upload{}, got)
 
-	require.ErrorIs(t, DecodeMultipart(multipartRequest(t, func(*multipart.Writer) {}), new(int), 0), ErrParamValue)
-	require.ErrorIs(t, DecodeMultipart(multipartRequest(t, func(*multipart.Writer) {}), 1, 0), ErrParamValue)
+	require.ErrorIs(t, DecodeMultipart(multipartRequest(t, func(*multipart.Writer) {}), new(int), 0, nil), ErrParamValue)
+	require.ErrorIs(t, DecodeMultipart(multipartRequest(t, func(*multipart.Writer) {}), 1, 0, nil), ErrParamValue)
 	require.ErrorIs(t, DecodeMultipart(multipartRequest(t, func(w *multipart.Writer) {
 		require.NoError(t, w.WriteField("count", "x"))
-	}), &got, 0), ErrParamValue)
+	}), &got, 0, nil), ErrParamValue)
 	require.Error(t, DecodeMultipart(multipartRequest(t, func(w *multipart.Writer) {
 		require.NoError(t, w.WriteField("address", "{"))
-	}), &got, 0))
+	}), &got, 0, nil))
 
 	plain := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("a=1"))
 	plain.Header.Set("Content-Type", "text/plain")
-	require.Error(t, DecodeMultipart(plain, &got, 0))
+	require.Error(t, DecodeMultipart(plain, &got, 0, nil))
 }
 
 func TestDecodeTextAndBytes(t *testing.T) {
@@ -471,4 +483,67 @@ func TestDecodeFile(t *testing.T) {
 			assert.Equal(t, tc.wantSize, f.Size())
 		})
 	}
+}
+
+func TestDecodeEncoding(t *testing.T) {
+	t.Parallel()
+
+	enc := Encoding{"id": "application/json", "pet": "application/json", "pets": "application/json", "tags": "application/json"}
+	tests := []struct {
+		name    string
+		body    string
+		want    parcel
+		wantErr string
+	}{
+		{name: "A JSON string", body: `id="p1"`, want: parcel{ID: Ptr("p1")}},
+		{name: "JSON null", body: `id=null`, want: parcel{}},
+		{name: "A list whole", body: `pets=[{"city":"A"},{"city":"B"}]`, want: parcel{Pets: []address{{City: "A"}, {City: "B"}}}},
+		{name: "A list item by item", body: `pets={"city":"A"}&pets={"city":"B"}`, want: parcel{Pets: []address{{City: "A"}, {City: "B"}}}},
+		{name: "A list of JSON strings", body: `tags="a"&tags=["b","c"]`, want: parcel{Tags: []string{"a", "b", "c"}}},
+		{name: "An object with brackets", body: `pet[city]=Rome`, want: parcel{Pet: &address{City: "Rome"}}},
+		{name: "Text that is no JSON", body: `id=p1`, wantErr: "id: invalid character 'p' looking for beginning of value"},
+		{name: "An item that is no JSON", body: `pets={"city":"A"}&pets=x`, wantErr: "pets: invalid character 'x' looking for beginning of value"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got parcel
+			err := DecodeForm(strings.NewReader(tc.body), &got, false, enc)
+
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestDecodeMultipartFilePartAsText(t *testing.T) {
+	t.Parallel()
+
+	r := multipartRequest(t, func(w *multipart.Writer) {
+		fw, err := w.CreateFormFile("pet", "blob")
+		require.NoError(t, err)
+		_, err = fw.Write([]byte(`{"city":"Rome"}`))
+		require.NoError(t, err)
+		fw, err = w.CreateFormFile("note", "note.txt")
+		require.NoError(t, err)
+		_, err = fw.Write([]byte("hi"))
+		require.NoError(t, err)
+	})
+
+	var got parcel
+	require.NoError(t, DecodeMultipart(r, &got, 0, Encoding{"pet": "application/json"}))
+	assert.Equal(t, parcel{Pet: &address{City: "Rome"}, Note: "hi"}, got)
+
+	r = multipartRequest(t, func(w *multipart.Writer) {
+		_, err := w.CreateFormFile("note", "gone")
+		require.NoError(t, err)
+	})
+	require.NoError(t, r.ParseMultipartForm(1<<20))
+	r.MultipartForm.File["note"][0] = &multipart.FileHeader{Filename: "gone"}
+	require.Error(t, DecodeMultipart(r, &got, 0, nil))
 }

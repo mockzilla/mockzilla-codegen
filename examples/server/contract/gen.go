@@ -563,7 +563,7 @@ func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case "application/x-www-form-urlencoded":
-		if err := runtime.DecodeForm(r.Body, &opts.BodyForm, true); err != nil {
+		if err := runtime.DecodeForm(r.Body, &opts.BodyForm, true, nil); err != nil {
 			a.failDecode(w, r, "CreatePet", err)
 			return
 		}

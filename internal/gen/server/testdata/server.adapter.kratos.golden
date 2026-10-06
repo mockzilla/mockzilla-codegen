@@ -140,13 +140,13 @@ func (a *HTTPAdapter) CreatePet(c khttp.Context) error {
 			return nil
 		}
 	case "application/x-www-form-urlencoded":
-		if err := runtime.DecodeForm(r.Body, &opts.BodyForm, true); err != nil {
+		if err := runtime.DecodeForm(r.Body, &opts.BodyForm, true, nil); err != nil {
 			a.failDecode(w, r, "CreatePet", err)
 			return nil
 		}
 	case "multipart/form-data":
 		opts.BodyMultipart = &Upload{}
-		if err := runtime.DecodeMultipart(r, opts.BodyMultipart, a.opts.MultipartMaxMemory); err != nil {
+		if err := runtime.DecodeMultipart(r, opts.BodyMultipart, a.opts.MultipartMaxMemory, nil); err != nil {
 			a.failDecode(w, r, "CreatePet", err)
 			return nil
 		}

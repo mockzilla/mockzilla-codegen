@@ -9,7 +9,9 @@ package gomodel
 
 import (
 	"cmp"
+	"maps"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -310,6 +312,9 @@ func dumpOperation(b *strings.Builder, op *Operation) {
 		b.WriteString("  body " + c.MediaType + " " + typeText(c.Type) + itemText(c))
 		if c.Body != nil {
 			b.WriteString(" checks=" + bodyText(c.Body))
+		}
+		for _, name := range slices.Sorted(maps.Keys(c.Encoding)) {
+			b.WriteString(" encoding=" + name + ":" + c.Encoding[name])
 		}
 		b.WriteString("\n")
 	}

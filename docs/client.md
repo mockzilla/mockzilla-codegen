@@ -114,8 +114,14 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
   JSON, the same way the client sends them; anything else is read as JSON. Media types are
   compared without their parameters and in lower case, so `application/json; charset=utf-8` is
   JSON; a request body goes under the media type as the spec writes it.
+- `<Op>` and `<Op>WithResponse` send `Accept` with every media type the responses of the
+  operation come in, the one `<Op>` returns first, then the others in the order of the spec:
+  `Accept: application/json, application/xml, application/problem+json`. Sequential media types
+  are left out; the stream methods ask for theirs. An `Accept` the request already has, set by an
+  editor, is kept.
 - `<Op>Request` builds the request without sending it, with the editors of the client and of the
   call applied. Use it to send through something else, to log, or to test what an operation sends.
+  It sets no `Accept`: the methods add it when they send.
 
 ## Request options
 
@@ -162,10 +168,22 @@ func (o *CreatePetRequestOptions) Validate() error
   `WriteMultipart`, a `runtime.File` body streamed, text and bytes as they are. A multipart form is
   written while it is sent, so its files stream too, each as a file part named `blob` when it has
   no name, as browsers name a Blob. It goes with a `Content-Length` when every file knows its
-  size, and chunked when one does not, such as a `runtime.NewFileReader` of size -1. With several body fields, the first one set is sent. A required body
+  size, and chunked when one does not, such as a `runtime.NewFileReader` of size -1. A list goes
+  as one part per item, a list of objects as one JSON part per item. With several body fields, the first one set is sent. A required body
   with none set is `runtime.ErrBodyEmpty`; a body the client cannot write, such as XML into a
   struct, is `runtime.ErrContentType`, and generation warns about it (`client-body-unwritable`). A
   wildcard media type sends its field as JSON, text or bytes, whichever the field is.
+- The `encoding` object of a form body names the content type of a property. Multipart and
+  url-encoded forms follow it. In a multipart form each part goes in that type:
+  `application/json` writes the JSON of the value, `"p1"` for a string, and any other type the
+  text of a string, number or boolean. A list goes item by item, each in that type. A file part
+  keeps the content type of its `runtime.File`, and takes the declared one when it has none. A
+  file without a type under a list or a wildcard, `image/png, image/jpeg`, is an error before
+  anything is sent, since only the caller knows which it is. In a url-encoded form a property
+  declared JSON is one field that holds its JSON, `meta={"a":1}`, also for a list. Of a list of
+  types the first one that fits is used. A property that holds an object under a type that is
+  not JSON cannot be written: `runtime.ErrContentType`, and generation warns
+  (`encoding-unsupported`).
 - `Validate` checks the parameters and the body against the spec, like the server's; the client
   does not call it on its own.
 
@@ -301,8 +319,10 @@ Server-Sent Events from a handler is not generated yet.
 
 ## Not supported yet
 
-- The `encoding` object of a body is not read: the parts of a form are written and read by their
-  schema types. Generation warns (`encoding-ignored`).
+- In the `encoding` object, `style`, `explode`, `allowReserved` and `headers` are not read. A
+  property with one of the first three is written and read by its schema type, and its
+  `contentType` is ignored, as the spec says. The encoding of a body that is a union, and of a
+  response, is not read either. Generation warns (`encoding-ignored`).
 
 ## Layout
 

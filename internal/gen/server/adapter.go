@@ -116,25 +116,28 @@ type ParamView struct {
 // parameters; OperationID is quoted; Target is the address of the options field; Type is the
 // struct a multipart form fills; Assign is the expression that turns text, data or file, the
 // decoded body, into the field's type; Return is the statement that leaves the handler. Check is
-// what the body is checked against before it is decoded, nil when it is not.
+// what the body is checked against before it is decoded, nil when it is not. Encoding is nil or the
+// variable encoding, which EncodingLiteral sets.
 type BodyView struct {
-	Kind        string
-	MediaType   string
-	Runtime     string
-	OperationID string
-	IsJSON      bool
-	IsForm      bool
-	IsMultipart bool
-	IsText      bool
-	IsBytes     bool
-	IsFile      bool
-	IsRequired  bool
-	Field       string
-	Target      string
-	Type        string
-	Assign      string
-	Return      string
-	Check       *PropView
+	Kind            string
+	MediaType       string
+	Runtime         string
+	OperationID     string
+	IsJSON          bool
+	IsForm          bool
+	IsMultipart     bool
+	IsText          bool
+	IsBytes         bool
+	IsFile          bool
+	IsRequired      bool
+	Field           string
+	Target          string
+	Type            string
+	Assign          string
+	Return          string
+	Check           *PropView
+	Encoding        string
+	EncodingLiteral string
 }
 
 // bodyAt is what the bodies of one operation share: the operation, the statement that leaves its
@@ -296,8 +299,10 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 		v.IsJSON, v.Check = true, at.table.root(c, v.Kind)
 	case bodyForm:
 		v.IsForm, v.Check = true, at.table.root(c, v.Kind)
+		v.Encoding, v.EncodingLiteral = encodingOf(c, v.Runtime)
 	case bodyMultipart:
 		v.IsMultipart, v.Type, v.Check = true, s.Expr(base), at.table.root(c, v.Kind)
+		v.Encoding, v.EncodingLiteral = encodingOf(c, v.Runtime)
 	case bodyFile:
 		v.IsFile, v.Assign = true, convert("file", conversion{raw: fileType, target: base, isPointer: isPointer}, s)
 	case bodyText:
@@ -306,6 +311,14 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 		v.IsBytes, v.Assign = true, convert("data", conversion{raw: bytesType, target: base, isPointer: isPointer}, s)
 	}
 	return v
+}
+
+// encodingOf is what a form body is read with, nil or encoding, and the literal of encoding.
+func encodingOf(c gomodel.Content, runtimePkg string) (string, string) {
+	if len(c.Encoding) == 0 {
+		return "nil", ""
+	}
+	return "encoding", operation.Encoding(c, runtimePkg)
 }
 
 // bodyKind picks the decoder of a media type by the type of its field: JSON and forms decode into

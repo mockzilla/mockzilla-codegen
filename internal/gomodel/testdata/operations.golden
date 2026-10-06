@@ -62,7 +62,7 @@ op PostPetsID POST /pets/{id}
   body application/json PostPetsIDJSONRequestBody
   body text/plain PostPetsIDTextRequestBody
   body application/xml Pet
-  body multipart/form-data PostPetsIDMultipartRequestBody
+  body multipart/form-data PostPetsIDMultipartRequestBody encoding=photo:image/png
   response 201 application/json PostPetsIDResponse201
 op PostPetAdded POST petAdded
   body application/json PostPetAddedRequestBody
@@ -70,6 +70,5 @@ op PostPetAdded POST petAdded
 warning duplicate-param 11:11 /paths/~1pets~1{id}/get/parameters/1: query parameter "status" is listed again; only the first one is used
 warning querystring-unsupported 15:11 /paths/~1pets~1{id}/get/parameters/5: querystring parameter "raw" gets no field and is neither sent nor read: the operation has query parameters too
 info name-clash 35:7 /paths/~1pets~1{id}/put: "GetPet" is used by /paths/~1pets~1{id}/get, renamed to "GetPet2"
-warning encoding-ignored 50:13 /paths/~1pets~1{id}/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data is not supported yet; its parts are written and read by their schema types
 info name-clash 70:41 /components/parameters/Pet/schema: "Pet" is used by /components/schemas/Pet, renamed to "PetParameter"
 info name-clash 83:36 /components/responses/Pet/content/application~1json/schema: "Pet" is used by /components/schemas/Pet, renamed to "PetResponse"

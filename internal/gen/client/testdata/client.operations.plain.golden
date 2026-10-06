@@ -19,7 +19,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *types.ListPetsRequestOpt
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json, application/xml", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *types.CreatePetRequestO
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json, application/xml, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -90,9 +90,9 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *types.CreatePetR
 	case opts.BodyJSON != nil:
 		b.JSONBody(opts.BodyJSON, "application/json")
 	case opts.BodyForm != nil:
-		b.FormBody(opts.BodyForm)
+		b.FormBody(opts.BodyForm, nil)
 	case opts.BodyMultipart != nil:
-		b.MultipartBody(opts.BodyMultipart)
+		b.MultipartBody(opts.BodyMultipart, nil)
 	case opts.BodyText != "":
 		b.TextBody(opts.BodyText, "text/plain")
 	case opts.BodyMarkdown != nil:
@@ -117,7 +117,7 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *types.DeletePetRequestO
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func (c *PetClient) Ping(ctx context.Context, opts *types.PingRequestOptions, ed
 	if err != nil {
 		return "", err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "text/plain, text/xml, image/*, application/json", c.timeout)
 	if err != nil {
 		return "", err
 	}
@@ -183,7 +183,7 @@ func (c *PetClient) Query(ctx context.Context, opts *types.QueryRequestOptions, 
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
@@ -209,7 +209,7 @@ func (c *PetClient) Chat(ctx context.Context, opts *types.ChatRequestOptions, ed
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +260,7 @@ func (c *PetClient) Tail(ctx context.Context, opts *types.TailRequestOptions, ed
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, c.timeout)
+	res, body, err := runtime.Send(c.doer, req, "application/x-ndjson", c.timeout)
 	if err != nil {
 		return nil, err
 	}

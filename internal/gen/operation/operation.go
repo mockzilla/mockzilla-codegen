@@ -5,16 +5,18 @@
 
 // Package operation holds what the server, the client and the MCP generators share about an
 // operation: the fields its parameters and bodies go in, the Go type of a body, the status code a
-// response key names, how the runtime names a parameter's style, and the parts the types of an
-// operation are declared in.
+// response key names, how the runtime names a parameter's style, the encoding of a form body,
+// and the parts the types of an operation are declared in.
 package operation
 
 import (
 	"cmp"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/gocode"
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/layout"
 	"github.com/mockzilla/mockzilla-codegen/internal/naming"
@@ -125,6 +127,18 @@ func FrameType(c gomodel.Content) gomodel.Type {
 func BaseMediaType(mediaType string) string {
 	base, _, _ := strings.Cut(strings.ToLower(mediaType), ";")
 	return strings.TrimSpace(base)
+}
+
+// Encoding writes the runtime.Encoding of a form body, nil when it declares none.
+func Encoding(c gomodel.Content, runtimePkg string) string {
+	if len(c.Encoding) == 0 {
+		return "nil"
+	}
+	elems := make([]gocode.KeyValue, 0, len(c.Encoding))
+	for _, name := range slices.Sorted(maps.Keys(c.Encoding)) {
+		elems = append(elems, gocode.KeyValue{Key: gocode.Quote(name), Value: gocode.Quote(c.Encoding[name])})
+	}
+	return gocode.Composite(gocode.Selector(runtimePkg, "Encoding"), elems)
 }
 
 // FirstBody is the JSON body of a response, else its first one.

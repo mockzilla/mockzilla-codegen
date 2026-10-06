@@ -154,6 +154,28 @@ func TestQueryStringType(t *testing.T) {
 	}
 }
 
+func TestEncoding(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		encoding map[string]string
+		want     string
+	}{
+		{name: "None", want: "nil"},
+		{name: "One on one line", encoding: map[string]string{"meta": "application/json"}, want: `rt.Encoding{"meta": "application/json"}`},
+		{name: "Several one per line, by name", encoding: map[string]string{"photo": "image/png, image/jpeg", "id": "application/json"}, want: "rt.Encoding{\n\"id\": \"application/json\",\n\"photo\": \"image/png, image/jpeg\",\n}"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, Encoding(gomodel.Content{Encoding: tc.encoding}, "rt"))
+		})
+	}
+}
+
 func TestFirstBody(t *testing.T) {
 	t.Parallel()
 

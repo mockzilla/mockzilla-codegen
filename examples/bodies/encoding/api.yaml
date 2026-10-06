@@ -1,0 +1,88 @@
+openapi: 3.1.0
+info: {title: form encoding, version: "1"}
+paths:
+  /parcels:
+    post:
+      operationId: sendParcel
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: {$ref: '#/components/schemas/Parcel'}
+            encoding:
+              id: {contentType: application/json}
+              doc: {contentType: application/pdf}
+              photo: {contentType: 'image/png, image/jpeg'}
+              note: {contentType: text/plain; charset=utf-8}
+      responses:
+        "200":
+          description: what came in
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Receipt'}}
+  /parcels/{id}:
+    get:
+      operationId: getParcel
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: the parcel
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Receipt'}}
+            text/csv: {schema: {type: string}}
+        "404":
+          description: no such parcel
+          content:
+            application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}
+  /labels:
+    post:
+      operationId: printLabel
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: {$ref: '#/components/schemas/Label'}
+            encoding:
+              to: {contentType: application/json}
+      responses:
+        "200":
+          description: the label as it came in
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Label'}}
+components:
+  schemas:
+    Parcel:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string}
+        doc: {type: string, format: binary}
+        photo: {type: string, format: binary}
+        to: {$ref: '#/components/schemas/Address'}
+        stops: {type: array, items: {$ref: '#/components/schemas/Address'}}
+        note: {type: string}
+    Label:
+      type: object
+      required: [to]
+      properties:
+        to: {$ref: '#/components/schemas/Address'}
+        from: {$ref: '#/components/schemas/Address'}
+    Address:
+      type: object
+      required: [city]
+      properties:
+        city: {type: string}
+        zip: {type: string, default: "00000"}
+    Receipt:
+      type: object
+      properties:
+        id: {type: string}
+        docType: {type: string}
+        photoType: {type: string}
+        to: {$ref: '#/components/schemas/Address'}
+        stops: {type: array, items: {$ref: '#/components/schemas/Address'}}
+        note: {type: string}
+    Problem:
+      type: object
+      properties:
+        title: {type: string}

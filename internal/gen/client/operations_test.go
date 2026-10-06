@@ -29,9 +29,10 @@ func TestBodyView(t *testing.T) {
 		{name: "JSON", content: gomodel.Content{MediaType: "application/vnd.pet+json", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/vnd.pet+json"`}},
 		{name: "JSON without a schema", content: gomodel.Content{MediaType: "application/json"}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/json"`}},
 		{name: "JSON with parameters goes under them", content: gomodel.Content{MediaType: "application/json; charset=utf-8", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/json; charset=utf-8"`}},
-		{name: "A form", content: gomodel.Content{MediaType: "application/x-www-form-urlencoded", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FormBody", Value: "opts.Body"}},
-		{name: "A form in another case", content: gomodel.Content{MediaType: "Application/X-WWW-Form-Urlencoded; charset=utf-8", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FormBody", Value: "opts.Body"}},
-		{name: "Multipart into a struct", content: gomodel.Content{MediaType: "multipart/form-data", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "MultipartBody", Value: "opts.Body"}},
+		{name: "A form", content: gomodel.Content{MediaType: "application/x-www-form-urlencoded", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FormBody", Value: "opts.Body", Encoding: "nil"}},
+		{name: "A form in another case", content: gomodel.Content{MediaType: "Application/X-WWW-Form-Urlencoded; charset=utf-8", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FormBody", Value: "opts.Body", Encoding: "nil"}},
+		{name: "Multipart into a struct", content: gomodel.Content{MediaType: "multipart/form-data", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "MultipartBody", Value: "opts.Body", Encoding: "nil"}},
+		{name: "Multipart with an encoding", content: gomodel.Content{MediaType: "multipart/form-data", Type: pet, Encoding: map[string]string{"tag": "application/json"}}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "MultipartBody", Value: "opts.Body", Encoding: `runtime.Encoding{"tag": "application/json"}`}},
 		{name: "Multipart without a schema is bytes", content: gomodel.Content{MediaType: "multipart/form-data"}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "BytesBody", Value: "opts.Body", MediaType: `"multipart/form-data"`}},
 		{name: "A file streams", content: gomodel.Content{MediaType: "image/png", Type: fileType}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FileBody", Value: "*opts.Body", MediaType: `"image/png"`}},
 		{name: "A file under an alias streams", content: gomodel.Content{MediaType: "image/png", Type: image}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FileBody", Value: "*opts.Body", MediaType: `"image/png"`}},
@@ -135,6 +136,40 @@ func TestSuccessBody(t *testing.T) {
 			assert.Equal(t, tc.wantOK, ok)
 			assert.Equal(t, tc.want, r)
 			assert.Equal(t, tc.wantBody, c)
+		})
+	}
+}
+
+func TestAccept(t *testing.T) {
+	t.Parallel()
+
+	str := gomodel.Builtin{Name: "string"}
+	text, jsonBody := gomodel.Content{MediaType: "text/plain", Type: str}, gomodel.Content{MediaType: "application/json", Type: str}
+	events := gomodel.Content{MediaType: "text/event-stream", Type: str}
+	problem := gomodel.Content{MediaType: "application/problem+json", Type: str}
+	tests := []struct {
+		name      string
+		responses []gomodel.Response
+		want      string
+	}{
+		{name: "No bodies", responses: []gomodel.Response{{Status: "204"}}},
+		{
+			name:      "The body the method returns first, then the order of the spec without repeats",
+			responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{text, jsonBody}}, {Status: "404", Contents: []gomodel.Content{problem, text}}},
+			want:      "application/json, text/plain, application/problem+json",
+		},
+		{
+			name:      "Sequential media types are the stream's",
+			responses: []gomodel.Response{{Status: "200", Contents: []gomodel.Content{events, jsonBody}}},
+			want:      "application/json",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, accept(&gomodel.Operation{Responses: tc.responses}))
 		})
 	}
 }

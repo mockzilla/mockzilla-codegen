@@ -791,7 +791,7 @@ func (a *HTTPAdapter) PostForm(w http.ResponseWriter, r *http.Request) {
 	opts := &PostFormServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/x-www-form-urlencoded":
-		if err := runtime.DecodeForm(r.Body, &opts.Body, true); err != nil {
+		if err := runtime.DecodeForm(r.Body, &opts.Body, true, nil); err != nil {
 			a.failDecode(w, r, "PostForm", err)
 			return
 		}
@@ -873,7 +873,7 @@ func (a *HTTPAdapter) Upload(w http.ResponseWriter, r *http.Request) {
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "multipart/form-data":
 		opts.Body = &UploadRequestBody{}
-		if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory); err != nil {
+		if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory, nil); err != nil {
 			a.failDecode(w, r, "Upload", err)
 			return
 		}

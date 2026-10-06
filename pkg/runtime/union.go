@@ -86,7 +86,7 @@ func (t into[T]) decode(data []byte) error {
 
 func (t into[T]) fill(form *multipart.Form) error {
 	var v T
-	if err := fillForm(reflect.ValueOf(&v).Elem(), form); err != nil {
+	if err := fillForm(reflect.ValueOf(&v).Elem(), form, nil); err != nil {
 		return err
 	}
 	*t.dst = v

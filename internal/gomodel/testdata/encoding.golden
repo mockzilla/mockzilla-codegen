@@ -1,0 +1,44 @@
+Parcel struct models.types
+  ID string json=id required
+  Doc *runtime.File json=doc omitempty
+  Logo *runtime.File json=logo omitempty
+  Pet *Pet json=pet omitempty
+  Pets []Pet json=pets omitempty
+  Labels []Pet json=labels omitempty
+  Meta map[string]string json=meta omitempty
+  Note *string json=note omitempty
+  Tags []string json=tags omitempty
+  Flags *string json=flags omitempty
+  Signed *runtime.File json=signed omitempty
+Pet struct models.types
+  Name *string json=name omitempty
+SendUnionMultipartRequestBody union models.unions form
+  | oneOf
+  | Parcel *Parcel kinds=object required=id known=id,doc,logo,pet,pets,labels,meta,note,tags,flags,signed
+  | Option2 *SendUnionMultipartRequestBodyOption2 kinds=object required=x known=x
+SendUnionMultipartRequestBodyOption2 struct models.bodies
+  X string json=x required
+SendUnionFormRequestBody defined map[string]string models.bodies
+op SendParcel POST /parcels
+  body multipart/form-data Parcel encoding=doc:application/pdf encoding=id:application/json encoding=labels:text/csv, application/vnd.a+json encoding=logo:image/png, image/jpeg encoding=meta:text/plain encoding=pet:application/xml encoding=pets:text/plain, application/* encoding=signed:application/pdf
+  body application/x-www-form-urlencoded Parcel encoding=pet:application/json
+  body application/json Parcel
+  response 200 multipart/form-data Parcel
+op SendUnion POST /unions
+  body multipart/form-data SendUnionMultipartRequestBody
+  body application/x-www-form-urlencoded SendUnionFormRequestBody
+op SendStyled POST /styled
+  body application/x-www-form-urlencoded Parcel
+---
+warning encoding-ignored 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data names "ghost", which the body has no property for
+warning encoding-ignored 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data sets headers for "signed", which is not supported yet; each part goes without them
+warning encoding-ignored 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data sets style, explode or allowReserved for "note", "tags", "flags", which is not supported yet; each is written and read by its schema type
+warning encoding-unsupported 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data declares "meta" as text/plain, but it holds an object, which is written and read as JSON only, so sending or reading it fails
+warning encoding-unsupported 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data declares "pet" as application/xml, but it holds an object, which is written and read as JSON only, so sending or reading it fails
+warning encoding-unsupported 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data declares "pets" as text/plain, application/*, but it holds an object, which is written and read as JSON only, so sending or reading it fails
+warning encoding-ignored 28:13 /paths/~1parcels/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded sets style, explode or allowReserved for "pets", which is not supported yet; each is written and read by its schema type
+warning encoding-ignored 36:13 /paths/~1parcels/post/requestBody/content/application~1json/encoding: the encoding of application/json is ignored, as it applies to forms only
+warning encoding-ignored 44:15 /paths/~1parcels/post/responses/200/content/multipart~1form-data/encoding: the encoding of multipart/form-data in a response is not supported yet; its parts are written and read by their schema types
+warning encoding-ignored 53:13 /paths/~1unions/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data is not supported for a union body yet; its parts are written and read by their schema types
+warning encoding-ignored 60:13 /paths/~1unions/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded is ignored, as the body has no properties
+warning encoding-ignored 71:13 /paths/~1styled/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded sets style, explode or allowReserved for "pets", which is not supported yet; each is written and read by its schema type

@@ -1,0 +1,96 @@
+openapi: 3.1.0
+info: {title: encoding, version: v1}
+paths:
+  /parcels:
+    post:
+      operationId: sendParcel
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: {$ref: '#/components/schemas/Parcel'}
+            encoding:
+              id: {contentType: application/json}
+              doc: {contentType: application/pdf}
+              logo: {contentType: 'image/png, image/jpeg'}
+              pet: {contentType: application/xml}
+              pets: {contentType: 'text/plain, application/*'}
+              labels: {contentType: 'text/csv, application/vnd.a+json'}
+              meta: {contentType: text/plain}
+              note: {contentType: text/plain, style: form}
+              tags: {explode: true}
+              flags: {allowReserved: true}
+              ghost: {contentType: application/json}
+              signed:
+                contentType: application/pdf
+                headers:
+                  X-Sign: {schema: {type: string}}
+          application/x-www-form-urlencoded:
+            schema: {$ref: '#/components/schemas/Parcel'}
+            encoding:
+              pet: {contentType: application/json}
+              pets: {style: deepObject, explode: true}
+              signed:
+                headers:
+                  X-Sign: {schema: {type: string}}
+          application/json:
+            schema: {$ref: '#/components/schemas/Parcel'}
+            encoding:
+              pet: {contentType: application/json}
+      responses:
+        '200':
+          description: ok
+          content:
+            multipart/form-data:
+              schema: {$ref: '#/components/schemas/Parcel'}
+              encoding:
+                id: {contentType: application/json}
+  /unions:
+    post:
+      operationId: sendUnion
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/Parcel'
+                - {type: object, required: [x], properties: {x: {type: string}}}
+            encoding:
+              id: {contentType: application/json}
+          application/x-www-form-urlencoded:
+            schema: {type: object, additionalProperties: {type: string}}
+            encoding:
+              id: {contentType: application/json}
+      responses:
+        '204': {description: done}
+  /styled:
+    post:
+      operationId: sendStyled
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema: {$ref: '#/components/schemas/Parcel'}
+            encoding:
+              pets: {style: deepObject, explode: true, contentType: application/json}
+      responses:
+        '204': {description: done}
+components:
+  schemas:
+    Parcel:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string}
+        doc: {type: string, format: binary}
+        logo: {type: string, format: binary}
+        pet: {$ref: '#/components/schemas/Pet'}
+        pets: {type: array, items: {$ref: '#/components/schemas/Pet'}}
+        labels: {type: array, items: {$ref: '#/components/schemas/Pet'}}
+        meta: {type: object, additionalProperties: {type: string}}
+        note: {type: string}
+        tags: {type: array, items: {type: string}}
+        flags: {type: string}
+        signed: {type: string, format: binary}
+    Pet:
+      type: object
+      properties:
+        name: {type: string}

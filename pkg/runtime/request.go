@@ -96,7 +96,7 @@ func (b *RequestBuilder) QueryString(v any, p Param) {
 		b.queryString, b.err = escape(string(data), isUnreserved), err
 		return
 	}
-	values, err := EncodeForm(v)
+	values, err := EncodeForm(v, nil)
 	b.queryString, b.err = values.Encode(), err
 }
 
@@ -144,12 +144,12 @@ func (b *RequestBuilder) JSONBody(v any, mediaType string) {
 	b.setBody(data, mediaType, err)
 }
 
-// FormBody sends v as application/x-www-form-urlencoded, see EncodeForm.
-func (b *RequestBuilder) FormBody(v any) {
+// FormBody sends v as application/x-www-form-urlencoded with the encoding enc, see EncodeForm.
+func (b *RequestBuilder) FormBody(v any, enc Encoding) {
 	if b.err != nil {
 		return
 	}
-	values, err := EncodeForm(v)
+	values, err := EncodeForm(v, enc)
 	if err != nil {
 		b.err = err
 		return
@@ -159,11 +159,11 @@ func (b *RequestBuilder) FormBody(v any) {
 
 // MultipartBody sends v as multipart/form-data, see WriteMultipart. The form is written while it
 // is sent, so its files stream; its length is known up front when every file knows its size.
-func (b *RequestBuilder) MultipartBody(v any) {
+func (b *RequestBuilder) MultipartBody(v any, enc Encoding) {
 	if b.err != nil {
 		return
 	}
-	size, boundary, err := multipartSize(v)
+	size, boundary, err := multipartSize(v, enc)
 	if err != nil {
 		b.err = err
 		return
@@ -173,7 +173,7 @@ func (b *RequestBuilder) MultipartBody(v any) {
 	mw := multipart.NewWriter(pw)
 	// The boundary multipartSize took from another Writer, which never makes an invalid one.
 	_ = mw.SetBoundary(boundary)
-	b.body, b.length, b.contentType = &multipartBody{value: v, writer: mw, pr: pr, pw: pw}, size, mw.FormDataContentType()
+	b.body, b.length, b.contentType = &multipartBody{value: v, encoding: enc, writer: mw, pr: pr, pw: pw}, size, mw.FormDataContentType()
 }
 
 // TextBody sends s as it is under mediaType.
@@ -269,16 +269,17 @@ func (b *RequestBuilder) setBody(data []byte, mediaType string, err error) {
 // multipartBody is a multipart form written as it is read: the first Read starts writing value
 // from another goroutine, and Close stops it. A body never read starts nothing.
 type multipartBody struct {
-	value   any
-	writer  *multipart.Writer
-	pr      *io.PipeReader
-	pw      *io.PipeWriter
-	started sync.Once
+	value    any
+	encoding Encoding
+	writer   *multipart.Writer
+	pr       *io.PipeReader
+	pw       *io.PipeWriter
+	started  sync.Once
 }
 
 func (m *multipartBody) Read(p []byte) (int, error) {
 	m.started.Do(func() {
-		go func() { _ = m.pw.CloseWithError(WriteMultipart(m.writer, m.value)) }()
+		go func() { _ = m.pw.CloseWithError(WriteMultipart(m.writer, m.value, m.encoding)) }()
 	})
 	return m.pr.Read(p)
 }
@@ -301,8 +302,11 @@ func ParseBaseURL(s string) (*url.URL, error) {
 
 // Send sends req with d and reads the whole body, which it closes. A timeout above 0 bounds the
 // whole call, the body read included. The response comes back with the body in memory, so it can
-// be read again.
-func Send(d Doer, req *http.Request, timeout time.Duration) (*http.Response, []byte, error) {
+// be read again. It asks for accept unless the request says what it accepts.
+func Send(d Doer, req *http.Request, accept string, timeout time.Duration) (*http.Response, []byte, error) {
+	if accept != "" && req.Header.Get("Accept") == "" {
+		req.Header.Set("Accept", accept)
+	}
 	if timeout > 0 {
 		ctx, cancel := context.WithTimeout(req.Context(), timeout)
 		defer cancel()

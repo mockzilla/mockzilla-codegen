@@ -3,7 +3,7 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Small Go expressions as text: selectors, calls, derefs, comparisons and durations.
+// Small Go expressions as text: selectors, calls, derefs, comparisons, literals and durations.
 
 package gocode
 
@@ -15,6 +15,12 @@ import (
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 )
+
+// KeyValue is one element of a keyed composite literal, its key and value written as Go.
+type KeyValue struct {
+	Key   string
+	Value string
+}
 
 // durationUnits are the units a duration is written in, largest first.
 var durationUnits = []struct {
@@ -41,6 +47,20 @@ func Deref(x string) string {
 // Call writes fn(args...).
 func Call(fn string, args ...string) string {
 	return fn + "(" + strings.Join(args, ", ") + ")"
+}
+
+// Composite writes typ{key: value}, one element per line when it has several.
+func Composite(typ string, elems []KeyValue) string {
+	if len(elems) == 1 {
+		return typ + "{" + elems[0].Key + ": " + elems[0].Value + "}"
+	}
+	var b strings.Builder
+	b.WriteString(typ + "{\n")
+	for _, e := range elems {
+		b.WriteString(e.Key + ": " + e.Value + ",\n")
+	}
+	b.WriteString("}")
+	return b.String()
 }
 
 // AddressOf writes &x.
