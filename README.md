@@ -28,8 +28,8 @@ the built-in templates can be replaced. The output reads like Go a person wrote.
 - One spec gives a server for 14 routers, a client that streams, and MCP tools for AI assistants
   ([server](docs/server.md), [client](docs/client.md), [MCP](docs/mcp.md)).
 
-Coming from another generator? The [migration guides](docs/migration.md) map its config, extensions
-and generated code to this one.
+Coming from another generator? The [migration guides](docs/migration.md) say what changes and show
+the code before and after.
 
 ## Quick start
 

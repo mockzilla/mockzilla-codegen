@@ -1,11 +1,118 @@
 # Migrating from oapi-codegen
 
 For projects on `github.com/oapi-codegen/oapi-codegen/v2`, or the older `deepmap/oapi-codegen`
-import path. The fork `goapi-gen` has [its own section](#goapi-gen) at the end. The config pair
-in [examples/migration/oapi-codegen](../../examples/migration/oapi-codegen) is the one this guide
-walks through.
+import path.
 
-## The command
+The guide walks through [examples/migration/oapi-codegen](../../examples/migration/oapi-codegen):
+a petstore spec, the oapi-codegen config, its translation, and the service and client calls after
+the move, which are built and tested.
+
+## What is different
+
+- There is one server shape. A handler is a method of the service interface: it gets `ctx` and
+  one options struct, and returns response data or an error. There is no `http.ResponseWriter`.
+  A strict server handler keeps its flow. A plain `ServerInterface` handler is rewritten.
+- Error schemas are Go errors. With `models.error-mapping`, `Error` gets an `Error()` method. The
+  service returns it, and it is written with the status the spec gives it.
+- The client returns the success body. `GetPet` returns `*Pet`, and any other status is an error.
+  `client.with-response: true` adds the `<Op>WithResponse` methods, on the same client.
+- The params of an operation sit in one options struct, by where they go: `PathParams`, `Query`,
+  `Headers`, `Cookies` and `Body`.
+- `Id` is `ID`. The [naming rules](../naming.md) are fixed, and close to
+  `ToCamelCaseWithInitialisms`.
+- A union is a struct with one field per variant, not a raw message with `As` and `From` methods.
+- Every type gets `Validate() error`. The server can check requests and responses with plain
+  generated code, without kin-openapi ([validation](../validation.md)).
+
+## Before and after
+
+The handler of `GET /pets/{id}` in the strict server, and how it is mounted:
+
+```go
+func (s *Server) GetPet(ctx context.Context, req GetPetRequestObject) (GetPetResponseObject, error) {
+	p, ok := s.pets.Get(req.Id)
+	if !ok {
+		return GetPet404JSONResponse{Code: http.StatusNotFound, Message: "no such pet"}, nil
+	}
+	return GetPet200JSONResponse(p), nil
+}
+
+h := HandlerFromMux(NewStrictHandler(&Server{}, nil), chi.NewRouter())
+```
+
+The same handler after the move, from
+[service.go](../../examples/migration/oapi-codegen/service.go):
+
+```go
+func (s *Service) GetPet(_ context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error) {
+	p, ok := s.pets.Get(opts.PathParams.ID)
+	if !ok {
+		return nil, &Error{Code: http.StatusNotFound, Message: "no such pet"}
+	}
+	return NewGetPetResponseData200(&p), nil
+}
+
+h := NewRouter(&Service{})
+```
+
+`return NewGetPetResponseData404(&Error{...}), nil` gives the same response. Returning the error
+lets code deep in the service fail with the type the spec documents.
+
+The client call, with `ClientWithResponses`:
+
+```go
+c, err := NewClientWithResponses("http://localhost:8080")
+if err != nil {
+	return err
+}
+rsp, err := c.GetPetWithResponse(ctx, 1)
+if err != nil {
+	return err
+}
+if rsp.JSON404 != nil {
+	return fmt.Errorf("no pet: %s", rsp.JSON404.Message)
+}
+pet := rsp.JSON200
+```
+
+The same call after the move, as
+[service_test.go](../../examples/migration/oapi-codegen/service_test.go) makes it:
+
+```go
+c, err := NewPetClient("http://localhost:8080")
+if err != nil {
+	return err
+}
+pet, err := c.GetPet(ctx, &GetPetRequestOptions{PathParams: &GetPetPathParams{ID: 1}})
+var notFound *Error
+if errors.As(err, &notFound) {
+	return fmt.Errorf("no pet: %s", notFound.Message)
+}
+if err != nil {
+	return err
+}
+```
+
+`GetPetWithResponse` is still there: it returns the envelope with `JSON404` set and no error.
+
+## Steps
+
+1. Add the CLI to the module: `go get -tool github.com/mockzilla/mockzilla-codegen/cmd/mockzilla-codegen`.
+   oapi-codegen can stay until the build is green again.
+2. Write `codegen.yaml` next to the spec, from the [config table](#config). An unknown key is an
+   error that names its path, so a key that did not carry over shows on the first run.
+3. Keep the spec. Rename two extensions: `x-oapi-codegen-extra-tags` is `x-go-extra-tags`, and
+   `x-oapi-codegen-only-honour-go-name` is `x-go-name-exact`. The old names are ignored, so keep
+   both while both tools run.
+4. Replace the `go:generate` line with `//go:generate go tool mockzilla-codegen generate -c ../codegen.yaml`.
+   Delete the old generated file, or point `output.file` at it.
+5. Generate and run `go build ./...`. Each error is a call site to move: handlers as above, client
+   calls, `Id` to `ID`, unions.
+6. Add `mockzilla-codegen generate -check` to CI, so a spec change without a new run fails there.
+
+## Reference
+
+### Command
 
 | oapi-codegen | mockzilla-codegen |
 |---|---|
@@ -14,15 +121,9 @@ walks through.
 | `oapi-codegen -version` | `mockzilla-codegen version` |
 | `-package api -o api.gen.go` | `-package api -o api.gen.go` |
 | `-generate types,client,chi-server` | `-client -server chi`; models are always written |
-| the other command line flags | none; they are config keys |
+| the other command line flags | config keys |
 
-The output is written on every run, so remove the old generated file first, or point
-`output.file` at it and let the run replace it.
-
-## Config
-
-Unknown keys are errors, so start from the table and add what the first run asks for. A key
-without a row here has no equivalent; the [notes](#what-has-no-key) below say what to do instead.
+### Config
 
 | oapi-codegen | mockzilla-codegen |
 |---|---|
@@ -30,7 +131,6 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
 | `output` | `output.file` |
 | `generate.models` | always on |
 | `generate.chi-server`, `echo-server`, `echo5-server`, `gin-server`, `gorilla-server`, `iris-server`, `std-http-server`, `fiber-v3-server` | `server.framework: chi`, `echo`, `echo-v5`, `gin`, `gorilla-mux`, `iris`, `std-http`, `fiber` |
-| `generate.fiber-server` (Fiber v2) | none; `fiber` is Fiber v3 |
 | `generate.strict-server` | always: the [service interface](../server.md#service-interface) is the only server shape |
 | `generate.client` | `client:` |
 | `output-options.client-type-name` | `client.name` |
@@ -44,7 +144,6 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
 | `output-options.yaml-tags`, `struct-tags` | `models.extra-tags: [yaml]`; each tag repeats the JSON name |
 | `output-options.skip-enum-validate` | `models.validation.skip`, for every `Validate` method |
 | `output-options.user-templates` | `templates` for the [blocks that may be replaced](../templates.md#blocks), else [`extra-files`](../templates.md#extra-files) |
-| `output-options.prefer-skip-optional-pointer` | none globally; `x-go-type-skip-optional-pointer` per field |
 | `output-options.prefer-skip-optional-pointer-on-container-types` | the default: a slice or map never gets a pointer |
 | `output-options.nullable-type` | `models.nullable: true`: every field that may be absent or null is a `runtime.Nullable[T]`, optional ones too ([nullable](../types.md#nullable)) |
 | `output-options.streaming-content-types` | `client.streaming` reads `text/event-stream` and line-delimited JSON; the list is fixed |
@@ -53,17 +152,21 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
 | `compatibility.always-prefix-enum-values` | `naming.enum-prefix`, on by default |
 | `compatibility.allow-unexported-struct-field-names` | `x-go-name-exact` per field |
 | `compatibility.apply-chi-middleware-first-to-last`, `apply-gorilla-middleware-first-to-last` | the default: `WithMiddleware` wraps outermost first |
-| `compatibility.disable-flatten-additional-properties` | none: an object without properties is a map |
 | `compatibility.disable-required-readonly-as-pointer` | the default: a required `readOnly` field is a plain value with `omitempty` |
 | `additional-imports` | [`imports`](../templates.md#imports), same `package` and `alias`; no `.` alias |
-| `import-mapping` | none, see below |
 
-## What has no key
+`models.error-mapping` has no oapi-codegen key. It turns an error schema into a Go error, as in
+[Before and after](#before-and-after).
 
+### Not carried over
+
+- `generate.fiber-server`: `fiber` is Fiber v3; Fiber v2 has no router here.
 - `generate.embedded-spec` and `GetSwagger()`: embed the spec yourself with `//go:embed`.
 - `generate.server-urls`: the client takes a base URL string.
 - `output-options.name-normalizer`: the [naming rules](../naming.md) are fixed. They are closest
   to `ToCamelCaseWithInitialisms`, so a project on `ToCamelCase` sees `Id` become `ID`.
+- `output-options.prefer-skip-optional-pointer`: no global switch; `x-go-type-skip-optional-pointer`
+  per field.
 - `output-options.response-type-suffix`, `content-types`: type names follow fixed rules,
   `<Op>Response<Status>` and `<Op>JSONRequestBody` ([names](../naming.md#names-for-types-without-a-name)).
 - `output-options.type-mapping`, `disable-type-aliases-for-type`: `x-go-type` on a schema, and
@@ -79,6 +182,7 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
   `old-enum-conflicts`, `old-aliasing`: an `allOf` is merged into one type, with its sibling
   properties ([allOf](../types.md#allof)), and enum constants are prefixed. The old behaviours
   cannot be brought back.
+- `compatibility.disable-flatten-additional-properties`: an object without properties is a map.
 - `compatibility.headers-implicitly-required`: response headers follow their `required` flag.
 - `compatibility.sort-handler-registrations`: routes are registered in spec order.
 - `compatibility.enable-auth-scopes-on-context`, `circular-reference-limit`,
@@ -88,7 +192,7 @@ without a row here has no equivalent; the [notes](#what-has-no-key) below say wh
   their folders ([output files](../config.md#output-files)); the imports between them are
   written for you.
 
-## Extensions
+### Extensions
 
 Every extension oapi-codegen documents keeps its meaning, apart from these
 ([extensions](../extensions.md)):
@@ -103,14 +207,12 @@ Every extension oapi-codegen documents keeps its meaning, apart from these
 | `x-oapi-codegen-enum-merge` | none |
 | `x-go-type-name` on a component | declares the type under the new name only, no alias under the component name |
 
-## Generated code
-
 ### Server
 
 | oapi-codegen | mockzilla-codegen |
 |---|---|
 | `ServerInterface`, methods `(w http.ResponseWriter, r *http.Request, params P)` | `ServiceInterface`, methods `(ctx, *<Op>ServiceRequestOptions) (*<Op>ResponseData, error)` |
-| `StrictServerInterface`, methods `(ctx, <Op>RequestObject) (<Op>ResponseObject, error)` | the same interface; `<Op>RequestObject.Params.Limit` is `opts.Query.Limit`, `.Body` is `opts.Body` |
+| `StrictServerInterface`, methods `(ctx, <Op>RequestObject) (<Op>ResponseObject, error)` | the same interface; `<Op>RequestObject.Params.Limit` is `opts.Query.Limit`, a path param `req.Id` is `opts.PathParams.ID`, `.Body` is `opts.Body` |
 | `<Op>200JSONResponse{...}` returned as the response object | `New<Op>ResponseData200(&body)`, headers with `.WithTypedHeaders(...)` ([response data](../server.md#response-data)) |
 | `NewStrictHandler(ssi, middlewares)` | nothing; the adapter is the strict handler |
 | `Handler(si)`, `HandlerFromMux(si, r)`, `HandlerWithOptions(si, opts)` | `NewRouter(svc, opts...)`; `WithRouter(r)` registers on an existing router |
@@ -137,8 +239,8 @@ once, which oapi-codegen leaves to the project.
 | `<Op>JSONRequestBody` | `<Op>RequestBody`, or the referenced type; `JSON` appears only with several media types |
 | `ClientInterface` | `<Name>Interface`, checked at compile time |
 
-The client turns a 4xx or 5xx into an error: the type of `models.error-mapping` when the spec
-documents it, else `runtime.APIError` with the status and the body.
+A 4xx or 5xx is an error: the type of `models.error-mapping` when the spec documents it, else
+`runtime.APIError` with the status and the body.
 
 ### Types
 
@@ -160,36 +262,4 @@ Beyond the type mapping:
   `naming.enum-prefix: false`.
 - `AdditionalProperties` stays a map field with `Get` and `Set`, written next to the properties
   ([additionalProperties](../types.md#additionalproperties)).
-- Every named type gets `Validate() error` ([validation](../validation.md)).
 
-## goapi-gen
-
-`goapi-gen` is a hard fork of `oapi-codegen` v1 for chi, with a flat config file:
-
-| goapi-gen | mockzilla-codegen |
-|---|---|
-| `output` | `output.file` |
-| `package` | `package` |
-| `generate: [types, server]` | models are always on; `server: {framework: chi}` |
-| `generate: [spec]`, `skip-fmt`, `skip-prune` | none, `output.format: false`, `spec.prune: false` |
-| `include-tags`, `exclude-tags` | `spec.filter.include.tags`, `spec.filter.exclude.tags` |
-| `exclude-schemas` | see `output-options.exclude-schemas` above |
-| `templates` | `templates`, per block, or `extra-files` |
-| `import-mapping` | none, see above |
-| `alias` | none; a component that is only a `$ref` is always an alias |
-| `initialisms` | `naming.initialisms`, added to the built-in set |
-
-Its extensions:
-
-| goapi-gen | mockzilla-codegen |
-|---|---|
-| `x-go-type` with `type`, `import`, `alias` | `x-go-type` with the type, `x-go-type-import` with `{path, name}` |
-| `x-go-type-external` | the same two |
-| `x-go-extra-tags` | the same |
-| `x-go-optional-value` | `x-go-type-skip-optional-pointer` |
-| `x-go-omitempty` | `x-omitempty` |
-| `x-go-string` | none |
-| `x-go-middlewares` | none; `WithMiddleware` wraps every route, and the `server.router-extra` template block adds routes of your own |
-
-The generated server is the strict shape above, not goapi-gen's `ServerInterface` with the
-response writer, so every handler moves to the service interface.

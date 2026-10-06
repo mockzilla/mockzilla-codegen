@@ -1,13 +1,138 @@
 # Migrating from ogen
 
-For projects on `github.com/ogen-go/ogen`. ogen and mockzilla-codegen read the same specs and both
-generate a typed server and client with validation, but the generated code has a different shape:
-ogen wraps optional values, mockzilla-codegen uses pointers or, with `models.nullable`, one
-`runtime.Nullable[T]`; ogen returns response sum types,
-mockzilla-codegen response data. The config pair in
-[examples/migration/ogen](../../examples/migration/ogen) is the one this guide walks through.
+For projects on `github.com/ogen-go/ogen`. Both tools read the same specs and generate a typed
+server and client with validation. The generated code has a different shape.
 
-## The command
+The guide walks through [examples/migration/ogen](../../examples/migration/ogen): a petstore
+spec, the ogen config, its translation, and the service and client calls after the move, which
+are built and tested.
+
+## What is different
+
+- Optional values are pointers. `OptString` and `OptNilString` are both `*string`, so null and
+  absent are one state. With `models.nullable: true` they are `runtime.Nullable[string]`, which
+  keeps them apart and has `Get` and `Or` ([nullable](../types.md#nullable)).
+- A handler returns response data, not a sum type. `&pet` becomes `NewGetPetResponseData200(&pet)`.
+  With `models.error-mapping`, an error schema is a Go error: the service returns it, and it is
+  written with the status the spec gives it.
+- The client returns the success body, and an error for any other status. There is no `<Op>Res`
+  to switch on.
+- The params of an operation sit in one options struct, by where they go: `PathParams`, `Query`,
+  `Headers`, `Cookies` and `Body`. The body is no second argument.
+- JSON goes through `encoding/json`, not `jx`. A `uuid`, `uri` or `ipv4` format is a `string`
+  checked by `Validate`, unless `models.format-types` names a type for it.
+- There is no security handler and no OpenTelemetry. A middleware checks credentials, and a
+  wrapped `http.Client` traces the client.
+- The routes go on the router of `server.framework`. `std-http` is the standard library's
+  `ServeMux`.
+
+## Before and after
+
+The handler of `GET /pets/{id}` in ogen, and how it is mounted:
+
+```go
+func (s *Service) GetPet(ctx context.Context, params GetPetParams) (GetPetRes, error) {
+	p, ok := s.pets.Get(params.ID)
+	if !ok {
+		return &Error{Code: http.StatusNotFound, Message: "no such pet"}, nil
+	}
+	return &p, nil
+}
+
+h, err := NewServer(&Service{})
+```
+
+The same handler after the move, from [service.go](../../examples/migration/ogen/service.go):
+
+```go
+func (s *Service) GetPet(_ context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error) {
+	p, ok := s.pets.Get(opts.PathParams.ID)
+	if !ok {
+		return nil, &Error{Code: http.StatusNotFound, Message: "no such pet"}
+	}
+	return NewGetPetResponseData200(&p), nil
+}
+
+h := NewRouter(&Service{})
+```
+
+`return NewGetPetResponseData404(&Error{...}), nil` gives the same response. Returning the error
+lets code deep in the service fail with the type the spec documents.
+
+The client call in ogen:
+
+```go
+c, err := NewClient("http://localhost:8080")
+if err != nil {
+	return err
+}
+res, err := c.GetPet(ctx, GetPetParams{ID: 1})
+if err != nil {
+	return err
+}
+var pet *Pet
+switch r := res.(type) {
+case *Error:
+	return fmt.Errorf("no pet: %s", r.Message)
+case *Pet:
+	pet = r
+}
+```
+
+The same call after the move, as
+[service_test.go](../../examples/migration/ogen/service_test.go) makes it:
+
+```go
+c, err := NewClient("http://localhost:8080")
+if err != nil {
+	return err
+}
+pet, err := c.GetPet(ctx, &GetPetRequestOptions{PathParams: &GetPetPathParams{ID: 1}})
+var notFound *Error
+if errors.As(err, &notFound) {
+	return fmt.Errorf("no pet: %s", notFound.Message)
+}
+if err != nil {
+	return err
+}
+```
+
+An optional field in ogen:
+
+```go
+body := NewPet{Name: "Rex", Tag: NewOptNilString("dog")}
+if tag, ok := pet.Tag.Get(); ok {
+	fmt.Println(tag)
+}
+```
+
+The same field after the move:
+
+```go
+body := NewPet{Name: "Rex", Tag: new("dog")}
+if pet.Tag != nil {
+	fmt.Println(*pet.Tag)
+}
+```
+
+## Steps
+
+1. Add the CLI to the module: `go get -tool github.com/mockzilla/mockzilla-codegen/cmd/mockzilla-codegen`.
+   ogen can stay until the build is green again.
+2. Write `codegen.yaml` next to the spec, from the [command](#command) and [config](#config)
+   tables. An unknown key is an error that names its path, so a key that did not carry over
+   shows on the first run.
+3. Keep the spec. Replace the `x-ogen-*` extensions it uses, from the
+   [extensions table](#extensions). They are ignored here, so they can stay while both tools run.
+4. Replace the `go:generate` line with `//go:generate go tool mockzilla-codegen generate -c codegen.yaml`,
+   and delete the `oas_*_gen.go` files.
+5. Generate and run `go build ./...`. Each error is a call site to move: handlers as above, client
+   calls, `Opt` types.
+6. Add `mockzilla-codegen generate -check` to CI, so a spec change without a new run fails there.
+
+## Reference
+
+### Command
 
 ogen is driven by flags, with an optional config file. The output flags have a counterpart, and
 the config file is optional here too. The rest moves into `codegen.yaml`.
@@ -16,41 +141,50 @@ the config file is optional here too. The rest moves into `codegen.yaml`.
 |---|---|
 | `ogen --target ./api --package api --clean api.yaml` | `mockzilla-codegen generate -o ./api/gen.go -package api api.yaml`, or `output.file: ./api/gen.go` and `package: api` in `codegen.yaml` |
 | `--config ogen.yaml` | `-c codegen.yaml`; the spec path from `spec.path` or as the last argument |
-| `--clean` | none needed: every file the config names is written on every run. Delete the `oas_*_gen.go` files once |
+| `--clean` | none needed: every file the config names is written on every run |
 | `--initialisms`, `--initialisms-extra` | `naming.initialisms`, added to the built-in set; the set cannot be replaced |
 | `--strict` | `-strict` exits 1 on a warning too; an error exits 1 without it. Files are written either way |
-| `--no-client`, `--no-server` | `-no-client`, `-no-server`, over what the config says |
-| `--debug.*`, `--cpuprofile`, `--memprofile` | none; `-v` prints info diagnostics and the files written |
+| `--version` | `mockzilla-codegen version` |
+| `-v`, `--loglevel` | `-v` prints info diagnostics and the files written |
 
 ogen writes one file per concern, `oas_client_gen.go`, `oas_server_gen.go`, `oas_schemas_gen.go`
 and so on. mockzilla-codegen writes one file, or the files `output.files` names
 ([output files](../config.md#output-files)).
 
-## Config
+### Config
 
 | ogen | mockzilla-codegen |
 |---|---|
 | `parser.infer_types` | always: a schema without `type` is read from its keywords ([type mapping](../types.md#type-mapping)) |
-| `parser.allow_remote`, `depth_limit`, `authentication_schemes`, `allow_cross_type_constraints`, `disallow_duplicate_method_paths` | none |
 | `generator.features.enable: [paths/client]` | `client:` |
 | `generator.features.enable: [paths/server]` | `server:` with a `framework` |
 | `generator.features.enable: [webhooks/client, webhooks/server]` | always: a webhook gets its types and a service method, no route and no client method |
 | `generator.features.enable: [client/editors]` | always: `WithRequestEditor` on the client, and `editors` per call |
 | `generator.features.enable: [client/request/validation]` | `Validate` on every request options struct, called by you |
-| `generator.features.enable: [client/request/options]`, `client/security/reentrant` | none |
 | `generator.features.enable: [server/response/validation]` | `server.validation.response: true` |
 | `generator.features.enable: [ogen/unimplemented]` | `server.scaffold.service`: a stub per operation returning `ErrNotImplemented`, written once |
-| `generator.features.enable: [ogen/otel]` | none; wrap the `http.Client` you pass, and add a middleware on the server |
 | `generator.features.disable_all` | leave `server` and `client` out: models only |
 | `generator.filters.path_regex` | `spec.filter.include.paths`, the exact paths; `tags` and `operation-ids` filter too |
-| `generator.filters.methods` | none |
-| `generator.convenient_errors` | `models.error-mapping` on the error type, see below |
-| `generator.ignore_not_implemented` | none needed: what cannot be generated is reported as a diagnostic and left out, and the run goes on |
-| `generator.content_type_aliases`, `wildcard_content_type_default` | none; a wildcard media type is JSON unless the field is a string or bytes ([HTTP adapter](../server.md#http-adapter)) |
+| `generator.convenient_errors` | `models.error-mapping`, per error schema, without a `default` response on every operation |
 | `generator.initialisms` | `naming.initialisms`; `inherit` is implied |
-| `expand` | none; `-dry-run` prints what a run would write |
 
-## Extensions
+### Not carried over
+
+- `parser.allow_remote`, `depth_limit`, `authentication_schemes`, `allow_cross_type_constraints`,
+  `disallow_duplicate_method_paths`: nothing to replace.
+- `generator.features.enable: [client/request/options]`, `client/security/reentrant`: nothing to
+  replace.
+- `generator.features.enable: [ogen/otel]`: wrap the `http.Client` you pass, and add a middleware
+  on the server.
+- `generator.filters.methods`: filter by path, tag or operation ID.
+- `generator.ignore_not_implemented`: not needed. What cannot be generated is reported as a
+  diagnostic and left out, and the run goes on.
+- `generator.content_type_aliases`, `wildcard_content_type_default`: a wildcard media type is
+  JSON unless the field is a string or bytes ([HTTP adapter](../server.md#http-adapter)).
+- `expand`: `-dry-run` prints what a run would write.
+- `--cpuprofile`, `--memprofile`, `--color`: nothing to replace.
+
+### Extensions
 
 | ogen | mockzilla-codegen |
 |---|---|
@@ -65,8 +199,6 @@ and so on. mockzilla-codegen writes one file, or the files `output.files` names
 | `x-ogen-sse-event-shape` | none; `client.streaming` reads the `data` of each event as one frame ([streaming](../client.md#streaming)) |
 
 The full list is in [extensions](../extensions.md).
-
-## Generated code
 
 ### Server
 
@@ -100,7 +232,7 @@ The full list is in [extensions](../extensions.md).
 
 | ogen | mockzilla-codegen |
 |---|---|
-| `OptString`, `OptInt`, `OptPet` | `*string`, `*int`, `*Pet`; `.Get()` becomes a nil check, `.Set = true` becomes `new(v)` ([pointers](../types.md#pointers)). With `models.nullable: true`, `runtime.Nullable[string]`: `.Get()` and `.Or()` stay, `NewOptString(v)` becomes `runtime.Some(v)` ([nullable](../types.md#nullable)) |
+| `OptString`, `OptInt`, `OptPet` | `*string`, `*int`, `*Pet`; `.Get()` becomes a nil check, `NewOptString(v)` becomes `new(v)` ([pointers](../types.md#pointers)). With `models.nullable: true`, `runtime.Nullable[string]`: `.Get()` and `.Or()` stay, `NewOptString(v)` becomes `runtime.Some(v)` ([nullable](../types.md#nullable)) |
 | `NilString`, `OptNilString` | `*string` for both; `null` and absent are one state. With `models.nullable: true`, `runtime.Nullable[string]` for both, which keeps them apart: `runtime.Null[string]()`, `.IsNull()` |
 | `[]T` for an optional array | the same |
 | sum type `ID{Type IDType, String string, Int int}` with `NewStringID` | a union struct with a field per variant: `ID{String: &s}` ([unions](../types.md#unions)) |

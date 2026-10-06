@@ -7,7 +7,7 @@ spec:
       paths: [/pets, '/pets/{id}']  # generator.filters.path_regex, as the paths it matched
 package: petstore               # --package
 models:
-  error-mapping: {Error: message}  # generator.convenient_errors: the service returns an Error
+  error-mapping: {Error: message}  # no ogen key: the service returns an Error as a Go error
 server:
   framework: std-http           # paths/server, on the standard library's router
 client: {}                      # paths/client
