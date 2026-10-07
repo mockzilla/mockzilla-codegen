@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/gopher.svg" alt="A gopher with its paws in its pocket" width="110" />
+  <img src="docs/images/gopher.svg" alt="A gopher with its paws in its pocket" width="140" />
 </p>
 
 # mockzilla-codegen
