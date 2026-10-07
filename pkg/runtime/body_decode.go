@@ -103,7 +103,7 @@ func DecodeForm(body io.Reader, dst any, isRequired bool, enc Encoding) error {
 	if err != nil {
 		return err
 	}
-	return fillForm(target, &multipart.Form{Value: values}, enc)
+	return invalid(ErrBodyValue, fillForm(target, &multipart.Form{Value: values}, enc))
 }
 
 // DecodeMultipart decodes a multipart/form-data body into dst, a pointer to a struct. Fields of
@@ -124,9 +124,9 @@ func DecodeMultipart(r *http.Request, dst any, maxMemory int64, enc Encoding) er
 		return err
 	}
 	if target.Kind() != reflect.Struct {
-		return fmt.Errorf("%w: a multipart form needs a struct, not %s", ErrParamValue, target.Type())
+		return fmt.Errorf("%w: a multipart form needs a struct, not %s", ErrBodyValue, target.Type())
 	}
-	return fillForm(target, r.MultipartForm, enc)
+	return invalid(ErrBodyValue, fillForm(target, r.MultipartForm, enc))
 }
 
 // DecodeText reads a text body.
@@ -191,7 +191,7 @@ func fillForm(target reflect.Value, form *multipart.Form, enc Encoding) error {
 				continue
 			}
 			if err := fillField(target.Field(i), name, form, enc); err != nil {
-				return err
+				return fmt.Errorf("%s: %w", name, err)
 			}
 			delete(values, name)
 		}
@@ -219,13 +219,10 @@ func fillField(field reflect.Value, name string, form *multipart.Form, enc Encod
 		texts = append(texts, string(data))
 	}
 
-	if !enc.isJSON(name) {
-		return setPart(field, texts)
+	if enc.isJSON(name) {
+		return setJSON(field, texts)
 	}
-	if err = setJSON(field, texts); err != nil {
-		return fmt.Errorf("%s: %w", name, err)
-	}
-	return nil
+	return setPart(field, texts)
 }
 
 // formTree nests form values by the names in their keys, with lists where the names count 0, 1, 2.

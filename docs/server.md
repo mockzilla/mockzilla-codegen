@@ -657,12 +657,15 @@ The runtime package holds the codecs the generated HTTP code and clients use, st
 - Parameters: `DecodePath`, `DecodeQuery`, `DecodeHeader` and `DecodeCookie`, and the `Encode`
   functions the client writes them with, handle every style of the spec (`simple`, `label`,
   `matrix`, `form`, `spaceDelimited`, `pipeDelimited`, `deepObject`), exploded or not, for values,
-  lists and objects, and parameters with JSON content.
+  lists and objects, and parameters with JSON content. A value that does not decode gives
+  `ErrParamValue`.
 - Bodies: `DecodeJSON`, `DecodeForm` (bracketed keys nest: `address[city]=Berlin`,
   `items[0]=a`; one value for a struct or map is read as JSON, else as a string), `DecodeMultipart` (files as `runtime.File`, JSON parts into structs),
   `DecodeText`, `DecodeBytes`, `DecodeFile`. A type with `UnmarshalForm` reads a form itself. A required body that is empty gives `ErrBodyEmpty`;
-  an empty optional one is left alone. `Presence` with its methods `JSON`, `Form` and `Multipart`
-  checks the keys of a body and fills its defaults before it is decoded.
+  an empty optional one is left alone. A form or multipart value that does not decode gives
+  `ErrBodyValue` and names its field: `invalid body value: age: "x" is no int`. `Presence` with
+  its methods `JSON`, `Form` and `Multipart` checks the keys of a body and fills its defaults
+  before it is decoded.
 
 Five packages sit beside it. `pkg/runtime/httpserver` holds what a generated server needs beside
 the codecs: `HandlerError` and the error handlers, and `Write`, which sends a status, headers and a

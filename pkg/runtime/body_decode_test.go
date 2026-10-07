@@ -91,6 +91,12 @@ type parcel struct {
 	Plain []address `json:"plain,omitempty"`
 }
 
+// scores stands in for a generated struct with integer additional properties that reads forms.
+type scores struct {
+	Name  string         `json:"name,omitempty"`
+	Extra map[string]int `json:"-"`
+}
+
 type errReader struct{}
 
 func (errReader) Read([]byte) (int, error) {
@@ -110,6 +116,11 @@ func (v *vertex) UnmarshalJSON(data []byte) error {
 		{Name: "Text", Kind: KindString, Into: Into(&v.Text)},
 		{Name: "Point", Kind: KindObject, Required: []string{"x"}, Known: []string{"x"}, Into: Into(&v.Point)},
 	}})
+}
+
+func (s *scores) UnmarshalForm(form *multipart.Form) error {
+	type plain scores
+	return UnmarshalAdditionalForm(form, (*plain)(s), &s.Extra, "name")
 }
 
 func TestContentType(t *testing.T) {
@@ -211,7 +222,7 @@ func TestDecodeForm(t *testing.T) {
 		{name: "Phone number stays a string", body: "phone=%2B4930", want: order{Phone: "+4930"}},
 		{name: "Empty optional body"},
 		{name: "Empty required body", isRequired: true, wantErr: ErrBodyEmpty},
-		{name: "Bad number", body: "age=x", wantErr: ErrParamValue},
+		{name: "Bad number", body: "age=x", wantErr: ErrBodyValue},
 		{name: "Bad query", body: "a=%zz", wantErr: url.EscapeError("%zz")},
 	}
 
@@ -223,14 +234,64 @@ func TestDecodeForm(t *testing.T) {
 			err := DecodeForm(strings.NewReader(tc.body), &got, tc.isRequired, nil)
 
 			if tc.wantErr != nil {
-				require.Error(t, err)
-				if tc.wantErr != nil && errors.Is(tc.wantErr, ErrParamValue) && tc.name != "Bad query" {
-					require.ErrorIs(t, err, tc.wantErr)
-				}
+				require.ErrorIs(t, err, tc.wantErr)
 				return
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestDecodeFormValueErrors(t *testing.T) {
+	t.Parallel()
+
+	badCount := multipartRequest(t, func(w *multipart.Writer) {
+		require.NoError(t, w.WriteField("count", "x"))
+	})
+	tests := []struct {
+		name   string
+		decode func(dst any) error
+		dst    any
+		want   string
+	}{
+		{
+			name:   "A form body names the field",
+			decode: func(dst any) error { return DecodeForm(strings.NewReader("age=x"), dst, false, nil) },
+			dst:    new(order),
+			want:   `invalid body value: age: "x" is no int`,
+		},
+		{
+			name:   "A form body names the nested field",
+			decode: func(dst any) error { return DecodeForm(strings.NewReader("meta[on]=maybe"), dst, false, nil) },
+			dst:    new(order),
+			want:   `invalid body value: meta: on: "maybe" is no bool`,
+		},
+		{
+			name:   "A multipart body names the field",
+			decode: func(dst any) error { return DecodeMultipart(badCount, dst, 0, nil) },
+			dst:    new(upload),
+			want:   `invalid body value: count: "x" is no int`,
+		},
+		{
+			name:   "A form body that reads itself is a body",
+			decode: func(dst any) error { return DecodeForm(strings.NewReader("n=x"), dst, false, nil) },
+			dst:    new(scores),
+			want:   `invalid body value: invalid additional property "n": "x" is no int`,
+		},
+		{
+			name:   "The same form as a query string is a parameter",
+			decode: func(dst any) error { return DecodeQueryString("n=x", Param{Name: "q"}, dst) },
+			dst:    new(scores),
+			want:   `invalid parameter value: invalid additional property "n": "x" is no int`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.EqualError(t, tc.decode(tc.dst), tc.want)
 		})
 	}
 }
@@ -278,7 +339,7 @@ func TestDecodeFormTextErrors(t *testing.T) {
 		t.Run(body, func(t *testing.T) {
 			t.Parallel()
 
-			require.ErrorIs(t, DecodeForm(strings.NewReader(body), new(drawing), false, nil), ErrParamValue)
+			require.ErrorIs(t, DecodeForm(strings.NewReader(body), new(drawing), false, nil), ErrBodyValue)
 		})
 	}
 }
@@ -297,7 +358,7 @@ func TestDecodeFormBytesAndJSON(t *testing.T) {
 			body: "data=YWJj&opt=eHl6&list=YQ%3D%3D&list=Yg%3D%3D",
 			want: blob{Data: []byte("abc"), Opt: new([]byte("xyz")), List: [][]byte{[]byte("a"), []byte("b")}},
 		},
-		{name: "Text that is no base64", body: "data=abc", wantErr: ErrParamValue},
+		{name: "Text that is no base64", body: "data=abc", wantErr: ErrBodyValue},
 		{name: "A JSON array fills a list of objects", body: "lines=%5B%7B%22city%22%3A%22A%22%7D%5D", want: blob{Lines: []address{{City: "A"}}}},
 		{name: "Text in brackets that is no JSON is text", body: "tags=%5Bdraft%5D", want: blob{Tags: []string{"[draft]"}}},
 		{name: "A key that names nothing is left out", body: "=x&data=YQ%3D%3D", want: blob{Data: []byte("a")}},
@@ -429,11 +490,11 @@ func TestDecodeMultipartEdges(t *testing.T) {
 	require.NoError(t, DecodeMultipart(empty, &got, 1, nil))
 	assert.Equal(t, upload{}, got)
 
-	require.ErrorIs(t, DecodeMultipart(multipartRequest(t, func(*multipart.Writer) {}), new(int), 0, nil), ErrParamValue)
+	require.ErrorIs(t, DecodeMultipart(multipartRequest(t, func(*multipart.Writer) {}), new(int), 0, nil), ErrBodyValue)
 	require.ErrorIs(t, DecodeMultipart(multipartRequest(t, func(*multipart.Writer) {}), 1, 0, nil), ErrParamValue)
 	require.ErrorIs(t, DecodeMultipart(multipartRequest(t, func(w *multipart.Writer) {
 		require.NoError(t, w.WriteField("count", "x"))
-	}), &got, 0, nil), ErrParamValue)
+	}), &got, 0, nil), ErrBodyValue)
 	require.Error(t, DecodeMultipart(multipartRequest(t, func(w *multipart.Writer) {
 		require.NoError(t, w.WriteField("address", "{"))
 	}), &got, 0, nil))
@@ -521,8 +582,8 @@ func TestDecodeEncoding(t *testing.T) {
 		{name: "A list item by item", body: `pets={"city":"A"}&pets={"city":"B"}`, want: parcel{Pets: []address{{City: "A"}, {City: "B"}}}},
 		{name: "A list of JSON strings", body: `tags="a"&tags=["b","c"]`, want: parcel{Tags: []string{"a", "b", "c"}}},
 		{name: "An object with brackets", body: `pet[city]=Rome`, want: parcel{Pet: &address{City: "Rome"}}},
-		{name: "Text that is no JSON", body: `id=p1`, wantErr: "id: invalid character 'p' looking for beginning of value"},
-		{name: "An item that is no JSON", body: `pets={"city":"A"}&pets=x`, wantErr: "pets: invalid character 'x' looking for beginning of value"},
+		{name: "Text that is no JSON", body: `id=p1`, wantErr: "invalid body value: id: invalid character 'p' looking for beginning of value"},
+		{name: "An item that is no JSON", body: `pets={"city":"A"}&pets=x`, wantErr: "invalid body value: pets: invalid character 'x' looking for beginning of value"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

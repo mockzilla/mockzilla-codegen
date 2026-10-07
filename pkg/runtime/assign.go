@@ -31,6 +31,7 @@ var textUnmarshaler = reflect.TypeFor[encoding.TextUnmarshaler]()
 
 // assigner sets Go values from decoded text: a string, a list of strings, or a map of them, nested.
 // With isLoose, text going into an untyped target becomes a bool or a number when it reads as one.
+// Its errors carry no sentinel: parameters and bodies share it, and each decoder marks its own.
 type assigner struct {
 	isLoose bool
 }
@@ -81,7 +82,7 @@ func (a assigner) text(dst reflect.Value, s string) error {
 	if isBytes(dst.Type()) {
 		data, err := base64.StdEncoding.DecodeString(s)
 		if err != nil {
-			return fmt.Errorf("%w: %q is no base64", ErrParamValue, s)
+			return fmt.Errorf("%q is no base64", s)
 		}
 		dst.SetBytes(data)
 		return nil
@@ -117,20 +118,17 @@ func (a assigner) text(dst reflect.Value, s string) error {
 		return a.jsonText(dst, s)
 	case reflect.Invalid, reflect.Complex64, reflect.Complex128, reflect.Array, reflect.Chan, reflect.Func,
 		reflect.Interface, reflect.Pointer, reflect.UnsafePointer:
-		return fmt.Errorf("%w: cannot decode text into %s", ErrParamValue, dst.Type())
+		return fmt.Errorf("cannot decode text into %s", dst.Type())
 	}
 	if err != nil {
-		return fmt.Errorf("%w: %q is no %s", ErrParamValue, s, dst.Type())
+		return fmt.Errorf("%q is no %s", s, dst.Type())
 	}
 	return nil
 }
 
 // json decodes s as JSON into a struct or map, which a union or an object of a parameter is.
 func (a assigner) json(dst reflect.Value, s string) error {
-	if err := json.Unmarshal([]byte(s), dst.Addr().Interface()); err != nil {
-		return fmt.Errorf("%w: %w", ErrParamValue, err)
-	}
-	return nil
+	return json.Unmarshal([]byte(s), dst.Addr().Interface())
 }
 
 // jsonText decodes s as JSON, else as a string, so a union takes plain text for a string variant.
@@ -177,7 +175,7 @@ func (a assigner) object(dst reflect.Value, fields any) error {
 			}
 			if v := m.MapIndex(reflect.ValueOf(name)); v.IsValid() {
 				if err := a.assign(dst.Field(i), v.Interface()); err != nil {
-					return err
+					return fmt.Errorf("%s: %w", name, err)
 				}
 			}
 		}
@@ -189,14 +187,14 @@ func (a assigner) object(dst reflect.Value, fields any) error {
 		for _, key := range sortedMapKeys(m) {
 			item := reflect.New(dst.Type().Elem()).Elem()
 			if err := a.assign(item, m.MapIndex(key).Interface()); err != nil {
-				return err
+				return fmt.Errorf("%s: %w", key.String(), err)
 			}
 			dst.SetMapIndex(key.Convert(dst.Type().Key()), item)
 		}
 		return nil
 	default:
 	}
-	return fmt.Errorf("%w: cannot decode an object into %s", ErrParamValue, dst.Type())
+	return fmt.Errorf("cannot decode an object into %s", dst.Type())
 }
 
 // untyped is v for an untyped target: lists become []any, objects map[string]any, and text a
@@ -252,6 +250,14 @@ func (a assigner) loose(s string) any {
 		}
 	}
 	return s
+}
+
+// invalid wraps an error of the assigner in kind, ErrParamValue or ErrBodyValue; nil stays nil.
+func invalid(kind, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%w: %w", kind, err)
 }
 
 // jsonName is the name a field has in JSON: its json tag, else its Go name; "-" ignores it.

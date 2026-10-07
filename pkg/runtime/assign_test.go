@@ -21,24 +21,24 @@ func TestAssign(t *testing.T) {
 		dst     any
 		value   any
 		want    any
-		wantErr bool
+		wantErr string
 	}{
 		{name: "Unsigned", dst: new(uint16), value: "7", want: uint16(7)},
 		{name: "Float", dst: new(float32), value: "1.5", want: float32(1.5)},
 		{name: "Boolean", dst: new(bool), value: "true", want: true},
-		{name: "Bad boolean", dst: new(bool), value: "yes", wantErr: true},
+		{name: "Bad boolean", dst: new(bool), value: "yes", wantErr: `"yes" is no bool`},
 		{name: "Text into a slice", dst: new([]string), value: "a", want: []string{"a"}},
 		{name: "JSON text into a struct", dst: new(address), value: `{"city":"x"}`, want: address{City: "x"}},
 		{name: "JSON text into a map", dst: new(map[string]int), value: `{"a":1}`, want: map[string]int{"a": 1}},
-		{name: "Text into a channel", dst: new(chan int), value: "a", wantErr: true},
-		{name: "List with a bad item", dst: new([]int), value: []string{"1", "x"}, wantErr: true},
+		{name: "Text into a channel", dst: new(chan int), value: "a", wantErr: "cannot decode text into chan int"},
+		{name: "List with a bad item", dst: new([]int), value: []string{"1", "x"}, wantErr: `"x" is no int`},
 		{name: "Items into an untyped target", dst: new(any), value: []any{"1", map[string]any{"a": "b"}}, want: []any{"1", map[string]any{"a": "b"}}},
 		{name: "Empty list into a value", dst: new(string), value: []string{}, want: ""},
 		{name: "First item into a value", dst: new(int), value: []string{"3", "4"}, want: 3},
-		{name: "Object with a bad field", dst: new(rgb), value: map[string]string{"R": "x"}, wantErr: true},
-		{name: "Object with a bad map value", dst: new(map[string]int), value: map[string]string{"a": "x"}, wantErr: true},
+		{name: "Object with a bad field", dst: new(rgb), value: map[string]string{"R": "x"}, wantErr: `R: "x" is no int`},
+		{name: "Object with a bad map value", dst: new(map[string]int), value: map[string]string{"a": "x"}, wantErr: `a: "x" is no int`},
 		{name: "Object into an untyped target", dst: new(any), value: map[string]any{"a": []string{"1"}}, want: map[string]any{"a": []any{"1"}}},
-		{name: "Object into a value", dst: new(int), value: map[string]string{"a": "1"}, wantErr: true},
+		{name: "Object into a value", dst: new(int), value: map[string]string{"a": "1"}, wantErr: "cannot decode an object into int"},
 		{name: "Value of another kind is left alone", dst: new(int), value: 5, want: 0},
 		{name: "Flat object into an untyped target", dst: new(any), value: map[string]string{"a": "1"}, want: map[string]any{"a": "1"}},
 		{name: "Number into an untyped target", dst: new(any), value: 5, want: 5},
@@ -50,8 +50,8 @@ func TestAssign(t *testing.T) {
 
 			err := assigner{}.assign(reflect.ValueOf(tc.dst).Elem(), tc.value)
 
-			if tc.wantErr {
-				require.ErrorIs(t, err, ErrParamValue)
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
 				return
 			}
 			require.NoError(t, err)
