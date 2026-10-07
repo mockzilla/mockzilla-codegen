@@ -117,7 +117,7 @@ func TestRequestBuilder(t *testing.T) {
 				b.CookieParam("abc", runtime.Param{Name: "session", Style: runtime.StyleForm})
 				b.CookieParam(colors, runtime.Param{Name: "flags", Style: runtime.StyleForm})
 			},
-			wantURL:    "http://api.test/v1/pets?color=blue&color=black&color=brown&rgb%5BB%5D=150&rgb%5BG%5D=200&rgb%5BR%5D=100",
+			wantURL:    "http://api.test/v1/pets?color=blue&color=black&color=brown&rgb%5BR%5D=100&rgb%5BG%5D=200&rgb%5BB%5D=150",
 			wantHeader: http.Header{"X-Colors": {"blue,black,brown"}, "Cookie": {"session=abc; flags=\"blue,black,brown\""}},
 		},
 		{
@@ -128,12 +128,20 @@ func TestRequestBuilder(t *testing.T) {
 			wantErr: runtime.ErrParamMissing,
 		},
 		{
+			name: "Query parameters in the order they are added, a comma inside an item escaped",
+			build: func(b *RequestBuilder) {
+				b.QueryParam([]string{"a b", "c,d"}, runtime.Param{Name: "terms", Style: runtime.StyleForm})
+				b.QueryParam("List(1,2)", runtime.Param{Name: "ids", Style: runtime.StyleForm, IsExplode: true, IsReserved: true})
+			},
+			wantURL: "http://api.test/v1/pets?terms=a%20b,c%2Cd&ids=List(1,2)",
+		},
+		{
 			name: "A querystring as a form, after the query parameters",
 			build: func(b *RequestBuilder) {
 				b.QueryParam("blue", runtime.Param{Name: "color", Style: runtime.StyleForm})
-				b.QueryString(filter{Name: new("a&b"), Tags: []string{"x", "y"}}, runtime.Param{Name: "q"})
+				b.QueryString(filter{Name: new("a&b c+d"), Tags: []string{"x", "y"}}, runtime.Param{Name: "q"})
 			},
-			wantURL: "http://api.test/v1/pets?color=blue&name=a%26b&tags=x&tags=y",
+			wantURL: "http://api.test/v1/pets?color=blue&name=a%26b%20c%2Bd&tags=x&tags=y",
 		},
 		{
 			name: "A querystring as JSON, every reserved byte escaped",
@@ -260,7 +268,7 @@ func TestRequestBuilder(t *testing.T) {
 				b.PathParam("a b&c=d", runtime.Param{Name: "end", Style: runtime.StyleSimple})
 				b.PathParam(colors, runtime.Param{Name: "key", Style: runtime.StyleSimple})
 			},
-			wantURL: "http://api.test/v1/orders/a%20b?end=a+b%26c%3Dd&blue%2Cblack%2Cbrown=1",
+			wantURL: "http://api.test/v1/orders/a%20b?end=a%20b%26c%3Dd&blue%2Cblack%2Cbrown=1",
 		},
 		{
 			name:    "A ? after the # is part of the fragment",
@@ -491,7 +499,7 @@ func TestRequestBuilderQueryAndHeaderInOnePlace(t *testing.T) {
 	req, err := b.Build(context.Background(), parseURL(t, "https://api.test"))
 
 	require.NoError(t, err)
-	assert.Equal(t, "https://api.test/search?exact=true&q=a+b", req.URL.String())
+	assert.Equal(t, "https://api.test/search?q=a%20b&exact=true", req.URL.String())
 	assert.Equal(t, "R=100,G=200,B=150", req.Header.Get("X-Point"))
 	assert.Nil(t, req.Body)
 }

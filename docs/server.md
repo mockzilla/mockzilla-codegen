@@ -657,7 +657,9 @@ The runtime package holds the codecs the generated HTTP code and clients use, st
   functions the client writes them with, handle every style of the spec (`simple`, `label`,
   `matrix`, `form`, `spaceDelimited`, `pipeDelimited`, `deepObject`), exploded or not, for values,
   lists and objects, and parameters with JSON content. A value that does not decode gives
-  `ErrParamValue`.
+  `ErrParamValue`. `DecodeQuery` reads the `Query` that `ParseQuery` makes of the raw query, so a
+  list is split at its commas before its items are unescaped: `tags=a,b%2Cc` is `a` and `b,c`. A
+  `+` in a query value is a space, and a value that does not unescape gives `ErrParamValue` too.
 - Bodies: `DecodeJSON`, `DecodeForm` (bracketed keys nest: `address[city]=Berlin`,
   `items[0]=a`; one value for a struct or map is read as JSON, else as a string), `DecodeMultipart` (files as `runtime.File`, JSON parts into structs),
   `DecodeText`, `DecodeBytes`, `DecodeFile`. A type with `UnmarshalForm` reads a form itself. A required body that is empty gives `ErrBodyEmpty`;

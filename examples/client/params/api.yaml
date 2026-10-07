@@ -28,6 +28,7 @@ paths:
         - {name: filter, in: query, style: deepObject, schema: {$ref: '#/components/schemas/Filter'}}
         - {name: where, in: query, explode: false, schema: {$ref: '#/components/schemas/Filter'}}
         - {name: id, in: query, schema: {oneOf: [{type: integer}, {type: string}]}}
+        - {name: ids, in: query, allowReserved: true, schema: {type: string}}
         - {name: needed, in: query, required: true, schema: {type: string}}
       responses:
         "200":

@@ -151,6 +151,17 @@ var Params = []Request{
 		WantBody: `{"query":{"form":[1,2],"csv":["a","b"],"space":["a","b"],"pipe":["a","b"],"deep":{"x":1,"y":2},"flat":{"x":3,"y":4},"json":{"x":5},"id":7,"needed":"yes","limit":5}}`,
 	},
 	{
+		Name:     "A comma inside a list item comes escaped and a plus is a space",
+		Path:     "/query?csv=a,b%2Cc&space=a+b%20c&needed=x+y",
+		WantBody: `{"query":{"csv":["a","b,c"],"space":["a","b","c"],"needed":"x y","limit":20}}`,
+	},
+	{
+		Name:       "A query value that does not unescape",
+		Path:       "/query?needed=%zz",
+		WantStatus: 400,
+		WantBody:   `{"error":"invalid query parameter \"needed\": invalid parameter value: invalid URL escape \"%zz\""}`,
+	},
+	{
 		Name:     "A union query parameter that is no number is a string",
 		Path:     "/query?id=a7&needed=yes",
 		WantBody: `{"query":{"id":"a7","needed":"yes","limit":20}}`,

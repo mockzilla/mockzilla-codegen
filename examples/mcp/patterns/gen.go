@@ -239,7 +239,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 func (a *HTTPAdapter) AddTag(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "AddTag"))
 	opts := &AddTagServiceRequestOptions{RawRequest: r}
-	query := r.URL.Query()
+	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.Query = &AddTagQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "color", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Color); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "AddTag", ParamName: "color", ParamLocation: "query", Err: err})

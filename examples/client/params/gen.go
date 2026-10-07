@@ -166,6 +166,7 @@ type QueryStylesQuery struct {
 	Filter *Filter             `json:"filter,omitempty"`
 	Where  *Filter             `json:"where,omitempty"`
 	ID     *QueryStylesQueryID `json:"id,omitempty"`
+	IDs    *string             `json:"ids,omitempty"`
 	Needed string              `json:"needed"`
 }
 
@@ -424,6 +425,7 @@ func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesReques
 		b.QueryParam(opts.Query.Filter, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.Where, runtime.Param{Name: "where", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.ID, runtime.Param{Name: "id", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
+		b.QueryParam(opts.Query.IDs, runtime.Param{Name: "ids", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false, IsReserved: true})
 		b.QueryParam(opts.Query.Needed, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
 	return c.newRequest(ctx, "QueryStyles", b, editors)

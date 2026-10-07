@@ -33,7 +33,7 @@ func TestRequests(t *testing.T) {
 			call: func(c *Client) error {
 				return c.SearchPhotos(ctx, &SearchPhotosRequestOptions{Query: &SearchPhotosQuery{Text: new("red fox")}})
 			},
-			want: "GET /rest?method=photos.search&text=red+fox",
+			want: "GET /rest?method=photos.search&text=red%20fox",
 		},
 		{
 			name: "Path parameters fill the query of the path",
@@ -62,7 +62,7 @@ func TestRequests(t *testing.T) {
 			call: func(c *Client) error {
 				return c.SearchPhotos(ctx, &SearchPhotosRequestOptions{Query: &SearchPhotosQuery{Text: new("red fox")}})
 			},
-			want: "GET /v1/rest?key=abc&method=photos.search&text=red+fox",
+			want: "GET /v1/rest?key=abc&method=photos.search&text=red%20fox",
 		},
 	}
 

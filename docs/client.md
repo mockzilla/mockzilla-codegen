@@ -149,6 +149,12 @@ func (o *CreatePetRequestOptions) Validate() error
   `filter[tags]=a&filter[tags]=b`, and an object inside it nested, `filter[size][x]=1`. The other
   styles have no way to write a list or object inside an object, so setting one is
   `runtime.ErrParamValue`.
+- Query parameters go in the order of the spec, percent-encoded as RFC 6570 writes a form-style
+  query: every byte but letters, digits and `-._~` is escaped, a space as `%20`. A separator goes
+  as it is and the same byte inside a value is escaped, so `[]string{"a", "b,c"}` goes as
+  `tags=a,b%2Cc`. With `allowReserved: true`, a value keeps the reserved characters a query holds
+  and its `%XX` escapes: `ids=List(1,2)`. `[`, `]` and `#` are still escaped. `&`, `=` and `+` go
+  as they are, so a value that holds them as data has to escape them itself.
 - A `?` in a path of the spec starts a query, which is sent as written, ahead of the query
   parameters: `/rest?method=photos.search` with `text` set sends
   `/rest?method=photos.search&text=fox`. A key written there and declared as a query parameter goes
@@ -157,8 +163,9 @@ func (o *CreatePetRequestOptions) Validate() error
   parameter the spec declares next to it.
 - A `querystring` parameter has a field of its own, see the
   [server's request options](server.md#request-options). It goes after the query parameters: a
-  form as form values, `name=rex&tag=a&tag=b`, JSON as its text with every byte but letters,
-  digits and `-._~` percent-encoded. A nil field sends nothing, unless the parameter is required.
+  form as form values, `name=rex&tag=a&tag=b`, JSON as its text, with every byte but letters,
+  digits and `-._~` percent-encoded in both. A nil field sends nothing, unless the parameter is
+  required.
 - A placeholder that no path parameter fills, such as `{query}` in `/search?query={query}` when
   `query` is a query parameter, is `runtime.ErrParamMissing` on every call. Generation warns about
   it (`path-param-missing`).
@@ -324,6 +331,8 @@ Server-Sent Events from a handler is not generated yet.
   property with one of the first three is written and read by its schema type, and its
   `contentType` is ignored, as the spec says. The encoding of a body that is a union, and of a
   response, is not read either. Generation warns (`encoding-ignored`).
+- `allowReserved` is read on query parameters only. OpenAPI 3.2 allows it on a path parameter
+  too, where it is not read.
 
 ## Layout
 

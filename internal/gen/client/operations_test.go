@@ -11,7 +11,53 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
+	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
+
+func TestGroupView(t *testing.T) {
+	t.Parallel()
+
+	field := &gomodel.Field{Name: "IDs", Type: gomodel.Builtin{Name: "string"}}
+	jsonContent := []*spec.MediaType{{Name: "application/json"}}
+	tests := []struct {
+		name  string
+		param *spec.Parameter
+		want  GroupView
+	}{
+		{
+			name:  "A query parameter keeps reserved characters when it allows them",
+			param: &spec.Parameter{Name: "ids", In: spec.InQuery, Style: "form", Explode: true, AllowReserved: true, Schema: &spec.Schema{}},
+			want: GroupView{Field: "Query", Params: []ParamView{
+				{Encoder: "QueryParam", Value: "opts.Query.IDs", Name: `"ids"`, Style: "StyleForm", IsExplode: true, IsReserved: true},
+			}},
+		},
+		{
+			name:  "A query parameter with content is written by its media type",
+			param: &spec.Parameter{Name: "ids", In: spec.InQuery, AllowReserved: true, Contents: jsonContent},
+			want: GroupView{Field: "Query", Params: []ParamView{
+				{Encoder: "QueryParam", Value: "opts.Query.IDs", Name: `"ids"`, Style: "StyleForm", IsJSON: true},
+			}},
+		},
+		{
+			name:  "A path parameter escapes them",
+			param: &spec.Parameter{Name: "ids", In: spec.InPath, Style: "simple", AllowReserved: true, Schema: &spec.Schema{}},
+			want: GroupView{Field: "PathParams", Params: []ParamView{
+				{Encoder: "PathParam", Value: "opts.PathParams.IDs", Name: `"ids"`, Style: "StyleSimple", IsRequired: true},
+			}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			g, _ := New(&gomodel.Model{}, allOptions())
+			group := gomodel.ParamGroup{In: tc.param.In, Decl: &gomodel.Decl{Struct: &gomodel.Struct{Fields: []*gomodel.Field{field}}}, Params: []*spec.Parameter{tc.param}}
+
+			assert.Equal(t, tc.want, groupView(g, group))
+		})
+	}
+}
 
 func TestBodyView(t *testing.T) {
 	t.Parallel()

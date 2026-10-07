@@ -113,7 +113,7 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 	r = r.WithContext({{$.Runtime}}.WithOperationID(r.Context(), {{.ID}}))
 	opts := &{{.Options}}{RawRequest: r}
 {{- if .HasQuery}}
-	query := r.URL.Query()
+	query := {{$.Runtime}}.ParseQuery(r.URL.RawQuery)
 {{- end}}
 {{- range .Groups}}
 	opts.{{.Field}} = &{{.Type}}{}
