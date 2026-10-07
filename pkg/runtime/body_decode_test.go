@@ -63,6 +63,21 @@ type vertex struct {
 	Point *point
 }
 
+func (v vertex) MarshalJSON() ([]byte, error) {
+	if v.Point != nil {
+		return json.Marshal(v.Point)
+	}
+	return json.Marshal(v.Text)
+}
+
+func (v *vertex) UnmarshalJSON(data []byte) error {
+	*v = vertex{}
+	return UnmarshalUnion(data, Union{Variants: []Variant{
+		{Name: "Text", Kind: KindString, Into: Into(&v.Text)},
+		{Name: "Point", Kind: KindObject, Required: []string{"x"}, Known: []string{"x"}, Into: Into(&v.Point)},
+	}})
+}
+
 type drawing struct {
 	Vertex   *vertex           `json:"vertex,omitempty"`
 	Vertices []vertex          `json:"vertices,omitempty"`
@@ -97,30 +112,15 @@ type scores struct {
 	Extra map[string]int `json:"-"`
 }
 
+func (s *scores) UnmarshalForm(form *multipart.Form) error {
+	type plain scores
+	return UnmarshalAdditionalForm(form, (*plain)(s), &s.Extra, "name")
+}
+
 type errReader struct{}
 
 func (errReader) Read([]byte) (int, error) {
 	return 0, io.ErrUnexpectedEOF
-}
-
-func (v vertex) MarshalJSON() ([]byte, error) {
-	if v.Point != nil {
-		return json.Marshal(v.Point)
-	}
-	return json.Marshal(v.Text)
-}
-
-func (v *vertex) UnmarshalJSON(data []byte) error {
-	*v = vertex{}
-	return UnmarshalUnion(data, Union{Variants: []Variant{
-		{Name: "Text", Kind: KindString, Into: Into(&v.Text)},
-		{Name: "Point", Kind: KindObject, Required: []string{"x"}, Known: []string{"x"}, Into: Into(&v.Point)},
-	}})
-}
-
-func (s *scores) UnmarshalForm(form *multipart.Form) error {
-	type plain scores
-	return UnmarshalAdditionalForm(form, (*plain)(s), &s.Extra, "name")
 }
 
 func TestContentType(t *testing.T) {
