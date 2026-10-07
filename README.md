@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/gopher.svg" alt="A gopher turning an OpenAPI spec into Go code" width="280" />
+  <img src="docs/images/gopher.svg" alt="A gopher with its paws in its pocket" width="110" />
 </p>
 
 # mockzilla-codegen
