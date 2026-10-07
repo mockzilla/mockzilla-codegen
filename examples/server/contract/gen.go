@@ -88,9 +88,7 @@ type ListPetsResponseDefaultHeaders struct {
 // PetsInterface is what the generated handlers call. Implement it with the business logic.
 type PetsInterface interface {
 	// ListPets handles GET /pets.
-	//
 	// List pets
-	//
 	// Returns the pets, a page at a time.
 	ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error)
 	// CreatePet handles POST /pets.

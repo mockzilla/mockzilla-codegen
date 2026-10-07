@@ -76,7 +76,6 @@ func (a AddTagQuery) Validate() error {
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// AddTag handles POST /tags.
-	//
 	// Add a tag
 	AddTag(ctx context.Context, opts *AddTagServiceRequestOptions) (*AddTagResponseData, error)
 }
@@ -352,7 +351,6 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // ClientInterface is what Client implements.
 type ClientInterface interface {
 	// AddTag calls POST /tags.
-	//
 	// Add a tag
 	AddTag(ctx context.Context, opts *AddTagRequestOptions, editors ...RequestEditor) (*Added, error)
 }
@@ -415,7 +413,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // AddTag calls POST /tags.
-//
 // Add a tag
 func (c *Client) AddTag(ctx context.Context, opts *AddTagRequestOptions, editors ...RequestEditor) (*Added, error) {
 	req, err := c.AddTagRequest(ctx, opts, editors...)

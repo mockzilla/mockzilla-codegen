@@ -119,25 +119,19 @@ type PingResponse200 = string
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// ListPets handles GET /pets.
-	//
 	// List the pets
-	//
 	// Returns every pet, the newest first.
 	ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error)
 	// CreatePet handles POST /pets.
-	//
 	// Add a pet
 	CreatePet(ctx context.Context, opts *CreatePetServiceRequestOptions) (*CreatePetResponseData, error)
 	// GetPet handles GET /pets/{id}.
-	//
 	// Get one pet
 	GetPet(ctx context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error)
 	// DeletePet handles DELETE /pets/{id}.
-	//
 	// Remove a pet
 	DeletePet(ctx context.Context, opts *DeletePetServiceRequestOptions) (*DeletePetResponseData, error)
 	// Ping handles GET /ping.
-	//
 	// Check that the API is up
 	Ping(ctx context.Context, opts *PingServiceRequestOptions) (*PingResponseData, error)
 }
@@ -781,25 +775,19 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // PetClientInterface is what PetClient implements.
 type PetClientInterface interface {
 	// ListPets calls GET /pets.
-	//
 	// List the pets
-	//
 	// Returns every pet, the newest first.
 	ListPets(ctx context.Context, opts *ListPetsRequestOptions, editors ...RequestEditor) (ListPetsResponse200, error)
 	// CreatePet calls POST /pets.
-	//
 	// Add a pet
 	CreatePet(ctx context.Context, opts *CreatePetRequestOptions, editors ...RequestEditor) (*Pet, error)
 	// GetPet calls GET /pets/{id}.
-	//
 	// Get one pet
 	GetPet(ctx context.Context, opts *GetPetRequestOptions, editors ...RequestEditor) (*Pet, error)
 	// DeletePet calls DELETE /pets/{id}.
-	//
 	// Remove a pet
 	DeletePet(ctx context.Context, opts *DeletePetRequestOptions, editors ...RequestEditor) error
 	// Ping calls GET /ping.
-	//
 	// Check that the API is up
 	Ping(ctx context.Context, opts *PingRequestOptions, editors ...RequestEditor) (*PingResponse200, error)
 }
@@ -862,9 +850,7 @@ func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
 }
 
 // ListPets calls GET /pets.
-//
-// # List the pets
-//
+// List the pets
 // Returns every pet, the newest first.
 func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions, editors ...RequestEditor) (ListPetsResponse200, error) {
 	req, err := c.ListPetsRequest(ctx, opts, editors...)
@@ -898,7 +884,6 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
 }
 
 // CreatePet calls POST /pets.
-//
 // Add a pet
 func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions, editors ...RequestEditor) (*Pet, error) {
 	req, err := c.CreatePetRequest(ctx, opts, editors...)
@@ -936,7 +921,6 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *CreatePetRequest
 }
 
 // GetPet calls GET /pets/{id}.
-//
 // Get one pet
 func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions, editors ...RequestEditor) (*Pet, error) {
 	req, err := c.GetPetRequest(ctx, opts, editors...)
@@ -971,7 +955,6 @@ func (c *PetClient) GetPetRequest(ctx context.Context, opts *GetPetRequestOption
 }
 
 // DeletePet calls DELETE /pets/{id}.
-//
 // Remove a pet
 func (c *PetClient) DeletePet(ctx context.Context, opts *DeletePetRequestOptions, editors ...RequestEditor) error {
 	req, err := c.DeletePetRequest(ctx, opts, editors...)
@@ -998,7 +981,6 @@ func (c *PetClient) DeletePetRequest(ctx context.Context, opts *DeletePetRequest
 }
 
 // Ping calls GET /ping.
-//
 // Check that the API is up
 func (c *PetClient) Ping(ctx context.Context, opts *PingRequestOptions, editors ...RequestEditor) (*PingResponse200, error) {
 	req, err := c.PingRequest(ctx, opts, editors...)
@@ -1094,7 +1076,7 @@ func (t *MCPTools) Register(s *mcp.Server) {
 func (t *MCPTools) ListPetsTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "list_pets",
-		Description: "List the pets\n\nReturns every pet, the newest first.",
+		Description: "List the pets\nReturns every pet, the newest first.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":100,"description":"How many pets to return at most."}},"additionalProperties":false}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
 	}

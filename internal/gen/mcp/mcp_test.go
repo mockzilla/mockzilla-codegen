@@ -53,7 +53,7 @@ func TestNew(t *testing.T) {
 		},
 	}, diags)
 	assert.Equal(t, "Fetch a pet by its id.", g.tools[2].desc, "x-mcp.description wins")
-	assert.Equal(t, "List pets\n\nReturns pets.", g.tools[0].desc)
+	assert.Equal(t, "List pets\nReturns pets.", g.tools[0].desc)
 	assert.Equal(t, "POST /pets", g.tools[1].desc, "an empty x-mcp.description keeps the method and path")
 	assert.Equal(t, "DELETE /pets/{id}\n\nDeprecated: the spec marks it deprecated.", g.tools[5].desc)
 	assert.Equal(t, []string{"limit", "filter", "X-Trace", "session"}, paramNames(g.tools[0]), "OpenAPI ignores an Authorization header parameter")
@@ -242,7 +242,7 @@ func paramNames(tl *tool) []string {
 }
 
 func testOptions() Options {
-	return Options{Client: "PetClient", Namer: naming.New(nil), User: map[string]any{"owner": "platform"}}
+	return Options{Client: "PetClient", Namer: naming.New(nil), User: map[string]any{"owner": "platform"}, Descriptions: true}
 }
 
 // fixture is a model, its generator and the config that lays the parts out.

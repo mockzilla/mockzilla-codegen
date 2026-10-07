@@ -52,21 +52,26 @@ func inputView(g *Generator, t *tool, s *gocode.Scope) InputView {
 			Name: p.goName,
 			Type: s.Expr(p.field.Type),
 			Tag:  jsonTag(p.name, p.spec.Required || p.spec.In == spec.InPath, p.field.OmitZero),
-			Doc:  p.spec.Description,
+			Doc:  fieldDoc(g.opts.Descriptions, p.spec.Description, ""),
 		})
 	}
 	if q := t.queryString; q != nil {
-		doc := cmp.Or(t.op.QueryString.Param.Description, "The query, sent as "+q.content.MediaType+".")
+		doc := fieldDoc(g.opts.Descriptions, t.op.QueryString.Param.Description, "The query, sent as "+q.content.MediaType+".")
 		v.Fields = append(v.Fields, FieldView{Name: q.goName, Type: s.Expr(operation.QueryStringType(t.op.QueryString)), Tag: jsonTag(q.name, q.isRequired, false), Doc: doc})
 	}
 	if b := t.body; b != nil {
-		doc := bodyDescription(t.op)
-		if doc == "" {
-			doc = "The request body, sent as " + b.content.MediaType + "."
-		}
+		doc := fieldDoc(g.opts.Descriptions, bodyDescription(t.op), "The request body, sent as "+b.content.MediaType+".")
 		v.Fields = append(v.Fields, FieldView{Name: b.goName, Type: s.Expr(operation.BodyType(b.content)), Tag: jsonTag(b.name, b.isRequired, false), Doc: doc})
 	}
 	return v
+}
+
+// fieldDoc is text when isDescribed and text is set, else fallback.
+func fieldDoc(isDescribed bool, text, fallback string) string {
+	if !isDescribed {
+		return fallback
+	}
+	return cmp.Or(text, fallback)
 }
 
 // jsonTag is the json tag of a field named name, left out of the output when it is not required

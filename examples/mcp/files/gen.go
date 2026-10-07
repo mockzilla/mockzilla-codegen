@@ -44,11 +44,9 @@ type SetPhotoRequestBody = runtime.File
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// SetPhoto handles PUT /pets/{id}/photo.
-	//
 	// Set the photo of a pet
 	SetPhoto(ctx context.Context, opts *SetPhotoServiceRequestOptions) (*SetPhotoResponseData, error)
 	// AddNote handles POST /notes.
-	//
 	// Add a note with an attachment
 	AddNote(ctx context.Context, opts *AddNoteServiceRequestOptions) (*AddNoteResponseData, error)
 }
@@ -412,11 +410,9 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // ClientInterface is what Client implements.
 type ClientInterface interface {
 	// SetPhoto calls PUT /pets/{id}/photo.
-	//
 	// Set the photo of a pet
 	SetPhoto(ctx context.Context, opts *SetPhotoRequestOptions, editors ...RequestEditor) (*Received, error)
 	// AddNote calls POST /notes.
-	//
 	// Add a note with an attachment
 	AddNote(ctx context.Context, opts *AddNoteRequestOptions, editors ...RequestEditor) (*Received, error)
 }
@@ -479,7 +475,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // SetPhoto calls PUT /pets/{id}/photo.
-//
 // Set the photo of a pet
 func (c *Client) SetPhoto(ctx context.Context, opts *SetPhotoRequestOptions, editors ...RequestEditor) (*Received, error) {
 	req, err := c.SetPhotoRequest(ctx, opts, editors...)
@@ -519,7 +514,6 @@ func (c *Client) SetPhotoRequest(ctx context.Context, opts *SetPhotoRequestOptio
 }
 
 // AddNote calls POST /notes.
-//
 // Add a note with an attachment
 func (c *Client) AddNote(ctx context.Context, opts *AddNoteRequestOptions, editors ...RequestEditor) (*Received, error) {
 	req, err := c.AddNoteRequest(ctx, opts, editors...)

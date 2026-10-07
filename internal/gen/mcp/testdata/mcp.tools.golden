@@ -47,7 +47,7 @@ func (t *MCPTools) Register(s *mcp.Server) {
 func (t *MCPTools) ListPetsTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "list_pets",
-		Description: "List pets\n\nReturns pets.",
+		Description: "List pets\nReturns pets.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{"limit":{"type":"integer","description":"How many at most.","deprecated":true},"filter":{"type":"object"},"X-Trace":{"type":"string"},"session":{"type":"string"}},"required":["filter","session"],"additionalProperties":false}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true},
 	}

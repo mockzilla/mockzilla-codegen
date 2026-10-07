@@ -399,6 +399,7 @@ func allOptions() Options {
 		Name:         "PetClient",
 		Namer:        naming.New(nil),
 		Timeout:      5 * time.Second,
+		Descriptions: true,
 		HasEnvelopes: true,
 		HasStreams:   true,
 		User:         map[string]any{"owner": "platform"},

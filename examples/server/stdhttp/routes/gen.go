@@ -34,23 +34,18 @@ type GetFileResponse200 = string
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// Search handles QUERY /search.
-	//
 	// Search with the query in the body.
 	Search(ctx context.Context, opts *SearchServiceRequestOptions) (*SearchResponseData, error)
 	// PurgeSearch handles PURGE /search.
-	//
 	// Drop the search cache.
 	PurgeSearch(ctx context.Context, opts *PurgeSearchServiceRequestOptions) (*PurgeSearchResponseData, error)
 	// ListPets handles GET /pets/.
-	//
 	// List the pets, at a path that ends in a slash.
 	ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error)
 	// GetPet handles GET /pets/{pet-id}.
-	//
 	// Get a pet by a parameter whose name is no Go identifier.
 	GetPet(ctx context.Context, opts *GetPetServiceRequestOptions) (*GetPetResponseData, error)
 	// GetFile handles GET /files/*.
-	//
 	// Get a file at any depth below the path.
 	GetFile(ctx context.Context, opts *GetFileServiceRequestOptions) (*GetFileResponseData, error)
 }

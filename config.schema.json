@@ -88,7 +88,7 @@
       "description": "Models generation. Always on.",
       "properties": {
         "descriptions": {
-          "description": "Copy schema descriptions into comments. Defaults to true.",
+          "description": "Copy the spec's summaries and descriptions into comments. MCP tool descriptions keep them either way. Defaults to true.",
           "type": "boolean"
         },
         "error-mapping": {

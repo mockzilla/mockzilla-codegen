@@ -1,0 +1,32 @@
+openapi: 3.1.0
+info: {title: no-descriptions, version: "1"}
+paths:
+  /pets/{id}:
+    get:
+      operationId: getPet
+      summary: Find pet by ID
+      description: Returns a single pet.
+      parameters:
+        - {name: id, in: path, required: true, description: The pet's ID., schema: {type: string}}
+      responses:
+        "200":
+          description: The pet.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Pet'}
+    delete:
+      operationId: deletePet
+      summary: Remove a pet
+      deprecated: true
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "204": {description: Removed.}
+components:
+  schemas:
+    Pet:
+      type: object
+      description: A pet in the store.
+      required: [name]
+      properties:
+        name: {type: string, description: What the pet answers to.}

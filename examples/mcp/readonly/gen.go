@@ -38,7 +38,6 @@ type Pet struct {
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// AddPet handles POST /pets.
-	//
 	// Add a pet
 	AddPet(ctx context.Context, opts *AddPetServiceRequestOptions) (*AddPetResponseData, error)
 }
@@ -292,7 +291,6 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // ClientInterface is what Client implements.
 type ClientInterface interface {
 	// AddPet calls POST /pets.
-	//
 	// Add a pet
 	AddPet(ctx context.Context, opts *AddPetRequestOptions, editors ...RequestEditor) (*Pet, error)
 }
@@ -355,7 +353,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // AddPet calls POST /pets.
-//
 // Add a pet
 func (c *Client) AddPet(ctx context.Context, opts *AddPetRequestOptions, editors ...RequestEditor) (*Pet, error) {
 	req, err := c.AddPetRequest(ctx, opts, editors...)

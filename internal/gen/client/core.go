@@ -44,7 +44,7 @@ type HeaderView struct {
 }
 
 // SignatureView is what the interface and the methods of one operation share. Route is the method
-// and the path as the spec writes them; Doc is the spec's text of the operation. Result is the
+// and the path as the spec writes them; Doc is the comment of the plain method. Result is the
 // type of the body the plain method returns, empty for none; Response is the envelope, empty
 // without HasEnvelopes; StreamType is what the Stream method returns, empty for no Stream method.
 type SignatureView struct {
@@ -85,10 +85,11 @@ func coreView(g *Generator, s *gocode.Scope) *CoreView {
 // nothing it does not use.
 func signatureView(g *Generator, op *gomodel.Operation, s *gocode.Scope) SignatureView {
 	n := g.opts.Namer
+	route := op.Spec.Method + " " + op.Spec.Path
 	v := SignatureView{
 		Name:    op.Name,
-		Route:   op.Spec.Method + " " + op.Spec.Path,
-		Doc:     operation.Doc(op.Spec),
+		Route:   route,
+		Doc:     operation.Doc(op.Name+" calls "+route+".", op.Spec, g.opts.Descriptions),
 		Options: s.Symbol(PartOptions, n.ClientRequestOptions(op.Name)),
 	}
 	if _, c, ok := SuccessBody(op); ok {

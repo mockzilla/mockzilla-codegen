@@ -69,33 +69,40 @@ func TestSignatureView(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name         string
-		op           int
-		hasEnvelopes bool
-		hasStreams   bool
-		want         SignatureView
+		name              string
+		op                int
+		hasEnvelopes      bool
+		hasStreams        bool
+		hasNoDescriptions bool
+		want              SignatureView
 	}{
 		{
 			name:         "A body, the spec's text and an envelope",
 			op:           0,
 			hasEnvelopes: true,
-			want:         SignatureView{Name: "ListPets", Route: "GET /pets", Doc: "List pets\n\nReturns pets.", Options: "types.ListPetsRequestOptions", Result: "types.Pets", Response: "types.ListPetsResponse"},
+			want:         SignatureView{Name: "ListPets", Route: "GET /pets", Doc: "ListPets calls GET /pets.\nList pets\nReturns pets.", Options: "types.ListPetsRequestOptions", Result: "types.Pets", Response: "types.ListPetsResponse"},
+		},
+		{
+			name:              "Without descriptions the comment is the route alone",
+			op:                0,
+			hasNoDescriptions: true,
+			want:              SignatureView{Name: "ListPets", Route: "GET /pets", Doc: "ListPets calls GET /pets.", Options: "types.ListPetsRequestOptions", Result: "types.Pets"},
 		},
 		{
 			name: "No body and no envelope",
 			op:   2,
-			want: SignatureView{Name: "DeletePet", Route: "DELETE /pets/{id}", Doc: "Deprecated: the spec marks it deprecated.", Options: "types.DeletePetRequestOptions"},
+			want: SignatureView{Name: "DeletePet", Route: "DELETE /pets/{id}", Doc: "DeletePet calls DELETE /pets/{id}.\n\nDeprecated: the spec marks it deprecated.", Options: "types.DeletePetRequestOptions"},
 		},
 		{
 			name:       "A stream",
 			op:         5,
 			hasStreams: true,
-			want:       SignatureView{Name: "Chat", Route: "POST /chat", Options: "types.ChatRequestOptions", Result: "*types.Pet", StreamType: "*httpclient.Stream[types.ChatResponseItem]"},
+			want:       SignatureView{Name: "Chat", Route: "POST /chat", Doc: "Chat calls POST /chat.", Options: "types.ChatRequestOptions", Result: "*types.Pet", StreamType: "*httpclient.Stream[types.ChatResponseItem]"},
 		},
 		{
 			name: "A stream without Stream methods",
 			op:   5,
-			want: SignatureView{Name: "Chat", Route: "POST /chat", Options: "types.ChatRequestOptions", Result: "*types.Pet"},
+			want: SignatureView{Name: "Chat", Route: "POST /chat", Doc: "Chat calls POST /chat.", Options: "types.ChatRequestOptions", Result: "*types.Pet"},
 		},
 	}
 
@@ -105,7 +112,7 @@ func TestSignatureView(t *testing.T) {
 
 			m := petModel()
 			opts := allOptions()
-			opts.HasEnvelopes, opts.HasStreams = tc.hasEnvelopes, tc.hasStreams
+			opts.HasEnvelopes, opts.HasStreams, opts.Descriptions = tc.hasEnvelopes, tc.hasStreams, !tc.hasNoDescriptions
 			cfg := plainConfig
 			if tc.hasEnvelopes {
 				cfg = splitConfig

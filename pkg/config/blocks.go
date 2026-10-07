@@ -54,7 +54,7 @@ type Naming struct {
 // Models controls model generation.
 type Models struct {
 	IntType      string            `yaml:"int-type" enum:"int,int32,int64" desc:"Go type for integers without a format. Defaults to int."`
-	Descriptions *bool             `yaml:"descriptions" desc:"Copy schema descriptions into comments. Defaults to true."`
+	Descriptions *bool             `yaml:"descriptions" desc:"Copy the spec's summaries and descriptions into comments. MCP tool descriptions keep them either way. Defaults to true."`
 	ExtraTags    []string          `yaml:"extra-tags" desc:"Struct tags added next to json, such as yaml."`
 	Validation   ModelValidation   `yaml:"validation" desc:"Generated Validate methods."`
 	ErrorMapping map[string]string `yaml:"error-mapping" desc:"Error types, mapped to the path of their message field."`

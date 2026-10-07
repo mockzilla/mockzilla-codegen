@@ -131,7 +131,7 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope) Operati
 		Name:    op.Name,
 		Method:  op.Spec.Method,
 		Path:    op.Spec.Path,
-		Doc:     operation.Doc(op.Spec),
+		Doc:     operation.Doc(op.Name+" handles "+op.Spec.Method+" "+op.Spec.Path+".", op.Spec, g.opts.Descriptions),
 		Options: n.ServiceRequestOptions(op.Name),
 		Data:    n.ResponseData(op.Name),
 		User:    g.opts.User,

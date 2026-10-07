@@ -67,7 +67,6 @@ func (a AdoptionPriority) Validate() error {
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// Adopt handles POST /adoptions.
-	//
 	// Record an adoption
 	Adopt(ctx context.Context, opts *AdoptServiceRequestOptions) (*AdoptResponseData, error)
 }
@@ -329,7 +328,6 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // ClientInterface is what Client implements.
 type ClientInterface interface {
 	// Adopt calls POST /adoptions.
-	//
 	// Record an adoption
 	Adopt(ctx context.Context, opts *AdoptRequestOptions, editors ...RequestEditor) (*Adoption, error)
 }
@@ -392,7 +390,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // Adopt calls POST /adoptions.
-//
 // Record an adoption
 func (c *Client) Adopt(ctx context.Context, opts *AdoptRequestOptions, editors ...RequestEditor) (*Adoption, error) {
 	req, err := c.AdoptRequest(ctx, opts, editors...)

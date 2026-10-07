@@ -133,9 +133,7 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // ClientInterface is what Client implements.
 type ClientInterface interface {
 	// SubmitJob calls POST /jobs.
-	//
 	// Submit a job
-	//
 	// Small jobs run at once and come back as 201; large ones are queued as 202.
 	SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*Result, error)
 	SubmitJobWithResponse(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*SubmitJobResponse, error)
@@ -202,9 +200,7 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // SubmitJob calls POST /jobs.
-//
-// # Submit a job
-//
+// Submit a job
 // Small jobs run at once and come back as 201; large ones are queued as 202.
 func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions, editors ...RequestEditor) (*Result, error) {
 	req, err := c.SubmitJobRequest(ctx, opts, editors...)

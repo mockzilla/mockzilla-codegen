@@ -43,19 +43,15 @@ type GetPhotoResponse200 = runtime.File
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// CountPets handles GET /pets/count.
-	//
 	// Count the pets
 	CountPets(ctx context.Context, opts *CountPetsServiceRequestOptions) (*CountPetsResponseData, error)
 	// FindPet handles GET /pets/find.
-	//
 	// Find a pet by name
 	FindPet(ctx context.Context, opts *FindPetServiceRequestOptions) (*FindPetResponseData, error)
 	// GetPhoto handles GET /pets/photo.
-	//
 	// The photo or the voice of a pet, in whatever format it was stored
 	GetPhoto(ctx context.Context, opts *GetPhotoServiceRequestOptions) (*GetPhotoResponseData, error)
 	// GetIcon handles GET /pets/icon.
-	//
 	// The icon of the pet store
 	GetIcon(ctx context.Context, opts *GetIconServiceRequestOptions) (*GetIconResponseData, error)
 }
@@ -562,19 +558,15 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // ClientInterface is what Client implements.
 type ClientInterface interface {
 	// CountPets calls GET /pets/count.
-	//
 	// Count the pets
 	CountPets(ctx context.Context, opts *CountPetsRequestOptions, editors ...RequestEditor) (*CountPetsResponse200, error)
 	// FindPet calls GET /pets/find.
-	//
 	// Find a pet by name
 	FindPet(ctx context.Context, opts *FindPetRequestOptions, editors ...RequestEditor) (*Pet, error)
 	// GetPhoto calls GET /pets/photo.
-	//
 	// The photo or the voice of a pet, in whatever format it was stored
 	GetPhoto(ctx context.Context, opts *GetPhotoRequestOptions, editors ...RequestEditor) (*GetPhotoResponse200, error)
 	// GetIcon calls GET /pets/icon.
-	//
 	// The icon of the pet store
 	GetIcon(ctx context.Context, opts *GetIconRequestOptions, editors ...RequestEditor) ([]byte, error)
 }
@@ -637,7 +629,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // CountPets calls GET /pets/count.
-//
 // Count the pets
 func (c *Client) CountPets(ctx context.Context, opts *CountPetsRequestOptions, editors ...RequestEditor) (*CountPetsResponse200, error) {
 	req, err := c.CountPetsRequest(ctx, opts, editors...)
@@ -668,7 +659,6 @@ func (c *Client) CountPetsRequest(ctx context.Context, opts *CountPetsRequestOpt
 }
 
 // FindPet calls GET /pets/find.
-//
 // Find a pet by name
 func (c *Client) FindPet(ctx context.Context, opts *FindPetRequestOptions, editors ...RequestEditor) (*Pet, error) {
 	req, err := c.FindPetRequest(ctx, opts, editors...)
@@ -703,7 +693,6 @@ func (c *Client) FindPetRequest(ctx context.Context, opts *FindPetRequestOptions
 }
 
 // GetPhoto calls GET /pets/photo.
-//
 // The photo or the voice of a pet, in whatever format it was stored
 func (c *Client) GetPhoto(ctx context.Context, opts *GetPhotoRequestOptions, editors ...RequestEditor) (*GetPhotoResponse200, error) {
 	req, err := c.GetPhotoRequest(ctx, opts, editors...)
@@ -737,7 +726,6 @@ func (c *Client) GetPhotoRequest(ctx context.Context, opts *GetPhotoRequestOptio
 }
 
 // GetIcon calls GET /pets/icon.
-//
 // The icon of the pet store
 func (c *Client) GetIcon(ctx context.Context, opts *GetIconRequestOptions, editors ...RequestEditor) ([]byte, error) {
 	req, err := c.GetIconRequest(ctx, opts, editors...)

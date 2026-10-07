@@ -114,7 +114,8 @@ func (g *generation) model(ctx context.Context) error {
 	g.diags.Append(parsed...)
 
 	var built []diag.Diagnostic
-	g.m, built = gomodel.Build(doc, gomodel.OptionsFrom(g.cfg))
+	modelOpts := gomodel.OptionsFrom(g.cfg)
+	g.m, built = gomodel.Build(doc, modelOpts)
 	g.diags.Append(built...)
 	g.namer = naming.New(g.cfg.Naming.Initialisms)
 	g.gen = models.New(g.m)
@@ -127,16 +128,18 @@ func (g *generation) model(ctx context.Context) error {
 			HasEnvelopes: c.WithResponse,
 			HasStreams:   c.Streaming,
 			User:         g.cfg.UserContext,
+			Descriptions: modelOpts.Descriptions,
 		})
 		g.diags.Append(clDiags...)
 	}
 	if m := g.cfg.MCP; m != nil {
 		var mcDiags []diag.Diagnostic
 		g.mc, mcDiags = mcp.New(g.m, mcp.Options{
-			Client:      cmp.Or(g.cfg.Client.Name, "Client"),
-			Namer:       g.namer,
-			DefaultSkip: m.DefaultSkip,
-			User:        g.cfg.UserContext,
+			Client:       cmp.Or(g.cfg.Client.Name, "Client"),
+			Namer:        g.namer,
+			DefaultSkip:  m.DefaultSkip,
+			User:         g.cfg.UserContext,
+			Descriptions: modelOpts.Descriptions,
 		})
 		g.diags.Append(mcDiags...)
 	}
@@ -148,6 +151,7 @@ func (g *generation) model(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	srvOpts.Descriptions = modelOpts.Descriptions
 	var srvDiags []diag.Diagnostic
 	g.srv, srvDiags = server.New(g.m, srvOpts)
 	g.diags.Append(srvDiags...)
