@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 func TestResult(t *testing.T) {
@@ -118,36 +118,36 @@ func TestError(t *testing.T) {
 		want string
 	}{
 		{name: "An error of no response is kept", err: errors.New("dial failed"), want: "dial failed"},
-		{name: "A response without a body is kept", err: &runtime.APIError{StatusCode: 404}, want: "unexpected status 404 Not Found"},
-		{name: "A body of white space is kept", err: &runtime.APIError{StatusCode: 404, Body: []byte(" \n")}, want: "unexpected status 404 Not Found"},
+		{name: "A response without a body is kept", err: &httpclient.APIError{StatusCode: 404}, want: "unexpected status 404 Not Found"},
+		{name: "A body of white space is kept", err: &httpclient.APIError{StatusCode: 404, Body: []byte(" \n")}, want: "unexpected status 404 Not Found"},
 		{
 			name: "The body follows the message",
-			err:  &runtime.APIError{StatusCode: 404, Body: []byte("{\"detail\":\"no such pet\"}\n")},
+			err:  &httpclient.APIError{StatusCode: 404, Body: []byte("{\"detail\":\"no such pet\"}\n")},
 			want: "unexpected status 404 Not Found\n{\"detail\":\"no such pet\"}",
 		},
 		{
 			name: "The body follows the message of the error type",
-			err:  &runtime.APIError{StatusCode: 409, Body: []byte(`{"detail":"taken"}`), Err: errors.New("taken")},
+			err:  &httpclient.APIError{StatusCode: 409, Body: []byte(`{"detail":"taken"}`), Err: errors.New("taken")},
 			want: "unexpected status 409 Conflict: taken\n{\"detail\":\"taken\"}",
 		},
 		{
 			name: "A wrapped response error is found",
-			err:  fmt.Errorf("get pet: %w", &runtime.APIError{StatusCode: 500, Body: []byte("down")}),
+			err:  fmt.Errorf("get pet: %w", &httpclient.APIError{StatusCode: 500, Body: []byte("down")}),
 			want: "get pet: unexpected status 500 Internal Server Error\ndown",
 		},
 		{
 			name: "A body that is no text gives its size",
-			err:  &runtime.APIError{StatusCode: 500, Body: []byte{0xff, 0xfe, 0x00}},
+			err:  &httpclient.APIError{StatusCode: 500, Body: []byte{0xff, 0xfe, 0x00}},
 			want: "unexpected status 500 Internal Server Error\n(3 bytes, not UTF-8 text)",
 		},
 		{
 			name: "A long body is cut",
-			err:  &runtime.APIError{StatusCode: 502, Body: []byte(long)},
+			err:  &httpclient.APIError{StatusCode: 502, Body: []byte(long)},
 			want: "unexpected status 502 Bad Gateway\n" + long[:4096] + "\n(904 more bytes left out)",
 		},
 		{
 			name: "A long body is cut where a character starts",
-			err:  &runtime.APIError{StatusCode: 502, Body: []byte(split)},
+			err:  &httpclient.APIError{StatusCode: 502, Body: []byte(split)},
 			want: "unexpected status 502 Bad Gateway\n" + split[:4095] + "\n(12 more bytes left out)",
 		},
 	}

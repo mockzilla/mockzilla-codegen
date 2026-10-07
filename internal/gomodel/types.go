@@ -14,6 +14,8 @@ const (
 	ValidationPath = RuntimePath + "/validation"
 	MaskPath       = RuntimePath + "/mask"
 	MCPToolPath    = RuntimePath + "/mcptool"
+	HTTPServerPath = RuntimePath + "/httpserver"
+	HTTPClientPath = RuntimePath + "/httpclient"
 )
 
 // Type is a Go type expression. It stays a value until rendering turns it into text.

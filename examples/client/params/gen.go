@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
@@ -273,7 +274,7 @@ func (o *FindRequestOptions) Validate() error {
 }
 
 // HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
+type HTTPDoer = httpclient.Doer
 
 // RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
@@ -329,7 +330,7 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 }
 
 // Client calls the API at a base URL.
-// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+// A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -339,7 +340,7 @@ type Client struct {
 
 // NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
+	u, err := httpclient.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -357,13 +358,13 @@ func (c *Client) PathStyles(ctx context.Context, opts *PathStylesRequestOptions,
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -376,7 +377,7 @@ func (c *Client) PathStylesRequest(ctx context.Context, opts *PathStylesRequestO
 	if opts == nil {
 		opts = &PathStylesRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/path/{simple}/{label}/{matrix}/{list}")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/path/{simple}/{label}/{matrix}/{list}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.Simple, runtime.Param{Name: "simple", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 		b.PathParam(opts.PathParams.Label, runtime.Param{Name: "label", Style: runtime.StyleLabel, IsExplode: false, IsRequired: true, IsJSON: false})
@@ -392,13 +393,13 @@ func (c *Client) QueryStyles(ctx context.Context, opts *QueryStylesRequestOption
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -411,7 +412,7 @@ func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesReques
 	if opts == nil {
 		opts = &QueryStylesRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/query")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/query")
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Form, runtime.Param{Name: "form", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.Csv, runtime.Param{Name: "csv", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
@@ -434,13 +435,13 @@ func (c *Client) HeaderStyles(ctx context.Context, opts *HeaderStylesRequestOpti
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -453,7 +454,7 @@ func (c *Client) HeaderStylesRequest(ctx context.Context, opts *HeaderStylesRequ
 	if opts == nil {
 		opts = &HeaderStylesRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/header")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/header")
 	if opts.Headers != nil {
 		b.HeaderParam(opts.Headers.XTags, runtime.Param{Name: "X-Tags", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.HeaderParam(opts.Headers.XPoint, runtime.Param{Name: "X-Point", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
@@ -469,13 +470,13 @@ func (c *Client) CookieStyles(ctx context.Context, opts *CookieStylesRequestOpti
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -488,7 +489,7 @@ func (c *Client) CookieStylesRequest(ctx context.Context, opts *CookieStylesRequ
 	if opts == nil {
 		opts = &CookieStylesRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/cookie")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/cookie")
 	if opts.Cookies != nil {
 		b.CookieParam(opts.Cookies.Session, runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.CookieParam(opts.Cookies.Flags, runtime.Param{Name: "flags", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
@@ -502,13 +503,13 @@ func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions, editors
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -521,7 +522,7 @@ func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions, 
 	if opts == nil {
 		opts = &SearchRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/search")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/search")
 	b.QueryString(opts.Filter, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false})
 	return c.newRequest(ctx, "Search", b, editors)
 }
@@ -532,13 +533,13 @@ func (c *Client) Find(ctx context.Context, opts *FindRequestOptions, editors ...
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out Echo
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -551,12 +552,12 @@ func (c *Client) FindRequest(ctx context.Context, opts *FindRequestOptions, edit
 	if opts == nil {
 		opts = &FindRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/search")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/search")
 	b.QueryString(opts.Q, runtime.Param{Name: "q", IsRequired: true, IsJSON: true})
 	return c.newRequest(ctx, "Find", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

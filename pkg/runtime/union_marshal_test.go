@@ -261,3 +261,29 @@ func TestMergeObjects(t *testing.T) {
 		})
 	}
 }
+
+func TestIsNil(t *testing.T) {
+	t.Parallel()
+
+	var m map[string]int
+	tests := []struct {
+		name  string
+		value any
+		want  bool
+	}{
+		{name: "No value", want: true},
+		{name: "A nil pointer", value: (*int)(nil), want: true},
+		{name: "A nil slice", value: []string(nil), want: true},
+		{name: "A nil map", value: m, want: true},
+		{name: "A value", value: 0},
+		{name: "An empty slice", value: []string{}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, isNil(tc.value))
+		})
+	}
+}

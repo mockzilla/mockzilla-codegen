@@ -1,17 +1,17 @@
 // The error types the handlers use, as the runtime declares them.
 type (
-	ErrorKind           = {{.Runtime}}.ErrorKind
-	HandlerError        = {{.Runtime}}.HandlerError
-	ErrorHandler        = {{.Runtime}}.ErrorHandler
-	ErrorHandlerFunc    = {{.Runtime}}.ErrorHandlerFunc
-	DefaultErrorHandler = {{.Runtime}}.DefaultErrorHandler
+	ErrorKind           = {{.HTTPServer}}.ErrorKind
+	HandlerError        = {{.HTTPServer}}.HandlerError
+	ErrorHandler        = {{.HTTPServer}}.ErrorHandler
+	ErrorHandlerFunc    = {{.HTTPServer}}.ErrorHandlerFunc
+	DefaultErrorHandler = {{.HTTPServer}}.DefaultErrorHandler
 )
 
 // The kinds of HandlerError.
 const (
-	ErrorParse      = {{.Runtime}}.ErrorParse
-	ErrorDecode     = {{.Runtime}}.ErrorDecode
-	ErrorValidation = {{.Runtime}}.ErrorValidation
-	ErrorService    = {{.Runtime}}.ErrorService
-	ErrorResponse   = {{.Runtime}}.ErrorResponse
+	ErrorParse      = {{.HTTPServer}}.ErrorParse
+	ErrorDecode     = {{.HTTPServer}}.ErrorDecode
+	ErrorValidation = {{.HTTPServer}}.ErrorValidation
+	ErrorService    = {{.HTTPServer}}.ErrorService
+	ErrorResponse   = {{.HTTPServer}}.ErrorResponse
 )

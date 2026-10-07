@@ -54,7 +54,7 @@ func TestCoreView(t *testing.T) {
 				HTTP:         "http",
 				Time:         "time",
 				URL:          "url",
-				Runtime:      "runtime",
+				HTTPClient:   "httpclient",
 				Timeout:      tc.wantTimeout,
 				HasStreams:   tc.wantHasStreams,
 				HasEnvelopes: true,
@@ -90,7 +90,7 @@ func TestSignatureView(t *testing.T) {
 			name:       "A stream",
 			op:         5,
 			hasStreams: true,
-			want:       SignatureView{Name: "Chat", Route: "POST /chat", Options: "types.ChatRequestOptions", Result: "*types.Pet", StreamType: "*runtime.Stream[types.ChatResponseItem]"},
+			want:       SignatureView{Name: "Chat", Route: "POST /chat", Options: "types.ChatRequestOptions", Result: "*types.Pet", StreamType: "*httpclient.Stream[types.ChatResponseItem]"},
 		},
 		{
 			name: "A stream without Stream methods",

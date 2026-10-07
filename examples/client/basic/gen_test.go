@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 type doerFunc func(*http.Request) (*http.Response, error)
@@ -218,7 +219,7 @@ func TestErrors(t *testing.T) {
 				require.ErrorIs(t, err, tc.wantErr)
 				return
 			}
-			var apiErr *runtime.APIError
+			var apiErr *httpclient.APIError
 			require.ErrorAs(t, err, &apiErr)
 			assert.Equal(t, tc.wantStatus, apiErr.StatusCode)
 			assert.Equal(t, tc.wantBody, string(apiErr.Body))
@@ -347,7 +348,7 @@ func TestNewPetClientRejectsABareHost(t *testing.T) {
 
 	_, err := NewPetClient("api.example.test")
 
-	require.ErrorIs(t, err, runtime.ErrBaseURL)
+	require.ErrorIs(t, err, httpclient.ErrBaseURL)
 }
 
 func TestInterface(t *testing.T) {

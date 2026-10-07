@@ -5,7 +5,7 @@
 
 // Reading streamed responses: server-sent events and line-delimited frames.
 
-package runtime
+package httpclient
 
 import (
 	"bufio"
@@ -22,17 +22,14 @@ import (
 	"strconv"
 	"sync/atomic"
 	"time"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // mediaTypeEventStream is the media type of Server-Sent Events.
 const mediaTypeEventStream = "text/event-stream"
 
 const byteOrderMark = "\xEF\xBB\xBF"
-
-// lineMediaTypes are the media types that carry one JSON value per line.
-var lineMediaTypes = []string{
-	"application/x-ndjson", "application/ndjson", "application/jsonl", "application/x-jsonlines", "application/json-lines",
-}
 
 // Event is one frame of a stream: the fields of a Server-Sent Event, or, on a line-delimited
 // stream, the line in Data alone. ID is the last event ID, which stays from one event to the next
@@ -68,7 +65,7 @@ type Stream[T any] struct {
 // NewStream frames the body of res by its Content-Type: Server-Sent Events for
 // text/event-stream, else one frame per line.
 func NewStream[T any](res *http.Response) *Stream[T] {
-	if ContentType(res.Header) == mediaTypeEventStream {
+	if runtime.ContentType(res.Header) == mediaTypeEventStream {
 		return NewEventStream[T](res)
 	}
 	return NewLineStream[T](res)
@@ -276,17 +273,10 @@ func (l *lfReader) Read(p []byte) (int, error) {
 	}
 }
 
-// IsSequential reports a media type whose body is a sequence of frames: text/event-stream and
-// the line-delimited JSON types, with or without parameters.
-func IsSequential(mediaType string) bool {
-	mediaType = baseMediaType(mediaType)
-	return mediaType == mediaTypeEventStream || slices.Contains(lineMediaTypes, mediaType)
-}
-
 // IsStreaming reports a 2xx response with a body in a sequential media type, which SendStream
 // leaves unread for a Stream.
 func IsStreaming(res *http.Response) bool {
-	return res.StatusCode >= 200 && res.StatusCode <= 299 && res.Body != nil && IsSequential(ContentType(res.Header))
+	return res.StatusCode >= 200 && res.StatusCode <= 299 && res.Body != nil && runtime.IsSequential(runtime.ContentType(res.Header))
 }
 
 // SendStream is Send for a method that streams: it asks for mediaType unless the request says
@@ -328,7 +318,7 @@ func OpenStream[T any](res *http.Response, body []byte, targets []ResponseTarget
 	case IsStreaming(res), isSuccess && len(body) == 0:
 		return NewStream[T](res), nil
 	case isSuccess:
-		return nil, ContentTypeError(ContentType(res.Header))
+		return nil, runtime.ContentTypeError(runtime.ContentType(res.Header))
 	}
 	return nil, DecodeSuccess(res, body, targets)
 }

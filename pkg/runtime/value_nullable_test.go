@@ -124,9 +124,9 @@ func TestNullableParams(t *testing.T) {
 	}
 	in := query{Limit: Some(5), Filter: Some(address{City: "Rome"})}
 	q := url.Values{}
-	require.NoError(t, encodeQuery(in.Limit, Param{Name: "limit", Style: StyleForm, IsExplode: true}, q))
-	require.NoError(t, encodeQuery(in.Filter, Param{Name: "filter", Style: StyleDeepObject, IsExplode: true}, q))
-	require.NoError(t, encodeQuery(Null[int](), Param{Name: "skip", Style: StyleForm, IsExplode: true}, q))
+	require.NoError(t, EncodeQuery(in.Limit, Param{Name: "limit", Style: StyleForm, IsExplode: true}, q))
+	require.NoError(t, EncodeQuery(in.Filter, Param{Name: "filter", Style: StyleDeepObject, IsExplode: true}, q))
+	require.NoError(t, EncodeQuery(Null[int](), Param{Name: "skip", Style: StyleForm, IsExplode: true}, q))
 	assert.Equal(t, url.Values{"limit": {"5"}, "filter[city]": {"Rome"}, "filter[country]": {""}}, q)
 
 	var out query
@@ -145,7 +145,7 @@ func TestNullableForm(t *testing.T) {
 	t.Parallel()
 
 	in := patch{Name: Some("a"), Count: Null[int](), Address: Some(address{City: "Rome"}), Scores: []Nullable[int]{Some(1), Null[int]()}}
-	form, err := encodeForm(in, nil)
+	form, err := EncodeForm(in, nil)
 	require.NoError(t, err)
 	assert.Equal(t, url.Values{"name": {"a"}, "address[city]": {"Rome"}, "address[country]": {""}, "scores": {"1"}}, form)
 

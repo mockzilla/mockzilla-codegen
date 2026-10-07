@@ -25,12 +25,12 @@ import (
 
 var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
 
-// encodeForm writes v, a struct or a map, as form values: nested objects with bracketed keys,
+// EncodeForm writes v, a struct or a map, as form values: nested objects with bracketed keys,
 // address[city]=Berlin, lists as repeated keys, tags=a&tags=b, and lists of objects with an
 // index, lines[0][city]=Berlin. Values go through their JSON form, so json tags and marshalers
 // apply. A value that writes its own JSON object or array, such as a union, is one JSON value. So
 // is a property enc declares JSON.
-func encodeForm(v any, enc Encoding) (url.Values, error) {
+func EncodeForm(v any, enc Encoding) (url.Values, error) {
 	fields, err := jsonObject(v)
 	if err != nil {
 		return nil, err
@@ -51,13 +51,39 @@ func encodeForm(v any, enc Encoding) (url.Values, error) {
 	return out, nil
 }
 
-// writeParts writes v, a struct, to mw as a multipart form and closes mw, which ends the
+// WriteMultipart writes v, a struct, to mw as a multipart form and closes mw, which ends the
 // form: File fields as file parts with their name and content type, application/octet-stream
 // without one, lists as one part per item, structs and maps as JSON parts, bytes as base64, and
 // everything else as text. A property enc declares a media type for is written in it. A nil slice
 // or map is left out, as omitzero leaves it out of JSON.
-func writeParts(mw *multipart.Writer, v any, enc Encoding) error {
+func WriteMultipart(mw *multipart.Writer, v any, enc Encoding) error {
 	return (&formWriter{mw: mw, encoding: enc}).write(v)
+}
+
+// MultipartSize writes v as a multipart form without reading its files, and returns the boundary
+// it used with the length of the form, -1 when a file does not know its size.
+func MultipartSize(v any, enc Encoding) (int64, string, error) {
+	var n byteCounter
+	w := &formWriter{mw: multipart.NewWriter(&n), encoding: enc, isCounting: true}
+	if err := w.write(v); err != nil {
+		return 0, "", err
+	}
+	if w.isUnsized {
+		return -1, w.mw.Boundary(), nil
+	}
+	return int64(n) + w.size, w.mw.Boundary(), nil
+}
+
+// EncodeText writes v, a scalar, as a text body carries it; another value is ErrContentType.
+func EncodeText(v any) (string, error) {
+	rv, ok := held(reflect.ValueOf(v))
+	switch {
+	case !ok:
+		return "", nil
+	case !isScalar(rv.Type()):
+		return "", fmt.Errorf("%w: cannot write %T as text", ErrContentType, v)
+	}
+	return text(rv)
 }
 
 // formWriter writes the parts of a multipart form. Counting, it reads no file and adds the file
@@ -273,20 +299,6 @@ type byteCounter int64
 func (c *byteCounter) Write(p []byte) (int, error) {
 	*c += byteCounter(len(p))
 	return len(p), nil
-}
-
-// multipartSize writes v as a multipart form without reading its files, and returns the boundary
-// it used with the length of the form, -1 when a file does not know its size.
-func multipartSize(v any, enc Encoding) (int64, string, error) {
-	var n byteCounter
-	w := &formWriter{mw: multipart.NewWriter(&n), encoding: enc, isCounting: true}
-	if err := w.write(v); err != nil {
-		return 0, "", err
-	}
-	if w.isUnsized {
-		return -1, w.mw.Boundary(), nil
-	}
-	return int64(n) + w.size, w.mw.Boundary(), nil
 }
 
 // jsonObject is v as a JSON object, with numbers kept as text.

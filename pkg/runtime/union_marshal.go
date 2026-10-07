@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strconv"
 
@@ -146,4 +147,17 @@ func mergeObjects(parts ...[]byte) ([]byte, error) {
 	}
 	b.WriteByte('}')
 	return b.Bytes(), nil
+}
+
+// isNil reports a nil pointer, slice, map or interface, or no value at all.
+func isNil(v any) bool {
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface:
+		return rv.IsNil()
+	case reflect.Invalid:
+		return true
+	default:
+		return false
+	}
 }

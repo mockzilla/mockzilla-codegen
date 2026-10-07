@@ -11,6 +11,7 @@ import (
 
 	"github.com/fasthttp/router"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpserver"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
@@ -521,27 +522,27 @@ func (r *SearchResponseData) ContentType() string {
 
 // The error types the handlers use, as the runtime declares them.
 type (
-	ErrorKind           = runtime.ErrorKind
-	HandlerError        = runtime.HandlerError
-	ErrorHandler        = runtime.ErrorHandler
-	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
-	DefaultErrorHandler = runtime.DefaultErrorHandler
+	ErrorKind           = httpserver.ErrorKind
+	HandlerError        = httpserver.HandlerError
+	ErrorHandler        = httpserver.ErrorHandler
+	ErrorHandlerFunc    = httpserver.ErrorHandlerFunc
+	DefaultErrorHandler = httpserver.DefaultErrorHandler
 )
 
 // The kinds of HandlerError.
 const (
-	ErrorParse      = runtime.ErrorParse
-	ErrorDecode     = runtime.ErrorDecode
-	ErrorValidation = runtime.ErrorValidation
-	ErrorService    = runtime.ErrorService
-	ErrorResponse   = runtime.ErrorResponse
+	ErrorParse      = httpserver.ErrorParse
+	ErrorDecode     = httpserver.ErrorDecode
+	ErrorValidation = httpserver.ErrorValidation
+	ErrorService    = httpserver.ErrorService
+	ErrorResponse   = httpserver.ErrorResponse
 )
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       runtime.ErrorHandler
+	ErrorHandler       httpserver.ErrorHandler
 	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
 }
@@ -552,7 +553,7 @@ type ServerOption func(*ServerOptions)
 // NewServerOptions applies opts to the defaults.
 func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	o := &ServerOptions{
-		ErrorHandler:       runtime.DefaultErrorHandler{},
+		ErrorHandler:       httpserver.DefaultErrorHandler{},
 		JSONDecoder:        runtime.DecodeJSON,
 		MultipartMaxMemory: 33554432,
 	}
@@ -570,7 +571,7 @@ func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 }
 
 // WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
+func WithErrorHandler(h httpserver.ErrorHandler) ServerOption {
 	return func(o *ServerOptions) {
 		o.ErrorHandler = h
 	}
@@ -614,29 +615,29 @@ func (a *HTTPAdapter) PathStyles(w http.ResponseWriter, r *http.Request) {
 	opts := &PathStylesServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PathStylesPathParams{}
 	if err := runtime.DecodePath(r.PathValue("simple"), runtime.Param{Name: "simple", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Simple); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "simple", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "PathStyles", ParamName: "simple", ParamLocation: "path", Err: err})
 		return
 	}
 	if err := runtime.DecodePath(r.PathValue("label"), runtime.Param{Name: "label", Style: runtime.StyleLabel, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Label); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "label", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "PathStyles", ParamName: "label", ParamLocation: "path", Err: err})
 		return
 	}
 	if err := runtime.DecodePath(r.PathValue("matrix"), runtime.Param{Name: "matrix", Style: runtime.StyleMatrix, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Matrix); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "matrix", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "PathStyles", ParamName: "matrix", ParamLocation: "path", Err: err})
 		return
 	}
 	if err := runtime.DecodePath(r.PathValue("list"), runtime.Param{Name: "list", Style: runtime.StyleSimple, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.PathParams.List); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PathStyles", ParamName: "list", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "PathStyles", ParamName: "list", ParamLocation: "path", Err: err})
 		return
 	}
 
 	res, err := a.svc.PathStyles(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PathStyles", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PathStyles", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PathStyles", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PathStyles", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "PathStyles", res)
@@ -649,53 +650,53 @@ func (a *HTTPAdapter) QueryStyles(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	opts.Query = &QueryStylesQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "form", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Form); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "form", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "form", ParamLocation: "query", Err: err})
 		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "csv", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Csv); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "csv", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "csv", ParamLocation: "query", Err: err})
 		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "space", Style: runtime.StyleSpaceDelimited, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Space); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "space", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "space", ParamLocation: "query", Err: err})
 		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "pipe", Style: runtime.StylePipeDelimited, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Pipe); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "pipe", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "pipe", ParamLocation: "query", Err: err})
 		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "deep", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Deep); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "deep", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "deep", ParamLocation: "query", Err: err})
 		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "flat", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Flat); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "flat", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "flat", ParamLocation: "query", Err: err})
 		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "json", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: true}, &opts.Query.JSON); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "json", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "json", ParamLocation: "query", Err: err})
 		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "id", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "id", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "id", ParamLocation: "query", Err: err})
 		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.Query.Needed); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "needed", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "needed", ParamLocation: "query", Err: err})
 		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false, Default: "20"}, &opts.Query.Limit); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "QueryStyles", ParamName: "limit", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "limit", ParamLocation: "query", Err: err})
 		return
 	}
 
 	res, err := a.svc.QueryStyles(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "QueryStyles", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "QueryStyles", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "QueryStyles", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "QueryStyles", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "QueryStyles", res)
@@ -707,29 +708,29 @@ func (a *HTTPAdapter) HeaderStyles(w http.ResponseWriter, r *http.Request) {
 	opts := &HeaderStylesServiceRequestOptions{RawRequest: r}
 	opts.Headers = &HeaderStylesHeaders{}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Tags", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XTags); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-Tags", ParamLocation: "header", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-Tags", ParamLocation: "header", Err: err})
 		return
 	}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Point", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XPoint); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-Point", ParamLocation: "header", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-Point", ParamLocation: "header", Err: err})
 		return
 	}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-When", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XWhen); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-When", ParamLocation: "header", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-When", ParamLocation: "header", Err: err})
 		return
 	}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Limit", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XLimit); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-Limit", ParamLocation: "header", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-Limit", ParamLocation: "header", Err: err})
 		return
 	}
 
 	res, err := a.svc.HeaderStyles(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "HeaderStyles", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "HeaderStyles", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "HeaderStyles", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "HeaderStyles", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "HeaderStyles", res)
@@ -741,21 +742,21 @@ func (a *HTTPAdapter) CookieStyles(w http.ResponseWriter, r *http.Request) {
 	opts := &CookieStylesServiceRequestOptions{RawRequest: r}
 	opts.Cookies = &CookieStylesCookies{}
 	if err := runtime.DecodeCookie(r.Cookies(), runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Cookies.Session); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "CookieStyles", ParamName: "session", ParamLocation: "cookie", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "CookieStyles", ParamName: "session", ParamLocation: "cookie", Err: err})
 		return
 	}
 	if err := runtime.DecodeCookie(r.Cookies(), runtime.Param{Name: "flags", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Cookies.Flags); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "CookieStyles", ParamName: "flags", ParamLocation: "cookie", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "CookieStyles", ParamName: "flags", ParamLocation: "cookie", Err: err})
 		return
 	}
 
 	res, err := a.svc.CookieStyles(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CookieStyles", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CookieStyles", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CookieStyles", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CookieStyles", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "CookieStyles", res)
@@ -766,42 +767,42 @@ func (a *HTTPAdapter) Search(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "Search"))
 	opts := &SearchServiceRequestOptions{RawRequest: r}
 	if err := runtime.DecodeQueryString(r.URL.RawQuery, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false}, &opts.Filter); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "Search", ParamName: "filter", ParamLocation: "querystring", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "Search", ParamName: "filter", ParamLocation: "querystring", Err: err})
 		return
 	}
 
 	res, err := a.svc.Search(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Search", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Search", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Search", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Search", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "Search", res)
 }
 
-func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
-	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
+	a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: id, Err: err})
 }
 
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	err := httpserver.Write(w, res.StatusCode(), res.Header(), res.Payload())
 	switch {
 	case errors.Is(err, runtime.ErrContentType):
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorResponse, OperationID: id, Err: err})
 	case err != nil:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: id, Err: err})
 	}
 }
 
@@ -821,7 +822,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *router.Router {
 			h = o.Middleware[i](h)
 		}
 		// fasthttp would end the process on a panic.
-		return runtime.Recover(h, o.ErrorHandler)
+		return httpserver.Recover(h, o.ErrorHandler)
 	}
 	register := func(r *router.Router, route func(http.Handler) http.Handler) {
 		r.GET("/path/{simple}/{label}/{matrix}/{list}", handle(route(http.HandlerFunc(a.PathStyles))))
@@ -848,10 +849,10 @@ func handle(h http.Handler) fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
 		fasthttpadaptor.NewFastHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// fasthttp reuses the memory of the request's strings for the next request.
-			r = runtime.DetachRequest(r)
+			r = httpserver.DetachRequest(r)
 			ctx.VisitUserValues(func(key []byte, value any) {
 				if s, ok := value.(string); ok {
-					r.SetPathValue(string(key), runtime.DetachPathValue(s))
+					r.SetPathValue(string(key), httpserver.DetachPathValue(s))
 				}
 			})
 			h.ServeHTTP(w, r)

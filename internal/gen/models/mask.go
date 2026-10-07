@@ -22,10 +22,10 @@ var maskFuncs = map[gomodel.MaskKind]string{
 	gomodel.MaskPartial: "Partial",
 }
 
-// MaskView is what Masked and LogValue need. Slog is the name log/slog is imported under.
+// MaskView is what Masked and LogValue need. Mask and Slog are the names of their imports.
 type MaskView struct {
 	Receiver string
-	Runtime  string
+	Mask     string
 	Slog     string
 	Fields   []MaskFieldView
 }
@@ -38,8 +38,11 @@ type MaskFieldView struct {
 }
 
 func maskView(d *gomodel.Decl, s *gocode.Scope) *MaskView {
-	rt := s.Import(gomodel.Import{Path: gomodel.RuntimePath})
-	v := &MaskView{Receiver: receiver(d.Name), Runtime: rt, Slog: s.Import(gomodel.Import{Path: "log/slog"})}
+	v := &MaskView{
+		Receiver: receiver(d.Name),
+		Mask:     s.Import(gomodel.Import{Path: gomodel.MaskPath}),
+		Slog:     s.Import(gomodel.Import{Path: "log/slog"}),
+	}
 	for _, m := range d.Masks {
 		v.Fields = append(v.Fields, maskFieldView(m, v.Receiver, s))
 	}

@@ -123,6 +123,26 @@ func TestContentType(t *testing.T) {
 	assert.False(t, IsJSON("text/plain"))
 }
 
+func TestIsSequential(t *testing.T) {
+	t.Parallel()
+
+	for _, mt := range []string{"text/event-stream", "application/x-ndjson", "application/ndjson", "application/jsonl", "application/x-jsonlines", "application/json-lines"} {
+		assert.True(t, IsSequential(mt), mt)
+	}
+	assert.True(t, IsSequential("Text/Event-Stream; charset=utf-8"))
+	assert.False(t, IsSequential("application/json"))
+	assert.False(t, IsSequential("application/stream+json"))
+}
+
+func TestContentTypeError(t *testing.T) {
+	t.Parallel()
+
+	err := ContentTypeError("text/csv")
+
+	require.ErrorIs(t, err, ErrContentType)
+	assert.EqualError(t, err, "unsupported content type: text/csv")
+}
+
 func TestDecodeJSON(t *testing.T) {
 	t.Parallel()
 

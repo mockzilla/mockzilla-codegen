@@ -3,7 +3,7 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-package runtime
+package httpserver
 
 import (
 	"context"
@@ -181,15 +181,6 @@ func TestAsError(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
-}
-
-func TestContentTypeError(t *testing.T) {
-	t.Parallel()
-
-	err := ContentTypeError("text/csv")
-
-	require.ErrorIs(t, err, ErrContentType)
-	assert.EqualError(t, err, "unsupported content type: text/csv")
 }
 
 func TestValidateResponse(t *testing.T) {

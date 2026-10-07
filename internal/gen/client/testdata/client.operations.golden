@@ -7,6 +7,7 @@ import (
 
 	"example.com/work/types"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 // ListPets calls GET /pets.
@@ -19,13 +20,13 @@ func (c *PetClient) ListPets(ctx context.Context, opts *types.ListPetsRequestOpt
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/xml", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/xml", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out types.Pets
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
 	}); err != nil {
@@ -40,13 +41,13 @@ func (c *PetClient) ListPetsWithResponse(ctx context.Context, opts *types.ListPe
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/xml", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/xml", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &types.ListPetsResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/xml", Dst: &out.XML200},
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
@@ -63,7 +64,7 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *types.ListPetsReq
 	if opts == nil {
 		opts = &types.ListPetsRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/pets")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/pets")
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Limit, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.Filter, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: true, IsRequired: true, IsJSON: false})
@@ -87,13 +88,13 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *types.CreatePetRequestO
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/xml, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/xml, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *types.Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "202"},
 		{Status: "4XX", MediaType: "application/problem+json", Dst: new(types.Problem)},
@@ -110,13 +111,13 @@ func (c *PetClient) CreatePetWithResponse(ctx context.Context, opts *types.Creat
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/xml, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/xml, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &types.CreatePetResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "202", MediaType: "application/json", Dst: &out.JSON202},
 		{Status: "201", MediaType: "application/json", Dst: &out.JSON201},
 		{Status: "409", MediaType: "application/json", Dst: &out.JSON409},
@@ -134,7 +135,7 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *types.CreatePetR
 	if opts == nil {
 		opts = &types.CreatePetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/pets")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/pets")
 	switch {
 	case opts.BodyJSON != nil:
 		b.JSONBody(opts.BodyJSON, "application/json")
@@ -166,11 +167,11 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *types.DeletePetRequestO
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	return httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "404", MediaType: "application/json", Dst: new(types.Problem)},
 	})
 }
@@ -181,13 +182,13 @@ func (c *PetClient) DeletePetWithResponse(ctx context.Context, opts *types.Delet
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &types.DeletePetResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "404", MediaType: "application/json", Dst: &out.JSON404},
 	}); err != nil {
 		return out, err
@@ -200,7 +201,7 @@ func (c *PetClient) DeletePetRequest(ctx context.Context, opts *types.DeletePetR
 	if opts == nil {
 		opts = &types.DeletePetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodDelete, "/pets/{id}")
+	b := httpclient.NewRequestBuilder(http.MethodDelete, "/pets/{id}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
@@ -218,13 +219,13 @@ func (c *PetClient) Ping(ctx context.Context, opts *types.PingRequestOptions, ed
 	if err != nil {
 		return "", err
 	}
-	res, body, err := runtime.Send(c.doer, req, "text/plain, text/xml, image/*, application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "text/plain, text/xml, image/*, application/json", c.timeout)
 	if err != nil {
 		return "", err
 	}
 
 	var out string
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
 	}); err != nil {
 		return "", err
@@ -238,13 +239,13 @@ func (c *PetClient) PingWithResponse(ctx context.Context, opts *types.PingReques
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "text/plain, text/xml, image/*, application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "text/plain, text/xml, image/*, application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &types.PingResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out.Text200},
 		{Status: "200", MediaType: "text/xml", Dst: &out.XML200},
 		{Status: "200", MediaType: "image/*", Dst: &out.Image200},
@@ -260,7 +261,7 @@ func (c *PetClient) PingRequest(ctx context.Context, opts *types.PingRequestOpti
 	if opts == nil {
 		opts = &types.PingRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/ping")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/ping")
 	b.QueryString(opts.BodyQueryString, runtime.Param{Name: "body", IsRequired: true, IsJSON: true})
 	switch {
 	case opts.Body != nil:
@@ -275,11 +276,11 @@ func (c *PetClient) Query(ctx context.Context, opts *types.QueryRequestOptions, 
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil)
 }
 
 // QueryWithResponse calls QUERY /pets/query and returns the whole response.
@@ -288,7 +289,7 @@ func (c *PetClient) QueryWithResponse(ctx context.Context, opts *types.QueryRequ
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +303,7 @@ func (c *PetClient) QueryRequest(ctx context.Context, opts *types.QueryRequestOp
 	if opts == nil {
 		opts = &types.QueryRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder("QUERY", "/pets/query")
+	b := httpclient.NewRequestBuilder("QUERY", "/pets/query")
 	switch {
 	case opts.Body != nil:
 		b.TextBody(*opts.Body, "text/plain")
@@ -316,13 +317,13 @@ func (c *PetClient) Chat(ctx context.Context, opts *types.ChatRequestOptions, ed
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *types.Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
 	}); err != nil {
@@ -337,13 +338,13 @@ func (c *PetClient) ChatWithResponse(ctx context.Context, opts *types.ChatReques
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &types.ChatResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
@@ -354,16 +355,16 @@ func (c *PetClient) ChatWithResponse(ctx context.Context, opts *types.ChatReques
 }
 
 // ChatStream calls POST /chat and returns its frames as a stream.
-func (c *PetClient) ChatStream(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[types.ChatResponseItem], error) {
+func (c *PetClient) ChatStream(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*httpclient.Stream[types.ChatResponseItem], error) {
 	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
+	res, body, err := httpclient.SendStream(c.doer, req, "text/event-stream", c.timeout)
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[types.ChatResponseItem](res, body, []runtime.ResponseTarget{
+	return httpclient.OpenStream[types.ChatResponseItem](res, body, []httpclient.ResponseTarget{
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
 	})
 }
@@ -374,13 +375,13 @@ func (c *PetClient) ChatStreamWithResponse(ctx context.Context, opts *types.Chat
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
+	res, body, err := httpclient.SendStream(c.doer, req, "text/event-stream", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &types.ChatResponse{HTTPResponse: res, Body: body}
-	out.Stream200, err = runtime.DecodeStream[types.ChatResponseItem](res, body, []runtime.ResponseTarget{
+	out.Stream200, err = httpclient.DecodeStream[types.ChatResponseItem](res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
@@ -396,7 +397,7 @@ func (c *PetClient) ChatRequest(ctx context.Context, opts *types.ChatRequestOpti
 	if opts == nil {
 		opts = &types.ChatRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/chat")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/chat")
 	switch {
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
@@ -412,13 +413,13 @@ func (c *PetClient) Tail(ctx context.Context, opts *types.TailRequestOptions, ed
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/x-ndjson", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/x-ndjson", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *string
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -432,13 +433,13 @@ func (c *PetClient) TailWithResponse(ctx context.Context, opts *types.TailReques
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/x-ndjson", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/x-ndjson", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &types.TailResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 	}); err != nil {
 		return out, err
@@ -447,16 +448,16 @@ func (c *PetClient) TailWithResponse(ctx context.Context, opts *types.TailReques
 }
 
 // TailStream calls GET /tail and returns its frames as a stream.
-func (c *PetClient) TailStream(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*runtime.Stream[[]byte], error) {
+func (c *PetClient) TailStream(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*httpclient.Stream[[]byte], error) {
 	req, err := c.TailRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "application/x-ndjson", c.timeout)
+	res, body, err := httpclient.SendStream(c.doer, req, "application/x-ndjson", c.timeout)
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[[]byte](res, body, nil)
+	return httpclient.OpenStream[[]byte](res, body, nil)
 }
 
 // TailStreamWithResponse calls GET /tail and returns the whole response, with its stream.
@@ -465,13 +466,13 @@ func (c *PetClient) TailStreamWithResponse(ctx context.Context, opts *types.Tail
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "application/x-ndjson", c.timeout)
+	res, body, err := httpclient.SendStream(c.doer, req, "application/x-ndjson", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &types.TailResponse{HTTPResponse: res, Body: body}
-	out.Stream200, err = runtime.DecodeStream[[]byte](res, body, []runtime.ResponseTarget{
+	out.Stream200, err = httpclient.DecodeStream[[]byte](res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 	})
 	if err != nil {
@@ -485,11 +486,11 @@ func (c *PetClient) TailRequest(ctx context.Context, opts *types.TailRequestOpti
 	if opts == nil {
 		opts = &types.TailRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/tail")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/tail")
 	return c.newRequest(ctx, "Tail", b, editors)
 }
 
-func (c *PetClient) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *PetClient) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

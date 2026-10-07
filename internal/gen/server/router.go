@@ -25,11 +25,12 @@ var shortcuts = []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIO
 // RouterView is the data of the router part. Framework is the name the framework's package is
 // imported under and Packages the names of every package the framework imports, by the package's
 // own name; the other names are written as the file spells them. User is the config's
-// user-context. Runtime is set when the template writes it.
+// user-context. Runtime and HTTPServer are set when the template writes them.
 type RouterView struct {
 	Framework  string
 	Packages   map[string]string
 	Runtime    string
+	HTTPServer string
 	Service    string
 	Option     string
 	Options    string
@@ -65,6 +66,9 @@ func routerView(g *Generator, s *gocode.Scope) *RouterView {
 	}
 	if uses(fw, "router.tmpl", g.opts.RouterExtra, ".Runtime") {
 		v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
+	}
+	if uses(fw, "router.tmpl", g.opts.RouterExtra, ".HTTPServer") {
+		v.HTTPServer = s.Import(gomodel.Import{Path: gomodel.HTTPServerPath})
 	}
 	for _, r := range g.routes {
 		route := RouteView{

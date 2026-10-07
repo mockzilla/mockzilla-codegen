@@ -14,7 +14,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 // toolBodyLimit is how many bytes of an error body a tool error carries, so a large page does
@@ -62,9 +62,9 @@ func Input(args json.RawMessage, in any) error {
 }
 
 // Error is err as an MCP tool reports it. The assistant reads only the message, so the
-// message of a *runtime.APIError is followed by the response body, at most 4 KiB of it.
+// message of a *httpclient.APIError is followed by the response body, at most 4 KiB of it.
 func Error(err error) error {
-	var apiErr *runtime.APIError
+	var apiErr *httpclient.APIError
 	if !errors.As(err, &apiErr) {
 		return err
 	}

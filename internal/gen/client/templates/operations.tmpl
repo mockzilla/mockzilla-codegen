@@ -10,25 +10,25 @@ func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}, 
 	if err != nil {
 		return {{with .Zero}}{{.}}, {{end}}err
 	}
-	res, body, err := {{$.Runtime}}.Send(c.doer, req, {{.Accept}}, c.timeout)
+	res, body, err := {{$.HTTPClient}}.Send(c.doer, req, {{.Accept}}, c.timeout)
 	if err != nil {
 		return {{with .Zero}}{{.}}, {{end}}err
 	}
 {{- if .Result}}
 
 	var out {{.Result}}
-	if err = {{$.Runtime}}.DecodeSuccess(res, body, []{{$.Runtime}}.ResponseTarget{
+	if err = {{$.HTTPClient}}.DecodeSuccess(res, body, []{{$.HTTPClient}}.ResponseTarget{
 {{- template "client/targets.tmpl" .Targets}}
 	}); err != nil {
 		return {{.Zero}}, err
 	}
 	return out, nil
 {{- else if .Targets}}
-	return {{$.Runtime}}.DecodeSuccess(res, body, []{{$.Runtime}}.ResponseTarget{
+	return {{$.HTTPClient}}.DecodeSuccess(res, body, []{{$.HTTPClient}}.ResponseTarget{
 {{- template "client/targets.tmpl" .Targets}}
 	})
 {{- else}}
-	return {{$.Runtime}}.DecodeSuccess(res, body, nil)
+	return {{$.HTTPClient}}.DecodeSuccess(res, body, nil)
 {{- end}}
 }
 {{- if $.HasEnvelopes}}
@@ -39,14 +39,14 @@ func (c *{{$.Client}}) {{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := {{$.Runtime}}.Send(c.doer, req, {{.Accept}}, c.timeout)
+	res, body, err := {{$.HTTPClient}}.Send(c.doer, req, {{.Accept}}, c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &{{.Response}}{HTTPResponse: res, Body: body}
 {{- if .EnvelopeTargets}}
-	if err = {{$.Runtime}}.DecodeResponse(res, body, []{{$.Runtime}}.ResponseTarget{
+	if err = {{$.HTTPClient}}.DecodeResponse(res, body, []{{$.HTTPClient}}.ResponseTarget{
 {{- template "client/targets.tmpl" .EnvelopeTargets}}
 	}); err != nil {
 		return out, err
@@ -63,16 +63,16 @@ func (c *{{$.Client}}) {{.Name}}Stream(ctx {{$.Context}}.Context, opts *{{.Optio
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := {{$.Runtime}}.SendStream(c.doer, req, {{quote .Stream.MediaType}}, c.timeout)
+	res, body, err := {{$.HTTPClient}}.SendStream(c.doer, req, {{quote .Stream.MediaType}}, c.timeout)
 	if err != nil {
 		return nil, err
 	}
 {{- if .Stream.Targets}}
-	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](res, body, []{{$.Runtime}}.ResponseTarget{
+	return {{$.HTTPClient}}.OpenStream[{{.Stream.Frame}}](res, body, []{{$.HTTPClient}}.ResponseTarget{
 {{- template "client/targets.tmpl" .Stream.Targets}}
 	})
 {{- else}}
-	return {{$.Runtime}}.OpenStream[{{.Stream.Frame}}](res, body, nil)
+	return {{$.HTTPClient}}.OpenStream[{{.Stream.Frame}}](res, body, nil)
 {{- end}}
 }
 {{- if $.HasEnvelopes}}
@@ -83,22 +83,22 @@ func (c *{{$.Client}}) {{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, op
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := {{$.Runtime}}.SendStream(c.doer, req, {{quote .Stream.MediaType}}, c.timeout)
+	res, body, err := {{$.HTTPClient}}.SendStream(c.doer, req, {{quote .Stream.MediaType}}, c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &{{.Response}}{HTTPResponse: res, Body: body}
 {{- if .EnvelopeTargets}}
-	out.{{.Stream.Field}}, err = {{$.Runtime}}.DecodeStream[{{.Stream.Frame}}](res, body, []{{$.Runtime}}.ResponseTarget{
+	out.{{.Stream.Field}}, err = {{$.HTTPClient}}.DecodeStream[{{.Stream.Frame}}](res, body, []{{$.HTTPClient}}.ResponseTarget{
 {{- template "client/targets.tmpl" .EnvelopeTargets}}
 	})
 	if err != nil {
 		return out, err
 	}
 {{- else}}
-	if {{$.Runtime}}.IsStreaming(res) {
-		out.{{.Stream.Field}} = {{$.Runtime}}.NewStream[{{.Stream.Frame}}](res)
+	if {{$.HTTPClient}}.IsStreaming(res) {
+		out.{{.Stream.Field}} = {{$.HTTPClient}}.NewStream[{{.Stream.Frame}}](res)
 	}
 {{- end}}
 	return out, nil
@@ -112,7 +112,7 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 		opts = &{{.Options}}{}
 	}
 {{- if .IsSendable}}
-	b := {{$.Runtime}}.NewRequestBuilder({{.Method}}, {{.Path}})
+	b := {{$.HTTPClient}}.NewRequestBuilder({{.Method}}, {{.Path}})
 {{- range .Groups}}
 	if opts.{{.Field}} != nil {
 {{- range .Params}}
@@ -147,7 +147,7 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 {{- end}}
 {{- if .Operations}}
 
-func (c *{{.Client}}) newRequest(ctx {{.Context}}.Context, id string, b *{{.Runtime}}.RequestBuilder, editors []RequestEditor) (*{{.HTTP}}.Request, error) {
+func (c *{{.Client}}) newRequest(ctx {{.Context}}.Context, id string, b *{{.HTTPClient}}.RequestBuilder, editors []RequestEditor) (*{{.HTTP}}.Request, error) {
 	ctx = {{.Runtime}}.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

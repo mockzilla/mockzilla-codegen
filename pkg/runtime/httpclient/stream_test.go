@@ -3,10 +3,11 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-package runtime
+package httpclient
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +18,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
+
+var errRead = errors.New("read failed")
 
 // chunk is a frame of the streams under test.
 type chunk struct {
@@ -456,17 +461,6 @@ func TestStreamStopUnblocksNext(t *testing.T) {
 	}
 }
 
-func TestIsSequential(t *testing.T) {
-	t.Parallel()
-
-	for _, mt := range []string{"text/event-stream", "application/x-ndjson", "application/ndjson", "application/jsonl", "application/x-jsonlines", "application/json-lines"} {
-		assert.True(t, IsSequential(mt), mt)
-	}
-	assert.True(t, IsSequential("Text/Event-Stream; charset=utf-8"))
-	assert.False(t, IsSequential("application/json"))
-	assert.False(t, IsSequential("application/stream+json"))
-}
-
 func TestIsStreaming(t *testing.T) {
 	t.Parallel()
 
@@ -610,7 +604,7 @@ func TestOpenStream(t *testing.T) {
 		wantStatus int
 	}{
 		{name: "A stream", res: streamResponse(http.StatusOK, "application/ndjson", "{\"text\":\"a\"}\n"), wantFrames: []chunk{{Text: "a"}}},
-		{name: "A 2xx in another media type", res: streamResponse(http.StatusOK, "application/json", `{"text":"a"}`), wantErr: ErrContentType},
+		{name: "A 2xx in another media type", res: streamResponse(http.StatusOK, "application/json", `{"text":"a"}`), wantErr: runtime.ErrContentType},
 		{name: "A 2xx without a body has no frames", res: &http.Response{StatusCode: http.StatusNoContent, Header: http.Header{}}},
 		{name: "A 2xx with an empty JSON body has no frames", res: streamResponse(http.StatusOK, "application/json", "")},
 		{name: "An error response decoded into its type", res: streamResponse(http.StatusNotFound, "application/json", `{"message":"gone"}`), wantErr: &notFound{Message: "gone"}, wantStatus: http.StatusNotFound},
@@ -668,7 +662,7 @@ func TestDecodeStream(t *testing.T) {
 			header:      http.Header{"X-Total": {"5"}},
 			body:        "{\"text\":\"a\"}\n",
 			wantFrames:  []chunk{{Text: "a"}},
-			wantHeaders: &pageHeaders{Total: Ptr(5)},
+			wantHeaders: &pageHeaders{Total: runtime.Ptr(5)},
 		},
 		{
 			name:        "A stream whose header does not decode is closed",
@@ -683,7 +677,7 @@ func TestDecodeStream(t *testing.T) {
 			header:      http.Header{"X-Total": {"5"}},
 			body:        `{"text":"b"}`,
 			wantJSON:    &chunk{Text: "b"},
-			wantHeaders: &pageHeaders{Total: Ptr(5)},
+			wantHeaders: &pageHeaders{Total: runtime.Ptr(5)},
 		},
 	}
 

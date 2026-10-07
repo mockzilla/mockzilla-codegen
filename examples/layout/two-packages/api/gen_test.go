@@ -16,7 +16,7 @@ import (
 
 	"github.com/mockzilla/mockzilla-codegen/examples/layout/two-packages/api"
 	"github.com/mockzilla/mockzilla-codegen/examples/layout/two-packages/models"
-	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 // shop knows order 1 alone.
@@ -47,7 +47,7 @@ func TestAcrossPackages(t *testing.T) {
 	assert.Equal(t, &models.Order{ID: "1", Status: models.StatusPaid}, order)
 
 	_, err = c.GetOrder(ctx, &api.GetOrderRequestOptions{PathParams: &models.GetOrderPathParams{ID: "9"}})
-	var apiErr *runtime.APIError
+	var apiErr *httpclient.APIError
 	require.ErrorAs(t, err, &apiErr)
 	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
 

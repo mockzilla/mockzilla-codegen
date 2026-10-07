@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
@@ -136,7 +137,7 @@ type ChatResponse struct {
 	// ProblemJSON400 is the body of a 400 response as application/problem+json.
 	ProblemJSON400 *Problem
 	// Stream200 is the stream of a 200 response as text/event-stream.
-	Stream200 *runtime.Stream[Chunk]
+	Stream200 *httpclient.Stream[Chunk]
 	// Headers200 holds the headers the spec declares for a 200 response.
 	Headers200 *ChatResponse200Headers
 }
@@ -151,7 +152,7 @@ type ListEventsResponse struct {
 	HTTPResponse *http.Response
 	Body         []byte
 	// Stream200 is the stream of a 200 response as text/event-stream.
-	Stream200 *runtime.Stream[ListEventsResponseItem]
+	Stream200 *httpclient.Stream[ListEventsResponseItem]
 }
 
 // StatusCode is the status of the response.
@@ -168,7 +169,7 @@ type TailLogResponse struct {
 	// ProblemJSON404 is the body of a 404 response as application/problem+json.
 	ProblemJSON404 *Problem
 	// Stream200 is the stream of a 200 response as application/x-ndjson.
-	Stream200 *runtime.Stream[[]byte]
+	Stream200 *httpclient.Stream[[]byte]
 }
 
 // StatusCode is the status of the response.
@@ -177,7 +178,7 @@ func (r *TailLogResponse) StatusCode() int {
 }
 
 // HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
+type HTTPDoer = httpclient.Doer
 
 // RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
@@ -191,21 +192,21 @@ type ClientInterface interface {
 	// Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
 	Chat(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*Reply, error)
 	ChatWithResponse(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*ChatResponse, error)
-	ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[Chunk], error)
+	ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*httpclient.Stream[Chunk], error)
 	ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*ChatResponse, error)
 	// ListEvents calls GET /events.
 	//
 	// Follow the events
 	ListEvents(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) error
 	ListEventsWithResponse(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*ListEventsResponse, error)
-	ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*runtime.Stream[ListEventsResponseItem], error)
+	ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*httpclient.Stream[ListEventsResponseItem], error)
 	ListEventsStreamWithResponse(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*ListEventsResponse, error)
 	// TailLog calls GET /logs/{job}.
 	//
 	// Follow the log of a job
 	TailLog(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponseItem, error)
 	TailLogWithResponse(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponse, error)
-	TailLogStream(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*runtime.Stream[[]byte], error)
+	TailLogStream(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*httpclient.Stream[[]byte], error)
 	TailLogStreamWithResponse(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponse, error)
 }
 
@@ -245,7 +246,7 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 }
 
 // Client calls the API at a base URL.
-// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+// A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -255,7 +256,7 @@ type Client struct {
 
 // NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
+	u, err := httpclient.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -277,13 +278,13 @@ func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions, editors ...
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Reply
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "400", MediaType: "application/problem+json", Dst: new(Problem)},
 	}); err != nil {
@@ -298,13 +299,13 @@ func (c *Client) ChatWithResponse(ctx context.Context, opts *ChatRequestOptions,
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &ChatResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
@@ -316,16 +317,16 @@ func (c *Client) ChatWithResponse(ctx context.Context, opts *ChatRequestOptions,
 }
 
 // ChatStream calls POST /chat and returns its frames as a stream.
-func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[Chunk], error) {
+func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*httpclient.Stream[Chunk], error) {
 	req, err := c.ChatRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
+	res, body, err := httpclient.SendStream(c.doer, req, "text/event-stream", c.timeout)
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[Chunk](res, body, []runtime.ResponseTarget{
+	return httpclient.OpenStream[Chunk](res, body, []httpclient.ResponseTarget{
 		{Status: "400", MediaType: "application/problem+json", Dst: new(Problem)},
 	})
 }
@@ -336,13 +337,13 @@ func (c *Client) ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOp
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
+	res, body, err := httpclient.SendStream(c.doer, req, "text/event-stream", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &ChatResponse{HTTPResponse: res, Body: body}
-	out.Stream200, err = runtime.DecodeStream[Chunk](res, body, []runtime.ResponseTarget{
+	out.Stream200, err = httpclient.DecodeStream[Chunk](res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
@@ -359,7 +360,7 @@ func (c *Client) ChatRequest(ctx context.Context, opts *ChatRequestOptions, edit
 	if opts == nil {
 		opts = &ChatRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/chat")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/chat")
 	switch {
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
@@ -377,11 +378,11 @@ func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions,
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil)
 }
 
 // ListEventsWithResponse calls GET /events and returns the whole response.
@@ -390,7 +391,7 @@ func (c *Client) ListEventsWithResponse(ctx context.Context, opts *ListEventsReq
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -400,16 +401,16 @@ func (c *Client) ListEventsWithResponse(ctx context.Context, opts *ListEventsReq
 }
 
 // ListEventsStream calls GET /events and returns its frames as a stream.
-func (c *Client) ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*runtime.Stream[ListEventsResponseItem], error) {
+func (c *Client) ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*httpclient.Stream[ListEventsResponseItem], error) {
 	req, err := c.ListEventsRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
+	res, body, err := httpclient.SendStream(c.doer, req, "text/event-stream", c.timeout)
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[ListEventsResponseItem](res, body, nil)
+	return httpclient.OpenStream[ListEventsResponseItem](res, body, nil)
 }
 
 // ListEventsStreamWithResponse calls GET /events and returns the whole response, with its stream.
@@ -418,14 +419,14 @@ func (c *Client) ListEventsStreamWithResponse(ctx context.Context, opts *ListEve
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "text/event-stream", c.timeout)
+	res, body, err := httpclient.SendStream(c.doer, req, "text/event-stream", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &ListEventsResponse{HTTPResponse: res, Body: body}
-	if runtime.IsStreaming(res) {
-		out.Stream200 = runtime.NewStream[ListEventsResponseItem](res)
+	if httpclient.IsStreaming(res) {
+		out.Stream200 = httpclient.NewStream[ListEventsResponseItem](res)
 	}
 	return out, nil
 }
@@ -435,7 +436,7 @@ func (c *Client) ListEventsRequest(ctx context.Context, opts *ListEventsRequestO
 	if opts == nil {
 		opts = &ListEventsRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/events")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/events")
 	return c.newRequest(ctx, "ListEvents", b, editors)
 }
 
@@ -447,13 +448,13 @@ func (c *Client) TailLog(ctx context.Context, opts *TailLogRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/x-ndjson, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/x-ndjson, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *TailLogResponseItem
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out},
 		{Status: "404", MediaType: "application/problem+json", Dst: new(Problem)},
 	}); err != nil {
@@ -468,13 +469,13 @@ func (c *Client) TailLogWithResponse(ctx context.Context, opts *TailLogRequestOp
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/x-ndjson, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/x-ndjson, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &TailLogResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 		{Status: "404", MediaType: "application/problem+json", Dst: &out.ProblemJSON404},
 	}); err != nil {
@@ -484,16 +485,16 @@ func (c *Client) TailLogWithResponse(ctx context.Context, opts *TailLogRequestOp
 }
 
 // TailLogStream calls GET /logs/{job} and returns its frames as a stream.
-func (c *Client) TailLogStream(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*runtime.Stream[[]byte], error) {
+func (c *Client) TailLogStream(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*httpclient.Stream[[]byte], error) {
 	req, err := c.TailLogRequest(ctx, opts, editors...)
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "application/x-ndjson", c.timeout)
+	res, body, err := httpclient.SendStream(c.doer, req, "application/x-ndjson", c.timeout)
 	if err != nil {
 		return nil, err
 	}
-	return runtime.OpenStream[[]byte](res, body, []runtime.ResponseTarget{
+	return httpclient.OpenStream[[]byte](res, body, []httpclient.ResponseTarget{
 		{Status: "404", MediaType: "application/problem+json", Dst: new(Problem)},
 	})
 }
@@ -504,13 +505,13 @@ func (c *Client) TailLogStreamWithResponse(ctx context.Context, opts *TailLogReq
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.SendStream(c.doer, req, "application/x-ndjson", c.timeout)
+	res, body, err := httpclient.SendStream(c.doer, req, "application/x-ndjson", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &TailLogResponse{HTTPResponse: res, Body: body}
-	out.Stream200, err = runtime.DecodeStream[[]byte](res, body, []runtime.ResponseTarget{
+	out.Stream200, err = httpclient.DecodeStream[[]byte](res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 		{Status: "404", MediaType: "application/problem+json", Dst: &out.ProblemJSON404},
 	})
@@ -525,14 +526,14 @@ func (c *Client) TailLogRequest(ctx context.Context, opts *TailLogRequestOptions
 	if opts == nil {
 		opts = &TailLogRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/logs/{job}")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/logs/{job}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.Job, runtime.Param{Name: "job", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
 	return c.newRequest(ctx, "TailLog", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

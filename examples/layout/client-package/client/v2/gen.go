@@ -11,6 +11,7 @@ import (
 
 	"github.com/mockzilla/mockzilla-codegen/examples/layout/client-package/models"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
@@ -76,7 +77,7 @@ func (r *GetOrderResponse) StatusCode() int {
 }
 
 // HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
+type HTTPDoer = httpclient.Doer
 
 // RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
@@ -126,7 +127,7 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 }
 
 // Client calls the API at a base URL.
-// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+// A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -136,7 +137,7 @@ type Client struct {
 
 // NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
+	u, err := httpclient.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -154,13 +155,13 @@ func (c *Client) CreateOrder(ctx context.Context, opts *CreateOrderRequestOption
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *models.Order
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -174,13 +175,13 @@ func (c *Client) CreateOrderWithResponse(ctx context.Context, opts *CreateOrderR
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &CreateOrderResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out.JSON201},
 	}); err != nil {
 		return out, err
@@ -193,7 +194,7 @@ func (c *Client) CreateOrderRequest(ctx context.Context, opts *CreateOrderReques
 	if opts == nil {
 		opts = &CreateOrderRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/orders")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/orders")
 	switch {
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
@@ -209,13 +210,13 @@ func (c *Client) GetOrder(ctx context.Context, opts *GetOrderRequestOptions, edi
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *models.Order
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -229,13 +230,13 @@ func (c *Client) GetOrderWithResponse(ctx context.Context, opts *GetOrderRequest
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &GetOrderResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "404", MediaType: "application/json", Dst: &out.JSON404},
 	}); err != nil {
@@ -249,7 +250,7 @@ func (c *Client) GetOrderRequest(ctx context.Context, opts *GetOrderRequestOptio
 	if opts == nil {
 		opts = &GetOrderRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/orders/{id}")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/orders/{id}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
@@ -259,7 +260,7 @@ func (c *Client) GetOrderRequest(ctx context.Context, opts *GetOrderRequestOptio
 	return c.newRequest(ctx, "GetOrder", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

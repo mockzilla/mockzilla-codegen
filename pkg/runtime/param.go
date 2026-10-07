@@ -231,8 +231,34 @@ func Headers(h http.Header, v any) http.Header {
 	return h
 }
 
-// encodePath writes v as a path segment.
-func encodePath(v any, p Param) (string, error) {
+// DecodeHeaders reads h into dst, a pointer to a struct of typed headers whose fields name their
+// header in a json tag, each as a simple-style parameter. A header that is not there leaves its
+// field as it is.
+func DecodeHeaders(h http.Header, dst any) error {
+	target, err := pointer(dst)
+	if err != nil {
+		return err
+	}
+	target = allocate(target)
+	if target.Kind() != reflect.Struct {
+		return fmt.Errorf("%w: typed headers need a struct, not %s", ErrParamValue, target.Type())
+	}
+
+	for i := range target.NumField() {
+		f := target.Type().Field(i)
+		name := jsonName(f)
+		if name == "" || !f.IsExported() {
+			continue
+		}
+		if err = DecodeHeader(h, Param{Name: name, Style: StyleSimple}, target.Field(i).Addr().Interface()); err != nil {
+			return fmt.Errorf("%w %s: %w", ErrHeaderValue, name, err)
+		}
+	}
+	return nil
+}
+
+// EncodePath writes v as a path segment.
+func EncodePath(v any, p Param) (string, error) {
 	t, err := encodeTree(v, p)
 	if err != nil {
 		return "", err
@@ -261,8 +287,8 @@ func encodePath(v any, p Param) (string, error) {
 	return join(t, ",", p.IsExplode), nil
 }
 
-// encodeQuery adds v to q as the parameter p.
-func encodeQuery(v any, p Param, q url.Values) error {
+// EncodeQuery adds v to q as the parameter p.
+func EncodeQuery(v any, p Param, q url.Values) error {
 	t, err := encodeTree(v, p)
 	if err != nil || t == nil {
 		return err
@@ -291,8 +317,8 @@ func encodeQuery(v any, p Param, q url.Values) error {
 	return nil
 }
 
-// encodeHeader writes v as a header value.
-func encodeHeader(v any, p Param) (string, error) {
+// EncodeHeader writes v as a header value.
+func EncodeHeader(v any, p Param) (string, error) {
 	t, err := encodeTree(v, p)
 	if err != nil {
 		return "", err
@@ -300,8 +326,8 @@ func encodeHeader(v any, p Param) (string, error) {
 	return join(t, ",", p.IsExplode), nil
 }
 
-// encodeCookie writes v as cookies: one, or one per item of an exploded list or object.
-func encodeCookie(v any, p Param) ([]*http.Cookie, error) {
+// EncodeCookie writes v as cookies: one, or one per item of an exploded list or object.
+func EncodeCookie(v any, p Param) ([]*http.Cookie, error) {
 	t, err := encodeTree(v, p)
 	if err != nil || t == nil {
 		return nil, err
@@ -465,6 +491,18 @@ func pointer(dst any) (reflect.Value, error) {
 		return reflect.Value{}, fmt.Errorf("%w: the target must be a pointer", ErrParamValue)
 	}
 	return v.Elem(), nil
+}
+
+// allocate follows v through pointers, making each nil one point at a new value, and returns what
+// it reaches.
+func allocate(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+		v = v.Elem()
+	}
+	return v
 }
 
 // shapeOf is what a Go type holds as a parameter. A type that reads text on its own, such as

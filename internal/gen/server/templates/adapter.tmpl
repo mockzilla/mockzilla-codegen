@@ -22,7 +22,7 @@ var bodyPresence = {{.Runtime}}.Presence{
 type ServerOptions struct {
 	Router             any
 	Middleware         []func({{.HTTP}}.Handler) {{.HTTP}}.Handler
-	ErrorHandler       {{.Runtime}}.ErrorHandler
+	ErrorHandler       {{.HTTPServer}}.ErrorHandler
 	JSONDecoder        func(body {{.IO}}.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
 {{- if .Presence}}
@@ -36,7 +36,7 @@ type ServerOption func(*ServerOptions)
 // NewServerOptions applies opts to the defaults.
 func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	o := &ServerOptions{
-		ErrorHandler:       {{.Runtime}}.DefaultErrorHandler{},
+		ErrorHandler:       {{.HTTPServer}}.DefaultErrorHandler{},
 		JSONDecoder:        {{.Runtime}}.DecodeJSON,
 		MultipartMaxMemory: {{.MaxMemory}},
 {{- if .Presence}}
@@ -57,7 +57,7 @@ func WithMiddleware(mw ...func({{.HTTP}}.Handler) {{.HTTP}}.Handler) ServerOptio
 }
 
 // WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h {{.Runtime}}.ErrorHandler) ServerOption {
+func WithErrorHandler(h {{.HTTPServer}}.ErrorHandler) ServerOption {
 	return func(o *ServerOptions) {
 		o.ErrorHandler = h
 	}
@@ -119,14 +119,14 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 	opts.{{.Field}} = &{{.Type}}{}
 {{- range .Params}}
 	if err := {{$.Runtime}}.{{.Decoder}}({{.Source}}, {{$.Runtime}}.Param{Name: {{.Name}}, Style: {{$.Runtime}}.{{.Style}}, IsExplode: {{.IsExplode}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}{{with .Default}}, Default: {{.}}{{end}}}, {{.Target}}); err != nil {
-		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorParse, OperationID: {{$op.ID}}, ParamName: {{.Name}}, ParamLocation: {{.Location}}, Err: err})
+		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorParse, OperationID: {{$op.ID}}, ParamName: {{.Name}}, ParamLocation: {{.Location}}, Err: err})
 		{{$.Handler.Return}}
 	}
 {{- end}}
 {{- end}}
 {{- with .QueryString}}
 	if err := {{$.Runtime}}.DecodeQueryString({{.Source}}, {{$.Runtime}}.Param{Name: {{.Name}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}{{with .Default}}, Default: {{.}}{{end}}}, {{.Target}}); err != nil {
-		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorParse, OperationID: {{$op.ID}}, ParamName: {{.Name}}, ParamLocation: {{.Location}}, Err: err})
+		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorParse, OperationID: {{$op.ID}}, ParamName: {{.Name}}, ParamLocation: {{.Location}}, Err: err})
 		{{$.Handler.Return}}
 	}
 {{- end}}
@@ -145,14 +145,14 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 {{- range .Wildcards}}
 {{- template "server/body.tmpl" .}}
 {{- else}}
-		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorDecode, OperationID: {{.ID}}, Status: {{$.HTTP}}.StatusUnsupportedMediaType, Err: {{$.Runtime}}.ContentTypeError(contentType)})
+		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorDecode, OperationID: {{.ID}}, Status: {{$.HTTP}}.StatusUnsupportedMediaType, Err: {{$.Runtime}}.ContentTypeError(contentType)})
 		{{$.Handler.Return}}
 {{- end}}
 	}
 {{- end}}
 {{- if $.IsRequestValidated}}
 	if err := opts.Validate(); err != nil {
-		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorValidation, OperationID: {{.ID}}, Err: err})
+		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorValidation, OperationID: {{.ID}}, Err: err})
 		{{$.Handler.Return}}
 	}
 {{- end}}
@@ -160,17 +160,17 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 	res, err := a.svc.{{.Name}}(r.Context(), opts)
 	if err != nil {
 {{- range .Errors}}
-		if e, ok := {{$.Runtime}}.AsError[{{.Type}}](err); ok {
+		if e, ok := {{$.HTTPServer}}.AsError[{{.Type}}](err); ok {
 			w.Header().Set("Content-Type", {{.MediaType}})
 			a.opts.ErrorHandler.HandleError(w, r, {{.Status}}, e)
 			{{$.Handler.Return}}
 		}
 {{- end}}
-		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorService, OperationID: {{.ID}}, Err: err})
+		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorService, OperationID: {{.ID}}, Err: err})
 		{{$.Handler.Return}}
 	}
 	if res == nil {
-		a.fail(w, r, &{{$.Runtime}}.HandlerError{Kind: {{$.Runtime}}.ErrorService, OperationID: {{.ID}}, Err: {{$.Runtime}}.ErrNoResponse})
+		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorService, OperationID: {{.ID}}, Err: {{$.HTTPServer}}.ErrNoResponse})
 		{{$.Handler.Return}}
 	}
 	a.write(w, r, {{.ID}}, res)
@@ -180,7 +180,7 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 }
 {{- end}}
 
-func (a *HTTPAdapter) fail(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, err *{{.Runtime}}.HandlerError) {
+func (a *HTTPAdapter) fail(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, err *{{.HTTPServer}}.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
 {{- if .Rejects}}
@@ -193,41 +193,41 @@ func (a *HTTPAdapter) fail(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, err
 }
 
 func (a *HTTPAdapter) failDecode(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, err error) {
-	a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorDecode, OperationID: id, Err: err})
+	a.fail(w, r, &{{.HTTPServer}}.HandlerError{Kind: {{.HTTPServer}}.ErrorDecode, OperationID: id, Err: err})
 }
 {{- if .Presence}}
 
 func (a *HTTPAdapter) failBody(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, err error) {
-	kind := {{.Runtime}}.ErrorDecode
+	kind := {{.HTTPServer}}.ErrorDecode
 	if {{.Validation}}.Failed(err) {
-		kind = {{.Runtime}}.ErrorValidation
+		kind = {{.HTTPServer}}.ErrorValidation
 	}
-	a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: kind, OperationID: id, Err: err})
+	a.fail(w, r, &{{.HTTPServer}}.HandlerError{Kind: kind, OperationID: id, Err: err})
 }
 {{- end}}
 
 func (a *HTTPAdapter) write(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id string, res responseData) {
 {{- if .IsResponseValidated}}
-	if err := {{.Runtime}}.ValidateResponse(res.Payload()); err != nil {
-		a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorResponse, OperationID: id, Err: err})
+	if err := {{.HTTPServer}}.ValidateResponse(res.Payload()); err != nil {
+		a.fail(w, r, &{{.HTTPServer}}.HandlerError{Kind: {{.HTTPServer}}.ErrorResponse, OperationID: id, Err: err})
 		return
 	}
 {{- end}}
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	err := {{.Runtime}}.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	err := {{.HTTPServer}}.Write(w, res.StatusCode(), res.Header(), res.Payload())
 	switch {
 	case {{.Errors}}.Is(err, {{.Runtime}}.ErrContentType):
-		a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorResponse, OperationID: id, Err: err})
+		a.fail(w, r, &{{.HTTPServer}}.HandlerError{Kind: {{.HTTPServer}}.ErrorResponse, OperationID: id, Err: err})
 	case err != nil:
-		a.fail(w, r, &{{.Runtime}}.HandlerError{Kind: {{.Runtime}}.ErrorService, OperationID: id, Err: err})
+		a.fail(w, r, &{{.HTTPServer}}.HandlerError{Kind: {{.HTTPServer}}.ErrorService, OperationID: id, Err: err})
 	}
 }
 {{- with .Rejects}}
 
-func requestError(err *{{$.Runtime}}.HandlerError) (error, string) {
-	if err.Kind == {{$.Runtime}}.ErrorService || err.Kind == {{$.Runtime}}.ErrorResponse {
+func requestError(err *{{$.HTTPServer}}.HandlerError) (error, string) {
+	if err.Kind == {{$.HTTPServer}}.ErrorService || err.Kind == {{$.HTTPServer}}.ErrorResponse {
 		return nil, ""
 	}
 

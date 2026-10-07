@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
@@ -117,7 +118,7 @@ func (o *SearchRequestOptions) Validate() error {
 }
 
 // HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
+type HTTPDoer = httpclient.Doer
 
 // RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
@@ -171,7 +172,7 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 }
 
 // Client calls the API at a base URL.
-// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+// A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -181,7 +182,7 @@ type Client struct {
 
 // NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
+	u, err := httpclient.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -199,11 +200,11 @@ func (c *Client) SearchPhotos(ctx context.Context, opts *SearchPhotosRequestOpti
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil)
 }
 
 // SearchPhotosRequest builds the request of GET /rest?method=photos.search.
@@ -211,7 +212,7 @@ func (c *Client) SearchPhotosRequest(ctx context.Context, opts *SearchPhotosRequ
 	if opts == nil {
 		opts = &SearchPhotosRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/rest?method=photos.search")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/rest?method=photos.search")
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Text, runtime.Param{Name: "text", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 	}
@@ -224,11 +225,11 @@ func (c *Client) ListOrders(ctx context.Context, opts *ListOrdersRequestOptions,
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil)
 }
 
 // ListOrdersRequest builds the request of GET /orders?end={end}&page={page}.
@@ -236,7 +237,7 @@ func (c *Client) ListOrdersRequest(ctx context.Context, opts *ListOrdersRequestO
 	if opts == nil {
 		opts = &ListOrdersRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/orders?end={end}&page={page}")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/orders?end={end}&page={page}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.End, runtime.Param{Name: "end", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 		b.PathParam(opts.PathParams.Page, runtime.Param{Name: "page", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
@@ -250,11 +251,11 @@ func (c *Client) ShareFile(ctx context.Context, opts *ShareFileRequestOptions, e
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil)
 }
 
 // ShareFileRequest builds the request of PUT /files/{id}#share.
@@ -262,7 +263,7 @@ func (c *Client) ShareFileRequest(ctx context.Context, opts *ShareFileRequestOpt
 	if opts == nil {
 		opts = &ShareFileRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPut, "/files/{id}#share")
+	b := httpclient.NewRequestBuilder(http.MethodPut, "/files/{id}#share")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
@@ -275,11 +276,11 @@ func (c *Client) ListUsers(ctx context.Context, opts *ListUsersRequestOptions, e
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil)
 }
 
 // ListUsersRequest builds the request of GET /#Action=ListUsers.
@@ -287,7 +288,7 @@ func (c *Client) ListUsersRequest(ctx context.Context, opts *ListUsersRequestOpt
 	if opts == nil {
 		opts = &ListUsersRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/#Action=ListUsers")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/#Action=ListUsers")
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Action, runtime.Param{Name: "Action", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
@@ -300,11 +301,11 @@ func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions, editors
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil)
 }
 
 // SearchRequest builds the request of GET /search?query={query}.
@@ -312,14 +313,14 @@ func (c *Client) SearchRequest(ctx context.Context, opts *SearchRequestOptions, 
 	if opts == nil {
 		opts = &SearchRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/search?query={query}")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/search?query={query}")
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Query, runtime.Param{Name: "query", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}
 	return c.newRequest(ctx, "Search", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

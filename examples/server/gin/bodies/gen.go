@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpserver"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
@@ -652,27 +653,27 @@ func (r *PostAnyResponseData) ContentType() string {
 
 // The error types the handlers use, as the runtime declares them.
 type (
-	ErrorKind           = runtime.ErrorKind
-	HandlerError        = runtime.HandlerError
-	ErrorHandler        = runtime.ErrorHandler
-	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
-	DefaultErrorHandler = runtime.DefaultErrorHandler
+	ErrorKind           = httpserver.ErrorKind
+	HandlerError        = httpserver.HandlerError
+	ErrorHandler        = httpserver.ErrorHandler
+	ErrorHandlerFunc    = httpserver.ErrorHandlerFunc
+	DefaultErrorHandler = httpserver.DefaultErrorHandler
 )
 
 // The kinds of HandlerError.
 const (
-	ErrorParse      = runtime.ErrorParse
-	ErrorDecode     = runtime.ErrorDecode
-	ErrorValidation = runtime.ErrorValidation
-	ErrorService    = runtime.ErrorService
-	ErrorResponse   = runtime.ErrorResponse
+	ErrorParse      = httpserver.ErrorParse
+	ErrorDecode     = httpserver.ErrorDecode
+	ErrorValidation = httpserver.ErrorValidation
+	ErrorService    = httpserver.ErrorService
+	ErrorResponse   = httpserver.ErrorResponse
 )
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       runtime.ErrorHandler
+	ErrorHandler       httpserver.ErrorHandler
 	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
 }
@@ -683,7 +684,7 @@ type ServerOption func(*ServerOptions)
 // NewServerOptions applies opts to the defaults.
 func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	o := &ServerOptions{
-		ErrorHandler:       runtime.DefaultErrorHandler{},
+		ErrorHandler:       httpserver.DefaultErrorHandler{},
 		JSONDecoder:        runtime.DecodeJSON,
 		MultipartMaxMemory: 1048576,
 	}
@@ -701,7 +702,7 @@ func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 }
 
 // WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
+func WithErrorHandler(h httpserver.ErrorHandler) ServerOption {
 	return func(o *ServerOptions) {
 		o.ErrorHandler = h
 	}
@@ -751,17 +752,17 @@ func (a *HTTPAdapter) PostJSON(w http.ResponseWriter, r *http.Request) {
 		}
 	case "":
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PostJSON", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "PostJSON", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return
 	}
 
 	res, err := a.svc.PostJSON(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostJSON", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostJSON", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostJSON", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostJSON", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "PostJSON", res)
@@ -774,11 +775,11 @@ func (a *HTTPAdapter) GetForm(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.GetForm(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetForm", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetForm", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetForm", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetForm", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "GetForm", res)
@@ -798,17 +799,17 @@ func (a *HTTPAdapter) PostForm(w http.ResponseWriter, r *http.Request) {
 		a.failDecode(w, r, "PostForm", runtime.ErrBodyEmpty)
 		return
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PostForm", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "PostForm", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return
 	}
 
 	res, err := a.svc.PostForm(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostForm", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostForm", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostForm", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostForm", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "PostForm", res)
@@ -821,11 +822,11 @@ func (a *HTTPAdapter) GetQuote(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.GetQuote(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetQuote", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetQuote", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetQuote", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetQuote", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "GetQuote", res)
@@ -838,11 +839,11 @@ func (a *HTTPAdapter) GetCount(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.GetCount(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetCount", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetCount", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetCount", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetCount", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "GetCount", res)
@@ -855,11 +856,11 @@ func (a *HTTPAdapter) ListNotes(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.ListNotes(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListNotes", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListNotes", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListNotes", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListNotes", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "ListNotes", res)
@@ -880,17 +881,17 @@ func (a *HTTPAdapter) Upload(w http.ResponseWriter, r *http.Request) {
 		a.failDecode(w, r, "Upload", runtime.ErrBodyEmpty)
 		return
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "Upload", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "Upload", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return
 	}
 
 	res, err := a.svc.Upload(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Upload", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Upload", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Upload", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Upload", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "Upload", res)
@@ -917,17 +918,17 @@ func (a *HTTPAdapter) PostText(w http.ResponseWriter, r *http.Request) {
 		opts.BodyOctetStream = data
 	case "":
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PostText", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "PostText", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return
 	}
 
 	res, err := a.svc.PostText(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostText", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostText", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostText", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostText", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "PostText", res)
@@ -949,17 +950,17 @@ func (a *HTTPAdapter) PutFile(w http.ResponseWriter, r *http.Request) {
 		a.failDecode(w, r, "PutFile", runtime.ErrBodyEmpty)
 		return
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PutFile", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "PutFile", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return
 	}
 
 	res, err := a.svc.PutFile(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutFile", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutFile", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutFile", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutFile", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "PutFile", res)
@@ -996,36 +997,36 @@ func (a *HTTPAdapter) PostAny(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.PostAny(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostAny", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostAny", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PostAny", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostAny", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "PostAny", res)
 }
 
-func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
-	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
+	a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: id, Err: err})
 }
 
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	err := httpserver.Write(w, res.StatusCode(), res.Header(), res.Payload())
 	switch {
 	case errors.Is(err, runtime.ErrContentType):
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorResponse, OperationID: id, Err: err})
 	case err != nil:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: id, Err: err})
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/fasthttp/router"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpserver"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpadaptor"
@@ -272,20 +273,20 @@ func (r *PutPetResponseData) ContentType() string {
 
 // The error types the handlers use, as the runtime declares them.
 type (
-	ErrorKind           = runtime.ErrorKind
-	HandlerError        = runtime.HandlerError
-	ErrorHandler        = runtime.ErrorHandler
-	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
-	DefaultErrorHandler = runtime.DefaultErrorHandler
+	ErrorKind           = httpserver.ErrorKind
+	HandlerError        = httpserver.HandlerError
+	ErrorHandler        = httpserver.ErrorHandler
+	ErrorHandlerFunc    = httpserver.ErrorHandlerFunc
+	DefaultErrorHandler = httpserver.DefaultErrorHandler
 )
 
 // The kinds of HandlerError.
 const (
-	ErrorParse      = runtime.ErrorParse
-	ErrorDecode     = runtime.ErrorDecode
-	ErrorValidation = runtime.ErrorValidation
-	ErrorService    = runtime.ErrorService
-	ErrorResponse   = runtime.ErrorResponse
+	ErrorParse      = httpserver.ErrorParse
+	ErrorDecode     = httpserver.ErrorDecode
+	ErrorValidation = httpserver.ErrorValidation
+	ErrorService    = httpserver.ErrorService
+	ErrorResponse   = httpserver.ErrorResponse
 )
 
 var bodyPresence = runtime.Presence{
@@ -302,7 +303,7 @@ var bodyPresence = runtime.Presence{
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       runtime.ErrorHandler
+	ErrorHandler       httpserver.ErrorHandler
 	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
 	Presence           runtime.PresenceChecker
@@ -314,7 +315,7 @@ type ServerOption func(*ServerOptions)
 // NewServerOptions applies opts to the defaults.
 func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	o := &ServerOptions{
-		ErrorHandler:       runtime.DefaultErrorHandler{},
+		ErrorHandler:       httpserver.DefaultErrorHandler{},
 		JSONDecoder:        runtime.DecodeJSON,
 		MultipartMaxMemory: 33554432,
 		Presence:           bodyPresence,
@@ -333,7 +334,7 @@ func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 }
 
 // WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
+func WithErrorHandler(h httpserver.ErrorHandler) ServerOption {
 	return func(o *ServerOptions) {
 		o.ErrorHandler = h
 	}
@@ -385,31 +386,31 @@ func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	opts.PathParams = &GetPetPathParams{}
 	if err := runtime.DecodePath(r.PathValue("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetPet", ParamName: "id", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetPet", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}
 	opts.Query = &GetPetQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "fields", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Fields); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetPet", ParamName: "fields", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetPet", ParamName: "fields", ParamLocation: "query", Err: err})
 		return
 	}
 	if err := opts.Validate(); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "GetPet", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorValidation, OperationID: "GetPet", Err: err})
 		return
 	}
 
 	res, err := a.svc.GetPet(r.Context(), opts)
 	if err != nil {
-		if e, ok := runtime.AsError[Problem](err); ok {
+		if e, ok := httpserver.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/problem+json")
 			a.opts.ErrorHandler.HandleError(w, r, 404, e)
 			return
 		}
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPet", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetPet", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPet", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetPet", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "GetPet", res)
@@ -421,7 +422,7 @@ func (a *HTTPAdapter) PutPet(w http.ResponseWriter, r *http.Request) {
 	opts := &PutPetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PutPetPathParams{}
 	if err := runtime.DecodePath(r.PathValue("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PutPet", ParamName: "id", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "PutPet", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}
 	switch contentType := runtime.ContentType(r.Header); contentType {
@@ -439,32 +440,32 @@ func (a *HTTPAdapter) PutPet(w http.ResponseWriter, r *http.Request) {
 		a.failDecode(w, r, "PutPet", runtime.ErrBodyEmpty)
 		return
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PutPet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "PutPet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return
 	}
 	if err := opts.Validate(); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "PutPet", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorValidation, OperationID: "PutPet", Err: err})
 		return
 	}
 
 	res, err := a.svc.PutPet(r.Context(), opts)
 	if err != nil {
-		if e, ok := runtime.AsError[Problem](err); ok {
+		if e, ok := httpserver.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/problem+json")
 			a.opts.ErrorHandler.HandleError(w, r, 400, e)
 			return
 		}
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutPet", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutPet", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutPet", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutPet", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "PutPet", res)
 }
 
-func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
 	if body, mediaType := requestError(err); body != nil {
@@ -475,36 +476,36 @@ func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.
 }
 
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
-	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
+	a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: id, Err: err})
 }
 
 func (a *HTTPAdapter) failBody(w http.ResponseWriter, r *http.Request, id string, err error) {
-	kind := runtime.ErrorDecode
+	kind := httpserver.ErrorDecode
 	if validation.Failed(err) {
-		kind = runtime.ErrorValidation
+		kind = httpserver.ErrorValidation
 	}
-	a.fail(w, r, &runtime.HandlerError{Kind: kind, OperationID: id, Err: err})
+	a.fail(w, r, &httpserver.HandlerError{Kind: kind, OperationID: id, Err: err})
 }
 
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
-	if err := runtime.ValidateResponse(res.Payload()); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+	if err := httpserver.ValidateResponse(res.Payload()); err != nil {
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorResponse, OperationID: id, Err: err})
 		return
 	}
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	err := httpserver.Write(w, res.StatusCode(), res.Header(), res.Payload())
 	switch {
 	case errors.Is(err, runtime.ErrContentType):
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorResponse, OperationID: id, Err: err})
 	case err != nil:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: id, Err: err})
 	}
 }
 
-func requestError(err *runtime.HandlerError) (error, string) {
-	if err.Kind == runtime.ErrorService || err.Kind == runtime.ErrorResponse {
+func requestError(err *httpserver.HandlerError) (error, string) {
+	if err.Kind == httpserver.ErrorService || err.Kind == httpserver.ErrorResponse {
 		return nil, ""
 	}
 
@@ -533,7 +534,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) *router.Router {
 			h = o.Middleware[i](h)
 		}
 		// fasthttp would end the process on a panic.
-		return runtime.Recover(h, o.ErrorHandler)
+		return httpserver.Recover(h, o.ErrorHandler)
 	}
 	register := func(r *router.Router, route func(http.Handler) http.Handler) {
 		r.GET("/pets/{id}", handle(route(http.HandlerFunc(a.GetPet))))
@@ -557,10 +558,10 @@ func handle(h http.Handler) fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
 		fasthttpadaptor.NewFastHTTPHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// fasthttp reuses the memory of the request's strings for the next request.
-			r = runtime.DetachRequest(r)
+			r = httpserver.DetachRequest(r)
 			ctx.VisitUserValues(func(key []byte, value any) {
 				if s, ok := value.(string); ok {
-					r.SetPathValue(string(key), runtime.DetachPathValue(s))
+					r.SetPathValue(string(key), httpserver.DetachPathValue(s))
 				}
 			})
 			h.ServeHTTP(w, r)

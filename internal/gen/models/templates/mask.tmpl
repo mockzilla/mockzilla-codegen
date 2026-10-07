@@ -15,6 +15,6 @@ func ({{.Receiver}} {{$.Name}}) Masked() {{$.Name}} {
 
 // LogValue gives slog the masked value, so logs do not show sensitive values.
 func ({{.Receiver}} {{$.Name}}) LogValue() {{.Slog}}.Value {
-	return {{.Runtime}}.LogValue({{.Receiver}}.Masked())
+	return {{.Mask}}.LogValue({{.Receiver}}.Masked())
 }
 {{- end}}

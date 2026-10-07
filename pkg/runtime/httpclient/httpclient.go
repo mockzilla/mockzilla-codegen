@@ -3,9 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Building and sending the requests of a generated client.
-
-package runtime
+// Package httpclient builds and sends the requests of a generated client and reads its responses.
+package httpclient
 
 import (
 	"bytes"
@@ -22,6 +21,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 const upperHex = "0123456789ABCDEF"
@@ -58,22 +59,22 @@ func NewRequestBuilder(method, path string) *RequestBuilder {
 
 // PathParam fills v into the placeholder of p. A nil value is an error, since paths need every
 // parameter, and so is a value written as nothing, which would send the request to another path.
-func (b *RequestBuilder) PathParam(v any, p Param) {
+func (b *RequestBuilder) PathParam(v any, p runtime.Param) {
 	if b.err != nil {
 		return
 	}
 	if isNil(v) {
-		b.err = fmt.Errorf("%w: %s", ErrParamMissing, p.Name)
+		b.err = fmt.Errorf("%w: %s", runtime.ErrParamMissing, p.Name)
 		return
 	}
 
-	value, err := encodePath(v, p)
+	value, err := runtime.EncodePath(v, p)
 	switch {
 	case err != nil:
 		b.err = err
 		return
 	case value == "":
-		b.err = fmt.Errorf("%w: %s is empty", ErrParamMissing, p.Name)
+		b.err = fmt.Errorf("%w: %s is empty", runtime.ErrParamMissing, p.Name)
 		return
 	}
 	b.path = strings.ReplaceAll(b.path, "{"+p.Name+"}", escape(value, isSegmentChar))
@@ -81,15 +82,15 @@ func (b *RequestBuilder) PathParam(v any, p Param) {
 }
 
 // QueryParam adds v to the query as p. A nil value is left out, unless p is required.
-func (b *RequestBuilder) QueryParam(v any, p Param) {
+func (b *RequestBuilder) QueryParam(v any, p runtime.Param) {
 	if b.err != nil || b.skip(v, p) {
 		return
 	}
-	b.err = encodeQuery(v, p, b.query)
+	b.err = runtime.EncodeQuery(v, p, b.query)
 }
 
 // QueryString writes v as the whole query, JSON or a form; a nil value is left out unless required.
-func (b *RequestBuilder) QueryString(v any, p Param) {
+func (b *RequestBuilder) QueryString(v any, p runtime.Param) {
 	if b.err != nil || b.skip(v, p) {
 		return
 	}
@@ -98,17 +99,17 @@ func (b *RequestBuilder) QueryString(v any, p Param) {
 		b.queryString, b.err = escape(string(data), isUnreserved), err
 		return
 	}
-	values, err := encodeForm(v, nil)
+	values, err := runtime.EncodeForm(v, nil)
 	b.queryString, b.err = values.Encode(), err
 }
 
 // HeaderParam adds v as the header p. A nil value is left out, unless p is required.
-func (b *RequestBuilder) HeaderParam(v any, p Param) {
+func (b *RequestBuilder) HeaderParam(v any, p runtime.Param) {
 	if b.err != nil || b.skip(v, p) {
 		return
 	}
 
-	value, err := encodeHeader(v, p)
+	value, err := runtime.EncodeHeader(v, p)
 	if err != nil {
 		b.err = err
 		return
@@ -118,19 +119,19 @@ func (b *RequestBuilder) HeaderParam(v any, p Param) {
 
 // CookieParam adds v as the cookie p. A nil value is left out, unless p is required. A value
 // with a byte no cookie holds, such as a semicolon, is an error rather than sent altered.
-func (b *RequestBuilder) CookieParam(v any, p Param) {
+func (b *RequestBuilder) CookieParam(v any, p runtime.Param) {
 	if b.err != nil || b.skip(v, p) {
 		return
 	}
 
-	cookies, err := encodeCookie(v, p)
+	cookies, err := runtime.EncodeCookie(v, p)
 	if err != nil {
 		b.err = err
 		return
 	}
 	for _, c := range cookies {
 		if err = c.Valid(); err != nil {
-			b.err = fmt.Errorf("%w: %s: %w", ErrParamValue, p.Name, err)
+			b.err = fmt.Errorf("%w: %s: %w", runtime.ErrParamValue, p.Name, err)
 			return
 		}
 	}
@@ -146,12 +147,13 @@ func (b *RequestBuilder) JSONBody(v any, mediaType string) {
 	b.setBody(data, mediaType, err)
 }
 
-// FormBody sends v as application/x-www-form-urlencoded with the encoding enc, see encodeForm.
-func (b *RequestBuilder) FormBody(v any, enc Encoding) {
+// FormBody sends v as application/x-www-form-urlencoded with the encoding enc, see
+// runtime.EncodeForm.
+func (b *RequestBuilder) FormBody(v any, enc runtime.Encoding) {
 	if b.err != nil {
 		return
 	}
-	values, err := encodeForm(v, enc)
+	values, err := runtime.EncodeForm(v, enc)
 	if err != nil {
 		b.err = err
 		return
@@ -159,13 +161,14 @@ func (b *RequestBuilder) FormBody(v any, enc Encoding) {
 	b.setBody([]byte(values.Encode()), "application/x-www-form-urlencoded", nil)
 }
 
-// MultipartBody sends v as multipart/form-data, see writeParts. The form is written while it
-// is sent, so its files stream; its length is known up front when every file knows its size.
-func (b *RequestBuilder) MultipartBody(v any, enc Encoding) {
+// MultipartBody sends v as multipart/form-data, see runtime.WriteMultipart. The form is written
+// while it is sent, so its files stream; its length is known up front when every file knows its
+// size.
+func (b *RequestBuilder) MultipartBody(v any, enc runtime.Encoding) {
 	if b.err != nil {
 		return
 	}
-	size, boundary, err := multipartSize(v, enc)
+	size, boundary, err := runtime.MultipartSize(v, enc)
 	if err != nil {
 		b.err = err
 		return
@@ -173,7 +176,7 @@ func (b *RequestBuilder) MultipartBody(v any, enc Encoding) {
 
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
-	// The boundary multipartSize took from another Writer, which never makes an invalid one.
+	// The boundary MultipartSize took from another Writer, which never makes an invalid one.
 	_ = mw.SetBoundary(boundary)
 	b.body, b.length, b.contentType = &multipartBody{value: v, encoding: enc, writer: mw, pr: pr, pw: pw}, size, mw.FormDataContentType()
 }
@@ -190,7 +193,7 @@ func (b *RequestBuilder) BytesBody(data []byte, mediaType string) {
 
 // FileBody streams f under mediaType, or under the file's own content type when mediaType is
 // empty, with its size as the content length when it is known.
-func (b *RequestBuilder) FileBody(f File, mediaType string) {
+func (b *RequestBuilder) FileBody(f runtime.File, mediaType string) {
 	if b.err != nil {
 		return
 	}
@@ -215,7 +218,7 @@ func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Reques
 	for _, template := range []string{b.path, b.pathQuery} {
 		if start := strings.IndexByte(template, '{'); start >= 0 {
 			name, _, _ := strings.Cut(template[start+1:], "}")
-			return nil, fmt.Errorf("%w: %s", ErrParamMissing, name)
+			return nil, fmt.Errorf("%w: %s", runtime.ErrParamMissing, name)
 		}
 	}
 
@@ -223,7 +226,7 @@ func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Reques
 	u.RawPath = strings.TrimSuffix(base.EscapedPath(), "/") + b.path
 	path, err := url.PathUnescape(u.RawPath)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrParamValue, err)
+		return nil, fmt.Errorf("%w: %w", runtime.ErrParamValue, err)
 	}
 
 	query := []string{escape(base.RawQuery, isQueryChar), escape(b.pathQuery, isQueryChar), b.query.Encode(), b.queryString}
@@ -249,11 +252,13 @@ func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Reques
 
 // skip reports a nil value, which is left out of the request; when p is required that is an
 // error.
-func (b *RequestBuilder) skip(v any, p Param) bool {
+func (b *RequestBuilder) skip(v any, p runtime.Param) bool {
 	if !isNil(v) {
 		return false
 	}
-	b.err = absent(p)
+	if p.IsRequired {
+		b.err = fmt.Errorf("%w: %s", runtime.ErrParamMissing, p.Name)
+	}
 	return true
 }
 
@@ -272,7 +277,7 @@ func (b *RequestBuilder) setBody(data []byte, mediaType string, err error) {
 // from another goroutine, and Close stops it. A body never read starts nothing.
 type multipartBody struct {
 	value    any
-	encoding Encoding
+	encoding runtime.Encoding
 	writer   *multipart.Writer
 	pr       *io.PipeReader
 	pw       *io.PipeWriter
@@ -281,7 +286,7 @@ type multipartBody struct {
 
 func (m *multipartBody) Read(p []byte) (int, error) {
 	m.started.Do(func() {
-		go func() { _ = m.pw.CloseWithError(writeParts(m.writer, m.value, m.encoding)) }()
+		go func() { _ = m.pw.CloseWithError(runtime.WriteMultipart(m.writer, m.value, m.encoding)) }()
 	})
 	return m.pr.Read(p)
 }

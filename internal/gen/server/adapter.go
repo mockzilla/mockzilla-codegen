@@ -48,7 +48,7 @@ var decoders = map[string]string{
 
 // ErrorsView is the data of the errors part: the runtime types it names.
 type ErrorsView struct {
-	Runtime string
+	HTTPServer string
 }
 
 // AdapterView is the data of the adapter part. Service is the interface, as the file writes it;
@@ -58,6 +58,7 @@ type ErrorsView struct {
 type AdapterView struct {
 	Service             string
 	Runtime             string
+	HTTPServer          string
 	Validation          string
 	HTTP                string
 	IO                  string
@@ -166,13 +167,14 @@ type TypedErrorView struct {
 }
 
 func errorsView(s *gocode.Scope) *ErrorsView {
-	return &ErrorsView{Runtime: s.Import(gomodel.Import{Path: gomodel.RuntimePath})}
+	return &ErrorsView{HTTPServer: s.Import(gomodel.Import{Path: gomodel.HTTPServerPath})}
 }
 
 func adapterView(g *Generator, s *gocode.Scope) *AdapterView {
 	v := &AdapterView{
 		Service:             s.Symbol(PartService, g.Interface()),
 		Runtime:             s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
+		HTTPServer:          s.Import(gomodel.Import{Path: gomodel.HTTPServerPath}),
 		HTTP:                s.Import(gomodel.Import{Path: "net/http"}),
 		IO:                  s.Import(gomodel.Import{Path: "io"}),
 		Errors:              s.Import(gomodel.Import{Path: "errors"}),

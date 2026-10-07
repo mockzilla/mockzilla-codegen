@@ -299,7 +299,7 @@ func warning(op *gomodel.Operation, code, message string) diag.Diagnostic {
 	}
 }
 
-// isWritable reports a body runtime.Write encodes under its media type.
+// isWritable reports a body httpserver.Write encodes under its media type.
 func isWritable(c gomodel.Content) bool {
 	mediaType := operation.BaseMediaType(c.MediaType)
 	base := gomodel.Elem(operation.BodyType(c))

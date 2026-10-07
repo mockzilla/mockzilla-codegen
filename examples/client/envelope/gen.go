@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
@@ -124,7 +125,7 @@ func (r *GetJobLogResponse) StatusCode() int {
 }
 
 // HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
+type HTTPDoer = httpclient.Doer
 
 // RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
@@ -178,7 +179,7 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 }
 
 // Client calls the API at a base URL.
-// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+// A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -188,7 +189,7 @@ type Client struct {
 
 // NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
+	u, err := httpclient.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -210,13 +211,13 @@ func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions, e
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Result
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "202"},
 		{Status: "400", MediaType: "application/problem+json", Dst: new(Problem)},
@@ -232,13 +233,13 @@ func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobReque
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &SubmitJobResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out.JSON201},
 		{Status: "202", MediaType: "application/json", Dst: &out.JSON202},
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
@@ -255,7 +256,7 @@ func (c *Client) SubmitJobRequest(ctx context.Context, opts *SubmitJobRequestOpt
 	if opts == nil {
 		opts = &SubmitJobRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/jobs")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/jobs")
 	switch {
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
@@ -271,13 +272,13 @@ func (c *Client) GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions, e
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, text/plain", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, text/plain", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out GetJobLogJSONResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -291,13 +292,13 @@ func (c *Client) GetJobLogWithResponse(ctx context.Context, opts *GetJobLogReque
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, text/plain", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, text/plain", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &GetJobLogResponse{HTTPResponse: res, Body: body}
-	if err = runtime.DecodeResponse(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out.Text200},
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 	}); err != nil {
@@ -311,7 +312,7 @@ func (c *Client) GetJobLogRequest(ctx context.Context, opts *GetJobLogRequestOpt
 	if opts == nil {
 		opts = &GetJobLogRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/jobs/{id}/log")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/jobs/{id}/log")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
@@ -321,7 +322,7 @@ func (c *Client) GetJobLogRequest(ctx context.Context, opts *GetJobLogRequestOpt
 	return c.newRequest(ctx, "GetJobLog", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

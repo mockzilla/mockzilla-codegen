@@ -10,6 +10,7 @@ import (
 
 	"github.com/mockzilla/mockzilla-codegen/examples/layout/by-family/models"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpserver"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
@@ -155,27 +156,27 @@ func (r *GetOrderResponseData) ContentType() string {
 
 // The error types the handlers use, as the runtime declares them.
 type (
-	ErrorKind           = runtime.ErrorKind
-	HandlerError        = runtime.HandlerError
-	ErrorHandler        = runtime.ErrorHandler
-	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
-	DefaultErrorHandler = runtime.DefaultErrorHandler
+	ErrorKind           = httpserver.ErrorKind
+	HandlerError        = httpserver.HandlerError
+	ErrorHandler        = httpserver.ErrorHandler
+	ErrorHandlerFunc    = httpserver.ErrorHandlerFunc
+	DefaultErrorHandler = httpserver.DefaultErrorHandler
 )
 
 // The kinds of HandlerError.
 const (
-	ErrorParse      = runtime.ErrorParse
-	ErrorDecode     = runtime.ErrorDecode
-	ErrorValidation = runtime.ErrorValidation
-	ErrorService    = runtime.ErrorService
-	ErrorResponse   = runtime.ErrorResponse
+	ErrorParse      = httpserver.ErrorParse
+	ErrorDecode     = httpserver.ErrorDecode
+	ErrorValidation = httpserver.ErrorValidation
+	ErrorService    = httpserver.ErrorService
+	ErrorResponse   = httpserver.ErrorResponse
 )
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       runtime.ErrorHandler
+	ErrorHandler       httpserver.ErrorHandler
 	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
 }
@@ -186,7 +187,7 @@ type ServerOption func(*ServerOptions)
 // NewServerOptions applies opts to the defaults.
 func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	o := &ServerOptions{
-		ErrorHandler:       runtime.DefaultErrorHandler{},
+		ErrorHandler:       httpserver.DefaultErrorHandler{},
 		JSONDecoder:        runtime.DecodeJSON,
 		MultipartMaxMemory: 33554432,
 	}
@@ -204,7 +205,7 @@ func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 }
 
 // WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
+func WithErrorHandler(h httpserver.ErrorHandler) ServerOption {
 	return func(o *ServerOptions) {
 		o.ErrorHandler = h
 	}
@@ -256,17 +257,17 @@ func (a *HTTPAdapter) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		a.failDecode(w, r, "CreateOrder", runtime.ErrBodyEmpty)
 		return
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "CreateOrder", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "CreateOrder", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return
 	}
 
 	res, err := a.svc.CreateOrder(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreateOrder", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreateOrder", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreateOrder", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreateOrder", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "CreateOrder", res)
@@ -279,47 +280,47 @@ func (a *HTTPAdapter) GetOrder(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	opts.PathParams = &models.GetOrderPathParams{}
 	if err := runtime.DecodePath(r.PathValue("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetOrder", ParamName: "id", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetOrder", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}
 	opts.Query = &models.GetOrderQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "expand", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Expand); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetOrder", ParamName: "expand", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetOrder", ParamName: "expand", ParamLocation: "query", Err: err})
 		return
 	}
 
 	res, err := a.svc.GetOrder(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetOrder", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetOrder", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetOrder", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetOrder", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "GetOrder", res)
 }
 
-func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
-	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
+	a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: id, Err: err})
 }
 
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	err := httpserver.Write(w, res.StatusCode(), res.Header(), res.Payload())
 	switch {
 	case errors.Is(err, runtime.ErrContentType):
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorResponse, OperationID: id, Err: err})
 	case err != nil:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: id, Err: err})
 	}
 }
 

@@ -14,6 +14,8 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpserver"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -302,27 +304,27 @@ func (r *ResetResponseData) ContentType() string {
 
 // The error types the handlers use, as the runtime declares them.
 type (
-	ErrorKind           = runtime.ErrorKind
-	HandlerError        = runtime.HandlerError
-	ErrorHandler        = runtime.ErrorHandler
-	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
-	DefaultErrorHandler = runtime.DefaultErrorHandler
+	ErrorKind           = httpserver.ErrorKind
+	HandlerError        = httpserver.HandlerError
+	ErrorHandler        = httpserver.ErrorHandler
+	ErrorHandlerFunc    = httpserver.ErrorHandlerFunc
+	DefaultErrorHandler = httpserver.DefaultErrorHandler
 )
 
 // The kinds of HandlerError.
 const (
-	ErrorParse      = runtime.ErrorParse
-	ErrorDecode     = runtime.ErrorDecode
-	ErrorValidation = runtime.ErrorValidation
-	ErrorService    = runtime.ErrorService
-	ErrorResponse   = runtime.ErrorResponse
+	ErrorParse      = httpserver.ErrorParse
+	ErrorDecode     = httpserver.ErrorDecode
+	ErrorValidation = httpserver.ErrorValidation
+	ErrorService    = httpserver.ErrorService
+	ErrorResponse   = httpserver.ErrorResponse
 )
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       runtime.ErrorHandler
+	ErrorHandler       httpserver.ErrorHandler
 	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
 }
@@ -333,7 +335,7 @@ type ServerOption func(*ServerOptions)
 // NewServerOptions applies opts to the defaults.
 func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	o := &ServerOptions{
-		ErrorHandler:       runtime.DefaultErrorHandler{},
+		ErrorHandler:       httpserver.DefaultErrorHandler{},
 		JSONDecoder:        runtime.DecodeJSON,
 		MultipartMaxMemory: 33554432,
 	}
@@ -351,7 +353,7 @@ func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 }
 
 // WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
+func WithErrorHandler(h httpserver.ErrorHandler) ServerOption {
 	return func(o *ServerOptions) {
 		o.ErrorHandler = h
 	}
@@ -396,27 +398,27 @@ func (a *HTTPAdapter) GetItem(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	opts.PathParams = &GetItemPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetItem", ParamName: "id", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetItem", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}
 	opts.Query = &GetItemQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "id", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetItem", ParamName: "id", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetItem", ParamName: "id", ParamLocation: "query", Err: err})
 		return
 	}
 	opts.Headers = &GetItemHeaders{}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Tenant", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.Headers.XTenant); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetItem", ParamName: "X-Tenant", ParamLocation: "header", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetItem", ParamName: "X-Tenant", ParamLocation: "header", Err: err})
 		return
 	}
 
 	res, err := a.svc.GetItem(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetItem", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetItem", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetItem", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetItem", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "GetItem", res)
@@ -428,7 +430,7 @@ func (a *HTTPAdapter) PutItem(w http.ResponseWriter, r *http.Request) {
 	opts := &PutItemServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PutItemPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "PutItem", ParamName: "id", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "PutItem", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}
 	switch contentType := runtime.ContentType(r.Header); contentType {
@@ -441,17 +443,17 @@ func (a *HTTPAdapter) PutItem(w http.ResponseWriter, r *http.Request) {
 		a.failDecode(w, r, "PutItem", runtime.ErrBodyEmpty)
 		return
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "PutItem", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "PutItem", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return
 	}
 
 	res, err := a.svc.PutItem(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutItem", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutItem", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "PutItem", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutItem", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "PutItem", res)
@@ -463,17 +465,17 @@ func (a *HTTPAdapter) DeleteItem(w http.ResponseWriter, r *http.Request) {
 	opts := &DeleteItemServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeleteItemPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "DeleteItem", ParamName: "id", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "DeleteItem", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}
 
 	res, err := a.svc.DeleteItem(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "DeleteItem", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "DeleteItem", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "DeleteItem", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "DeleteItem", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "DeleteItem", res)
@@ -486,36 +488,36 @@ func (a *HTTPAdapter) Reset(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.Reset(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Reset", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Reset", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Reset", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Reset", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "Reset", res)
 }
 
-func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
-	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
+	a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: id, Err: err})
 }
 
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	err := httpserver.Write(w, res.StatusCode(), res.Header(), res.Payload())
 	switch {
 	case errors.Is(err, runtime.ErrContentType):
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorResponse, OperationID: id, Err: err})
 	case err != nil:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: id, Err: err})
 	}
 }
 
@@ -595,7 +597,7 @@ func (o *ResetRequestOptions) Validate() error {
 }
 
 // HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
+type HTTPDoer = httpclient.Doer
 
 // RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
@@ -655,7 +657,7 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 }
 
 // Client calls the API at a base URL.
-// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+// A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -665,7 +667,7 @@ type Client struct {
 
 // NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
+	u, err := httpclient.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -685,13 +687,13 @@ func (c *Client) GetItem(ctx context.Context, opts *GetItemRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Item
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -704,7 +706,7 @@ func (c *Client) GetItemRequest(ctx context.Context, opts *GetItemRequestOptions
 	if opts == nil {
 		opts = &GetItemRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/items/{id}")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/items/{id}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
@@ -725,13 +727,13 @@ func (c *Client) PutItem(ctx context.Context, opts *PutItemRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Item
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -744,7 +746,7 @@ func (c *Client) PutItemRequest(ctx context.Context, opts *PutItemRequestOptions
 	if opts == nil {
 		opts = &PutItemRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPut, "/items/{id}")
+	b := httpclient.NewRequestBuilder(http.MethodPut, "/items/{id}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
@@ -765,11 +767,11 @@ func (c *Client) DeleteItem(ctx context.Context, opts *DeleteItemRequestOptions,
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil)
 }
 
 // DeleteItemRequest builds the request of DELETE /items/{id}.
@@ -777,7 +779,7 @@ func (c *Client) DeleteItemRequest(ctx context.Context, opts *DeleteItemRequestO
 	if opts == nil {
 		opts = &DeleteItemRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodDelete, "/items/{id}")
+	b := httpclient.NewRequestBuilder(http.MethodDelete, "/items/{id}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
@@ -792,11 +794,11 @@ func (c *Client) Reset(ctx context.Context, opts *ResetRequestOptions, editors .
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil)
 }
 
 // ResetRequest builds the request of POST /internal/reset.
@@ -804,11 +806,11 @@ func (c *Client) ResetRequest(ctx context.Context, opts *ResetRequestOptions, ed
 	if opts == nil {
 		opts = &ResetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/internal/reset")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/internal/reset")
 	return c.newRequest(ctx, "Reset", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {
