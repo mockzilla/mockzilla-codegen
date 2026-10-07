@@ -19,14 +19,11 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // PetClientInterface is what PetClient implements.
 type PetClientInterface interface {
 	// ListPets calls GET /pets.
-	//
 	// List pets
-	//
 	// Returns pets.
 	ListPets(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (types.Pets, error)
 	ListPetsWithResponse(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (*types.ListPetsResponse, error)
 	// CreatePet calls POST /pets.
-	//
 	// Same
 	//
 	// Deprecated: the spec marks it deprecated.

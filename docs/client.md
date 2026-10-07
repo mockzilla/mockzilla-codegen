@@ -54,7 +54,6 @@ stand in for it. The client satisfies it, which is checked at compile time. A
 ```go
 type PetClientInterface interface {
 	// ListPets calls GET /pets.
-	//
 	// List pets
 	ListPets(ctx context.Context, opts *ListPetsRequestOptions, editors ...RequestEditor) (ListPetsResponse200, error)
 	// CreatePet calls POST /pets.
@@ -69,7 +68,8 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
 - Every operation has the same shape, even one without parameters or body, and `opts` may be nil
   when there is nothing to send. Webhooks get no method, since they come in.
 - The comment of a method starts with the HTTP method and the path it calls, then the summary and
-  the description of the spec.
+  the description of the spec. `models.descriptions: false` leaves out the summary and the
+  description.
 - `editors` run on the request of that one call, after the editors of the client. They are for
   what changes from call to call, such as a request ID:
 

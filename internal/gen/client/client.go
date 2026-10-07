@@ -41,11 +41,13 @@ var templates embed.FS
 // Options are the settings of the client generator. Name is the client type; Timeout is what the
 // default http.Client gives up after; HasEnvelopes adds the envelopes and the WithResponse
 // methods; HasStreams adds the Stream methods of the operations that answer with a sequential
-// media type; User is the config's user-context.
+// media type; User is the config's user-context. Descriptions copies the summary and description
+// of each operation into its comment.
 type Options struct {
 	Name         string
 	Namer        *naming.Namer
 	Timeout      time.Duration
+	Descriptions bool
 	HasEnvelopes bool
 	HasStreams   bool
 	User         map[string]any
@@ -70,26 +72,6 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 		diags = append(diags, warnings(op, opts)...)
 	}
 	return g, diags
-}
-
-// Templates is the client template set.
-func Templates() render.Set {
-	return render.Set{
-		Name: "client",
-		FS:   templates,
-		Parts: map[layout.PartID]string{
-			PartCore:       "core.tmpl",
-			PartOptions:    "options.tmpl",
-			PartOperations: "operations.tmpl",
-			PartResponses:  "responses.tmpl",
-		},
-		Blocks: Blocks(),
-	}
-}
-
-// Blocks lists the blocks of the client templates a config may override.
-func Blocks() []string {
-	return []string{blockInterfaceHeader}
 }
 
 // Interface is the name of the interface the client implements.
@@ -148,6 +130,26 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 	default:
 		return operationsView(g, s)
 	}
+}
+
+// Templates is the client template set.
+func Templates() render.Set {
+	return render.Set{
+		Name: "client",
+		FS:   templates,
+		Parts: map[layout.PartID]string{
+			PartCore:       "core.tmpl",
+			PartOptions:    "options.tmpl",
+			PartOperations: "operations.tmpl",
+			PartResponses:  "responses.tmpl",
+		},
+		Blocks: Blocks(),
+	}
+}
+
+// Blocks lists the blocks of the client templates a config may override.
+func Blocks() []string {
+	return []string{blockInterfaceHeader}
 }
 
 // warnings are what the client cannot do for op: fill a placeholder of its path, write a request

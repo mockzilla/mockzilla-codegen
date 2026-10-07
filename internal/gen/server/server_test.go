@@ -516,6 +516,7 @@ func allOptions() Options {
 		Name:               "Pets",
 		Namer:              naming.New(nil),
 		Framework:          chi.Framework{},
+		Descriptions:       true,
 		ValidateRequest:    true,
 		ValidateResponse:   true,
 		MultipartMaxMemory: 8 << 20,

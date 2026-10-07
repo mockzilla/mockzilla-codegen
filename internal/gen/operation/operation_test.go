@@ -276,25 +276,44 @@ func TestStatusOf(t *testing.T) {
 func TestDoc(t *testing.T) {
 	t.Parallel()
 
+	const head = "ListPets calls GET /pets."
 	tests := []struct {
-		name string
-		op   *spec.Operation
-		want string
+		name        string
+		head        string
+		op          *spec.Operation
+		isDescribed bool
+		want        string
 	}{
-		{name: "Nothing", op: &spec.Operation{}},
-		{name: "Summary alone", op: &spec.Operation{Summary: "List pets"}, want: "List pets"},
-		{name: "Description alone", op: &spec.Operation{Description: "Returns pets."}, want: "Returns pets."},
-		{name: "Both", op: &spec.Operation{Summary: "List pets", Description: "Returns pets."}, want: "List pets\n\nReturns pets."},
-		{name: "Both the same", op: &spec.Operation{Summary: "Same", Description: "Same"}, want: "Same"},
-		{name: "Deprecated without a doc", op: &spec.Operation{Deprecated: true}, want: deprecatedNote},
-		{name: "Deprecated with a doc", op: &spec.Operation{Summary: "Old", Deprecated: true}, want: "Old\n\n" + deprecatedNote},
+		{name: "Nothing", op: &spec.Operation{}, isDescribed: true},
+		{name: "The head alone", head: head, op: &spec.Operation{}, isDescribed: true, want: head},
+		{name: "Summary alone", op: &spec.Operation{Summary: "List pets"}, isDescribed: true, want: "List pets"},
+		{name: "Description alone", op: &spec.Operation{Description: "Returns pets."}, isDescribed: true, want: "Returns pets."},
+		{
+			name:        "The head, the summary and the description each on a line",
+			head:        head,
+			op:          &spec.Operation{Summary: "List pets", Description: "Returns pets."},
+			isDescribed: true,
+			want:        head + "\nList pets\nReturns pets.",
+		},
+		{
+			name:        "Blank lines around the spec's text are dropped, those inside it kept",
+			head:        head,
+			op:          &spec.Operation{Summary: "List pets\n", Description: "\nReturns pets.\n\nPaged.\n"},
+			isDescribed: true,
+			want:        head + "\nList pets\nReturns pets.\n\nPaged.",
+		},
+		{name: "Both the same", op: &spec.Operation{Summary: "Same", Description: "Same"}, isDescribed: true, want: "Same"},
+		{name: "Without descriptions only the head stays", head: head, op: &spec.Operation{Summary: "List pets", Description: "Returns pets."}, want: head},
+		{name: "Deprecated without a doc", op: &spec.Operation{Deprecated: true}, isDescribed: true, want: deprecatedNote},
+		{name: "Deprecated with a doc", head: head, op: &spec.Operation{Summary: "Old", Deprecated: true}, isDescribed: true, want: head + "\nOld\n\n" + deprecatedNote},
+		{name: "Deprecated without descriptions keeps the note", head: head, op: &spec.Operation{Summary: "Old", Deprecated: true}, want: head + "\n\n" + deprecatedNote},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, tc.want, Doc(tc.op))
+			assert.Equal(t, tc.want, Doc(tc.head, tc.op, tc.isDescribed))
 		})
 	}
 }

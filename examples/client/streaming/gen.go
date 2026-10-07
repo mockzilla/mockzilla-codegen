@@ -186,23 +186,19 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // ClientInterface is what Client implements.
 type ClientInterface interface {
 	// Chat calls POST /chat.
-	//
 	// Ask the assistant
-	//
 	// Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
 	Chat(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*Reply, error)
 	ChatWithResponse(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*ChatResponse, error)
 	ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*httpclient.Stream[Chunk], error)
 	ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*ChatResponse, error)
 	// ListEvents calls GET /events.
-	//
 	// Follow the events
 	ListEvents(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) error
 	ListEventsWithResponse(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*ListEventsResponse, error)
 	ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*httpclient.Stream[ListEventsResponseItem], error)
 	ListEventsStreamWithResponse(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*ListEventsResponse, error)
 	// TailLog calls GET /logs/{job}.
-	//
 	// Follow the log of a job
 	TailLog(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponseItem, error)
 	TailLogWithResponse(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponse, error)
@@ -269,9 +265,7 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // Chat calls POST /chat.
-//
-// # Ask the assistant
-//
+// Ask the assistant
 // Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
 func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*Reply, error) {
 	req, err := c.ChatRequest(ctx, opts, editors...)
@@ -371,7 +365,6 @@ func (c *Client) ChatRequest(ctx context.Context, opts *ChatRequestOptions, edit
 }
 
 // ListEvents calls GET /events.
-//
 // Follow the events
 func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) error {
 	req, err := c.ListEventsRequest(ctx, opts, editors...)
@@ -441,7 +434,6 @@ func (c *Client) ListEventsRequest(ctx context.Context, opts *ListEventsRequestO
 }
 
 // TailLog calls GET /logs/{job}.
-//
 // Follow the log of a job
 func (c *Client) TailLog(ctx context.Context, opts *TailLogRequestOptions, editors ...RequestEditor) (*TailLogResponseItem, error) {
 	req, err := c.TailLogRequest(ctx, opts, editors...)

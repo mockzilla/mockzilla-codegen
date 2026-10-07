@@ -9,11 +9,7 @@ type RequestEditor func(ctx {{.Context}}.Context, req *{{.HTTP}}.Request) error
 {{end}}// {{.Interface}} is what {{.Name}} implements.
 type {{.Interface}} interface {
 {{- range .Signatures}}
-	// {{.Name}} calls {{.Route}}.
-{{- with .Doc}}
-	//
-{{comment .}}
-{{- end}}
+{{comment .Doc}}
 	{{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) ({{with .Result}}{{.}}, {{end}}error)
 {{- if $.HasEnvelopes}}
 	{{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) (*{{.Response}}, error)

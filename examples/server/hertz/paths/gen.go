@@ -70,51 +70,39 @@ type Text = string
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// GetName handles GET /v1/{name}.
-	//
 	// A parameter alone, with a query.
 	GetName(ctx context.Context, opts *GetNameServiceRequestOptions) (*GetNameResponseData, error)
 	// DeleteName handles DELETE /v1/{name}.
-	//
 	// A form body on DELETE.
 	DeleteName(ctx context.Context, opts *DeleteNameServiceRequestOptions) (*DeleteNameResponseData, error)
 	// TraceName handles TRACE /v1/{name}.
-	//
 	// TRACE, which some routers have no function for.
 	TraceName(ctx context.Context, opts *TraceNameServiceRequestOptions) (*TraceNameResponseData, error)
 	// GetNameSlash handles GET /v1/{name}/.
-	//
 	// The same path with a trailing slash.
 	GetNameSlash(ctx context.Context, opts *GetNameSlashServiceRequestOptions) (*GetNameSlashResponseData, error)
 	// GetPolicy handles GET /v1/{name}:getIamPolicy.
-	//
 	// A parameter with a literal after it, next to the parameter alone.
 	GetPolicy(ctx context.Context, opts *GetPolicyServiceRequestOptions) (*GetPolicyResponseData, error)
 	// GetChildren handles GET /v1/{id}/children.
-	//
 	// A parameter named otherwise at the position of name.
 	GetChildren(ctx context.Context, opts *GetChildrenServiceRequestOptions) (*GetChildrenResponseData, error)
 	// PutBatch handles PUT /v1/:batch.
-	//
 	// A literal segment that begins with a colon, next to a parameter.
 	PutBatch(ctx context.Context, opts *PutBatchServiceRequestOptions) (*PutBatchResponseData, error)
 	// GetGeo handles GET /geo/{lat:lng}.
-	//
 	// A parameter name with a colon.
 	GetGeo(ctx context.Context, opts *GetGeoServiceRequestOptions) (*GetGeoResponseData, error)
 	// GetFile handles GET /files/{name}.{ext}.
-	//
 	// Two parameters in one segment.
 	GetFile(ctx context.Context, opts *GetFileServiceRequestOptions) (*GetFileResponseData, error)
 	// GetProduct handles GET /products({id}).
-	//
 	// A parameter between parentheses.
 	GetProduct(ctx context.Context, opts *GetProductServiceRequestOptions) (*GetProductResponseData, error)
 	// GetMetadata handles GET /$metadata.
-	//
 	// A literal with a dollar sign.
 	GetMetadata(ctx context.Context, opts *GetMetadataServiceRequestOptions) (*GetMetadataResponseData, error)
 	// GetColon handles GET /a:b.
-	//
 	// A literal with a colon.
 	GetColon(ctx context.Context, opts *GetColonServiceRequestOptions) (*GetColonResponseData, error)
 }

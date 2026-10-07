@@ -70,10 +70,12 @@ const mainTemplate = "scaffold-main.tmpl"
 // Options are the settings of the server generator. Name is the base of the interface name.
 // Scaffold flags say which scaffold files the config asks for. User is the config's
 // user-context, which the overridable blocks see. RouterExtra is the router-extra override text.
+// Descriptions copies the summary and description of each operation into its comment.
 type Options struct {
 	Name               string
 	Namer              *naming.Namer
 	Framework          framework.Framework
+	Descriptions       bool
 	ValidateRequest    bool
 	ValidateResponse   bool
 	MultipartMaxMemory int64

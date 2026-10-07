@@ -11,9 +11,7 @@ import (
 )
 
 // ListPets calls GET /pets.
-//
-// # List pets
-//
+// List pets
 // Returns pets.
 func (c *PetClient) ListPets(ctx context.Context, opts *types.ListPetsRequestOptions, editors ...RequestEditor) (types.Pets, error) {
 	req, err := c.ListPetsRequest(ctx, opts, editors...)
@@ -79,8 +77,7 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *types.ListPetsReq
 }
 
 // CreatePet calls POST /pets.
-//
-// # Same
+// Same
 //
 // Deprecated: the spec marks it deprecated.
 func (c *PetClient) CreatePet(ctx context.Context, opts *types.CreatePetRequestOptions, editors ...RequestEditor) (*types.Pet, error) {

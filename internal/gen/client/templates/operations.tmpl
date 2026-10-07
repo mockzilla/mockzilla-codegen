@@ -1,10 +1,6 @@
 {{- range $op := .Operations}}
 
-// {{.Name}} calls {{.Route}}.
-{{- with .Doc}}
-//
-{{comment .}}
-{{- end}}
+{{comment .Doc}}
 func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}, editors ...RequestEditor) ({{with .Result}}{{.}}, {{end}}error) {
 	req, err := c.{{.Name}}Request(ctx, opts, editors...)
 	if err != nil {

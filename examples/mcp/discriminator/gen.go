@@ -89,7 +89,6 @@ func (a Animal) Validate() error {
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// AddAnimal handles POST /animals.
-	//
 	// Add an animal
 	AddAnimal(ctx context.Context, opts *AddAnimalServiceRequestOptions) (*AddAnimalResponseData, error)
 }
@@ -351,7 +350,6 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // ClientInterface is what Client implements.
 type ClientInterface interface {
 	// AddAnimal calls POST /animals.
-	//
 	// Add an animal
 	AddAnimal(ctx context.Context, opts *AddAnimalRequestOptions, editors ...RequestEditor) (*Animal, error)
 }
@@ -414,7 +412,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // AddAnimal calls POST /animals.
-//
 // Add an animal
 func (c *Client) AddAnimal(ctx context.Context, opts *AddAnimalRequestOptions, editors ...RequestEditor) (*Animal, error) {
 	req, err := c.AddAnimalRequest(ctx, opts, editors...)

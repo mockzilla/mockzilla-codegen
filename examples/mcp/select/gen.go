@@ -54,19 +54,15 @@ type DeleteItemPathParams struct {
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// GetItem handles GET /items/{id}.
-	//
 	// Fetch an item
 	GetItem(ctx context.Context, opts *GetItemServiceRequestOptions) (*GetItemResponseData, error)
 	// PutItem handles PUT /items/{id}.
-	//
 	// Replace an item, which stays out of MCP by default
 	PutItem(ctx context.Context, opts *PutItemServiceRequestOptions) (*PutItemResponseData, error)
 	// DeleteItem handles DELETE /items/{id}.
-	//
 	// Remove an item
 	DeleteItem(ctx context.Context, opts *DeleteItemServiceRequestOptions) (*DeleteItemResponseData, error)
 	// Reset handles POST /internal/reset.
-	//
 	// Reset the store, never exposed
 	Reset(ctx context.Context, opts *ResetServiceRequestOptions) (*ResetResponseData, error)
 }
@@ -605,19 +601,15 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // ClientInterface is what Client implements.
 type ClientInterface interface {
 	// GetItem calls GET /items/{id}.
-	//
 	// Fetch an item
 	GetItem(ctx context.Context, opts *GetItemRequestOptions, editors ...RequestEditor) (*Item, error)
 	// PutItem calls PUT /items/{id}.
-	//
 	// Replace an item, which stays out of MCP by default
 	PutItem(ctx context.Context, opts *PutItemRequestOptions, editors ...RequestEditor) (*Item, error)
 	// DeleteItem calls DELETE /items/{id}.
-	//
 	// Remove an item
 	DeleteItem(ctx context.Context, opts *DeleteItemRequestOptions, editors ...RequestEditor) error
 	// Reset calls POST /internal/reset.
-	//
 	// Reset the store, never exposed
 	Reset(ctx context.Context, opts *ResetRequestOptions, editors ...RequestEditor) error
 }
@@ -680,7 +672,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // GetItem calls GET /items/{id}.
-//
 // Fetch an item
 func (c *Client) GetItem(ctx context.Context, opts *GetItemRequestOptions, editors ...RequestEditor) (*Item, error) {
 	req, err := c.GetItemRequest(ctx, opts, editors...)
@@ -720,7 +711,6 @@ func (c *Client) GetItemRequest(ctx context.Context, opts *GetItemRequestOptions
 }
 
 // PutItem calls PUT /items/{id}.
-//
 // Replace an item, which stays out of MCP by default
 func (c *Client) PutItem(ctx context.Context, opts *PutItemRequestOptions, editors ...RequestEditor) (*Item, error) {
 	req, err := c.PutItemRequest(ctx, opts, editors...)
@@ -760,7 +750,6 @@ func (c *Client) PutItemRequest(ctx context.Context, opts *PutItemRequestOptions
 }
 
 // DeleteItem calls DELETE /items/{id}.
-//
 // Remove an item
 func (c *Client) DeleteItem(ctx context.Context, opts *DeleteItemRequestOptions, editors ...RequestEditor) error {
 	req, err := c.DeleteItemRequest(ctx, opts, editors...)
@@ -787,7 +776,6 @@ func (c *Client) DeleteItemRequest(ctx context.Context, opts *DeleteItemRequestO
 }
 
 // Reset calls POST /internal/reset.
-//
 // Reset the store, never exposed
 func (c *Client) Reset(ctx context.Context, opts *ResetRequestOptions, editors ...RequestEditor) error {
 	req, err := c.ResetRequest(ctx, opts, editors...)

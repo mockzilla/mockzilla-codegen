@@ -44,13 +44,10 @@ type Event struct {
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// Chat handles POST /chat.
-	//
 	// Ask the assistant
-	//
 	// Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
 	Chat(ctx context.Context, opts *ChatServiceRequestOptions) (*ChatResponseData, error)
 	// ListEvents handles GET /events.
-	//
 	// Follow the events
 	ListEvents(ctx context.Context, opts *ListEventsServiceRequestOptions) (*ListEventsResponseData, error)
 }
@@ -392,14 +389,11 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // ClientInterface is what Client implements.
 type ClientInterface interface {
 	// Chat calls POST /chat.
-	//
 	// Ask the assistant
-	//
 	// Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
 	Chat(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*Reply, error)
 	ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*httpclient.Stream[Chunk], error)
 	// ListEvents calls GET /events.
-	//
 	// Follow the events
 	ListEvents(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (string, error)
 	ListEventsStream(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (*httpclient.Stream[Event], error)
@@ -464,9 +458,7 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // Chat calls POST /chat.
-//
-// # Ask the assistant
-//
+// Ask the assistant
 // Answers whole as JSON, or as a stream of chunks when the prompt asks for one.
 func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*Reply, error) {
 	req, err := c.ChatRequest(ctx, opts, editors...)
@@ -516,7 +508,6 @@ func (c *Client) ChatRequest(ctx context.Context, opts *ChatRequestOptions, edit
 }
 
 // ListEvents calls GET /events.
-//
 // Follow the events
 func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions, editors ...RequestEditor) (string, error) {
 	req, err := c.ListEventsRequest(ctx, opts, editors...)
@@ -608,7 +599,7 @@ func (t *MCPTools) Register(s *mcp.Server) {
 func (t *MCPTools) ChatTool() *mcp.Tool {
 	return &mcp.Tool{
 		Name:        "chat",
-		Description: "Ask the assistant\n\nAnswers whole as JSON, or as a stream of chunks when the prompt asks for one.",
+		Description: "Ask the assistant\nAnswers whole as JSON, or as a stream of chunks when the prompt asks for one.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{"body":{"$ref":"#/$defs/Prompt"}},"required":["body"],"additionalProperties":false,"$defs":{"Prompt":{"type":"object","properties":{"text":{"type":"string"},"stream":{"type":"boolean"}},"required":["text"]}}}`),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, IdempotentHint: false},
 	}

@@ -102,7 +102,7 @@ func TestListTools(t *testing.T) {
 		tools[tool.Name] = tool
 	}
 	assert.Equal(t, []string{"create_pet", "delete_pet", "get_pet", "list_pets", "ping"}, slices.Sorted(maps.Keys(tools)))
-	assert.Equal(t, "List the pets\n\nReturns every pet, the newest first.", tools["list_pets"].Description)
+	assert.Equal(t, "List the pets\nReturns every pet, the newest first.", tools["list_pets"].Description)
 	assert.Equal(t, &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true}, tools["list_pets"].Annotations)
 	assert.Equal(t, &mcp.ToolAnnotations{IdempotentHint: true}, tools["delete_pet"].Annotations)
 	assert.Equal(t, &mcp.ToolAnnotations{}, tools["create_pet"].Annotations)

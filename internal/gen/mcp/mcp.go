@@ -58,12 +58,13 @@ var (
 
 // Options are the settings of the MCP generator. Client is the client type the tools call;
 // DefaultSkip leaves every operation out unless x-mcp turns it on; User is the config's
-// user-context.
+// user-context. Descriptions copies the spec's descriptions into the comments of the inputs.
 type Options struct {
-	Client      string
-	Namer       *naming.Namer
-	DefaultSkip bool
-	User        map[string]any
+	Client       string
+	Namer        *naming.Namer
+	DefaultSkip  bool
+	User         map[string]any
+	Descriptions bool
 }
 
 // Generator builds the template data of the MCP parts.
@@ -160,18 +161,6 @@ func New(m *gomodel.Model, opts Options) (*Generator, []diag.Diagnostic) {
 	return g, diags
 }
 
-// Templates is the MCP template set. No block can be overridden yet.
-func Templates() render.Set {
-	return render.Set{
-		Name: "mcp",
-		FS:   templates,
-		Parts: map[layout.PartID]string{
-			PartTools:  "tools.tmpl",
-			PartInputs: "inputs.tmpl",
-		},
-	}
-}
-
 // Parts returns the MCP parts with the parts each refers to. The tools build the request options
 // of the client from the inputs, so they refer to the client, the inputs and the parameter types.
 func (g *Generator) Parts() []layout.Part {
@@ -200,6 +189,18 @@ func (g *Generator) View(part layout.PartID, s *gocode.Scope) any {
 		return inputsView(g, s)
 	}
 	return toolsView(g, s)
+}
+
+// Templates is the MCP template set. No block can be overridden yet.
+func Templates() render.Set {
+	return render.Set{
+		Name: "mcp",
+		FS:   templates,
+		Parts: map[layout.PartID]string{
+			PartTools:  "tools.tmpl",
+			PartInputs: "inputs.tmpl",
+		},
+	}
 }
 
 // newTool reads the parameters and the body of op into a tool named after the operation ID in
@@ -262,12 +263,11 @@ func isToolName(name string) bool {
 // description is the operation's summary and description, or its method and path when it has
 // neither, with the deprecation note.
 func description(op *spec.Operation) string {
-	if op.Summary != "" || op.Description != "" {
-		return operation.Doc(op)
+	var head string
+	if op.Summary == "" && op.Description == "" {
+		head = op.Method + " " + op.Path
 	}
-	named := *op
-	named.Summary = op.Method + " " + op.Path
-	return operation.Doc(&named)
+	return operation.Doc(head, op, true)
 }
 
 func isIgnoredHeader(p *spec.Parameter) bool {

@@ -79,7 +79,6 @@ func (s SearchQuery) Validate() error {
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// Search handles GET /search.
-	//
 	// Search the catalog
 	Search(ctx context.Context, opts *SearchServiceRequestOptions) (*SearchResponseData, error)
 }
@@ -340,7 +339,6 @@ type RequestEditor func(ctx context.Context, req *http.Request) error
 // ClientInterface is what Client implements.
 type ClientInterface interface {
 	// Search calls GET /search.
-	//
 	// Search the catalog
 	Search(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) (*Asked, error)
 }
@@ -403,7 +401,6 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 }
 
 // Search calls GET /search.
-//
 // Search the catalog
 func (c *Client) Search(ctx context.Context, opts *SearchRequestOptions, editors ...RequestEditor) (*Asked, error) {
 	req, err := c.SearchRequest(ctx, opts, editors...)

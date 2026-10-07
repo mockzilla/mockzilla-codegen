@@ -191,13 +191,17 @@ func StatusOf(status string) int {
 	return 500
 }
 
-// Doc is the comment of an operation's method: its summary and description, and the deprecation
-// note when the spec marks it deprecated.
-func Doc(op *spec.Operation) string {
-	doc := cmp.Or(op.Summary, op.Description)
-	if op.Summary != "" && op.Description != "" && op.Summary != op.Description {
-		doc += "\n\n" + op.Description
+// Doc is head, then the summary and description when isDescribed, then any deprecation note.
+func Doc(head string, op *spec.Operation, isDescribed bool) string {
+	lines := []string{head}
+	if isDescribed {
+		summary, description := strings.TrimSpace(op.Summary), strings.TrimSpace(op.Description)
+		lines = append(lines, summary)
+		if description != summary {
+			lines = append(lines, description)
+		}
 	}
+	doc := strings.Join(slices.DeleteFunc(lines, func(line string) bool { return line == "" }), "\n")
 	switch {
 	case !op.Deprecated:
 		return doc

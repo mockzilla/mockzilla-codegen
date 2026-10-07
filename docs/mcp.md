@@ -51,8 +51,9 @@ func (t *MCPTools) ListPets(ctx context.Context, req *mcp.CallToolRequest, in Li
   Two operations whose names collide are numbered, `list_pets2`, with a `name-clash` note. Some
   hosts take only letters, digits, `_` and `-` up to 64 characters. A longer name, or one with a
   dot, is kept with an `mcp-tool-name` warning; `x-mcp.name` sets another.
-- The description is the operation's summary and description. An operation with neither is
-  described by its method and path, `GET /pets`.
+- The description is the operation's summary and description, also with
+  `models.descriptions: false`. An operation with neither is described by its method and path,
+  `GET /pets`.
 - Webhooks get no tool, since they come in.
 
 A server that serves the tools over stdio, for a desktop assistant:

@@ -34,3 +34,26 @@ func TestJSONTag(t *testing.T) {
 		})
 	}
 }
+
+func TestFieldDoc(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		isDescribed bool
+		text        string
+		want        string
+	}{
+		{name: "The spec's text", isDescribed: true, text: "How many at most.", want: "How many at most."},
+		{name: "No text gives the fallback", isDescribed: true, want: "The request body."},
+		{name: "Without descriptions the fallback wins", text: "How many at most.", want: "The request body."},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, fieldDoc(tc.isDescribed, tc.text, "The request body."))
+		})
+	}
+}
