@@ -1,13 +1,16 @@
-<p align="center">
-  <img src="docs/images/gopher.svg" alt="A gopher with its paws in its pocket" width="140" />
-</p>
+<h1 align="center">
+  <img src="docs/images/gopher.svg" alt="A gopher with its paws in its pocket" width="140" /><br>
+  mockzilla-codegen
+</h1>
 
-# mockzilla-codegen
+<div align="center">
 
 [![CI](https://github.com/mockzilla/mockzilla-codegen/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/mockzilla/mockzilla-codegen/actions/workflows/ci.yaml?query=branch%3Amain)
 [![codecov](https://codecov.io/gh/mockzilla/mockzilla-codegen/graph/badge.svg)](https://codecov.io/gh/mockzilla/mockzilla-codegen)
 [![Go Reference](https://pkg.go.dev/badge/github.com/mockzilla/mockzilla-codegen.svg)](https://pkg.go.dev/github.com/mockzilla/mockzilla-codegen)
 [![License](https://img.shields.io/github/license/mockzilla/mockzilla-codegen?cacheSeconds=3600)](LICENSE)
+
+</div>
 
 Go models, HTTP servers, clients and MCP tools from OpenAPI 3.0, 3.1 and 3.2 specs.
 
