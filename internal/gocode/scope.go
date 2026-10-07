@@ -23,7 +23,9 @@ import (
 const generatorLevel = 1
 
 // runtimePackages are the packages of the runtime module that sit beside the runtime itself.
-var runtimePackages = []string{gomodel.ValidationPath, gomodel.MaskPath, gomodel.MCPToolPath}
+var runtimePackages = []string{
+	gomodel.ValidationPath, gomodel.MaskPath, gomodel.MCPToolPath, gomodel.HTTPServerPath, gomodel.HTTPClientPath,
+}
 
 // Scope is the file code is written into. It qualifies types declared in other packages and
 // records the imports they need.

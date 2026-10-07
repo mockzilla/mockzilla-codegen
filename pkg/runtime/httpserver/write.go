@@ -5,7 +5,7 @@
 
 // Writing a response body by its media type.
 
-package runtime
+package httpserver
 
 import (
 	"bytes"
@@ -18,7 +18,11 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
+
+const mediaTypeEventStream = "text/event-stream"
 
 var lineBreaks = strings.NewReplacer("\r\n", "\n", "\r", "\n")
 
@@ -32,14 +36,14 @@ func Write(w http.ResponseWriter, status int, headers http.Header, body any) err
 	case nil:
 		w.WriteHeader(status)
 		return nil
-	case File:
+	case runtime.File:
 		return writeFile(w, status, b)
-	case *File:
+	case *runtime.File:
 		return writeFile(w, status, *b)
 	}
 
-	mediaType := ContentType(w.Header())
-	if IsJSON(mediaType) {
+	mediaType := runtime.ContentType(w.Header())
+	if runtime.IsJSON(mediaType) {
 		return writeJSON(w, status, body)
 	}
 	if data, ok := rawBody(body); ok {
@@ -56,12 +60,12 @@ func Write(w http.ResponseWriter, status int, headers http.Header, body any) err
 		return writeForm(w, status, body)
 	case mediaType == "multipart/form-data":
 		return writeMultipart(w, status, body)
-	case IsSequential(mediaType):
+	case runtime.IsSequential(mediaType):
 		return writeFrames(w, status, mediaType, body)
-	case strings.HasPrefix(mediaType, "text/") && isScalar(v.Type()):
-		return writeText(w, status, v)
+	case strings.HasPrefix(mediaType, "text/"):
+		return writeText(w, status, body)
 	}
-	return fmt.Errorf("%w: cannot write %T as %s", ErrContentType, body, mediaType)
+	return fmt.Errorf("%w: cannot write %T as %s", runtime.ErrContentType, body, mediaType)
 }
 
 // writeJSON writes body as JSON, with the content type application/json unless one is set.
@@ -87,7 +91,7 @@ func writeBytes(w http.ResponseWriter, status int, data []byte) error {
 }
 
 // writeFile streams f, with its content type unless one is set.
-func writeFile(w http.ResponseWriter, status int, f File) error {
+func writeFile(w http.ResponseWriter, status int, f runtime.File) error {
 	if w.Header().Get("Content-Type") == "" && f.ContentType() != "" {
 		w.Header().Set("Content-Type", f.ContentType())
 	}
@@ -116,11 +120,8 @@ func rawBody(body any) ([]byte, bool) {
 	return nil, false
 }
 
-func writeText(w http.ResponseWriter, status int, v reflect.Value) error {
-	for v.Kind() == reflect.Pointer && !v.IsNil() {
-		v = v.Elem()
-	}
-	s, err := text(v)
+func writeText(w http.ResponseWriter, status int, body any) error {
+	s, err := runtime.EncodeText(body)
 	if err != nil {
 		return err
 	}
@@ -128,7 +129,7 @@ func writeText(w http.ResponseWriter, status int, v reflect.Value) error {
 }
 
 func writeForm(w http.ResponseWriter, status int, body any) error {
-	values, err := encodeForm(body, nil)
+	values, err := runtime.EncodeForm(body, nil)
 	if err != nil {
 		return err
 	}
@@ -137,13 +138,13 @@ func writeForm(w http.ResponseWriter, status int, body any) error {
 
 func writeMultipart(w http.ResponseWriter, status int, body any) error {
 	// A dry run fails a body that is no form while an error response can still follow.
-	if _, _, err := multipartSize(body, nil); err != nil {
+	if _, _, err := runtime.MultipartSize(body, nil); err != nil {
 		return err
 	}
 	mw := multipart.NewWriter(w)
 	w.Header().Set("Content-Type", mw.FormDataContentType())
 	w.WriteHeader(status)
-	return cut(writeParts(mw, body, nil))
+	return cut(runtime.WriteMultipart(mw, body, nil))
 }
 
 func writeFrames(w http.ResponseWriter, status int, mediaType string, body any) error {

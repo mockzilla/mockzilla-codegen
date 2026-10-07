@@ -3,7 +3,7 @@ package types
 import (
 	"net/http"
 
-	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 // ListPetsResponse is what ListPetsWithResponse returns.
@@ -104,7 +104,7 @@ type ChatResponse struct {
 	// JSONDefault is the body of a default response as application/json.
 	JSONDefault *Problem
 	// Stream200 is the stream of a 200 response as text/event-stream.
-	Stream200 *runtime.Stream[ChatResponseItem]
+	Stream200 *httpclient.Stream[ChatResponseItem]
 }
 
 // StatusCode is the status of the response.
@@ -119,7 +119,7 @@ type TailResponse struct {
 	// Ndjson200 is the body of a 200 response as application/x-ndjson.
 	Ndjson200 *string
 	// Stream200 is the stream of a 200 response as application/x-ndjson.
-	Stream200 *runtime.Stream[[]byte]
+	Stream200 *httpclient.Stream[[]byte]
 }
 
 // StatusCode is the status of the response.

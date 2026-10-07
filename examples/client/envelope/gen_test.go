@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 // submitJob runs small jobs at once, queues large ones, and rejects a size of 0.
@@ -199,7 +200,7 @@ func TestGetJobLogPlain(t *testing.T) {
 	require.ErrorIs(t, err, runtime.ErrContentType, "the plain method takes JSON only")
 
 	_, err = c.GetJobLog(ctx, &GetJobLogRequestOptions{PathParams: &GetJobLogPathParams{ID: "j9"}})
-	var apiErr *runtime.APIError
+	var apiErr *httpclient.APIError
 	require.ErrorAs(t, err, &apiErr)
 	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
 }

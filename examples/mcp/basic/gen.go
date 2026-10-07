@@ -14,6 +14,8 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpserver"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/mcptool"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -445,27 +447,27 @@ func (r *PingResponseData) ContentType() string {
 
 // The error types the handlers use, as the runtime declares them.
 type (
-	ErrorKind           = runtime.ErrorKind
-	HandlerError        = runtime.HandlerError
-	ErrorHandler        = runtime.ErrorHandler
-	ErrorHandlerFunc    = runtime.ErrorHandlerFunc
-	DefaultErrorHandler = runtime.DefaultErrorHandler
+	ErrorKind           = httpserver.ErrorKind
+	HandlerError        = httpserver.HandlerError
+	ErrorHandler        = httpserver.ErrorHandler
+	ErrorHandlerFunc    = httpserver.ErrorHandlerFunc
+	DefaultErrorHandler = httpserver.DefaultErrorHandler
 )
 
 // The kinds of HandlerError.
 const (
-	ErrorParse      = runtime.ErrorParse
-	ErrorDecode     = runtime.ErrorDecode
-	ErrorValidation = runtime.ErrorValidation
-	ErrorService    = runtime.ErrorService
-	ErrorResponse   = runtime.ErrorResponse
+	ErrorParse      = httpserver.ErrorParse
+	ErrorDecode     = httpserver.ErrorDecode
+	ErrorValidation = httpserver.ErrorValidation
+	ErrorService    = httpserver.ErrorService
+	ErrorResponse   = httpserver.ErrorResponse
 )
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       runtime.ErrorHandler
+	ErrorHandler       httpserver.ErrorHandler
 	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
 }
@@ -476,7 +478,7 @@ type ServerOption func(*ServerOptions)
 // NewServerOptions applies opts to the defaults.
 func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	o := &ServerOptions{
-		ErrorHandler:       runtime.DefaultErrorHandler{},
+		ErrorHandler:       httpserver.DefaultErrorHandler{},
 		JSONDecoder:        runtime.DecodeJSON,
 		MultipartMaxMemory: 33554432,
 	}
@@ -494,7 +496,7 @@ func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 }
 
 // WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
+func WithErrorHandler(h httpserver.ErrorHandler) ServerOption {
 	return func(o *ServerOptions) {
 		o.ErrorHandler = h
 	}
@@ -539,17 +541,17 @@ func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	opts.Query = &ListPetsQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Limit); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "limit", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "ListPets", ParamName: "limit", ParamLocation: "query", Err: err})
 		return
 	}
 
 	res, err := a.svc.ListPets(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListPets", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListPets", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "ListPets", res)
@@ -569,22 +571,22 @@ func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
 		a.failDecode(w, r, "CreatePet", runtime.ErrBodyEmpty)
 		return
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "CreatePet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "CreatePet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return
 	}
 
 	res, err := a.svc.CreatePet(r.Context(), opts)
 	if err != nil {
-		if e, ok := runtime.AsError[Problem](err); ok {
+		if e, ok := httpserver.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/problem+json")
 			a.opts.ErrorHandler.HandleError(w, r, 409, e)
 			return
 		}
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreatePet", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreatePet", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreatePet", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreatePet", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "CreatePet", res)
@@ -596,22 +598,22 @@ func (a *HTTPAdapter) GetPet(w http.ResponseWriter, r *http.Request) {
 	opts := &GetPetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetPetPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "GetPet", ParamName: "id", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetPet", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}
 
 	res, err := a.svc.GetPet(r.Context(), opts)
 	if err != nil {
-		if e, ok := runtime.AsError[Problem](err); ok {
+		if e, ok := httpserver.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/problem+json")
 			a.opts.ErrorHandler.HandleError(w, r, 404, e)
 			return
 		}
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPet", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetPet", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "GetPet", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetPet", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "GetPet", res)
@@ -623,17 +625,17 @@ func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
 	opts := &DeletePetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeletePetPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "DeletePet", ParamName: "id", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "DeletePet", ParamName: "id", ParamLocation: "path", Err: err})
 		return
 	}
 
 	res, err := a.svc.DeletePet(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "DeletePet", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "DeletePet", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "DeletePet", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "DeletePet", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "DeletePet", res)
@@ -646,36 +648,36 @@ func (a *HTTPAdapter) Ping(w http.ResponseWriter, r *http.Request) {
 
 	res, err := a.svc.Ping(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Ping", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Ping", Err: err})
 		return
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Ping", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Ping", Err: httpserver.ErrNoResponse})
 		return
 	}
 	a.write(w, r, "Ping", res)
 }
 
-func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
 	a.opts.ErrorHandler.HandleError(w, r, err.StatusCode(), err)
 }
 
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
-	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
+	a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: id, Err: err})
 }
 
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	err := httpserver.Write(w, res.StatusCode(), res.Header(), res.Payload())
 	switch {
 	case errors.Is(err, runtime.ErrContentType):
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorResponse, OperationID: id, Err: err})
 	case err != nil:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: id, Err: err})
 	}
 }
 
@@ -771,7 +773,7 @@ func (o *PingRequestOptions) Validate() error {
 }
 
 // HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
+type HTTPDoer = httpclient.Doer
 
 // RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
@@ -837,7 +839,7 @@ func WithRequestEditor(fns ...RequestEditor) PetClientOption {
 }
 
 // PetClient calls the API at a base URL.
-// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+// A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type PetClient struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -847,7 +849,7 @@ type PetClient struct {
 
 // NewPetClient returns a client of the API at baseURL.
 func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
+	u, err := httpclient.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -869,13 +871,13 @@ func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions, 
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out ListPetsResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -888,7 +890,7 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
 	if opts == nil {
 		opts = &ListPetsRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/pets")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/pets")
 	if opts.Query != nil {
 		b.QueryParam(opts.Query.Limit, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 	}
@@ -903,13 +905,13 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "409", MediaType: "application/problem+json", Dst: new(Problem)},
 	}); err != nil {
@@ -923,7 +925,7 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *CreatePetRequest
 	if opts == nil {
 		opts = &CreatePetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/pets")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/pets")
 	switch {
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
@@ -941,13 +943,13 @@ func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions, edit
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "404", MediaType: "application/problem+json", Dst: new(Problem)},
 	}); err != nil {
@@ -961,7 +963,7 @@ func (c *PetClient) GetPetRequest(ctx context.Context, opts *GetPetRequestOption
 	if opts == nil {
 		opts = &GetPetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/pets/{id}")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/pets/{id}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
@@ -976,11 +978,11 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *DeletePetRequestOptions
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil)
 }
 
 // DeletePetRequest builds the request of DELETE /pets/{id}.
@@ -988,7 +990,7 @@ func (c *PetClient) DeletePetRequest(ctx context.Context, opts *DeletePetRequest
 	if opts == nil {
 		opts = &DeletePetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodDelete, "/pets/{id}")
+	b := httpclient.NewRequestBuilder(http.MethodDelete, "/pets/{id}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
@@ -1003,13 +1005,13 @@ func (c *PetClient) Ping(ctx context.Context, opts *PingRequestOptions, editors 
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "text/plain", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "text/plain", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *PingResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -1022,11 +1024,11 @@ func (c *PetClient) PingRequest(ctx context.Context, opts *PingRequestOptions, e
 	if opts == nil {
 		opts = &PingRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/ping")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/ping")
 	return c.newRequest(ctx, "Ping", b, editors)
 }
 
-func (c *PetClient) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *PetClient) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

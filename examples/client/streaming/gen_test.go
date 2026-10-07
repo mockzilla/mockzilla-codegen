@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 // chat answers whole as JSON, or as chunks ended by [DONE] when the prompt asks for a stream, and
@@ -155,7 +156,7 @@ func TestListEventsStream(t *testing.T) {
 	defer func() { _ = stream.Close() }()
 
 	var items []ListEventsResponseItem
-	var events []runtime.Event
+	var events []httpclient.Event
 	for item, iterErr := range stream.All() {
 		require.NoError(t, iterErr)
 		items = append(items, item)
@@ -170,7 +171,7 @@ func TestListEventsStream(t *testing.T) {
 		{Seq: 1, Kind: "created", At: &at, Actor: &ListEventsResponseItemActor{Name: "ada"}, Tags: []string{"new"}},
 		{Seq: 2, Kind: "deleted"},
 	}, items)
-	assert.Equal(t, []runtime.Event{
+	assert.Equal(t, []httpclient.Event{
 		{ID: "1", Type: "change", Retry: 3 * time.Second, Data: []byte("{\"seq\":1,\"kind\":\"created\",\"at\":\"2026-01-02T03:04:05Z\",\n\"actor\":{\"name\":\"ada\"},\"tags\":[\"new\"]}")},
 		{ID: "2", Data: []byte(`{"seq":2,"kind":"deleted"}`)},
 	}, events)
@@ -200,7 +201,7 @@ func TestTailLogStream(t *testing.T) {
 	assert.Equal(t, []string{`{"line":"compiling"}`, `{"line":"linking"}`}, lines)
 
 	_, err = c.TailLogStream(ctx, &TailLogRequestOptions{PathParams: &TailLogPathParams{Job: "deploy"}})
-	var apiErr *runtime.APIError
+	var apiErr *httpclient.APIError
 	require.ErrorAs(t, err, &apiErr)
 	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
 }

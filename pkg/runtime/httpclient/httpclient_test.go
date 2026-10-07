@@ -3,7 +3,7 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-package runtime
+package httpclient
 
 import (
 	"cmp"
@@ -16,11 +16,35 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
+
+var (
+	colors = []string{"blue", "black", "brown"}
+	color  = rgb{R: 100, G: 200, B: 150}
+)
+
+type rgb struct {
+	R int `json:"R"`
+	G int `json:"G"`
+	B int `json:"B"`
+}
+
+type filter struct {
+	Name *string  `json:"name,omitempty"`
+	Tags []string `json:"tags,omitempty"`
+}
+
+type upload struct {
+	Title string       `json:"title"`
+	File  runtime.File `json:"file"`
+}
 
 type doerFunc func(*http.Request) (*http.Response, error)
 
@@ -76,22 +100,22 @@ func TestRequestBuilder(t *testing.T) {
 			name: "Path parameters of every style, escaped but for the delimiters",
 			path: "/pets/{id}/{tags}/{rgb}",
 			build: func(b *RequestBuilder) {
-				b.PathParam("a b/c", Param{Name: "id", Style: StyleSimple})
-				b.PathParam(colors, Param{Name: "tags", Style: StyleLabel, IsExplode: true})
-				b.PathParam(color, Param{Name: "rgb", Style: StyleMatrix, IsExplode: true})
+				b.PathParam("a b/c", runtime.Param{Name: "id", Style: runtime.StyleSimple})
+				b.PathParam(colors, runtime.Param{Name: "tags", Style: runtime.StyleLabel, IsExplode: true})
+				b.PathParam(color, runtime.Param{Name: "rgb", Style: runtime.StyleMatrix, IsExplode: true})
 			},
 			wantURL: "http://api.test/v1/pets/a%20b%2Fc/.blue.black.brown/;R=100;G=200;B=150",
 		},
 		{
 			name: "Query, header and cookie parameters",
 			build: func(b *RequestBuilder) {
-				b.QueryParam(colors, Param{Name: "color", Style: StyleForm, IsExplode: true})
-				b.QueryParam(color, Param{Name: "rgb", Style: StyleDeepObject})
-				b.QueryParam(nil, Param{Name: "none", Style: StyleForm})
-				b.HeaderParam(colors, Param{Name: "X-Colors", Style: StyleSimple})
-				b.HeaderParam((*string)(nil), Param{Name: "X-None", Style: StyleSimple})
-				b.CookieParam("abc", Param{Name: "session", Style: StyleForm})
-				b.CookieParam(colors, Param{Name: "flags", Style: StyleForm})
+				b.QueryParam(colors, runtime.Param{Name: "color", Style: runtime.StyleForm, IsExplode: true})
+				b.QueryParam(color, runtime.Param{Name: "rgb", Style: runtime.StyleDeepObject})
+				b.QueryParam(nil, runtime.Param{Name: "none", Style: runtime.StyleForm})
+				b.HeaderParam(colors, runtime.Param{Name: "X-Colors", Style: runtime.StyleSimple})
+				b.HeaderParam((*string)(nil), runtime.Param{Name: "X-None", Style: runtime.StyleSimple})
+				b.CookieParam("abc", runtime.Param{Name: "session", Style: runtime.StyleForm})
+				b.CookieParam(colors, runtime.Param{Name: "flags", Style: runtime.StyleForm})
 			},
 			wantURL:    "http://api.test/v1/pets?color=blue&color=black&color=brown&rgb%5BB%5D=150&rgb%5BG%5D=200&rgb%5BR%5D=100",
 			wantHeader: http.Header{"X-Colors": {"blue,black,brown"}, "Cookie": {"session=abc; flags=\"blue,black,brown\""}},
@@ -99,124 +123,124 @@ func TestRequestBuilder(t *testing.T) {
 		{
 			name: "A required query parameter that is nil",
 			build: func(b *RequestBuilder) {
-				b.QueryParam(nil, Param{Name: "needed", IsRequired: true})
+				b.QueryParam(nil, runtime.Param{Name: "needed", IsRequired: true})
 			},
-			wantErr: ErrParamMissing,
+			wantErr: runtime.ErrParamMissing,
 		},
 		{
 			name: "A querystring as a form, after the query parameters",
 			build: func(b *RequestBuilder) {
-				b.QueryParam("blue", Param{Name: "color", Style: StyleForm})
-				b.QueryString(filter{Name: new("a&b"), Tags: []string{"x", "y"}}, Param{Name: "q"})
+				b.QueryParam("blue", runtime.Param{Name: "color", Style: runtime.StyleForm})
+				b.QueryString(filter{Name: new("a&b"), Tags: []string{"x", "y"}}, runtime.Param{Name: "q"})
 			},
 			wantURL: "http://api.test/v1/pets?color=blue&name=a%26b&tags=x&tags=y",
 		},
 		{
 			name: "A querystring as JSON, every reserved byte escaped",
 			build: func(b *RequestBuilder) {
-				b.QueryString(filter{Name: new("a b+c")}, Param{Name: "q", IsJSON: true})
+				b.QueryString(filter{Name: new("a b+c")}, runtime.Param{Name: "q", IsJSON: true})
 			},
 			wantURL: "http://api.test/v1/pets?%7B%22name%22%3A%22a%20b%2Bc%22%7D",
 		},
 		{
 			name: "A nil querystring is left out",
 			build: func(b *RequestBuilder) {
-				b.QueryString((*filter)(nil), Param{Name: "q"})
+				b.QueryString((*filter)(nil), runtime.Param{Name: "q"})
 			},
 			wantURL: "http://api.test/v1/pets",
 		},
 		{
 			name: "A required querystring that is nil",
 			build: func(b *RequestBuilder) {
-				b.QueryString(nil, Param{Name: "q", IsRequired: true})
+				b.QueryString(nil, runtime.Param{Name: "q", IsRequired: true})
 			},
-			wantErr: ErrParamMissing,
+			wantErr: runtime.ErrParamMissing,
 		},
 		{
 			name: "A querystring after an error",
 			build: func(b *RequestBuilder) {
-				b.QueryParam(nil, Param{Name: "needed", IsRequired: true})
-				b.QueryString(filter{}, Param{Name: "q"})
+				b.QueryParam(nil, runtime.Param{Name: "needed", IsRequired: true})
+				b.QueryString(filter{}, runtime.Param{Name: "q"})
 			},
-			wantErr: ErrParamMissing,
+			wantErr: runtime.ErrParamMissing,
 		},
 		{
 			name: "A querystring JSON cannot write",
 			build: func(b *RequestBuilder) {
-				b.QueryString(make(chan int), Param{Name: "q", IsJSON: true})
+				b.QueryString(make(chan int), runtime.Param{Name: "q", IsJSON: true})
 			},
 			wantErrText: "json: unsupported type: chan int",
 		},
 		{
 			name: "A nil path parameter",
 			build: func(b *RequestBuilder) {
-				b.PathParam((*int)(nil), Param{Name: "id"})
+				b.PathParam((*int)(nil), runtime.Param{Name: "id"})
 			},
 			wantErrText: "parameter is required: id",
 		},
 		{
 			name: "A path parameter written as nothing",
 			build: func(b *RequestBuilder) {
-				b.PathParam("", Param{Name: "id", Style: StyleSimple})
+				b.PathParam("", runtime.Param{Name: "id", Style: runtime.StyleSimple})
 			},
 			wantErrText: "parameter is required: id is empty",
 		},
 		{
 			name: "A path parameter that cannot be written",
 			build: func(b *RequestBuilder) {
-				b.PathParam(make(chan int), Param{Name: "id"})
+				b.PathParam(make(chan int), runtime.Param{Name: "id"})
 			},
-			wantErr: ErrParamValue,
+			wantErr: runtime.ErrParamValue,
 		},
 		{
 			name: "A header parameter that cannot be written",
 			build: func(b *RequestBuilder) {
-				b.HeaderParam(make(chan int), Param{Name: "X-Bad"})
+				b.HeaderParam(make(chan int), runtime.Param{Name: "X-Bad"})
 			},
-			wantErr: ErrParamValue,
+			wantErr: runtime.ErrParamValue,
 		},
 		{
 			name: "A cookie parameter that cannot be written",
 			build: func(b *RequestBuilder) {
-				b.CookieParam(make(chan int), Param{Name: "bad"})
+				b.CookieParam(make(chan int), runtime.Param{Name: "bad"})
 			},
-			wantErr: ErrParamValue,
+			wantErr: runtime.ErrParamValue,
 		},
 		{
 			name: "A cookie value net/http would alter",
 			build: func(b *RequestBuilder) {
-				b.CookieParam("a;b", Param{Name: "session", Style: StyleForm})
+				b.CookieParam("a;b", runtime.Param{Name: "session", Style: runtime.StyleForm})
 			},
 			wantErrText: `invalid parameter value: session: http: invalid byte ';' in Cookie.Value`,
 		},
 		{
 			name: "A query parameter that cannot be written",
 			build: func(b *RequestBuilder) {
-				b.QueryParam(make(chan int), Param{Name: "bad"})
+				b.QueryParam(make(chan int), runtime.Param{Name: "bad"})
 			},
-			wantErr: ErrParamValue,
+			wantErr: runtime.ErrParamValue,
 		},
 		{
 			name: "The first error stops the rest",
 			build: func(b *RequestBuilder) {
-				b.PathParam(make(chan int), Param{Name: "id"})
-				b.PathParam(1, Param{Name: "tags"})
-				b.QueryParam("x", Param{Name: "q"})
-				b.HeaderParam("x", Param{Name: "X-H"})
-				b.CookieParam("x", Param{Name: "c"})
+				b.PathParam(make(chan int), runtime.Param{Name: "id"})
+				b.PathParam(1, runtime.Param{Name: "tags"})
+				b.QueryParam("x", runtime.Param{Name: "q"})
+				b.HeaderParam("x", runtime.Param{Name: "X-H"})
+				b.CookieParam("x", runtime.Param{Name: "c"})
 				b.JSONBody(1, "application/json")
 				b.FormBody(color, nil)
 				b.MultipartBody(color, nil)
-				b.FileBody(NewFile(nil, "a", ""), "")
+				b.FileBody(runtime.NewFile(nil, "a", ""), "")
 				b.TextBody("x", "text/plain")
 			},
-			wantErr: ErrParamValue,
+			wantErr: runtime.ErrParamValue,
 		},
 		{
 			name: "A placeholder nothing filled",
 			path: "/pets/{id}/{tags}",
 			build: func(b *RequestBuilder) {
-				b.PathParam(1, Param{Name: "id"})
+				b.PathParam(1, runtime.Param{Name: "id"})
 			},
 			wantErrText: "parameter is required: tags",
 		},
@@ -224,7 +248,7 @@ func TestRequestBuilder(t *testing.T) {
 			name: "A query in the template goes ahead of the query parameters, a fragment is not sent",
 			path: "/rest?method=flickr.photos.search&q=cats#search",
 			build: func(b *RequestBuilder) {
-				b.QueryParam("dogs", Param{Name: "q", Style: StyleForm})
+				b.QueryParam("dogs", runtime.Param{Name: "q", Style: runtime.StyleForm})
 			},
 			wantURL: "http://api.test/v1/rest?method=flickr.photos.search&q=cats&q=dogs",
 		},
@@ -232,16 +256,16 @@ func TestRequestBuilder(t *testing.T) {
 			name: "A path parameter in the query of the template is escaped for a query",
 			path: "/orders/{id}?end={end}&{key}=1",
 			build: func(b *RequestBuilder) {
-				b.PathParam("a b", Param{Name: "id", Style: StyleSimple})
-				b.PathParam("a b&c=d", Param{Name: "end", Style: StyleSimple})
-				b.PathParam(colors, Param{Name: "key", Style: StyleSimple})
+				b.PathParam("a b", runtime.Param{Name: "id", Style: runtime.StyleSimple})
+				b.PathParam("a b&c=d", runtime.Param{Name: "end", Style: runtime.StyleSimple})
+				b.PathParam(colors, runtime.Param{Name: "key", Style: runtime.StyleSimple})
 			},
 			wantURL: "http://api.test/v1/orders/a%20b?end=a+b%26c%3Dd&blue%2Cblack%2Cbrown=1",
 		},
 		{
 			name:    "A ? after the # is part of the fragment",
 			path:    "/#Action=List?x=1",
-			build:   func(b *RequestBuilder) { b.QueryParam("List", Param{Name: "Action", Style: StyleForm}) },
+			build:   func(b *RequestBuilder) { b.QueryParam("List", runtime.Param{Name: "Action", Style: runtime.StyleForm}) },
 			wantURL: "http://api.test/v1/?Action=List",
 		},
 		{
@@ -255,7 +279,7 @@ func TestRequestBuilder(t *testing.T) {
 			base: "http://api.test/v1?key=a b&q=x#top",
 			path: "/rest?method=search",
 			build: func(b *RequestBuilder) {
-				b.QueryParam("dogs", Param{Name: "q", Style: StyleForm})
+				b.QueryParam("dogs", runtime.Param{Name: "q", Style: runtime.StyleForm})
 			},
 			wantURL: "http://api.test/v1/rest?key=a%20b&q=x&method=search&q=dogs",
 		},
@@ -274,7 +298,7 @@ func TestRequestBuilder(t *testing.T) {
 		{
 			name:        "A placeholder in the query that no path parameter filled",
 			path:        "/search?query={query}",
-			build:       func(b *RequestBuilder) { b.QueryParam("go", Param{Name: "query", Style: StyleForm}) },
+			build:       func(b *RequestBuilder) { b.QueryParam("go", runtime.Param{Name: "query", Style: runtime.StyleForm}) },
 			wantErrText: "parameter is required: query",
 		},
 		{
@@ -299,12 +323,12 @@ func TestRequestBuilder(t *testing.T) {
 		{
 			name:    "A form body that is no object",
 			build:   func(b *RequestBuilder) { b.FormBody("text", nil) },
-			wantErr: ErrBodyValue,
+			wantErr: runtime.ErrBodyValue,
 		},
 		{
 			name:    "A multipart body that is no struct",
 			build:   func(b *RequestBuilder) { b.MultipartBody("text", nil) },
-			wantErr: ErrBodyValue,
+			wantErr: runtime.ErrBodyValue,
 		},
 		{
 			name:       "A text body",
@@ -322,7 +346,7 @@ func TestRequestBuilder(t *testing.T) {
 		},
 		{
 			name:       "A file body under its own content type, with its size",
-			build:      func(b *RequestBuilder) { b.FileBody(NewFile([]byte("meow"), "cat.txt", "text/plain"), "") },
+			build:      func(b *RequestBuilder) { b.FileBody(runtime.NewFile([]byte("meow"), "cat.txt", "text/plain"), "") },
 			wantHeader: http.Header{"Content-Type": {"text/plain"}},
 			wantBody:   "meow",
 			wantLength: 4,
@@ -330,14 +354,16 @@ func TestRequestBuilder(t *testing.T) {
 		{
 			name: "A file body under the media type of the operation",
 			build: func(b *RequestBuilder) {
-				b.FileBody(NewFileReader(strings.NewReader("meow"), "cat.txt", "", -1), "image/png")
+				b.FileBody(runtime.NewFileReader(strings.NewReader("meow"), "cat.txt", "", -1), "image/png")
 			},
 			wantHeader: http.Header{"Content-Type": {"image/png"}},
 			wantBody:   "meow",
 		},
 		{
-			name:        "A file body that cannot be opened",
-			build:       func(b *RequestBuilder) { b.FileBody(NewFileFromMultipart(&multipart.FileHeader{Filename: "gone"}), "") },
+			name: "A file body that cannot be opened",
+			build: func(b *RequestBuilder) {
+				b.FileBody(runtime.NewFileFromMultipart(&multipart.FileHeader{Filename: "gone"}), "")
+			},
 			wantErrText: "open : no such file or directory",
 		},
 		{
@@ -392,9 +418,9 @@ func TestRequestBuilderMultipartBody(t *testing.T) {
 		wantLength    bool
 		wantErrInBody string
 	}{
-		{name: "Files that know their size go with a length", value: upload{Title: "Cat", File: NewFile([]byte("meow"), "cat.txt", "text/plain")}, wantLength: true},
-		{name: "A file of unknown size goes chunked", value: upload{Title: "Cat", File: NewFileReader(strings.NewReader("meow"), "cat.txt", "text/plain", -1)}},
-		{name: "A file that fails while sent fails the request", value: upload{File: NewFileReader(errReader{}, "a", "", 4)}, wantLength: true, wantErrInBody: "unexpected EOF"},
+		{name: "Files that know their size go with a length", value: upload{Title: "Cat", File: runtime.NewFile([]byte("meow"), "cat.txt", "text/plain")}, wantLength: true},
+		{name: "A file of unknown size goes chunked", value: upload{Title: "Cat", File: runtime.NewFileReader(strings.NewReader("meow"), "cat.txt", "text/plain", -1)}},
+		{name: "A file that fails while sent fails the request", value: upload{File: runtime.NewFileReader(iotest.ErrReader(io.ErrUnexpectedEOF), "a", "", 4)}, wantLength: true, wantErrInBody: "unexpected EOF"},
 	}
 
 	for _, tc := range tests {
@@ -406,7 +432,7 @@ func TestRequestBuilderMultipartBody(t *testing.T) {
 			var got upload
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				gotLength, gotEncoding = r.ContentLength, r.TransferEncoding
-				if err := DecodeMultipart(r, &got, 0, nil); err != nil {
+				if err := runtime.DecodeMultipart(r, &got, 0, nil); err != nil {
 					w.WriteHeader(http.StatusBadRequest)
 				}
 			}))
@@ -458,9 +484,9 @@ func TestRequestBuilderQueryAndHeaderInOnePlace(t *testing.T) {
 	t.Parallel()
 
 	b := NewRequestBuilder(http.MethodGet, "/search")
-	b.QueryParam("a b", Param{Name: "q", Style: StyleForm})
-	b.QueryParam(true, Param{Name: "exact", Style: StyleForm})
-	b.HeaderParam(color, Param{Name: "X-Point", Style: StyleSimple, IsExplode: true})
+	b.QueryParam("a b", runtime.Param{Name: "q", Style: runtime.StyleForm})
+	b.QueryParam(true, runtime.Param{Name: "exact", Style: runtime.StyleForm})
+	b.HeaderParam(color, runtime.Param{Name: "X-Point", Style: runtime.StyleSimple, IsExplode: true})
 
 	req, err := b.Build(context.Background(), parseURL(t, "https://api.test"))
 
@@ -474,7 +500,7 @@ func TestRequestBuilderKeepsAnEscapedBasePath(t *testing.T) {
 	t.Parallel()
 
 	b := NewRequestBuilder(http.MethodGet, "/pets/{id}")
-	b.PathParam("a/b", Param{Name: "id"})
+	b.PathParam("a/b", runtime.Param{Name: "id"})
 
 	req, err := b.Build(context.Background(), parseURL(t, "http://api.test/v%201"))
 
@@ -556,7 +582,7 @@ func TestSend(t *testing.T) {
 		{
 			name: "The body fails to read",
 			doer: doerFunc(func(*http.Request) (*http.Response, error) {
-				return &http.Response{StatusCode: 200, Body: io.NopCloser(errReader{})}, nil
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(iotest.ErrReader(io.ErrUnexpectedEOF))}, nil
 			}),
 			wantErr: io.ErrUnexpectedEOF,
 		},
@@ -630,7 +656,7 @@ func TestSendClosesTheBody(t *testing.T) {
 		body io.Reader
 	}{
 		{name: "A body that reads", body: strings.NewReader("pong")},
-		{name: "A body that fails to read", body: errReader{}},
+		{name: "A body that fails to read", body: iotest.ErrReader(io.ErrUnexpectedEOF)},
 	}
 
 	for _, tc := range tests {

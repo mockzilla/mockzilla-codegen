@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
@@ -167,7 +168,7 @@ func (o *GetAnyBytesRequestOptions) Validate() error {
 }
 
 // HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
+type HTTPDoer = httpclient.Doer
 
 // RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
@@ -233,7 +234,7 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 }
 
 // Client calls the API at a base URL.
-// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+// A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -243,7 +244,7 @@ type Client struct {
 
 // NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
+	u, err := httpclient.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -261,13 +262,13 @@ func (c *Client) PostJSON(ctx context.Context, opts *PostJSONRequestOptions, edi
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Note
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -280,7 +281,7 @@ func (c *Client) PostJSONRequest(ctx context.Context, opts *PostJSONRequestOptio
 	if opts == nil {
 		opts = &PostJSONRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/json")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/json")
 	switch {
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
@@ -294,13 +295,13 @@ func (c *Client) GetForm(ctx context.Context, opts *GetFormRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/x-www-form-urlencoded", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/x-www-form-urlencoded", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Note
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-www-form-urlencoded", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -313,7 +314,7 @@ func (c *Client) GetFormRequest(ctx context.Context, opts *GetFormRequestOptions
 	if opts == nil {
 		opts = &GetFormRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/form")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/form")
 	return c.newRequest(ctx, "GetForm", b, editors)
 }
 
@@ -323,13 +324,13 @@ func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions, edi
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Note
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -342,7 +343,7 @@ func (c *Client) PostFormRequest(ctx context.Context, opts *PostFormRequestOptio
 	if opts == nil {
 		opts = &PostFormRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/form")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/form")
 	switch {
 	case opts.Body != nil:
 		b.FormBody(opts.Body, nil)
@@ -358,13 +359,13 @@ func (c *Client) PostCharset(ctx context.Context, opts *PostCharsetRequestOption
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json; charset=utf-8", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json; charset=utf-8", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Note
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json; charset=utf-8", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -377,7 +378,7 @@ func (c *Client) PostCharsetRequest(ctx context.Context, opts *PostCharsetReques
 	if opts == nil {
 		opts = &PostCharsetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/charset")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/charset")
 	switch {
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json; charset=utf-8")
@@ -391,13 +392,13 @@ func (c *Client) Upload(ctx context.Context, opts *UploadRequestOptions, editors
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out UploadResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -410,7 +411,7 @@ func (c *Client) UploadRequest(ctx context.Context, opts *UploadRequestOptions, 
 	if opts == nil {
 		opts = &UploadRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/upload")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/upload")
 	switch {
 	case opts.Body != nil:
 		b.MultipartBody(opts.Body, nil)
@@ -426,13 +427,13 @@ func (c *Client) PostText(ctx context.Context, opts *PostTextRequestOptions, edi
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "text/plain", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "text/plain", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *PostTextResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -445,7 +446,7 @@ func (c *Client) PostTextRequest(ctx context.Context, opts *PostTextRequestOptio
 	if opts == nil {
 		opts = &PostTextRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/text")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/text")
 	switch {
 	case opts.BodyText != nil:
 		b.TextBody(string(*opts.BodyText), "text/plain")
@@ -461,13 +462,13 @@ func (c *Client) PutFile(ctx context.Context, opts *PutFileRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "image/png", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "image/png", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *PutFileResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "image/png", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -480,7 +481,7 @@ func (c *Client) PutFileRequest(ctx context.Context, opts *PutFileRequestOptions
 	if opts == nil {
 		opts = &PutFileRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPut, "/file")
+	b := httpclient.NewRequestBuilder(http.MethodPut, "/file")
 	switch {
 	case opts.Body != nil:
 		b.FileBody(*opts.Body, "image/png")
@@ -496,11 +497,11 @@ func (c *Client) PutXML(ctx context.Context, opts *PutXMLRequestOptions, editors
 	if err != nil {
 		return err
 	}
-	res, body, err := runtime.Send(c.doer, req, "", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "", c.timeout)
 	if err != nil {
 		return err
 	}
-	return runtime.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil)
 }
 
 // PutXMLRequest builds the request of PUT /xml.
@@ -522,13 +523,13 @@ func (c *Client) PostAny(ctx context.Context, opts *PostAnyRequestOptions, edito
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "text/plain", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "text/plain", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *PostAnyResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -541,7 +542,7 @@ func (c *Client) PostAnyRequest(ctx context.Context, opts *PostAnyRequestOptions
 	if opts == nil {
 		opts = &PostAnyRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/any")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/any")
 	switch {
 	case opts.BodyXML != nil:
 		b.TextBody(string(*opts.BodyXML), "application/xml")
@@ -559,13 +560,13 @@ func (c *Client) GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions,
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "*/*", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "*/*", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *GetAnyTextResponse200
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "*/*", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -578,7 +579,7 @@ func (c *Client) GetAnyTextRequest(ctx context.Context, opts *GetAnyTextRequestO
 	if opts == nil {
 		opts = &GetAnyTextRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/any/text")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/any/text")
 	return c.newRequest(ctx, "GetAnyText", b, editors)
 }
 
@@ -588,13 +589,13 @@ func (c *Client) GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOption
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "*/*", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "*/*", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out []byte
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "*/*", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -607,11 +608,11 @@ func (c *Client) GetAnyBytesRequest(ctx context.Context, opts *GetAnyBytesReques
 	if opts == nil {
 		opts = &GetAnyBytesRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/any/bytes")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/any/bytes")
 	return c.newRequest(ctx, "GetAnyBytes", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

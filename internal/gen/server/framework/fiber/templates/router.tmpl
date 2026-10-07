@@ -23,7 +23,7 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.App {
 			h = o.Middleware[i](h)
 		}
 		// fasthttp would end the process on a panic.
-		return {{.Runtime}}.Recover(h, o.ErrorHandler)
+		return {{.HTTPServer}}.Recover(h, o.ErrorHandler)
 	}
 	register := func(app *{{.Framework}}.App, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
 {{- range .Routes}}
@@ -67,10 +67,10 @@ func handle(h {{.Packages.http}}.Handler) {{.Framework}}.Handler {
 		isEscaped := !c.App().Config().UnescapePath
 		{{.Packages.fasthttpadaptor}}.NewFastHTTPHandler({{.Packages.http}}.HandlerFunc(func(w {{.Packages.http}}.ResponseWriter, r *{{.Packages.http}}.Request) {
 			// fiber reuses the memory of the request's strings for the next request.
-			r = {{.Runtime}}.DetachRequest(r)
+			r = {{.HTTPServer}}.DetachRequest(r)
 			for _, name := range c.Route().Params {
 				if isEscaped {
-					r.SetPathValue(name, {{.Runtime}}.DetachPathValue(c.Params(name)))
+					r.SetPathValue(name, {{.HTTPServer}}.DetachPathValue(c.Params(name)))
 				} else {
 					r.SetPathValue(name, {{.Packages.strings}}.Clone(c.Params(name)))
 				}

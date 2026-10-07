@@ -5,7 +5,7 @@
 
 // The slog value of a model with sensitive fields, from its masked JSON.
 
-package runtime
+package mask
 
 import (
 	"bytes"

@@ -51,7 +51,7 @@ Public packages live under `pkg/`, private ones under `internal/`. No Go files i
 | `pkg/codegen` | public API: `Generate`, `Prepare`, `Write`, `Version` |
 | `pkg/config` | config structs, loading, validation, JSON schema |
 | `pkg/cli` | the command line, also for programs that offer it as one of their commands |
-| `pkg/runtime` | helpers imported by generated code, standard library only; `validation`, `mask` and `mcptool` below it |
+| `pkg/runtime` | helpers imported by generated code, standard library only; `httpserver`, `httpclient`, `validation`, `mask` and `mcptool` below it |
 | `cmd/mockzilla-codegen` | runs `pkg/cli`, installed as `mockzilla-codegen` |
 | `internal/...` | provider, spec IR, transforms, naming, Go model, rendering, layout |
 | `examples/` | separate module: golden examples and tests of generated code |

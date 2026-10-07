@@ -67,6 +67,7 @@ type OperationsView struct {
 	Context      string
 	HTTP         string
 	Runtime      string
+	HTTPClient   string
 	Slices       string
 	HasEnvelopes bool
 	User         map[string]any
@@ -139,7 +140,7 @@ type BodyView struct {
 	Encoding  string
 }
 
-// TargetView is one runtime.ResponseTarget: the quoted status and media type, and the address of
+// TargetView is one httpclient.ResponseTarget: the quoted status and media type, and the address of
 // what the body is decoded into, empty for a status whose body is not read; IsHeaders marks the
 // typed headers of the status.
 type TargetView struct {
@@ -162,6 +163,7 @@ func operationsView(g *Generator, s *gocode.Scope) *OperationsView {
 	v.Context = s.Import(gomodel.Import{Path: "context"})
 	v.HTTP = s.Import(gomodel.Import{Path: "net/http"})
 	v.Runtime = s.Import(gomodel.Import{Path: gomodel.RuntimePath})
+	v.HTTPClient = s.Import(gomodel.Import{Path: gomodel.HTTPClientPath})
 	v.Slices = s.Import(gomodel.Import{Path: "slices"})
 	for _, op := range g.ops {
 		v.Operations = append(v.Operations, operationView(g, op, s, v.HTTP))
@@ -250,9 +252,9 @@ func streamView(op *gomodel.Operation, s *gocode.Scope) *StreamView {
 	}
 }
 
-// streamType writes the pointer to a runtime.Stream of frame.
+// streamType writes the pointer to an httpclient.Stream of frame.
 func streamType(frame string, s *gocode.Scope) string {
-	return gocode.Deref(gocode.Index(gocode.Selector(s.Import(gomodel.Import{Path: gomodel.RuntimePath}), "Stream"), frame))
+	return gocode.Deref(gocode.Index(gocode.Selector(s.Import(gomodel.Import{Path: gomodel.HTTPClientPath}), "Stream"), frame))
 }
 
 // groupView adds each parameter of a location from its field of the group's struct.

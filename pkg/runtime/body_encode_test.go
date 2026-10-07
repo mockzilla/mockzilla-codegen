@@ -107,7 +107,7 @@ func TestEncodeForm(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := encodeForm(tc.value, nil)
+			got, err := EncodeForm(tc.value, nil)
 
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)
@@ -128,7 +128,7 @@ func TestEncodeFormJSONValues(t *testing.T) {
 		Named:    map[string]vertex{"n": {Point: &point{X: 2}}},
 		Origin:   &point{X: 3},
 	}
-	values, err := encodeForm(in, nil)
+	values, err := EncodeForm(in, nil)
 	require.NoError(t, err)
 	assert.Equal(t, url.Values{
 		"vertex":    {`{"x":7}`},
@@ -141,7 +141,7 @@ func TestEncodeFormJSONValues(t *testing.T) {
 	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &out, false, nil))
 	assert.Equal(t, in, out)
 
-	raw, err := encodeForm(json.RawMessage(`{"a":{"b":1}}`), nil)
+	raw, err := EncodeForm(json.RawMessage(`{"a":{"b":1}}`), nil)
 	require.NoError(t, err)
 	assert.Equal(t, url.Values{"a[b]": {"1"}}, raw)
 }
@@ -160,7 +160,7 @@ func TestEncodeFormRoundTrip(t *testing.T) {
 		Codes:   []int{7},
 		Meta:    map[string]bool{"x": true},
 	}
-	values, err := encodeForm(in, nil)
+	values, err := EncodeForm(in, nil)
 	require.NoError(t, err)
 
 	var out order
@@ -173,13 +173,13 @@ func TestEncodeFormEncoding(t *testing.T) {
 	t.Parallel()
 
 	in := parcel{ID: Ptr("p1"), Pet: &address{City: "Rome"}, Pets: []address{{City: "A"}}, Tags: []string{"x", "y"}, Note: "hi"}
-	got, err := encodeForm(in, Encoding{"id": "application/json", "pet": "application/json", "pets": "application/json", "note": "text/plain"})
+	got, err := EncodeForm(in, Encoding{"id": "application/json", "pet": "application/json", "pets": "application/json", "note": "text/plain"})
 	require.NoError(t, err)
 	assert.Equal(t, `id=%22p1%22&note=hi&pet=%7B%22city%22%3A%22Rome%22%2C%22country%22%3A%22%22%7D&pets=%5B%7B%22city%22%3A%22A%22%2C%22country%22%3A%22%22%7D%5D&tags=x&tags=y`, got.Encode())
 
-	_, err = encodeForm(in, Encoding{"pet": "text/plain"})
+	_, err = EncodeForm(in, Encoding{"pet": "text/plain"})
 	require.EqualError(t, err, "unsupported content type: pet in text/plain")
-	_, err = encodeForm(in, Encoding{"tags": "text/plain"})
+	_, err = EncodeForm(in, Encoding{"tags": "text/plain"})
 	require.NoError(t, err)
 }
 
@@ -272,12 +272,12 @@ func TestWriteMultipartUnmarshaler(t *testing.T) {
 	t.Parallel()
 
 	p := post{ID: "1", Photo: &photo{Image: NewFileReader(strings.NewReader("PNG"), "a.png", "image/png", 3), Caption: "sun", Tags: []string{"a", "b"}}}
-	size, boundary, err := multipartSize(p, nil)
+	size, boundary, err := MultipartSize(p, nil)
 	require.NoError(t, err)
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	require.NoError(t, mw.SetBoundary(boundary))
-	require.NoError(t, writeParts(mw, &p, nil))
+	require.NoError(t, WriteMultipart(mw, &p, nil))
 	assert.Equal(t, int64(buf.Len()), size)
 
 	form, err := multipart.NewReader(&buf, boundary).ReadForm(1 << 20)
@@ -346,12 +346,12 @@ func TestWriteMultipartEncoding(t *testing.T) {
 	}, got)
 
 	in.Logo = new(NewFile([]byte("PNG"), "logo", ""))
-	err := writeParts(multipart.NewWriter(io.Discard), in, parcelEncoding())
+	err := WriteMultipart(multipart.NewWriter(io.Discard), in, parcelEncoding())
 	require.EqualError(t, err, "invalid body value: logo: the file has no content type; the spec takes image/png, image/jpeg")
 
-	err = writeParts(multipart.NewWriter(io.Discard), parcel{Pet: &address{}}, Encoding{"pet": "application/xml"})
+	err = WriteMultipart(multipart.NewWriter(io.Discard), parcel{Pet: &address{}}, Encoding{"pet": "application/xml"})
 	require.EqualError(t, err, "unsupported content type: pet in application/xml")
-	err = writeParts(multipart.NewWriter(io.Discard), parcel{Note: "x"}, Encoding{"note": "image/*"})
+	err = WriteMultipart(multipart.NewWriter(io.Discard), parcel{Note: "x"}, Encoding{"note": "image/*"})
 	require.EqualError(t, err, "unsupported content type: note in image/*")
 }
 
@@ -379,7 +379,7 @@ func TestWriteMultipartErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := writeParts(multipart.NewWriter(io.Discard), tc.value, nil)
+			err := WriteMultipart(multipart.NewWriter(io.Discard), tc.value, nil)
 
 			require.EqualError(t, err, tc.wantErr)
 		})
@@ -399,7 +399,7 @@ func TestWriteMultipartFailingWriter(t *testing.T) {
 		data, _ := multipartOf(t, v)
 
 		for n := range len(data) {
-			err := writeParts(multipart.NewWriter(&failAfter{n: n}), v, nil)
+			err := WriteMultipart(multipart.NewWriter(&failAfter{n: n}), v, nil)
 			require.ErrorIs(t, err, io.ErrClosedPipe, n)
 		}
 	}
@@ -424,7 +424,7 @@ func TestMultipartSize(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			size, boundary, err := multipartSize(tc.value, nil)
+			size, boundary, err := MultipartSize(tc.value, nil)
 
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
@@ -438,8 +438,43 @@ func TestMultipartSize(t *testing.T) {
 			var buf bytes.Buffer
 			mw := multipart.NewWriter(&buf)
 			require.NoError(t, mw.SetBoundary(boundary))
-			require.NoError(t, writeParts(mw, tc.value, nil))
+			require.NoError(t, WriteMultipart(mw, tc.value, nil))
 			assert.Equal(t, int64(buf.Len()), size)
+		})
+	}
+}
+
+func TestEncodeText(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   any
+		want    string
+		wantErr error
+	}{
+		{name: "A string", value: "hi", want: "hi"},
+		{name: "A number behind a pointer", value: Ptr(42), want: "42"},
+		{name: "A Nullable", value: Some(true), want: "true"},
+		{name: "A time by its MarshalText", value: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC), want: "2026-01-02T03:04:05Z"},
+		{name: "Nil", value: (*int)(nil)},
+		{name: "Null", value: Null[int]()},
+		{name: "A struct", value: address{}, wantErr: ErrContentType},
+		{name: "A value text cannot carry", value: make(chan int), wantErr: ErrParamValue},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := EncodeText(tc.value)
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }
@@ -458,14 +493,11 @@ func TestEncodingRoundTrip(t *testing.T) {
 		Plain: []address{{City: "C"}, {City: "D"}},
 	}
 
-	b := NewRequestBuilder(http.MethodPost, "/")
-	b.MultipartBody(in, parcelEncoding())
-	req, err := b.Build(t.Context(), parseURL(t, "http://x"))
-	require.NoError(t, err)
-	data, err := io.ReadAll(req.Body)
-	require.NoError(t, err)
-	r := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(data))
-	r.Header.Set("Content-Type", req.Header.Get("Content-Type"))
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	require.NoError(t, WriteMultipart(mw, in, parcelEncoding()))
+	r := httptest.NewRequest(http.MethodPost, "/", &buf)
+	r.Header.Set("Content-Type", mw.FormDataContentType())
 	var out parcel
 	require.NoError(t, DecodeMultipart(r, &out, 0, parcelEncoding()))
 	assert.Equal(t, "p1", *out.ID)
@@ -478,7 +510,7 @@ func TestEncodingRoundTrip(t *testing.T) {
 
 	in.Doc, in.Logo = nil, nil
 	enc := Encoding{"id": "application/json", "pet": "application/json", "pets": "application/json", "tags": "application/json"}
-	values, err := encodeForm(in, enc)
+	values, err := EncodeForm(in, enc)
 	require.NoError(t, err)
 	var form parcel
 	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &form, true, enc))
@@ -491,7 +523,7 @@ func multipartOf(t *testing.T, v any) ([]byte, string) {
 
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
-	require.NoError(t, writeParts(mw, v, nil))
+	require.NoError(t, WriteMultipart(mw, v, nil))
 	return buf.Bytes(), mw.FormDataContentType()
 }
 
@@ -508,7 +540,7 @@ func partsOf(t *testing.T, v any, enc Encoding) []part {
 
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
-	require.NoError(t, writeParts(mw, v, enc))
+	require.NoError(t, WriteMultipart(mw, v, enc))
 	_, params, err := mime.ParseMediaType(mw.FormDataContentType())
 	require.NoError(t, err)
 

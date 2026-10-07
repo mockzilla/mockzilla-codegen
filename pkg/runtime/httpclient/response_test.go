@@ -3,7 +3,7 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-package runtime
+package httpclient
 
 import (
 	"net/http"
@@ -11,6 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 type pageHeaders struct {
@@ -23,12 +25,21 @@ type pageHeaders struct {
 type envelope struct {
 	JSON200     *rgb
 	Text200     *string
-	PDF200      *File
+	PDF200      *runtime.File
 	Bytes2XX    []byte
 	Any200      any
 	JSON404     *notFound
 	JSONDefault *notFound
 	Headers200  *pageHeaders
+}
+
+// notFound stands in for an error type of the spec.
+type notFound struct {
+	Message string `json:"message"`
+}
+
+func (e notFound) Error() string {
+	return e.Message
 }
 
 func response(status int, contentType string, header http.Header) *http.Response {
@@ -69,10 +80,10 @@ func TestDecodeResponse(t *testing.T) {
 			name: "A JSON body and the typed headers of its status",
 			res:  response(200, "application/json; charset=utf-8", http.Header{"X-Total": {"5"}, "X-Tags": {"a,b"}}),
 			body: `{"R":1,"G":2,"B":3}`,
-			want: envelope{JSON200: &rgb{R: 1, G: 2, B: 3}, Headers200: &pageHeaders{Total: Ptr(5), Tags: []string{"a", "b"}}},
+			want: envelope{JSON200: &rgb{R: 1, G: 2, B: 3}, Headers200: &pageHeaders{Total: runtime.Ptr(5), Tags: []string{"a", "b"}}},
 		},
-		{name: "A text body", res: response(200, "text/plain", nil), body: "pong", want: envelope{Text200: Ptr("pong"), Headers200: &pageHeaders{}}},
-		{name: "A binary body as it came", res: response(200, "application/pdf", nil), body: "%PDF-1.7", want: envelope{PDF200: Ptr(NewFile([]byte("%PDF-1.7"), "", "application/pdf")), Headers200: &pageHeaders{}}},
+		{name: "A text body", res: response(200, "text/plain", nil), body: "pong", want: envelope{Text200: runtime.Ptr("pong"), Headers200: &pageHeaders{}}},
+		{name: "A binary body as it came", res: response(200, "application/pdf", nil), body: "%PDF-1.7", want: envelope{PDF200: runtime.Ptr(runtime.NewFile([]byte("%PDF-1.7"), "", "application/pdf")), Headers200: &pageHeaders{}}},
 		{name: "A JSON null leaves the pointer nil", res: response(200, "application/json", nil), body: "null", want: envelope{Headers200: &pageHeaders{}}},
 		{name: "A media type only the wildcard takes", res: response(200, "text/html", nil), body: `"x"`, want: envelope{Any200: "x", Headers200: &pageHeaders{}}},
 		{name: "No media type takes the JSON target, wherever it is listed", res: response(200, "", nil), body: `{"R":1}`, want: envelope{JSON200: &rgb{R: 1}, Headers200: &pageHeaders{}}},
@@ -136,7 +147,7 @@ func TestDecodeSuccess(t *testing.T) {
 			wantMsg: "unexpected status 202 Accepted",
 			wantAPI: &APIError{StatusCode: 202, Header: http.Header{"Content-Type": {"application/json"}}, Body: []byte(`{}`)},
 		},
-		{name: "A 2xx in a media type no target takes", res: response(200, "text/html", nil), body: "<html>", wantErr: ErrContentType, wantMsg: "unsupported content type: text/html"},
+		{name: "A 2xx in a media type no target takes", res: response(200, "text/html", nil), body: "<html>", wantErr: runtime.ErrContentType, wantMsg: "unsupported content type: text/html"},
 		{
 			name:    "An error status decoded into its error type",
 			res:     response(404, "application/notFound+json", nil),
@@ -282,7 +293,7 @@ func TestDecodeUnderWildcard(t *testing.T) {
 		{name: "Text as it came", mediaType: "*/*", body: `"A+"`, dst: new(string), want: new(`"A+"`)},
 		{name: "Text that is no JSON string", mediaType: "*/*", body: `{"type":"A+"}`, dst: new(*string), want: new(new(`{"type":"A+"}`))},
 		{name: "Bytes under a range", mediaType: "application/*", body: `{"a":1}`, dst: new([]byte), want: new([]byte(`{"a":1}`))},
-		{name: "A file", mediaType: "*/*", body: `{"a":1}`, dst: new(*File), want: new(new(NewFile([]byte(`{"a":1}`), "", "application/json")))},
+		{name: "A file", mediaType: "*/*", body: `{"a":1}`, dst: new(*runtime.File), want: new(new(runtime.NewFile([]byte(`{"a":1}`), "", "application/json")))},
 		{name: "A struct as JSON", mediaType: "*/*", body: `{"R":1}`, dst: new(rgb), want: &rgb{R: 1}},
 		{name: "Text under JSON is a JSON string", mediaType: "application/json", body: `"A+"`, dst: new(string), want: new("A+")},
 		{name: "Bytes under JSON are base64", mediaType: "application/json", body: `"aGk="`, dst: new([]byte), want: new([]byte("hi"))},

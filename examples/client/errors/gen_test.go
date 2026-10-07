@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 func reply(w http.ResponseWriter, status int, mediaType, body string) {
@@ -95,7 +95,7 @@ func TestErrors(t *testing.T) {
 			pet, err := c.GetPet(ctx, &GetPetRequestOptions{PathParams: &GetPetPathParams{ID: tc.id}})
 
 			assert.Nil(t, pet)
-			var apiErr *runtime.APIError
+			var apiErr *httpclient.APIError
 			require.ErrorAs(t, err, &apiErr)
 			assert.Equal(t, tc.wantStatus, apiErr.StatusCode)
 			assert.EqualError(t, err, tc.wantMessage)
@@ -146,7 +146,7 @@ func TestSuccessStatuses(t *testing.T) {
 				require.NoError(t, err)
 				return
 			}
-			var apiErr *runtime.APIError
+			var apiErr *httpclient.APIError
 			require.ErrorAs(t, err, &apiErr)
 			assert.EqualError(t, err, tc.wantMessage)
 			assert.Equal(t, tc.body, string(apiErr.Body))

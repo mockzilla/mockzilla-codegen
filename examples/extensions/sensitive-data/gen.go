@@ -56,7 +56,7 @@ func (u User) Masked() User {
 
 // LogValue gives slog the masked value, so logs do not show sensitive values.
 func (u User) LogValue() slog.Value {
-	return runtime.LogValue(u.Masked())
+	return mask.LogValue(u.Masked())
 }
 
 type Contact struct {
@@ -82,5 +82,5 @@ func (c Contact) Masked() Contact {
 
 // LogValue gives slog the masked value, so logs do not show sensitive values.
 func (c Contact) LogValue() slog.Value {
-	return runtime.LogValue(c.Masked())
+	return mask.LogValue(c.Masked())
 }

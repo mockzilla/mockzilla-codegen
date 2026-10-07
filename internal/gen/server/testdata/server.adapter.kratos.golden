@@ -7,13 +7,14 @@ import (
 
 	khttp "github.com/go-kratos/kratos/v2/transport/http"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpserver"
 )
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       runtime.ErrorHandler
+	ErrorHandler       httpserver.ErrorHandler
 	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
 	MultipartMaxMemory int64
 }
@@ -24,7 +25,7 @@ type ServerOption func(*ServerOptions)
 // NewServerOptions applies opts to the defaults.
 func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	o := &ServerOptions{
-		ErrorHandler:       runtime.DefaultErrorHandler{},
+		ErrorHandler:       httpserver.DefaultErrorHandler{},
 		JSONDecoder:        runtime.DecodeJSON,
 		MultipartMaxMemory: 8388608,
 	}
@@ -42,7 +43,7 @@ func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 }
 
 // WithErrorHandler sets what writes the response of a failed request.
-func WithErrorHandler(h runtime.ErrorHandler) ServerOption {
+func WithErrorHandler(h httpserver.ErrorHandler) ServerOption {
 	return func(o *ServerOptions) {
 		o.ErrorHandler = h
 	}
@@ -88,40 +89,40 @@ func (a *HTTPAdapter) ListPets(c khttp.Context) error {
 	query := r.URL.Query()
 	opts.Query = &ListPetsQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false, Default: "20"}, &opts.Query.Limit); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "limit", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "ListPets", ParamName: "limit", ParamLocation: "query", Err: err})
 		return nil
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.Query.Filter); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "filter", ParamLocation: "query", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "ListPets", ParamName: "filter", ParamLocation: "query", Err: err})
 		return nil
 	}
 	opts.Headers = &ListPetsHeaders{}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Trace", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: true, Default: `"none"`}, &opts.Headers.XTrace); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "X-Trace", ParamLocation: "header", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "ListPets", ParamName: "X-Trace", ParamLocation: "header", Err: err})
 		return nil
 	}
 	opts.Cookies = &ListPetsCookies{}
 	if err := runtime.DecodeCookie(r.Cookies(), runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.Cookies.Session); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "ListPets", ParamName: "session", ParamLocation: "cookie", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "ListPets", ParamName: "session", ParamLocation: "cookie", Err: err})
 		return nil
 	}
 	if err := opts.Validate(); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "ListPets", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorValidation, OperationID: "ListPets", Err: err})
 		return nil
 	}
 
 	res, err := a.svc.ListPets(r.Context(), opts)
 	if err != nil {
-		if e, ok := runtime.AsError[Problem](err); ok {
+		if e, ok := httpserver.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/json")
 			a.opts.ErrorHandler.HandleError(w, r, 500, e)
 			return nil
 		}
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListPets", Err: err})
 		return nil
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "ListPets", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListPets", Err: httpserver.ErrNoResponse})
 		return nil
 	}
 	a.write(w, r, "ListPets", res)
@@ -176,26 +177,26 @@ func (a *HTTPAdapter) CreatePet(c khttp.Context) error {
 		a.failDecode(w, r, "CreatePet", runtime.ErrBodyEmpty)
 		return nil
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "CreatePet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "CreatePet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return nil
 	}
 	if err := opts.Validate(); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "CreatePet", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorValidation, OperationID: "CreatePet", Err: err})
 		return nil
 	}
 
 	res, err := a.svc.CreatePet(r.Context(), opts)
 	if err != nil {
-		if e, ok := runtime.AsError[Problem](err); ok {
+		if e, ok := httpserver.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/problem+json")
 			a.opts.ErrorHandler.HandleError(w, r, 400, e)
 			return nil
 		}
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreatePet", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreatePet", Err: err})
 		return nil
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "CreatePet", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreatePet", Err: httpserver.ErrNoResponse})
 		return nil
 	}
 	a.write(w, r, "CreatePet", res)
@@ -209,11 +210,11 @@ func (a *HTTPAdapter) DeletePet(c khttp.Context) error {
 	opts := &DeletePetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeletePetPathParams{}
 	if err := runtime.DecodePath(c.Vars().Get("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "DeletePet", ParamName: "id", ParamLocation: "path", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "DeletePet", ParamName: "id", ParamLocation: "path", Err: err})
 		return nil
 	}
 	if err := runtime.DecodeQueryString(r.URL.RawQuery, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false, Default: `{"name":"all"}`}, &opts.Filter); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "DeletePet", ParamName: "filter", ParamLocation: "querystring", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "DeletePet", ParamName: "filter", ParamLocation: "querystring", Err: err})
 		return nil
 	}
 	switch contentType := runtime.ContentType(r.Header); contentType {
@@ -224,26 +225,26 @@ func (a *HTTPAdapter) DeletePet(c khttp.Context) error {
 		}
 	case "":
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "DeletePet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "DeletePet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return nil
 	}
 	if err := opts.Validate(); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "DeletePet", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorValidation, OperationID: "DeletePet", Err: err})
 		return nil
 	}
 
 	res, err := a.svc.DeletePet(r.Context(), opts)
 	if err != nil {
-		if e, ok := runtime.AsError[Problem](err); ok {
+		if e, ok := httpserver.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/json")
 			a.opts.ErrorHandler.HandleError(w, r, 404, e)
 			return nil
 		}
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "DeletePet", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "DeletePet", Err: err})
 		return nil
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "DeletePet", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "DeletePet", Err: httpserver.ErrNoResponse})
 		return nil
 	}
 	a.write(w, r, "DeletePet", res)
@@ -256,7 +257,7 @@ func (a *HTTPAdapter) Ping(c khttp.Context) error {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "Ping"))
 	opts := &PingServiceRequestOptions{RawRequest: r}
 	if err := runtime.DecodeQueryString(r.URL.RawQuery, runtime.Param{Name: "body", IsRequired: true, IsJSON: true}, &opts.BodyQueryString); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorParse, OperationID: "Ping", ParamName: "body", ParamLocation: "querystring", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "Ping", ParamName: "body", ParamLocation: "querystring", Err: err})
 		return nil
 	}
 	switch contentType := runtime.ContentType(r.Header); contentType {
@@ -267,28 +268,28 @@ func (a *HTTPAdapter) Ping(c khttp.Context) error {
 		}
 	case "":
 	default:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: "Ping", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "Ping", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
 		return nil
 	}
 	if err := opts.Validate(); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorValidation, OperationID: "Ping", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorValidation, OperationID: "Ping", Err: err})
 		return nil
 	}
 
 	res, err := a.svc.Ping(r.Context(), opts)
 	if err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Ping", Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Ping", Err: err})
 		return nil
 	}
 	if res == nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: "Ping", Err: runtime.ErrNoResponse})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Ping", Err: httpserver.ErrNoResponse})
 		return nil
 	}
 	a.write(w, r, "Ping", res)
 	return nil
 }
 
-func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.HandlerError) {
+func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {
 	// A response that failed to write leaves its media type, which is not the error's.
 	w.Header().Del("Content-Type")
 	if body, mediaType := requestError(err); body != nil {
@@ -299,28 +300,28 @@ func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *runtime.
 }
 
 func (a *HTTPAdapter) failDecode(w http.ResponseWriter, r *http.Request, id string, err error) {
-	a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorDecode, OperationID: id, Err: err})
+	a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: id, Err: err})
 }
 
 func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, res responseData) {
-	if err := runtime.ValidateResponse(res.Payload()); err != nil {
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+	if err := httpserver.ValidateResponse(res.Payload()); err != nil {
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorResponse, OperationID: id, Err: err})
 		return
 	}
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	err := runtime.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	err := httpserver.Write(w, res.StatusCode(), res.Header(), res.Payload())
 	switch {
 	case errors.Is(err, runtime.ErrContentType):
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorResponse, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorResponse, OperationID: id, Err: err})
 	case err != nil:
-		a.fail(w, r, &runtime.HandlerError{Kind: runtime.ErrorService, OperationID: id, Err: err})
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: id, Err: err})
 	}
 }
 
-func requestError(err *runtime.HandlerError) (error, string) {
-	if err.Kind == runtime.ErrorService || err.Kind == runtime.ErrorResponse {
+func requestError(err *httpserver.HandlerError) (error, string) {
+	if err.Kind == httpserver.ErrorService || err.Kind == httpserver.ErrorResponse {
 		return nil, ""
 	}
 

@@ -3,10 +3,11 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-package runtime
+package httpserver
 
 import (
 	"errors"
+	"io"
 	"iter"
 	"mime"
 	"mime/multipart"
@@ -15,10 +16,13 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 type note string
@@ -60,17 +64,17 @@ func TestWrite(t *testing.T) {
 		{name: "JSON", body: map[string]int{"a": 1}, wantContentType: "application/json", wantBody: `{"a":1}`},
 		{name: "JSON with the content type given", headers: http.Header{"Content-Type": {"application/problem+json"}}, body: 1, wantContentType: "application/problem+json", wantBody: "1"},
 		{name: "Text", body: "hi", wantContentType: "application/octet-stream", wantBody: "hi"},
-		{name: "Text behind a pointer", body: Ptr("hi"), wantContentType: "application/octet-stream", wantBody: "hi"},
+		{name: "Text behind a pointer", body: runtime.Ptr("hi"), wantContentType: "application/octet-stream", wantBody: "hi"},
 		{name: "Bytes", headers: http.Header{"Content-Type": {"text/plain"}}, body: []byte("hi"), wantContentType: "text/plain", wantBody: "hi"},
-		{name: "Bytes behind a pointer", body: Ptr([]byte("hi")), wantContentType: "application/octet-stream", wantBody: "hi"},
-		{name: "File", body: NewFile([]byte("data"), "a.bin", "image/png"), wantContentType: "image/png", wantBody: "data"},
-		{name: "File pointer", body: Ptr(NewFileReader(strings.NewReader("data"), "a", "", -1)), wantContentType: "", wantBody: "data"},
-		{name: "A string under JSON", headers: http.Header{"Content-Type": {"application/json"}}, body: Ptr("hi"), wantContentType: "application/json", wantBody: `"hi"`},
+		{name: "Bytes behind a pointer", body: runtime.Ptr([]byte("hi")), wantContentType: "application/octet-stream", wantBody: "hi"},
+		{name: "File", body: runtime.NewFile([]byte("data"), "a.bin", "image/png"), wantContentType: "image/png", wantBody: "data"},
+		{name: "File pointer", body: runtime.Ptr(runtime.NewFileReader(strings.NewReader("data"), "a", "", -1)), wantContentType: "", wantBody: "data"},
+		{name: "A string under JSON", headers: http.Header{"Content-Type": {"application/json"}}, body: runtime.Ptr("hi"), wantContentType: "application/json", wantBody: `"hi"`},
 		{name: "JSON with parameters", headers: http.Header{"Content-Type": {"application/json; charset=utf-8"}}, body: map[string]int{"a": 1}, wantContentType: "application/json; charset=utf-8", wantBody: `{"a":1}`},
-		{name: "A defined string as it is", headers: http.Header{"Content-Type": {"text/plain"}}, body: Ptr(note("hi")), wantContentType: "text/plain", wantBody: "hi"},
+		{name: "A defined string as it is", headers: http.Header{"Content-Type": {"text/plain"}}, body: runtime.Ptr(note("hi")), wantContentType: "text/plain", wantBody: "hi"},
 		{name: "A nil pointer without JSON", headers: http.Header{"Content-Type": {"application/xml"}}, body: (*struct{})(nil), wantContentType: "application/xml"},
 		{name: "A form", headers: http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}, body: map[string]any{"text": "x y", "stars": 2}, wantContentType: "application/x-www-form-urlencoded", wantBody: "stars=2&text=x+y"},
-		{name: "A number as text", headers: http.Header{"Content-Type": {"text/plain"}}, body: Ptr(42), wantContentType: "text/plain", wantBody: "42"},
+		{name: "A number as text", headers: http.Header{"Content-Type": {"text/plain"}}, body: runtime.Ptr(42), wantContentType: "text/plain", wantBody: "42"},
 		{name: "A time as text", headers: http.Header{"Content-Type": {"text/plain"}}, body: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC), wantContentType: "text/plain", wantBody: "2026-01-02T03:04:05Z"},
 		{name: "Events", headers: http.Header{"Content-Type": {"text/event-stream"}}, body: slices.Values([]map[string]int{{"a": 1}, {"a": 2}}), wantContentType: "text/event-stream", wantBody: "data: {\"a\":1}\n\ndata: {\"a\":2}\n\n"},
 		{name: "An event of lines", headers: http.Header{"Content-Type": {"text/event-stream"}}, body: slices.Values([][]byte{[]byte("a\r\nb\rc\nd")}), wantContentType: "text/event-stream", wantBody: "data: a\ndata: b\ndata: c\ndata: d\n\n"},
@@ -98,16 +102,16 @@ func TestWriteErrors(t *testing.T) {
 
 	xml := http.Header{"Content-Type": {"application/xml"}}
 	require.Error(t, Write(httptest.NewRecorder(), 200, nil, func() {}))
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, nil, NewFileReader(errReader{}, "", "", -1)), ErrResponseCut)
-	require.Error(t, writeFile(httptest.NewRecorder(), 200, NewFileFromMultipart(&multipart.FileHeader{Filename: "gone"})))
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, xml, struct{}{}), ErrContentType)
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}, 1), ErrBodyValue)
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"multipart/form-data"}}, 1), ErrBodyValue)
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"text/plain"}}, make(chan int)), ErrParamValue)
+	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, nil, runtime.NewFileReader(iotest.ErrReader(io.ErrUnexpectedEOF), "", "", -1)), ErrResponseCut)
+	require.Error(t, writeFile(httptest.NewRecorder(), 200, runtime.NewFileFromMultipart(&multipart.FileHeader{Filename: "gone"})))
+	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, xml, struct{}{}), runtime.ErrContentType)
+	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}, 1), runtime.ErrBodyValue)
+	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"multipart/form-data"}}, 1), runtime.ErrBodyValue)
+	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"text/plain"}}, make(chan int)), runtime.ErrParamValue)
 	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"text/event-stream"}}, slices.Values([]func(){nil})), ErrResponseCut)
 	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"multipart/form-data"}}, struct {
-		File File `json:"file"`
-	}{File: NewFileReader(errReader{}, "a", "", -1)}), ErrResponseCut)
+		File runtime.File `json:"file"`
+	}{File: runtime.NewFileReader(iotest.ErrReader(io.ErrUnexpectedEOF), "a", "", -1)}), ErrResponseCut)
 }
 
 func TestWriteMultipartResponse(t *testing.T) {

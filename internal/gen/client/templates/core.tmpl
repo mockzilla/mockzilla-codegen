@@ -1,5 +1,5 @@
 // HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = {{.Runtime}}.Doer
+type HTTPDoer = {{.HTTPClient}}.Doer
 
 // RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx {{.Context}}.Context, req *{{.HTTP}}.Request) error
@@ -65,7 +65,7 @@ func WithRequestEditor(fns ...RequestEditor) {{.Option}} {
 }
 
 // {{.Name}} calls the API at a base URL.
-// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+// A response outside 2xx, or a 2xx the spec does not list, is a *{{.HTTPClient}}.APIError.
 type {{.Name}} struct {
 	baseURL *{{.URL}}.URL
 	doer    HTTPDoer
@@ -75,7 +75,7 @@ type {{.Name}} struct {
 
 // New{{.Name}} returns a client of the API at baseURL.
 func New{{.Name}}(baseURL string, opts ...{{.Option}}) (*{{.Name}}, error) {
-	u, err := {{.Runtime}}.ParseBaseURL(baseURL)
+	u, err := {{.HTTPClient}}.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}

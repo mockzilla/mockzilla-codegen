@@ -15,7 +15,7 @@ client:
 ## Client
 
 ```go
-type HTTPDoer = runtime.Doer                                   // Do(*http.Request) (*http.Response, error)
+type HTTPDoer = httpclient.Doer                                // Do(*http.Request) (*http.Response, error)
 type RequestEditor func(ctx context.Context, req *http.Request) error
 type PetClientOption func(*PetClient)
 
@@ -87,8 +87,8 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
   `GetPet(ctx, opts) error` for a spec that documents only `application/xml`. Generation warns
   (`client-body-unread`), and `<Op>WithResponse` holds the raw body.
 - A 2xx the spec does not list, such as 202 where it documents 201 and 204, is a
-  `*runtime.APIError` with the raw body and no error type: `default` never covers a 2xx.
-- A response outside 2xx is a `*runtime.APIError` with the status, the headers and the raw body.
+  `*httpclient.APIError` with the raw body and no error type: `default` never covers a 2xx.
+- A response outside 2xx is a `*httpclient.APIError` with the status, the headers and the raw body.
   When the spec documents an error type for the status (see `models.error-mapping`), the body is
   decoded into it and `errors.As` finds it through the `APIError`:
 
@@ -98,7 +98,7 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
   if errors.As(err, &problem) {
   	log.Println(problem.Detail)
   }
-  var apiErr *runtime.APIError
+  var apiErr *httpclient.APIError
   if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
   	return nil
   }
@@ -230,7 +230,7 @@ so it returns only when the server closes the connection. With `streaming: true`
 that documents a sequential response also gets a method that reads it frame by frame:
 
 ```go
-func (c *PetClient) ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[Chunk], error)
+func (c *PetClient) ChatStream(ctx context.Context, opts *ChatRequestOptions, editors ...RequestEditor) (*httpclient.Stream[Chunk], error)
 ```
 
 A response is sequential when its media type is one of:
@@ -256,13 +256,13 @@ A response is sequential when its media type is one of:
 - Only a 2xx response in a sequential media type is streamed. A 2xx response without a body, such
   as 204, is a stream without frames. A 2xx response with a body in another media type is
   `runtime.ErrContentType` rather than a stream that yields nothing; a response outside 2xx is a
-  `*runtime.APIError`, with the error type of its status decoded, as with `<Op>`.
+  `*httpclient.APIError`, with the error type of its status decoded, as with `<Op>`.
 - Without `streaming`, generation warns (`stream-only`) about every operation whose 2xx responses
   come in sequential media types only, since its plain method blocks until the server hangs up.
 - A sequential response documented under `default` alone gets no stream method, since `default`
   never covers a 2xx. Generation warns (`stream-unread`): document it under `200` or `2XX`.
 
-`runtime.Stream[T]` reads like `bufio.Scanner`. The caller owns the connection and closes the
+`httpclient.Stream[T]` reads like `bufio.Scanner`. The caller owns the connection and closes the
 stream:
 
 ```go
@@ -284,8 +284,8 @@ return stream.Err()
   delivered as the last pair: `for event, err := range stream.All()`. Breaking out of the loop
   leaves the stream open, so the caller still closes it.
 - `Err()` is nil at the end of the stream, after a sentinel and after `Close()`, else the read
-  error, the decode error (`runtime.ErrFrame`) or `context.Canceled` when the request's context was
-  canceled, which unblocks a pending `Next`. When an event stream ends inside an event with data,
+  error, the decode error (`httpclient.ErrFrame`) or `context.Canceled` when the request's context
+  was canceled, which unblocks a pending `Next`. When an event stream ends inside an event with data,
   before its blank line, that event is not delivered and `Err()` is `io.ErrUnexpectedEOF`, as a
   browser drops it.
 - `Close()` may be called from another goroutine to end a pending `Next`, which then returns false.
@@ -293,7 +293,8 @@ return stream.Err()
   OpenAI end a stream with `data: [DONE]`, which is no JSON: set `stream.Sentinels =
   []string{"[DONE]"}` before the first `Next`.
 - `MaxFrameSize` caps one line of the body and the data of one event, in bytes. It is 0, no limit,
-  unless set before the first `Next`; a longer frame stops the stream with `runtime.ErrFrameSize`.
+  unless set before the first `Next`; a longer frame stops the stream with
+  `httpclient.ErrFrameSize`.
 - SSE comments are skipped, an event without `data` is not dispatched, and `retry` must be a whole
   number of milliseconds. A line may end in LF, CRLF or a lone CR, and a byte order mark at the
   start of the body is dropped. `Event().ID` is the last event ID: it stays from one event to the
@@ -308,10 +309,10 @@ With `with-response: true`, the envelope gains a `Stream<status>` field and
 any other response. A header that does not decode is an error and closes the stream. Any other
 response is read and decoded into the usual fields, and is no error.
 
-The helpers work off any `*http.Response`: `runtime.NewStream[T]` picks the framing from the
-`Content-Type`, `runtime.NewEventStream[T]` and `runtime.NewLineStream[T]` set it;
-`runtime.SendStream` sends a request and leaves the body of a streamed response unread, and
-`runtime.OpenStream[T]` turns what it returns into a stream or an error, as `<Op>Stream` does.
+The helpers work off any `*http.Response`: `httpclient.NewStream[T]` picks the framing from the
+`Content-Type`, `httpclient.NewEventStream[T]` and `httpclient.NewLineStream[T]` set it;
+`httpclient.SendStream` sends a request and leaves the body of a streamed response unread, and
+`httpclient.OpenStream[T]` turns what it returns into a stream or an error, as `<Op>Stream` does.
 
 Limits: request bodies are not streamed, `multipart/mixed` and `application/json-seq` are not
 framed, and a generated server writes a sequential response as one document, since writing
@@ -334,15 +335,16 @@ options and the envelopes may go anywhere, with the models.
 
 ## Runtime
 
-Generated clients use these helpers of the runtime package, next to the codecs the server uses:
+Generated clients use the package `pkg/runtime/httpclient`, on top of the codecs of the runtime
+package the server uses too:
 
 - `RequestBuilder` puts a request together: `PathParam`, `QueryParam`, `HeaderParam`,
   `CookieParam` and the body methods, then `Build` against the base URL. The first error stops
   the rest and comes back from `Build`. A form or multipart body is written in the shapes
-  `DecodeForm` and `DecodeMultipart` read.
+  `runtime.DecodeForm` and `runtime.DecodeMultipart` read.
 - `Send` sends with a `Doer` and reads the body within a timeout; `DecodeSuccess` and
   `DecodeResponse` fill the `ResponseTarget` of the response's status, its typed headers too. A
-  header that does not parse is `ErrHeaderValue`. `APIError` is the error of a status outside
-  2xx, or of a 2xx the spec does not list, with the status in `StatusCode`.
+  header that does not parse is `runtime.ErrHeaderValue`. `APIError` is the error of a status
+  outside 2xx, or of a 2xx the spec does not list, with the status in `StatusCode`.
 - `Stream[T]` reads a sequential response frame by frame; `SendStream`, `OpenStream`,
-  `IsStreaming` and `IsSequential` are what the stream methods are built on.
+  `IsStreaming` and `runtime.IsSequential` are what the stream methods are built on.

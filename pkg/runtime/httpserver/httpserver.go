@@ -3,9 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// The errors of a generated server and the handler that answers them.
-
-package runtime
+// Package httpserver holds the errors, error handlers and response writing of a generated server.
+package httpserver
 
 import (
 	"context"
@@ -14,6 +13,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // ErrorKind says which step of handling a request failed.
@@ -128,7 +129,7 @@ func (DefaultErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, s
 	if body == nil || jsonErr != nil || string(data) == "{}" {
 		data, _ = json.Marshal(map[string]string{"error": err.Error()}) // strings always marshal
 	}
-	if !IsJSON(w.Header().Get("Content-Type")) {
+	if !runtime.IsJSON(w.Header().Get("Content-Type")) {
 		w.Header().Set("Content-Type", "application/json")
 	}
 	_ = writeBytes(w, status, data)
@@ -147,11 +148,6 @@ func AsError[T error, P interface {
 	}
 	var zero T
 	return zero, false
-}
-
-// ContentTypeError is the error of a request body in a media type the operation does not take.
-func ContentTypeError(mediaType string) error {
-	return fmt.Errorf("%w: %s", ErrContentType, mediaType)
 }
 
 // ValidateResponse checks v with its ValidateResponse method, else its Validate method, when it
@@ -173,7 +169,7 @@ func acceptsJSON(accept string) bool {
 	}
 	for part := range strings.SplitSeq(accept, ",") {
 		mediaType, _, _ := strings.Cut(strings.TrimSpace(part), ";")
-		if mediaType == "*/*" || mediaType == "application/*" || IsJSON(mediaType) {
+		if mediaType == "*/*" || mediaType == "application/*" || runtime.IsJSON(mediaType) {
 			return true
 		}
 	}

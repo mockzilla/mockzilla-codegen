@@ -5,7 +5,7 @@
 
 // Helpers for routers that serve an http.Handler through a server of another kind.
 
-package runtime
+package httpserver
 
 import (
 	"fmt"

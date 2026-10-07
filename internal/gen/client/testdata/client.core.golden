@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"example.com/work/types"
-	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 )
 
 // HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
+type HTTPDoer = httpclient.Doer
 
 // RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
@@ -46,12 +46,12 @@ type PetClientInterface interface {
 	// Chat calls POST /chat.
 	Chat(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.Pet, error)
 	ChatWithResponse(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.ChatResponse, error)
-	ChatStream(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*runtime.Stream[types.ChatResponseItem], error)
+	ChatStream(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*httpclient.Stream[types.ChatResponseItem], error)
 	ChatStreamWithResponse(ctx context.Context, opts *types.ChatRequestOptions, editors ...RequestEditor) (*types.ChatResponse, error)
 	// Tail calls GET /tail.
 	Tail(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*string, error)
 	TailWithResponse(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*types.TailResponse, error)
-	TailStream(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*runtime.Stream[[]byte], error)
+	TailStream(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*httpclient.Stream[[]byte], error)
 	TailStreamWithResponse(ctx context.Context, opts *types.TailRequestOptions, editors ...RequestEditor) (*types.TailResponse, error)
 }
 
@@ -91,7 +91,7 @@ func WithRequestEditor(fns ...RequestEditor) PetClientOption {
 }
 
 // PetClient calls the API at a base URL.
-// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+// A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type PetClient struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -101,7 +101,7 @@ type PetClient struct {
 
 // NewPetClient returns a client of the API at baseURL.
 func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
+	u, err := httpclient.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}

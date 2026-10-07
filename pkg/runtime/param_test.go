@@ -98,7 +98,7 @@ func TestPathStyles(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := encodePath(tc.value, tc.param)
+			got, err := EncodePath(tc.value, tc.param)
 			require.NoError(t, err)
 			assert.Equal(t, tc.text, got)
 
@@ -147,7 +147,7 @@ func TestQueryStyles(t *testing.T) {
 			want, err := url.ParseQuery(tc.text)
 			require.NoError(t, err)
 			got := url.Values{}
-			require.NoError(t, encodeQuery(tc.value, tc.param, got))
+			require.NoError(t, EncodeQuery(tc.value, tc.param, got))
 			assert.Equal(t, want, got)
 
 			dst := reflect.New(reflect.TypeOf(tc.value))
@@ -177,7 +177,7 @@ func TestHeaderStyles(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := encodeHeader(tc.value, tc.param)
+			got, err := EncodeHeader(tc.value, tc.param)
 			require.NoError(t, err)
 			assert.Equal(t, tc.text, got)
 
@@ -210,7 +210,7 @@ func TestCookieStyles(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := encodeCookie(tc.value, tc.param)
+			got, err := EncodeCookie(tc.value, tc.param)
 			require.NoError(t, err)
 			assert.Equal(t, tc.cookies, got)
 
@@ -313,44 +313,44 @@ func TestEncodeParamEdges(t *testing.T) {
 
 	p := explode(StyleForm, true)
 	q := url.Values{}
-	require.NoError(t, encodeQuery((*string)(nil), p, q))
+	require.NoError(t, EncodeQuery((*string)(nil), p, q))
 	assert.Empty(t, q)
 
-	cookies, err := encodeCookie((*rgb)(nil), p)
+	cookies, err := EncodeCookie((*rgb)(nil), p)
 	require.NoError(t, err)
 	assert.Nil(t, cookies)
 
-	_, err = encodePath(make(chan int), p)
+	_, err = EncodePath(make(chan int), p)
 	require.ErrorIs(t, err, ErrParamValue)
-	_, err = encodePath([]chan int{nil}, p)
+	_, err = EncodePath([]chan int{nil}, p)
 	require.ErrorIs(t, err, ErrParamValue)
-	_, err = encodeHeader(map[string]chan int{"a": nil}, p)
+	_, err = EncodeHeader(map[string]chan int{"a": nil}, p)
 	require.ErrorIs(t, err, ErrParamValue)
-	require.ErrorIs(t, encodeQuery(struct{ C chan int }{}, p, q), ErrParamValue)
-	require.ErrorIs(t, encodeQuery(filter{Tags: []string{"x"}}, p, q), ErrParamValue, "only a deep object writes a list inside")
+	require.ErrorIs(t, EncodeQuery(struct{ C chan int }{}, p, q), ErrParamValue)
+	require.ErrorIs(t, EncodeQuery(filter{Tags: []string{"x"}}, p, q), ErrParamValue, "only a deep object writes a list inside")
 	deep := explode(StyleDeepObject, false)
 	for _, value := range []any{struct{ C chan int }{}, struct{ L []chan int }{L: []chan int{nil}}, struct{ O struct{ C chan int } }{}} {
-		require.ErrorIs(t, encodeQuery(value, deep, q), ErrParamValue)
+		require.ErrorIs(t, EncodeQuery(value, deep, q), ErrParamValue)
 	}
-	require.NoError(t, encodeQuery(filter{Tags: []string{}, Labels: map[string]string{}}, deep, q))
+	require.NoError(t, EncodeQuery(filter{Tags: []string{}, Labels: map[string]string{}}, deep, q))
 	assert.Empty(t, q, "an empty list or map is left out")
-	_, err = encodePath(func() {}, Param{IsJSON: true})
+	_, err = EncodePath(func() {}, Param{IsJSON: true})
 	require.Error(t, err)
 	require.ErrorIs(t, DecodeHeader(http.Header{}, p, 1), ErrParamValue)
 	require.ErrorIs(t, DecodeCookie(nil, p, 1), ErrParamValue)
 	require.ErrorIs(t, DecodeQuery(nil, p, 1), ErrParamValue)
 
-	bytesParam, err := encodePath([]byte("abc"), explode(StyleSimple, false))
+	bytesParam, err := EncodePath([]byte("abc"), explode(StyleSimple, false))
 	require.NoError(t, err)
 	assert.Equal(t, "YWJj", bytesParam)
 
 	for value, want := range map[any]string{true: "true", uint8(3): "3", 1.5: "1.5", (*int)(nil): "", new("x"): "x"} {
-		got, encodeErr := encodePath(value, explode(StyleSimple, false))
+		got, encodeErr := EncodePath(value, explode(StyleSimple, false))
 		require.NoError(t, encodeErr)
 		assert.Equal(t, want, got)
 	}
 
-	got, err := encodePath(struct {
+	got, err := EncodePath(struct {
 		Skip   *int `json:"-"`
 		Nil    *int `json:"nil"`
 		Any    any  `json:"any"`
@@ -375,4 +375,49 @@ func TestHeaders(t *testing.T) {
 	assert.Equal(t, http.Header{"X-Total-Count": {"3"}, "X-Tags": {"a,b"}}, got)
 	assert.Equal(t, http.Header{"A": {"1"}}, Headers(http.Header{"A": {"1"}}, 5))
 	assert.Equal(t, http.Header{}, Headers(nil, (*rgb)(nil)))
+}
+
+func TestDecodeHeaders(t *testing.T) {
+	t.Parallel()
+
+	type typed struct {
+		Count  *int     `json:"X-Total-Count"`
+		Tags   []string `json:"X-Tags"`
+		Token  string   `json:"X-Page-Token"`
+		Skip   string   `json:"-"`
+		hidden string   //nolint:unused // left alone by the decoder
+	}
+	tests := []struct {
+		name    string
+		header  http.Header
+		dst     any
+		want    any
+		wantErr string
+	}{
+		{
+			name:   "Each field from its header, a missing one left as it is",
+			header: http.Header{"X-Total-Count": {"3"}, "X-Tags": {"a,b"}, "Skip": {"x"}},
+			dst:    &typed{Token: "kept"},
+			want:   &typed{Count: Ptr(3), Tags: []string{"a", "b"}, Token: "kept"},
+		},
+		{name: "A nil struct pointer is made", header: http.Header{"X-Page-Token": {"t"}}, dst: new(*typed), want: new(&typed{Token: "t"})},
+		{name: "A header that does not decode", header: http.Header{"X-Total-Count": {"x"}}, dst: &typed{}, wantErr: `invalid response header X-Total-Count: invalid parameter value: "x" is no int`},
+		{name: "A target that is no pointer", dst: typed{}, wantErr: "invalid parameter value: the target must be a pointer"},
+		{name: "A target that is no struct", dst: new(int), wantErr: "invalid parameter value: typed headers need a struct, not int"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := DecodeHeaders(tc.header, tc.dst)
+
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, tc.dst)
+		})
+	}
 }

@@ -28,7 +28,15 @@ import (
 // DefaultMultipartMemory is how much of a multipart form stays in memory before parts spill to disk.
 const DefaultMultipartMemory = 32 << 20
 
+// mediaTypeEventStream is the media type of Server-Sent Events.
+const mediaTypeEventStream = "text/event-stream"
+
 var fileType = reflect.TypeFor[File]()
+
+// lineMediaTypes are the media types that carry one JSON value per line.
+var lineMediaTypes = []string{
+	"application/x-ndjson", "application/ndjson", "application/jsonl", "application/x-jsonlines", "application/json-lines",
+}
 
 // FormUnmarshaler is a type that reads a form itself, as a generated union in a form body does.
 type FormUnmarshaler interface {
@@ -49,6 +57,18 @@ func ContentType(h http.Header) string {
 func IsJSON(mediaType string) bool {
 	mediaType = baseMediaType(mediaType)
 	return mediaType == "application/json" || strings.HasSuffix(mediaType, "+json")
+}
+
+// IsSequential reports a media type whose body is a sequence of frames: text/event-stream and
+// the line-delimited JSON types, with or without parameters.
+func IsSequential(mediaType string) bool {
+	mediaType = baseMediaType(mediaType)
+	return mediaType == mediaTypeEventStream || slices.Contains(lineMediaTypes, mediaType)
+}
+
+// ContentTypeError is the error of a body in a media type the operation does not take.
+func ContentTypeError(mediaType string) error {
+	return fmt.Errorf("%w: %s", ErrContentType, mediaType)
 }
 
 // DecodeJSON decodes a JSON body into dst, a pointer. An empty body is an error when the body is

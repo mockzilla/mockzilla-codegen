@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/httpclient"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
@@ -157,7 +158,7 @@ func (o *PutPetRequestOptions) Validate() error {
 }
 
 // HTTPDoer sends a request, as *http.Client does.
-type HTTPDoer = runtime.Doer
+type HTTPDoer = httpclient.Doer
 
 // RequestEditor changes a request before it is sent.
 type RequestEditor func(ctx context.Context, req *http.Request) error
@@ -207,7 +208,7 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 }
 
 // Client calls the API at a base URL.
-// A response outside 2xx, or a 2xx the spec does not list, is a *runtime.APIError.
+// A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
 	baseURL *url.URL
 	doer    HTTPDoer
@@ -217,7 +218,7 @@ type Client struct {
 
 // NewClient returns a client of the API at baseURL.
 func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
-	u, err := runtime.ParseBaseURL(baseURL)
+	u, err := httpclient.ParseBaseURL(baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -235,13 +236,13 @@ func (c *Client) AddPet(ctx context.Context, opts *AddPetRequestOptions, editors
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "204"},
 		{Status: "default", MediaType: "application/problem+json", Dst: new(Problem)},
@@ -256,7 +257,7 @@ func (c *Client) AddPetRequest(ctx context.Context, opts *AddPetRequestOptions, 
 	if opts == nil {
 		opts = &AddPetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPost, "/pets")
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/pets")
 	switch {
 	case opts.Body != nil:
 		b.JSONBody(opts.Body, "application/json")
@@ -272,13 +273,13 @@ func (c *Client) GetPet(ctx context.Context, opts *GetPetRequestOptions, editors
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json, application/problem+json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "404", MediaType: "application/problem+json", Dst: new(Problem)},
 	}); err != nil {
@@ -292,7 +293,7 @@ func (c *Client) GetPetRequest(ctx context.Context, opts *GetPetRequestOptions, 
 	if opts == nil {
 		opts = &GetPetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodGet, "/pets/{id}")
+	b := httpclient.NewRequestBuilder(http.MethodGet, "/pets/{id}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
@@ -308,13 +309,13 @@ func (c *Client) PutPet(ctx context.Context, opts *PutPetRequestOptions, editors
 	if err != nil {
 		return nil, err
 	}
-	res, body, err := runtime.Send(c.doer, req, "application/json", c.timeout)
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	var out *Pet
-	if err = runtime.DecodeSuccess(res, body, []runtime.ResponseTarget{
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 	}); err != nil {
 		return nil, err
@@ -327,7 +328,7 @@ func (c *Client) PutPetRequest(ctx context.Context, opts *PutPetRequestOptions, 
 	if opts == nil {
 		opts = &PutPetRequestOptions{}
 	}
-	b := runtime.NewRequestBuilder(http.MethodPut, "/pets/{id}")
+	b := httpclient.NewRequestBuilder(http.MethodPut, "/pets/{id}")
 	if opts.PathParams != nil {
 		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
 	}
@@ -340,7 +341,7 @@ func (c *Client) PutPetRequest(ctx context.Context, opts *PutPetRequestOptions, 
 	return c.newRequest(ctx, "PutPet", b, editors)
 }
 
-func (c *Client) newRequest(ctx context.Context, id string, b *runtime.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {
 	ctx = runtime.WithOperationID(ctx, id)
 	req, err := b.Build(ctx, c.baseURL)
 	if err != nil {

@@ -240,7 +240,7 @@ once, which oapi-codegen leaves to the project.
 | `ClientInterface` | `<Name>Interface`, checked at compile time |
 
 A 4xx or 5xx is an error: the type of `models.error-mapping` when the spec documents it, else
-`runtime.APIError` with the status and the body.
+`httpclient.APIError` with the status and the body.
 
 ### Types
 

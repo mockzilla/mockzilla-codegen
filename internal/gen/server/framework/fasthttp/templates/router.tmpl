@@ -16,7 +16,7 @@ func NewRouter(svc {{.Service}}, opts ...{{.Option}}) *{{.Framework}}.Router {
 			h = o.Middleware[i](h)
 		}
 		// fasthttp would end the process on a panic.
-		return {{.Runtime}}.Recover(h, o.ErrorHandler)
+		return {{.HTTPServer}}.Recover(h, o.ErrorHandler)
 	}
 	register := func(r *{{.Framework}}.Router, route func({{.Packages.http}}.Handler) {{.Packages.http}}.Handler) {
 {{- range .Routes}}
@@ -42,10 +42,10 @@ func handle(h {{.Packages.http}}.Handler) {{.Packages.fasthttp}}.RequestHandler 
 	return func(ctx *{{.Packages.fasthttp}}.RequestCtx) {
 		{{.Packages.fasthttpadaptor}}.NewFastHTTPHandler({{.Packages.http}}.HandlerFunc(func(w {{.Packages.http}}.ResponseWriter, r *{{.Packages.http}}.Request) {
 			// fasthttp reuses the memory of the request's strings for the next request.
-			r = {{.Runtime}}.DetachRequest(r)
+			r = {{.HTTPServer}}.DetachRequest(r)
 			ctx.VisitUserValues(func(key []byte, value any) {
 				if s, ok := value.(string); ok {
-					r.SetPathValue(string(key), {{.Runtime}}.DetachPathValue(s))
+					r.SetPathValue(string(key), {{.HTTPServer}}.DetachPathValue(s))
 				}
 			})
 			h.ServeHTTP(w, r)

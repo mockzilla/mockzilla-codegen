@@ -5,19 +5,22 @@
 
 // Reading the response of a generated client into the target of its status.
 
-package runtime
+package httpclient
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"mime/multipart"
 	"net/http"
-	"net/url"
 	"reflect"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
+
+var fileType = reflect.TypeFor[runtime.File]()
 
 // ResponseTarget is a field one documented response is decoded into. Status is the status as the
 // spec writes it: 200, 2XX or default; MediaType is the content's and Dst points at the field. With
@@ -77,7 +80,7 @@ func DecodeResponse(res *http.Response, body []byte, targets []ResponseTarget) e
 		}
 	}
 	if m.headers != nil {
-		return decodeHeaders(res.Header, m.headers.Dst)
+		return runtime.DecodeHeaders(res.Header, m.headers.Dst)
 	}
 	return nil
 }
@@ -110,40 +113,14 @@ func DecodeSuccess(res *http.Response, body []byte, targets []ResponseTarget) er
 	case m.body != nil:
 		return decodeBody(body, m.mediaType, m.body)
 	case m.isUntaken:
-		return ContentTypeError(m.mediaType)
-	}
-	return nil
-}
-
-// decodeHeaders reads the headers of a response into dst, a pointer to a struct whose fields name
-// their header in a json tag, each as a simple-style parameter. A header that is not there leaves
-// its field as it is.
-func decodeHeaders(h http.Header, dst any) error {
-	target, err := pointer(dst)
-	if err != nil {
-		return err
-	}
-	target = allocate(target)
-	if target.Kind() != reflect.Struct {
-		return fmt.Errorf("%w: typed headers need a struct, not %s", ErrParamValue, target.Type())
-	}
-
-	for i := range target.NumField() {
-		f := target.Type().Field(i)
-		name := jsonName(f)
-		if name == "" || !f.IsExported() {
-			continue
-		}
-		if err = DecodeHeader(h, Param{Name: name, Style: StyleSimple}, target.Field(i).Addr().Interface()); err != nil {
-			return fmt.Errorf("%w %s: %w", ErrHeaderValue, name, err)
-		}
+		return runtime.ContentTypeError(m.mediaType)
 	}
 	return nil
 }
 
 // match selects the targets of the response's status and the body target of its media type.
 func match(res *http.Response, targets []ResponseTarget) matched {
-	m := matched{mediaType: ContentType(res.Header)}
+	m := matched{mediaType: runtime.ContentType(res.Header)}
 	best := 0
 	for _, t := range targets {
 		best = max(best, statusRank(t.Status, res.StatusCode))
@@ -201,13 +178,13 @@ func isSuccess(status string) bool {
 func mediaRank(documented, actual string) int {
 	documented = baseMediaType(documented)
 	switch {
-	case actual == "" && IsJSON(documented):
+	case actual == "" && runtime.IsJSON(documented):
 		return 2
 	case actual == "":
 		return 1
 	case documented == actual:
 		return 4
-	case IsJSON(documented) && IsJSON(actual):
+	case runtime.IsJSON(documented) && runtime.IsJSON(actual):
 		return 3
 	case documented == "*/*":
 		return 2
@@ -219,9 +196,9 @@ func mediaRank(documented, actual string) int {
 
 // decodeBody reads body into the Dst of t, a pointer, by the type of Dst and the media type.
 func decodeBody(body []byte, mediaType string, t *ResponseTarget) error {
-	target, err := pointer(t.Dst)
-	if err != nil {
-		return err
+	target := reflect.ValueOf(t.Dst)
+	if target.Kind() != reflect.Pointer || target.IsNil() {
+		return fmt.Errorf("%w: the target must be a pointer", runtime.ErrParamValue)
 	}
 
 	leaf := target.Type()
@@ -229,9 +206,9 @@ func decodeBody(body []byte, mediaType string, t *ResponseTarget) error {
 		leaf = leaf.Elem()
 	}
 	switch {
-	case IsJSON(mediaType) && !strings.Contains(t.MediaType, "*"):
+	case runtime.IsJSON(mediaType) && !strings.Contains(t.MediaType, "*"):
 	case leaf == fileType:
-		allocate(target).Set(reflect.ValueOf(NewFile(body, "", mediaType)))
+		allocate(target).Set(reflect.ValueOf(runtime.NewFile(body, "", mediaType)))
 		return nil
 	case leaf.Kind() == reflect.String:
 		allocate(target).SetString(string(body))
@@ -240,11 +217,7 @@ func decodeBody(body []byte, mediaType string, t *ResponseTarget) error {
 		allocate(target).SetBytes(body)
 		return nil
 	case mediaType == "application/x-www-form-urlencoded":
-		values, parseErr := url.ParseQuery(string(body))
-		if parseErr != nil {
-			return parseErr
-		}
-		return fillPointer(&multipart.Form{Value: values}, t.Dst)
+		return runtime.DecodeForm(bytes.NewReader(body), t.Dst, false, nil)
 	}
 	return json.Unmarshal(body, t.Dst)
 }
@@ -259,4 +232,9 @@ func allocate(v reflect.Value) reflect.Value {
 		v = v.Elem()
 	}
 	return v
+}
+
+func baseMediaType(mediaType string) string {
+	mediaType, _, _ = strings.Cut(strings.ToLower(mediaType), ";")
+	return strings.TrimSpace(mediaType)
 }

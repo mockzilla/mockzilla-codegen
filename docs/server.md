@@ -652,22 +652,22 @@ context's error is answered with a 503; one that does not runs to its end.
 
 ## Runtime codecs
 
-The runtime package holds what the generated HTTP code and clients use, standard library only:
+The runtime package holds the codecs the generated HTTP code and clients use, standard library only:
 
-- Parameters: `DecodePath`, `DecodeQuery`, `DecodeHeader` and `DecodeCookie`, and the client's
-  `RequestBuilder` that writes them, handle every style of the spec (`simple`, `label`, `matrix`, `form`,
-  `spaceDelimited`, `pipeDelimited`, `deepObject`), exploded or not, for values, lists and objects,
-  and parameters with JSON content.
+- Parameters: `DecodePath`, `DecodeQuery`, `DecodeHeader` and `DecodeCookie`, and the `Encode`
+  functions the client writes them with, handle every style of the spec (`simple`, `label`,
+  `matrix`, `form`, `spaceDelimited`, `pipeDelimited`, `deepObject`), exploded or not, for values,
+  lists and objects, and parameters with JSON content.
 - Bodies: `DecodeJSON`, `DecodeForm` (bracketed keys nest: `address[city]=Berlin`,
   `items[0]=a`; one value for a struct or map is read as JSON, else as a string), `DecodeMultipart` (files as `runtime.File`, JSON parts into structs),
   `DecodeText`, `DecodeBytes`, `DecodeFile`. A type with `UnmarshalForm` reads a form itself. A required body that is empty gives `ErrBodyEmpty`;
   an empty optional one is left alone. `Presence` with its methods `JSON`, `Form` and `Multipart`
   checks the keys of a body and fills its defaults before it is decoded.
-- Responses: `Write` sends a status, headers and a body: JSON for most values, text and bytes as
-  they are, a `File` streamed.
-- Clients: `RequestBuilder`, `Send`, `DecodeResponse`, `DecodeSuccess`, `ResponseTarget` and
-  `APIError`, see [client](client.md#runtime).
 
-Three packages sit beside it: `pkg/runtime/validation` holds the checks of `Validate` and the
+Five packages sit beside it. `pkg/runtime/httpserver` holds what a generated server needs beside
+the codecs: `HandlerError` and the error handlers, and `Write`, which sends a status, headers and a
+body: JSON for most values, text and bytes as they are, a `File` streamed.
+`pkg/runtime/httpclient` holds the requests and responses of a client, see
+[client](client.md#runtime). `pkg/runtime/validation` holds the checks of `Validate` and the
 errors they return (see [validation](validation.md)), `pkg/runtime/mask` the masks of sensitive
 values, and `pkg/runtime/mcptool` what generated MCP tools call.

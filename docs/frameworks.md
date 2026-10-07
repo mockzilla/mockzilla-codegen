@@ -89,8 +89,9 @@ that puts the path parameters on the request with `r.SetPathValue` so `PathParam
 a writer made from the framework's own for one that is not built on net/http (fasthttp, fiber,
 hertz). That keeps the middleware contract whole: a middleware that wraps the writer, to log the
 status say, sees every write. A server that reuses the memory of a request for the next one on
-its connection, as fasthttp does, gets copies (`runtime.DetachRequest`, `runtime.DetachPathValue`),
-and one that ends the process on a panic recovers in `wrap` (`runtime.Recover`).
+its connection, as fasthttp does, gets copies (`httpserver.DetachRequest`,
+`httpserver.DetachPathValue`), and one that ends the process on a panic recovers in `wrap`
+(`httpserver.Recover`).
 
 ## The router template
 
