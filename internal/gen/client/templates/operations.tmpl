@@ -112,7 +112,7 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 {{- range .Groups}}
 	if opts.{{.Field}} != nil {
 {{- range .Params}}
-		b.{{.Encoder}}({{.Value}}, {{$.Runtime}}.Param{Name: {{.Name}}, Style: {{$.Runtime}}.{{.Style}}, IsExplode: {{.IsExplode}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}})
+		b.{{.Encoder}}({{.Value}}, {{$.Runtime}}.Param{Name: {{.Name}}, Style: {{$.Runtime}}.{{.Style}}, IsExplode: {{.IsExplode}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}{{if .IsReserved}}, IsReserved: true{{end}}})
 {{- end}}
 	}
 {{- end}}

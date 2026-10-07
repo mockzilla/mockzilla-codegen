@@ -13,10 +13,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"iter"
+	"maps"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -43,6 +45,12 @@ const (
 	shapeObject
 )
 
+const (
+	upperHex = "0123456789ABCDEF"
+	// queryReserved are the reserved characters of RFC 3986 a query holds: all but [ ] and #.
+	queryReserved = "!$&'()*+,;=:@/?"
+)
+
 // separators join the items of a list that is written in one value, by style.
 var separators = map[Style]string{StyleSpaceDelimited: " ", StylePipeDelimited: "|"}
 
@@ -54,14 +62,20 @@ var (
 
 // Param describes one parameter: its name, how it is written, and whether it must be there. IsJSON
 // is set for content application/json; Default is the JSON a decoder sets when it is not there.
+// IsReserved is allowReserved: a query value keeps the reserved characters a query holds.
 type Param struct {
 	Name       string
 	Style      Style
 	IsExplode  bool
 	IsRequired bool
 	IsJSON     bool
+	IsReserved bool
 	Default    string
 }
+
+// Query is the query of a request by key: each key unescaped, each value still percent-encoded,
+// so a list is split at its commas before its items are unescaped.
+type Query map[string][]string
 
 // pair is one named value of an object parameter, in the order it is written.
 type pair struct {
@@ -112,9 +126,26 @@ func DecodePath(raw string, p Param, dst any) error {
 	return setParam(target, pieces(raw, ",", sh, p.IsExplode))
 }
 
+// ParseQuery splits raw, the query of a request, at & into its keys. A key that does not unescape
+// is left out; a value is unescaped when its parameter is decoded.
+func ParseQuery(raw string) Query {
+	q := Query{}
+	for item := range strings.SplitSeq(raw, "&") {
+		if item == "" {
+			continue
+		}
+		key, value, _ := strings.Cut(item, "=")
+		if name, err := url.QueryUnescape(key); err == nil {
+			q[name] = append(q[name], value)
+		}
+	}
+	return q
+}
+
 // DecodeQuery decodes a query parameter into dst, a pointer to the parameter's type. A parameter
-// that is not there sets its default, else leaves dst as it is, unless it is required.
-func DecodeQuery(q url.Values, p Param, dst any) error {
+// that is not there sets its default, else leaves dst as it is, unless it is required. A value
+// that does not unescape is ErrParamValue.
+func DecodeQuery(q Query, p Param, dst any) error {
 	target, err := pointer(dst)
 	if err != nil {
 		return err
@@ -123,7 +154,10 @@ func DecodeQuery(q url.Values, p Param, dst any) error {
 
 	switch {
 	case p.Style == StyleDeepObject:
-		fields := nested(q, p.Name)
+		var fields map[string]any
+		if fields, err = nested(q, p.Name); err != nil {
+			return err
+		}
 		if fields == nil {
 			return missing(p, target)
 		}
@@ -132,14 +166,18 @@ func DecodeQuery(q url.Values, p Param, dst any) error {
 		if len(q) == 0 {
 			return missing(p, target)
 		}
-		return setParam(target, firstValues(q))
+		var fields map[string]string
+		if fields, err = firstValues(q, unescapeQuery); err != nil {
+			return err
+		}
+		return setParam(target, fields)
 	}
 
 	values, ok := q[p.Name]
 	if !ok {
 		return missing(p, target)
 	}
-	return decodeValues(target, values, p, sh)
+	return decodeValues(target, values, p, unescapeQuery)
 }
 
 // DecodeHeader decodes a header into dst, a pointer to the parameter's type.
@@ -165,20 +203,20 @@ func DecodeCookie(cookies []*http.Cookie, p Param, dst any) error {
 	if err != nil {
 		return err
 	}
-	sh := shapeOf(target.Type())
 	q := url.Values{}
 	for _, c := range cookies {
 		q.Add(c.Name, c.Value)
 	}
 
-	if sh == shapeObject && p.IsExplode && !p.IsJSON {
-		return setParam(target, firstValues(q))
+	if shapeOf(target.Type()) == shapeObject && p.IsExplode && !p.IsJSON {
+		fields, _ := firstValues(q, keepValue) // keepValue never fails
+		return setParam(target, fields)
 	}
 	values, ok := q[p.Name]
 	if !ok {
 		return missing(p, target)
 	}
-	return decodeValues(target, values, p, sh)
+	return decodeValues(target, values, p, keepValue)
 }
 
 // DecodeQueryString decodes raw, the whole query, into dst: percent-encoded JSON or a form.
@@ -287,34 +325,35 @@ func EncodePath(v any, p Param) (string, error) {
 	return join(t, ",", p.IsExplode), nil
 }
 
-// EncodeQuery adds v to q as the parameter p.
-func EncodeQuery(v any, p Param, q url.Values) error {
+// EncodeQuery writes v as the query parameter p, name=value pairs joined by &, and "" for a nil
+// value. It percent-encodes as RFC 6570 expands a form-style query: a separator goes as it is and
+// the same byte inside a name or value escaped, a space as %20. With IsReserved, the reserved
+// characters a query holds and %XX escapes stay as they are.
+func EncodeQuery(v any, p Param) (string, error) {
 	t, err := encodeTree(v, p)
-	if err != nil || t == nil {
-		return err
+	if err != nil {
+		return "", err
 	}
 
-	switch t := t.(type) {
+	name, escaped := escapeQuery(p.Name, false), escapeTree(t, p.IsReserved)
+	switch e := escaped.(type) {
+	case nil:
+		return "", nil
 	case []pair:
 		if p.IsExplode || p.Style == StyleDeepObject {
-			for _, f := range t {
-				q.Add(f.name, f.value)
-			}
-			return nil
+			return join(e, "&", true), nil
 		}
-		q.Add(p.Name, join(t, separator(p.Style), false))
 	case []string:
 		if p.IsExplode {
-			for _, item := range t {
-				q.Add(p.Name, item)
+			named := make([]pair, len(e))
+			for i, item := range e {
+				named[i] = pair{name: name, value: item}
 			}
-			return nil
+			return join(named, "&", true), nil
 		}
-		q.Add(p.Name, strings.Join(t, separator(p.Style)))
-	case string:
-		q.Add(p.Name, t)
 	}
-	return nil
+	// A comma is reserved and goes as it is; a space or a pipe is escaped.
+	return name + "=" + join(escaped, escapeQuery(separator(p.Style), true), false), nil
 }
 
 // EncodeHeader writes v as a header value.
@@ -356,18 +395,65 @@ func EncodeCookie(v any, p Param) ([]*http.Cookie, error) {
 }
 
 // decodeValues decodes the values a query or cookie parameter came with, one per item when
-// exploded, else one holding every item.
-func decodeValues(target reflect.Value, values []string, p Param, sh shape) error {
-	switch {
-	case p.IsJSON:
-		return setParamJSON(target, values[0])
-	case sh == shapeValue:
-		return setParam(target, values[0])
-	case p.IsExplode && sh == shapeList:
-		return setParam(target, values)
+// exploded, else one holding every item. read turns a value as it came into its text.
+func decodeValues(target reflect.Value, values []string, p Param, read func(string) (string, error)) error {
+	sh := shapeOf(target.Type())
+	if p.IsJSON || sh == shapeValue {
+		raw, err := read(values[0])
+		if err != nil {
+			return err
+		}
+		if p.IsJSON {
+			return setParamJSON(target, raw)
+		}
+		return setParam(target, raw)
+	}
+	if p.IsExplode && sh == shapeList {
+		items, err := readAll(values, read)
+		if err != nil {
+			return err
+		}
+		return setParam(target, items)
 	}
 
-	return setParam(target, tree(strings.Split(values[0], separator(p.Style)), sh, false))
+	// A comma inside an item comes escaped and one between items does not, so the value is split
+	// before it is read. A space or a pipe comes escaped either way.
+	sep := separator(p.Style)
+	if sep == "," {
+		items, err := readAll(strings.Split(values[0], sep), read)
+		if err != nil {
+			return err
+		}
+		return setParam(target, tree(items, sh, false))
+	}
+	raw, err := read(values[0])
+	if err != nil {
+		return err
+	}
+	return setParam(target, tree(strings.Split(raw, sep), sh, false))
+}
+
+// unescapeQuery reads a query value, with a + as a space, as WHATWG reads a form.
+func unescapeQuery(s string) (string, error) {
+	out, err := url.QueryUnescape(s)
+	return out, invalid(ErrParamValue, err)
+}
+
+// keepValue reads a cookie value, which is not percent-encoded.
+func keepValue(s string) (string, error) {
+	return s, nil
+}
+
+func readAll(values []string, read func(string) (string, error)) ([]string, error) {
+	out := make([]string, len(values))
+	for i, v := range values {
+		s, err := read(v)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = s
+	}
+	return out, nil
 }
 
 // separator is what a query style puts between the items of a list written in one value.
@@ -407,19 +493,23 @@ func tree(items []string, sh shape, isExplode bool) any {
 }
 
 // nested reads the deepObject keys of name: name[a]=1, name[b][c]=2, into a map.
-func nested(q url.Values, name string) map[string]any {
+func nested(q Query, name string) (map[string]any, error) {
 	var out map[string]any
-	for key, values := range q {
+	for _, key := range slices.Sorted(maps.Keys(q)) {
 		rest, ok := strings.CutPrefix(key, name+"[")
-		if !ok || len(values) == 0 {
+		if !ok || len(q[key]) == 0 {
 			continue
+		}
+		values, err := readAll(q[key], unescapeQuery)
+		if err != nil {
+			return nil, err
 		}
 		if out == nil {
 			out = map[string]any{}
 		}
 		setPath(out, splitBrackets("["+rest), values)
 	}
-	return out
+	return out, nil
 }
 
 // splitBrackets turns a[b][c] and [b][c] into its names; an empty pair of brackets is "".
@@ -459,14 +549,19 @@ func setPath(m map[string]any, path []string, values []string) {
 	m[last] = values
 }
 
-func firstValues(q url.Values) map[string]string {
+func firstValues(q map[string][]string, read func(string) (string, error)) (map[string]string, error) {
 	out := make(map[string]string, len(q))
-	for key, values := range q {
-		if len(values) > 0 {
-			out[key] = values[0]
+	for _, key := range slices.Sorted(maps.Keys(q)) {
+		if len(q[key]) == 0 {
+			continue
 		}
+		value, err := read(q[key][0])
+		if err != nil {
+			return nil, err
+		}
+		out[key] = value
 	}
-	return out
+	return out, nil
 }
 
 // missing is a parameter that is not there: an error when it is required, else its default.
@@ -698,4 +793,58 @@ func join(t any, sep string, isExplode bool) string {
 		return strings.Join(items, sep)
 	}
 	return ""
+}
+
+// escapeTree percent-encodes every name and value of t for a query.
+func escapeTree(t any, isReserved bool) any {
+	switch t := t.(type) {
+	case string:
+		return escapeQuery(t, isReserved)
+	case []string:
+		out := make([]string, len(t))
+		for i, s := range t {
+			out[i] = escapeQuery(s, isReserved)
+		}
+		return out
+	case []pair:
+		out := make([]pair, len(t))
+		for i, f := range t {
+			out[i] = pair{name: escapeQuery(f.name, isReserved), value: escapeQuery(f.value, isReserved)}
+		}
+		return out
+	}
+	return nil
+}
+
+// escapeQuery percent-encodes every byte of s but letters, digits and -._~. isReserved keeps the
+// reserved characters a query holds too, and a %XX escape.
+func escapeQuery(s string, isReserved bool) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := range len(s) {
+		c := s[i]
+		if isUnreserved(c) || isReserved && (strings.IndexByte(queryReserved, c) >= 0 || c == '%' && isEscape(s[i:])) {
+			b.WriteByte(c)
+			continue
+		}
+		b.WriteByte('%')
+		b.WriteByte(upperHex[c>>4])
+		b.WriteByte(upperHex[c&15])
+	}
+	return b.String()
+}
+
+// isUnreserved reports a byte RFC 3986 never escapes: a letter, a digit, or one of -._~.
+func isUnreserved(c byte) bool {
+	switch {
+	case 'a' <= c && c <= 'z', 'A' <= c && c <= 'Z', '0' <= c && c <= '9':
+		return true
+	}
+	return strings.IndexByte("-._~", c) >= 0
+}
+
+// isEscape reports whether s starts with a %XX escape.
+func isEscape(s string) bool {
+	const hex = "0123456789ABCDEFabcdef"
+	return len(s) >= 3 && strings.IndexByte(hex, s[1]) >= 0 && strings.IndexByte(hex, s[2]) >= 0
 }

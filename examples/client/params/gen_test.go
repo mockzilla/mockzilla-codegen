@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"testing"
 	"time"
 
@@ -53,7 +52,7 @@ func TestQueryStyles(t *testing.T) {
 	tests := []struct {
 		name  string
 		query *QueryStylesQuery
-		want  url.Values
+		want  string
 	}{
 		{
 			name: "Every query style",
@@ -61,34 +60,36 @@ func TestQueryStyles(t *testing.T) {
 				Form: []int{1, 2}, Csv: []string{"a", "b"}, Space: []string{"a", "b"}, Pipe: []string{"a", "b"},
 				Deep: &Point{X: new(1), Y: new(2)}, Flat: &Point{X: new(3), Y: new(4)}, JSON: &Point{X: new(5)}, Needed: "yes",
 			},
-			want: url.Values{
-				"form": {"1", "2"}, "csv": {"a,b"}, "space": {"a b"}, "pipe": {"a|b"},
-				"deep[x]": {"1"}, "deep[y]": {"2"}, "flat": {"x,3,y,4"}, "json": {`{"x":5}`}, "needed": {"yes"},
-			},
+			want: "form=1&form=2&csv=a,b&space=a%20b&pipe=a%7Cb&deep%5Bx%5D=1&deep%5By%5D=2&flat=x,3,y,4&json=%7B%22x%22%3A5%7D&needed=yes",
 		},
 		{
 			name: "A deep object with a list and an object inside",
 			query: &QueryStylesQuery{
 				Filter: &Filter{Name: new("a"), Tags: []string{"b", "c"}, Size: &Point{X: new(1)}}, Needed: "yes",
 			},
-			want: url.Values{"filter[name]": {"a"}, "filter[tags]": {"b", "c"}, "filter[size][x]": {"1"}, "needed": {"yes"}},
+			want: "filter%5Bname%5D=a&filter%5Btags%5D=b&filter%5Btags%5D=c&filter%5Bsize%5D%5Bx%5D=1&needed=yes",
 		},
 		{
 			name: "An object whose list is unset",
 			query: &QueryStylesQuery{
 				Filter: &Filter{Name: new("a"), Tags: []string{}}, Where: &Filter{Name: new("b")}, Needed: "yes",
 			},
-			want: url.Values{"filter[name]": {"a"}, "where": {"name,b"}, "needed": {"yes"}},
+			want: "filter%5Bname%5D=a&where=name,b&needed=yes",
 		},
 		{
 			name:  "A union writes the variant that is set",
 			query: &QueryStylesQuery{ID: &QueryStylesQueryID{String: new("a7")}, Needed: "yes"},
-			want:  url.Values{"id": {"a7"}, "needed": {"yes"}},
+			want:  "id=a7&needed=yes",
+		},
+		{
+			name:  "A space and a comma inside an item are escaped, reserved characters kept where allowed",
+			query: &QueryStylesQuery{Csv: []string{"a b", "c,d"}, IDs: new("List(1,2)"), Needed: "x y"},
+			want:  "csv=a%20b,c%2Cd&ids=List(1,2)&needed=x%20y",
 		},
 		{
 			name:  "Query parameters left out stay out",
 			query: &QueryStylesQuery{Needed: "yes"},
-			want:  url.Values{"needed": {"yes"}},
+			want:  "needed=yes",
 		},
 	}
 
@@ -103,7 +104,7 @@ func TestQueryStyles(t *testing.T) {
 			require.NoError(t, err)
 			r := <-seen
 			assert.Equal(t, "/query", r.URL.Path)
-			assert.Equal(t, tc.want, r.URL.Query())
+			assert.Equal(t, tc.want, r.URL.RawQuery)
 		})
 	}
 }
@@ -176,7 +177,7 @@ func TestQueryString(t *testing.T) {
 
 	_, err := c.Search(ctx, &SearchRequestOptions{Filter: filter})
 	require.NoError(t, err)
-	assert.Equal(t, "name=rex+%26+co&tags=a&tags=b", (<-seen).URL.RawQuery, "a form")
+	assert.Equal(t, "name=rex%20%26%20co&tags=a&tags=b", (<-seen).URL.RawQuery, "a form")
 
 	_, err = c.Find(ctx, &FindRequestOptions{Q: &Filter{Name: new("rex")}})
 	require.NoError(t, err)

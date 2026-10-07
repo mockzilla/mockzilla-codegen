@@ -123,12 +123,15 @@ func TestNullableParams(t *testing.T) {
 		Filter Nullable[address] `json:"filter,omitzero"`
 	}
 	in := query{Limit: Some(5), Filter: Some(address{City: "Rome"})}
-	q := url.Values{}
-	require.NoError(t, EncodeQuery(in.Limit, Param{Name: "limit", Style: StyleForm, IsExplode: true}, q))
-	require.NoError(t, EncodeQuery(in.Filter, Param{Name: "filter", Style: StyleDeepObject, IsExplode: true}, q))
-	require.NoError(t, EncodeQuery(Null[int](), Param{Name: "skip", Style: StyleForm, IsExplode: true}, q))
-	assert.Equal(t, url.Values{"limit": {"5"}, "filter[city]": {"Rome"}, "filter[country]": {""}}, q)
+	limit, err := EncodeQuery(in.Limit, Param{Name: "limit", Style: StyleForm, IsExplode: true})
+	require.NoError(t, err)
+	filter, err := EncodeQuery(in.Filter, Param{Name: "filter", Style: StyleDeepObject, IsExplode: true})
+	require.NoError(t, err)
+	skip, err := EncodeQuery(Null[int](), Param{Name: "skip", Style: StyleForm, IsExplode: true})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"limit=5", "filter%5Bcity%5D=Rome&filter%5Bcountry%5D=", ""}, []string{limit, filter, skip})
 
+	q := ParseQuery(limit + "&" + filter)
 	var out query
 	require.NoError(t, DecodeQuery(q, Param{Name: "limit", Style: StyleForm, IsExplode: true}, &out.Limit))
 	require.NoError(t, DecodeQuery(q, Param{Name: "filter", Style: StyleDeepObject, IsExplode: true}, &out.Filter))

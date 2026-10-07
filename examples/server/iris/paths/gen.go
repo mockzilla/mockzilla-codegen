@@ -880,7 +880,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 func (a *HTTPAdapter) GetName(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetName"))
 	opts := &GetNameServiceRequestOptions{RawRequest: r}
-	query := r.URL.Query()
+	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.PathParams = &GetNamePathParams{}
 	if err := runtime.DecodePath(r.PathValue("name"), runtime.Param{Name: "name", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Name); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetName", ParamName: "name", ParamLocation: "path", Err: err})

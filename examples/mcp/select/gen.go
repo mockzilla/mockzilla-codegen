@@ -391,7 +391,7 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 func (a *HTTPAdapter) GetItem(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetItem"))
 	opts := &GetItemServiceRequestOptions{RawRequest: r}
-	query := r.URL.Query()
+	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.PathParams = &GetItemPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetItem", ParamName: "id", ParamLocation: "path", Err: err})

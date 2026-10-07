@@ -397,7 +397,7 @@ func (a *HTTPAdapter) CountPets(w http.ResponseWriter, r *http.Request) {
 func (a *HTTPAdapter) FindPet(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "FindPet"))
 	opts := &FindPetServiceRequestOptions{RawRequest: r}
-	query := r.URL.Query()
+	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.Query = &FindPetQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "name", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.Query.Name); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "FindPet", ParamName: "name", ParamLocation: "query", Err: err})
@@ -420,7 +420,7 @@ func (a *HTTPAdapter) FindPet(w http.ResponseWriter, r *http.Request) {
 func (a *HTTPAdapter) GetPhoto(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetPhoto"))
 	opts := &GetPhotoServiceRequestOptions{RawRequest: r}
-	query := r.URL.Query()
+	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.Query = &GetPhotoQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "name", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.Query.Name); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetPhoto", ParamName: "name", ParamLocation: "query", Err: err})

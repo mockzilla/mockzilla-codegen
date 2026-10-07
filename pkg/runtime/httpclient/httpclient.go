@@ -38,7 +38,7 @@ type RequestBuilder struct {
 	method      string
 	path        string
 	pathQuery   string
-	query       url.Values
+	query       []string
 	queryString string
 	header      http.Header
 	cookies     []*http.Cookie
@@ -54,7 +54,7 @@ type RequestBuilder struct {
 func NewRequestBuilder(method, path string) *RequestBuilder {
 	path, _, _ = strings.Cut(path, "#")
 	path, query, _ := strings.Cut(path, "?")
-	return &RequestBuilder{method: method, path: path, pathQuery: query, query: url.Values{}, header: http.Header{}}
+	return &RequestBuilder{method: method, path: path, pathQuery: query, header: http.Header{}}
 }
 
 // PathParam fills v into the placeholder of p. A nil value is an error, since paths need every
@@ -78,15 +78,17 @@ func (b *RequestBuilder) PathParam(v any, p runtime.Param) {
 		return
 	}
 	b.path = strings.ReplaceAll(b.path, "{"+p.Name+"}", escape(value, isSegmentChar))
-	b.pathQuery = strings.ReplaceAll(b.pathQuery, "{"+p.Name+"}", url.QueryEscape(value))
+	b.pathQuery = strings.ReplaceAll(b.pathQuery, "{"+p.Name+"}", escape(value, isUnreserved))
 }
 
-// QueryParam adds v to the query as p. A nil value is left out, unless p is required.
+// QueryParam adds v to the query as p, see runtime.EncodeQuery. A nil value is left out, unless p
+// is required.
 func (b *RequestBuilder) QueryParam(v any, p runtime.Param) {
 	if b.err != nil || b.skip(v, p) {
 		return
 	}
-	b.err = runtime.EncodeQuery(v, p, b.query)
+	query, err := runtime.EncodeQuery(v, p)
+	b.query, b.err = append(b.query, query), err
 }
 
 // QueryString writes v as the whole query, JSON or a form; a nil value is left out unless required.
@@ -100,7 +102,8 @@ func (b *RequestBuilder) QueryString(v any, p runtime.Param) {
 		return
 	}
 	values, err := runtime.EncodeForm(v, nil)
-	b.queryString, b.err = values.Encode(), err
+	// Encode writes a space as + and a + as %2B, so each + left is a space.
+	b.queryString, b.err = strings.ReplaceAll(values.Encode(), "+", "%20"), err
 }
 
 // HeaderParam adds v as the header p. A nil value is left out, unless p is required.
@@ -209,8 +212,9 @@ func (b *RequestBuilder) FileBody(f runtime.File, mediaType string) {
 }
 
 // Build makes the request against base: the path goes after the base's, the query is the base's,
-// then the template's, the query parameters encoded and sorted and the querystring, and a File
-// body streams. The fragment of base is not sent. A placeholder no PathParam filled is missing.
+// then the template's, the query parameters in the order they were added and the querystring, and
+// a File body streams. The fragment of base is not sent. A placeholder no PathParam filled is
+// missing.
 func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Request, error) {
 	if b.err != nil {
 		return nil, b.err
@@ -229,7 +233,7 @@ func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Reques
 		return nil, fmt.Errorf("%w: %w", runtime.ErrParamValue, err)
 	}
 
-	query := []string{escape(base.RawQuery, isQueryChar), escape(b.pathQuery, isQueryChar), b.query.Encode(), b.queryString}
+	query := slices.Concat([]string{escape(base.RawQuery, isQueryChar), escape(b.pathQuery, isQueryChar)}, b.query, []string{b.queryString})
 	u.Path, u.RawQuery = path, strings.Join(slices.DeleteFunc(query, func(s string) bool { return s == "" }), "&")
 	u.ForceQuery, u.Fragment, u.RawFragment = false, "", ""
 

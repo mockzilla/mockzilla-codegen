@@ -648,7 +648,7 @@ func (a *HTTPAdapter) QueryStyles(c *echo.Context) error {
 	w, r := c.Response(), c.Request()
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "QueryStyles"))
 	opts := &QueryStylesServiceRequestOptions{RawRequest: r}
-	query := r.URL.Query()
+	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.Query = &QueryStylesQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "form", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Form); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "form", ParamLocation: "query", Err: err})

@@ -126,6 +126,7 @@ type ParamView struct {
 	IsExplode  bool
 	IsRequired bool
 	IsJSON     bool
+	IsReserved bool
 }
 
 // BodyView is one body field: the expression that says it is set, the builder method that sends
@@ -270,6 +271,7 @@ func groupView(g *Generator, p gomodel.ParamGroup) GroupView {
 			IsExplode:  param.Explode,
 			IsRequired: param.Required || p.In == spec.InPath,
 			IsJSON:     operation.IsJSONParam(param),
+			IsReserved: param.AllowReserved && param.Schema != nil && p.In == spec.InQuery,
 		})
 	}
 	return v
