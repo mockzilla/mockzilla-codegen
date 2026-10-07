@@ -79,6 +79,7 @@ var Bodies = []Request{
 	{Name: "An optional body left out", Method: "POST", Path: "/json", WantBody: `null`},
 	{Name: "A form", Method: "POST", Path: "/form", Body: `text=hi&stars=2`, ContentType: "application/x-www-form-urlencoded", WantBody: `{"text":"hi","stars":2}`},
 	{Name: "A required form left empty", Method: "POST", Path: "/form", ContentType: "application/x-www-form-urlencoded", WantStatus: 400, WantBody: `{"error":"invalid request body: request body is required"}`},
+	{Name: "A form value that does not decode", Method: "POST", Path: "/form", Body: `stars=many`, ContentType: "application/x-www-form-urlencoded", WantStatus: 400, WantBody: `{"error":"invalid request body: invalid body value: stars: \"many\" is no int"}`},
 	{Name: "Text", Method: "POST", Path: "/text", Body: "hello", ContentType: "text/plain", WantBody: `text: hello`},
 	{Name: "Bytes", Method: "POST", Path: "/text", Body: "\x00\x01", ContentType: "application/octet-stream", WantBody: "bytes: \x00\x01"},
 	{Name: "No text", Method: "POST", Path: "/text", WantBody: `nothing`},
@@ -182,7 +183,7 @@ var Params = []Request{
 		Path:       "/header",
 		Headers:    http.Header{"X-Limit": {"many"}},
 		WantStatus: 400,
-		WantBody:   `{"error":"invalid header parameter \"X-Limit\": no union variant matches for a JSON string"}`,
+		WantBody:   `{"error":"invalid header parameter \"X-Limit\": invalid parameter value: no union variant matches for a JSON string"}`,
 	},
 	{
 		Name:     "Cookies",

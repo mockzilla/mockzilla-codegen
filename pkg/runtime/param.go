@@ -87,7 +87,7 @@ func DecodePath(raw string, p Param, dst any) error {
 		return err
 	}
 	if p.IsJSON {
-		return assigner{}.json(target, raw)
+		return setParamJSON(target, raw)
 	}
 
 	sh := shapeOf(target.Type())
@@ -95,7 +95,7 @@ func DecodePath(raw string, p Param, dst any) error {
 	case StyleLabel:
 		raw = strings.TrimPrefix(raw, ".")
 		if p.IsExplode {
-			return assigner{}.assign(target, pieces(raw, ".", sh, true))
+			return setParam(target, pieces(raw, ".", sh, true))
 		}
 	case StyleMatrix:
 		raw = strings.TrimPrefix(raw, ";")
@@ -104,12 +104,12 @@ func DecodePath(raw string, p Param, dst any) error {
 			for i, item := range items {
 				items[i] = strings.TrimPrefix(item, p.Name+"=")
 			}
-			return assigner{}.assign(target, tree(items, sh, sh == shapeObject))
+			return setParam(target, tree(items, sh, sh == shapeObject))
 		}
 		raw = strings.TrimPrefix(raw, p.Name+"=")
 	case StyleSimple, StyleForm, StyleSpaceDelimited, StylePipeDelimited, StyleDeepObject:
 	}
-	return assigner{}.assign(target, pieces(raw, ",", sh, p.IsExplode))
+	return setParam(target, pieces(raw, ",", sh, p.IsExplode))
 }
 
 // DecodeQuery decodes a query parameter into dst, a pointer to the parameter's type. A parameter
@@ -127,12 +127,12 @@ func DecodeQuery(q url.Values, p Param, dst any) error {
 		if fields == nil {
 			return missing(p, target)
 		}
-		return assigner{}.assign(target, fields)
+		return setParam(target, fields)
 	case sh == shapeObject && p.IsExplode && !p.IsJSON:
 		if len(q) == 0 {
 			return missing(p, target)
 		}
-		return assigner{}.assign(target, firstValues(q))
+		return setParam(target, firstValues(q))
 	}
 
 	values, ok := q[p.Name]
@@ -154,9 +154,9 @@ func DecodeHeader(h http.Header, p Param, dst any) error {
 	}
 	raw := strings.Join(values, ",")
 	if p.IsJSON {
-		return assigner{}.json(target, raw)
+		return setParamJSON(target, raw)
 	}
-	return assigner{}.assign(target, pieces(raw, ",", shapeOf(target.Type()), p.IsExplode))
+	return setParam(target, pieces(raw, ",", shapeOf(target.Type()), p.IsExplode))
 }
 
 // DecodeCookie decodes a cookie into dst, a pointer to the parameter's type.
@@ -172,7 +172,7 @@ func DecodeCookie(cookies []*http.Cookie, p Param, dst any) error {
 	}
 
 	if sh == shapeObject && p.IsExplode && !p.IsJSON {
-		return assigner{}.assign(target, firstValues(q))
+		return setParam(target, firstValues(q))
 	}
 	values, ok := q[p.Name]
 	if !ok {
@@ -195,13 +195,13 @@ func DecodeQueryString(raw string, p Param, dst any) error {
 		if raw, err = url.PathUnescape(raw); err != nil {
 			return fmt.Errorf("%w: %w", ErrParamValue, err)
 		}
-		return assigner{}.json(target, raw)
+		return setParamJSON(target, raw)
 	}
 	values, err := url.ParseQuery(raw)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrParamValue, err)
 	}
-	return fillPointer(&multipart.Form{Value: values}, dst)
+	return invalid(ErrParamValue, fillForm(target, &multipart.Form{Value: values}, nil))
 }
 
 // Headers adds the fields of v, a struct of typed headers, to h and returns it, made when nil. A
@@ -360,14 +360,14 @@ func EncodeCookie(v any, p Param) ([]*http.Cookie, error) {
 func decodeValues(target reflect.Value, values []string, p Param, sh shape) error {
 	switch {
 	case p.IsJSON:
-		return assigner{}.json(target, values[0])
+		return setParamJSON(target, values[0])
 	case sh == shapeValue:
-		return assigner{}.assign(target, values[0])
+		return setParam(target, values[0])
 	case p.IsExplode && sh == shapeList:
-		return assigner{}.assign(target, values)
+		return setParam(target, values)
 	}
 
-	return assigner{}.assign(target, tree(strings.Split(values[0], separator(p.Style)), sh, false))
+	return setParam(target, tree(strings.Split(values[0], separator(p.Style)), sh, false))
 }
 
 // separator is what a query style puts between the items of a list written in one value.
@@ -474,7 +474,7 @@ func missing(p Param, target reflect.Value) error {
 	if p.IsRequired || p.Default == "" {
 		return absent(p)
 	}
-	return assigner{}.json(target, p.Default)
+	return setParamJSON(target, p.Default)
 }
 
 func absent(p Param) error {
@@ -482,6 +482,16 @@ func absent(p Param) error {
 		return fmt.Errorf("%w: %s", ErrParamMissing, p.Name)
 	}
 	return nil
+}
+
+// setParam stores v in target as the assigner does, its error marked a bad parameter value.
+func setParam(target reflect.Value, v any) error {
+	return invalid(ErrParamValue, assigner{}.assign(target, v))
+}
+
+// setParamJSON decodes raw as JSON into target, its error marked a bad parameter value.
+func setParamJSON(target reflect.Value, raw string) error {
+	return invalid(ErrParamValue, assigner{}.json(target, raw))
 }
 
 // pointer returns what dst points to, ready to be set.
