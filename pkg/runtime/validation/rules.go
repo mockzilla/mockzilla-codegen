@@ -252,6 +252,16 @@ func SortedKeys[V any](m map[string]V) []string {
 	return slices.Sorted(maps.Keys(m))
 }
 
+// IsZero reports whether v is nil or its zero value, by its own IsZero method too, as omitzero sees it.
+func IsZero(v any) bool {
+	rv := reflect.ValueOf(v)
+	if !rv.IsValid() || rv.IsZero() {
+		return true
+	}
+	z, ok := v.(interface{ IsZero() bool })
+	return ok && z.IsZero()
+}
+
 func formatFloat(f float64) string {
 	return strconv.FormatFloat(f, 'g', -1, 64)
 }

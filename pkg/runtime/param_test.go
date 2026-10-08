@@ -474,6 +474,12 @@ func TestEncodeParamEdges(t *testing.T) {
 	query, err = EncodeQuery(filter{Tags: []string{}, Labels: map[string]string{}}, deep)
 	require.NoError(t, err)
 	assert.Empty(t, query, "an empty list or map is left out")
+	query, err = EncodeQuery(struct {
+		Size int `json:"size,omitempty"`
+		Page int `json:"page"`
+	}{}, p)
+	require.NoError(t, err)
+	assert.Equal(t, "page=0", query, "a zero field tagged omitempty is left out")
 	_, err = EncodePath(func() {}, Param{IsJSON: true})
 	require.Error(t, err)
 	require.ErrorIs(t, DecodeHeader(http.Header{}, p, 1), ErrParamValue)
@@ -505,6 +511,7 @@ func TestHeaders(t *testing.T) {
 
 	typed := struct {
 		Count  int      `json:"X-Total-Count"`
+		Rate   int      `json:"X-Rate,omitempty"`
 		Token  *string  `json:"X-Page-Token"`
 		Tags   []string `json:"X-Tags"`
 		Bad    chan int `json:"X-Bad"`

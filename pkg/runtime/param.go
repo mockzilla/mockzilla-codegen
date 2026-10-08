@@ -21,6 +21,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 // Style is how a parameter is written, as OpenAPI names them.
@@ -261,7 +263,7 @@ func DecodeQueryString(raw string, p Param, dst any) error {
 }
 
 // Headers adds the fields of v, a struct of typed headers, to h and returns it, made when nil. A
-// field that is nil or that cannot be written is left out. Its header tag may say explode or json.
+// nil, unwritable or optional zero field is left out. Its header tag may say explode or json.
 func Headers(h http.Header, v any) http.Header {
 	if h == nil {
 		h = http.Header{}
@@ -277,7 +279,7 @@ func Headers(h http.Header, v any) http.Header {
 	for i := range rv.NumField() {
 		f := rv.Type().Field(i)
 		name := jsonName(f)
-		if name == "" || !f.IsExported() {
+		if name == "" || !f.IsExported() || isOmitted(f, rv.Field(i)) {
 			continue
 		}
 		p := headerParam(f, name)
@@ -775,8 +777,8 @@ func repeated(name string, rv reflect.Value) ([]pair, error) {
 }
 
 // properties yields the name and value of each property of rv, a struct or a map, in the order
-// they are written. An unset property is left out: a nil pointer or interface, or a list or map
-// with no items.
+// they are written. An unset property is left out: a nil pointer or interface, a list or map with
+// no items, or a field isOmitted reports.
 func properties(rv reflect.Value) iter.Seq2[string, reflect.Value] {
 	return func(yield func(string, reflect.Value) bool) {
 		if rv.Kind() == reflect.Map {
@@ -790,7 +792,7 @@ func properties(rv reflect.Value) iter.Seq2[string, reflect.Value] {
 		for i := range rv.NumField() {
 			f := rv.Type().Field(i)
 			name := jsonName(f)
-			if name == "" || !f.IsExported() {
+			if name == "" || !f.IsExported() || isOmitted(f, rv.Field(i)) {
 				continue
 			}
 			if v, ok := present(rv.Field(i)); ok && !yield(name, v) {
@@ -806,6 +808,14 @@ func present(v reflect.Value) (reflect.Value, bool) {
 	v, ok := held(v)
 	isEmpty := (v.Kind() == reflect.Slice || v.Kind() == reflect.Map) && v.Len() == 0
 	return v, ok && !isEmpty
+}
+
+// isOmitted reports a field f tagged omitempty or omitzero whose value v is zero.
+func isOmitted(f reflect.StructField, v reflect.Value) bool {
+	_, tag, _ := strings.Cut(f.Tag.Get("json"), ",")
+	options := strings.Split(tag, ",")
+	isOptional := slices.Contains(options, "omitempty") || slices.Contains(options, "omitzero")
+	return isOptional && validation.IsZero(v.Interface())
 }
 
 // text writes one value as a parameter carries it.

@@ -118,6 +118,9 @@ func (v *validator) structChecks(d *Decl) []*Check {
 		c.Field, c.Path = f.Name, f.JSONName
 		c.IsRequired = f.Required && !f.Nullable && nilable(f.Type)
 		c.IsNullRejected = c.IsWrapped && !f.Nullable && !d.isParams
+		if f.IsZeroAbsent() {
+			c.IsGuarded, c.IsZeroAbsent, c.Zero = true, true, ZeroLiteral(f.Type)
+		}
 		switch {
 		case f.ReadOnly:
 			c.Side = SideResponse

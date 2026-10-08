@@ -139,6 +139,33 @@ func TestHeldAndValidates(t *testing.T) {
 	assert.Equal(t, str, Underlying(DeclRef{Decl: note}))
 }
 
+func TestZeroLiteral(t *testing.T) {
+	t.Parallel()
+
+	level := &Decl{Name: "Level", Kind: KindEnum, Enum: &Enum{Base: Builtin{Name: "int32"}}}
+	tests := []struct {
+		name string
+		typ  Type
+		want string
+	}{
+		{name: "String", typ: stringType, want: `""`},
+		{name: "Email", typ: emailType, want: `""`},
+		{name: "Number", typ: Builtin{Name: "float64"}, want: "0"},
+		{name: "Bool", typ: boolType, want: "false"},
+		{name: "Enum through an alias", typ: DeclRef{Decl: &Decl{Kind: KindAlias, Target: DeclRef{Decl: level}}}, want: "0"},
+		{name: "Struct", typ: DeclRef{Decl: &Decl{Kind: KindStruct}}},
+		{name: "Time", typ: Qualified{Import: importTime, Name: "Time"}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, ZeroLiteral(tc.typ))
+		})
+	}
+}
+
 func TestFormDecl(t *testing.T) {
 	t.Parallel()
 

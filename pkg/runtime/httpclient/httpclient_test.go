@@ -128,6 +128,19 @@ func TestRequestBuilder(t *testing.T) {
 			wantErr: runtime.ErrParamMissing,
 		},
 		{
+			name: "A zero value is left out when optional and sent when required or behind a pointer",
+			build: func(b *RequestBuilder) {
+				b.QueryParam("", runtime.Param{Name: "kind", Style: runtime.StyleForm})
+				b.QueryParam(0, runtime.Param{Name: "page", Style: runtime.StyleForm, IsRequired: true})
+				b.QueryParam(new(0), runtime.Param{Name: "size", Style: runtime.StyleForm})
+				b.HeaderParam(0, runtime.Param{Name: "X-Count", Style: runtime.StyleSimple})
+				b.HeaderParam(false, runtime.Param{Name: "X-Debug", Style: runtime.StyleSimple, IsRequired: true})
+				b.CookieParam(time.Time{}, runtime.Param{Name: "since", Style: runtime.StyleForm})
+			},
+			wantURL:    "http://api.test/v1/pets?page=0&size=0",
+			wantHeader: http.Header{"X-Count": nil, "X-Debug": {"false"}, "Cookie": nil},
+		},
+		{
 			name: "Query parameters in the order they are added, a comma inside an item escaped",
 			build: func(b *RequestBuilder) {
 				b.QueryParam([]string{"a b", "c,d"}, runtime.Param{Name: "terms", Style: runtime.StyleForm})

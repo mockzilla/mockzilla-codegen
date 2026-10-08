@@ -128,11 +128,24 @@ func TestViewRendersValidation(t *testing.T) {
 	}}}
 	email := &gomodel.Field{Name: "Email", JSONName: "email", Type: gomodel.Pointer{Elem: str}, OmitEmpty: true}
 	phone := &gomodel.Field{Name: "Phone", JSONName: "phone", Type: gomodel.Nullable{Elem: str}, OmitEmpty: true, OmitZero: true}
+	nick := &gomodel.Field{Name: "Nick", JSONName: "nick", Type: str, OmitEmpty: true}
 	contact := &gomodel.Decl{Name: "Contact", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{Fields: []*gomodel.Field{
-		{Name: "Name", JSONName: "name", Type: str, Required: true}, email, phone,
+		{Name: "Name", JSONName: "name", Type: str, Required: true}, email, phone, nick,
 	}}, Validation: &gomodel.Validation{Counts: []gomodel.Count{
 		{Func: "ExactlyOneOf", Names: "email or phone", Fields: [][]*gomodel.Field{{email}, {phone}}},
 		{Func: "AtLeastOneOf", Names: "name or (email and phone)", Fields: [][]*gomodel.Field{nil, {email, phone}}},
+		{Func: "ExactlyOneOf", Names: "nick or email", Fields: [][]*gomodel.Field{{nick}, {email}}},
+	}}}
+	settings := &gomodel.Decl{Name: "Settings", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{Fields: []*gomodel.Field{
+		{Name: "Theme", JSONName: "theme", Type: str, OmitEmpty: true},
+		{Name: "Size", JSONName: "size", Type: gomodel.Builtin{Name: "int"}, OmitEmpty: true},
+		{Name: "On", JSONName: "on", Type: gomodel.Builtin{Name: "bool"}, OmitEmpty: true},
+		{Name: "Owner", JSONName: "owner", Type: gomodel.DeclRef{Decl: owner}, OmitEmpty: true},
+	}}, Validation: &gomodel.Validation{Checks: []*gomodel.Check{
+		{Field: "Theme", Path: "theme", IsGuarded: true, IsZeroAbsent: true, Zero: `""`, Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "2"}}},
+		{Field: "Size", Path: "size", IsGuarded: true, IsZeroAbsent: true, Zero: "0", Rules: []gomodel.Rule{{Kind: gomodel.RuleMinimum, Number: "1"}}},
+		{Field: "On", Path: "on", IsGuarded: true, IsZeroAbsent: true, Zero: "false", Rules: []gomodel.Rule{{Kind: gomodel.RuleConst, Const: spec.Value{Kind: spec.KindBool, Bool: true}}}},
+		{Field: "Owner", Path: "owner", IsGuarded: true, IsZeroAbsent: true, IsNested: true, Nested: owner},
 	}}}
 	first := &gomodel.Variant{Name: "First", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}
 	shared := &gomodel.Variant{Name: "Shared", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}
@@ -179,7 +192,7 @@ func TestViewRendersValidation(t *testing.T) {
 	}, Error: &gomodel.ErrorMessage{Path: "message", HasConstructor: true}}
 
 	g := New(&gomodel.Model{
-		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, either, slug, mixed, contact, corner, patch, problem},
+		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, either, slug, mixed, contact, settings, corner, patch, problem},
 		Patterns: []*gomodel.Pattern{code},
 	})
 	checkRender(t, g, "validation")

@@ -31,17 +31,9 @@ type stamped struct {
 	Any      any            `json:"any"`
 	Ptrs     []*string      `json:"ptrs"`
 	Meta     map[string]int `json:"meta"`
+	Note     string         `json:"note,omitempty"`
+	Since    time.Time      `json:"since,omitempty,omitzero"`
 	Bad      chan int       `json:"-"`
-}
-
-// failAfter takes n bytes and fails the write that goes past them.
-type failAfter struct {
-	n int
-}
-
-// textForm stands in for a union that reads forms and holds a string.
-type textForm struct {
-	Text string
 }
 
 // part is one part of a multipart form as it went out.
@@ -51,12 +43,22 @@ type part struct {
 	Body        string
 }
 
+// failAfter takes n bytes and fails the write that goes past them.
+type failAfter struct {
+	n int
+}
+
 func (w *failAfter) Write(p []byte) (int, error) {
 	if len(p) > w.n {
 		return 0, io.ErrClosedPipe
 	}
 	w.n -= len(p)
 	return len(p), nil
+}
+
+// textForm stands in for a union that reads forms and holds a string.
+type textForm struct {
+	Text string
 }
 
 func (f textForm) MarshalJSON() ([]byte, error) {
@@ -249,6 +251,11 @@ func TestWriteMultipartParts(t *testing.T) {
 			name:  "Empty bytes are an empty part",
 			value: stamped{Title: "x", When: when, Raw: []byte{}},
 			want:  map[string][]string{"title": {"x"}, "when": {"2026-01-02T03:04:05Z"}, "raw": {""}},
+		},
+		{
+			name:  "A zero field tagged omitempty or omitzero is left out, an untagged one written",
+			value: stamped{Note: "n"},
+			want:  map[string][]string{"title": {""}, "when": {"0001-01-01T00:00:00Z"}, "note": {"n"}},
 		},
 	}
 

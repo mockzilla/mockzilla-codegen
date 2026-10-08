@@ -22,6 +22,7 @@ Missing struct models.types
 Bare struct models.types
   A string json=a omitempty
   B *string json=b omitempty
+  ? validate count=ExactlyOneOf(a or b)
 Cat struct models.types
   Meow bool json=meow required
 Dog struct models.types
@@ -52,7 +53,6 @@ Listed union models.unions
   ? validate count=ExactlyOne
 ---
 warning keyword-unsupported 43:7 /components/schemas/Missing/oneOf: the oneOf of Missing is not checked: it has no property "z"
-warning keyword-unsupported 50:7 /components/schemas/Bare/oneOf: the oneOf of Bare is not checked: property "a" has no pointer, so whether it is set is unknown
 warning keyword-unsupported 79:11 /components/schemas/Partly/oneOf/0: member 1 only lists required properties; next to members with a type or null it is not checked
 warning keyword-unsupported 85:11 /components/schemas/WithNull/oneOf/0: member 1 only lists required properties; next to members with a type or null it is not checked
 warning keyword-unsupported 86:11 /components/schemas/WithNull/oneOf/1: member 2 only lists required properties; next to members with a type or null it is not checked

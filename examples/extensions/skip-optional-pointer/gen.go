@@ -2,7 +2,25 @@
 
 package skippointer
 
+import (
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
+)
+
+// Fails to compile when the runtime does not match the generator that wrote this file.
+const _ = runtime.SupportsGeneratorV1
+
 type Settings struct {
 	Theme    *string `json:"theme,omitempty"`
 	Language string  `json:"language,omitempty"`
+	FontSize int     `json:"fontSize,omitempty"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (s Settings) Validate() error {
+	var errs validation.Errors
+	if s.FontSize != 0 {
+		errs.Append("fontSize", validation.Minimum(s.FontSize, 8, false))
+	}
+	return errs.Err()
 }

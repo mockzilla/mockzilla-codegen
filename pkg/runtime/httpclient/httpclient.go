@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
 const upperHex = "0123456789ABCDEF"
@@ -81,8 +82,8 @@ func (b *RequestBuilder) PathParam(v any, p runtime.Param) {
 	b.pathQuery = strings.ReplaceAll(b.pathQuery, "{"+p.Name+"}", escape(value, isUnreserved))
 }
 
-// QueryParam adds v to the query as p, see runtime.EncodeQuery. A nil value is left out, unless p
-// is required.
+// QueryParam adds v to the query as p, see runtime.EncodeQuery. An optional p is left out when v
+// is nil or zero, a required one is an error when v is nil.
 func (b *RequestBuilder) QueryParam(v any, p runtime.Param) {
 	if b.err != nil || b.skip(v, p) {
 		return
@@ -91,7 +92,7 @@ func (b *RequestBuilder) QueryParam(v any, p runtime.Param) {
 	b.query, b.err = append(b.query, query), err
 }
 
-// QueryString writes v as the whole query, JSON or a form; a nil value is left out unless required.
+// QueryString writes v as the whole query, JSON or a form; v is left out as QueryParam leaves it.
 func (b *RequestBuilder) QueryString(v any, p runtime.Param) {
 	if b.err != nil || b.skip(v, p) {
 		return
@@ -106,7 +107,7 @@ func (b *RequestBuilder) QueryString(v any, p runtime.Param) {
 	b.queryString, b.err = strings.ReplaceAll(values.Encode(), "+", "%20"), err
 }
 
-// HeaderParam adds v as the header p. A nil value is left out, unless p is required.
+// HeaderParam adds v as the header p, left out as QueryParam leaves it.
 func (b *RequestBuilder) HeaderParam(v any, p runtime.Param) {
 	if b.err != nil || b.skip(v, p) {
 		return
@@ -120,8 +121,8 @@ func (b *RequestBuilder) HeaderParam(v any, p runtime.Param) {
 	b.header.Add(p.Name, value)
 }
 
-// CookieParam adds v as the cookie p. A nil value is left out, unless p is required. A value
-// with a byte no cookie holds, such as a semicolon, is an error rather than sent altered.
+// CookieParam adds v as the cookie p, left out as QueryParam leaves it. A value with a byte no
+// cookie holds, such as a semicolon, is an error rather than sent altered.
 func (b *RequestBuilder) CookieParam(v any, p runtime.Param) {
 	if b.err != nil || b.skip(v, p) {
 		return
@@ -263,11 +264,10 @@ func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Reques
 	return req, nil
 }
 
-// skip reports a nil value, which is left out of the request; when p is required that is an
-// error.
+// skip reports a value left out: nil, an error when p is required, or zero when p is optional.
 func (b *RequestBuilder) skip(v any, p runtime.Param) bool {
 	if !isNil(v) {
-		return false
+		return !p.IsRequired && validation.IsZero(v)
 	}
 	if p.IsRequired {
 		b.err = fmt.Errorf("%w: %s", runtime.ErrParamMissing, p.Name)

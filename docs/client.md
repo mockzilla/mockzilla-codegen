@@ -143,13 +143,15 @@ func (o *CreatePetRequestOptions) Validate() error
   `Body` for the request body; an operation with several media types gets one field per media
   type, named as the [server's request options](server.md#request-options) are. A group left nil
   sends none of its parameters; a required parameter that is nil is `runtime.ErrParamMissing`
-  before anything is sent, and so is a path parameter, whatever the spec says.
+  before anything is sent, and so is a path parameter, whatever the spec says. An optional
+  parameter held as a plain value (`x-go-type-skip-optional-pointer`) is not sent at its zero
+  value.
 - Parameters are written in the style of the spec with the runtime codecs, path values escaped
   so that the delimiters of the styles survive. A path value written as nothing, such as an empty
   string, is `runtime.ErrParamMissing`, since `/pets/` is another path. A cookie value with a byte
   no cookie holds, such as `;` or `"`, is `runtime.ErrParamValue`, where net/http would drop the
-  byte and log it. An object leaves out a property that is nil or a
-  list or map with no items. A `deepObject` writes a list inside it once per item,
+  byte and log it. An object leaves out a property that is nil, a list or map with no items, or
+  a zero value tagged `omitempty`. A `deepObject` writes a list inside it once per item,
   `filter[tags]=a&filter[tags]=b`, and an object inside it nested, `filter[size][x]=1`. An
   exploded `form` or `cookie` object writes a list inside it as its key once per item,
   `status=a&status=b`. The other styles have no way to write a list or object inside an object,
