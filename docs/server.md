@@ -98,8 +98,9 @@ func (r *ListPetsResponseData) ContentType() string
   a body takes no body. A response under a key that is no status, range or `default`, such as
   `"401 "`, is left out, with a warning (`invalid-status`).
 - The body is the JSON media type of the response, else its first one; the content type is
-  remembered and written with the response. A wildcard such as `*/*` sets none, so the body's Go
-  type picks it.
+  remembered and written with the response. A range is written as a type inside it: `text/*` as
+  `text/plain` and `multipart/*` as `multipart/form-data`, a `runtime.File` in its own type.
+  Another range such as `*/*` sets none, so the body's Go type picks it.
 - A response in a sequential media type, `text/event-stream` or a line-delimited JSON type such as
   `application/x-ndjson`, takes its frames as an `iter.Seq` of the frame type. When the response
   also has a body read whole, the frames constructor has the suffix `Stream`:

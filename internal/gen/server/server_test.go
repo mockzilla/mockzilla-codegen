@@ -175,6 +175,11 @@ func TestIsWritable(t *testing.T) {
 		{name: "A time as text", content: gomodel.Content{MediaType: "text/plain", Type: gomodel.Qualified{Import: gomodel.Import{Path: "time"}, Name: "Time"}}, want: true},
 		{name: "A struct as text", content: gomodel.Content{MediaType: "text/plain", Type: note}},
 		{name: "A struct as XML", content: gomodel.Content{MediaType: "application/xml", Type: note}},
+		{name: "A number under the text range", content: gomodel.Content{MediaType: "text/*", Type: integer}, want: true},
+		{name: "A struct under the text range", content: gomodel.Content{MediaType: "Text/*", Type: note}},
+		{name: "A struct under the multipart range", content: gomodel.Content{MediaType: "multipart/*", Type: note}, want: true},
+		{name: "No struct under the multipart range", content: gomodel.Content{MediaType: "multipart/*", Type: integer}},
+		{name: "A struct under another range as JSON", content: gomodel.Content{MediaType: "application/*", Type: note}, want: true},
 	}
 
 	for _, tc := range tests {

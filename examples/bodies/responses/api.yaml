@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info: {title: response bodies, version: "1"}
+paths:
+  /ping:
+    get:
+      operationId: ping
+      responses:
+        "200":
+          description: text, with a schema that has no type
+          content:
+            text/plain: {schema: {}}
+  /motd:
+    get:
+      operationId: getMotd
+      responses:
+        "200":
+          description: text under a range
+          content:
+            text/*: {schema: {type: string}}
+  /profile:
+    get:
+      operationId: getProfile
+      responses:
+        "200":
+          description: a profile and its avatar as a multipart form
+          content:
+            multipart/*: {schema: {$ref: '#/components/schemas/Profile'}}
+components:
+  schemas:
+    Profile:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+        avatar: {type: string, format: binary}

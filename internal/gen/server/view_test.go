@@ -68,3 +68,28 @@ func TestConstructors(t *testing.T) {
 		})
 	}
 }
+
+func TestContentType(t *testing.T) {
+	t.Parallel()
+
+	note := gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Note", Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}}
+	tests := []struct {
+		name    string
+		content gomodel.Content
+		want    string
+	}{
+		{name: "The documented media type as written", content: gomodel.Content{MediaType: "text/plain; charset=utf-8", Type: stringType}, want: "text/plain; charset=utf-8"},
+		{name: "Text under the text range", content: gomodel.Content{MediaType: "text/*", Type: stringType}, want: "text/plain"},
+		{name: "A form under the multipart range", content: gomodel.Content{MediaType: "multipart/*", Type: note}, want: "multipart/form-data"},
+		{name: "A file under a range keeps its own", content: gomodel.Content{MediaType: "text/*", Type: fileType}},
+		{name: "Another range picks by the Go type", content: gomodel.Content{MediaType: "*/*", Type: note}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, contentType(tc.content))
+		})
+	}
+}

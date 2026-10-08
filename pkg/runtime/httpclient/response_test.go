@@ -6,6 +6,8 @@
 package httpclient
 
 import (
+	"bytes"
+	"mime/multipart"
 	"net/http"
 	"testing"
 
@@ -85,7 +87,8 @@ func TestDecodeResponse(t *testing.T) {
 		{name: "A text body", res: response(200, "text/plain", nil), body: "pong", want: envelope{Text200: runtime.Ptr("pong"), Headers200: &pageHeaders{}}},
 		{name: "A binary body as it came", res: response(200, "application/pdf", nil), body: "%PDF-1.7", want: envelope{PDF200: runtime.Ptr(runtime.NewFile([]byte("%PDF-1.7"), "", "application/pdf")), Headers200: &pageHeaders{}}},
 		{name: "A JSON null leaves the pointer nil", res: response(200, "application/json", nil), body: "null", want: envelope{Headers200: &pageHeaders{}}},
-		{name: "A media type only the wildcard takes", res: response(200, "text/html", nil), body: `"x"`, want: envelope{Any200: "x", Headers200: &pageHeaders{}}},
+		{name: "Text only the wildcard takes, as it came", res: response(200, "text/html", nil), body: `"x"`, want: envelope{Any200: `"x"`, Headers200: &pageHeaders{}}},
+		{name: "Bytes only the wildcard takes, as they came", res: response(200, "image/gif", nil), body: "GIF", want: envelope{Any200: []byte("GIF"), Headers200: &pageHeaders{}}},
 		{name: "No media type takes the JSON target, wherever it is listed", res: response(200, "", nil), body: `{"R":1}`, want: envelope{JSON200: &rgb{R: 1}, Headers200: &pageHeaders{}}},
 		{name: "A range takes bytes under its wildcard", res: response(201, "image/png", nil), body: "png", want: envelope{Bytes2XX: []byte("png")}},
 		{name: "A range does not take another media type", res: response(201, "text/plain", nil), body: "x"},
@@ -123,6 +126,30 @@ func TestDecodeFormResponse(t *testing.T) {
 	require.NoError(t, DecodeResponse(response(200, "application/x-www-form-urlencoded", nil), []byte("R=1&G=2"), targets))
 	assert.Equal(t, &rgb{R: 1, G: 2}, got)
 	require.Error(t, DecodeResponse(response(200, "application/x-www-form-urlencoded", nil), []byte("R=%zz"), targets))
+}
+
+func TestDecodeMultipartResponse(t *testing.T) {
+	t.Parallel()
+
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+	require.NoError(t, w.WriteField("R", "1"))
+	require.NoError(t, w.WriteField("G", "2"))
+	require.NoError(t, w.Close())
+	res := response(200, w.FormDataContentType(), nil)
+
+	for _, mediaType := range []string{"multipart/form-data", "multipart/*"} {
+		var got *rgb
+		require.NoError(t, DecodeSuccess(res, b.Bytes(), []ResponseTarget{{Status: "200", MediaType: mediaType, Dst: &got}}))
+		assert.Equal(t, &rgb{R: 1, G: 2}, got)
+	}
+
+	var held any
+	require.NoError(t, DecodeSuccess(res, b.Bytes(), []ResponseTarget{{Status: "200", MediaType: "multipart/*", Dst: &held}}))
+	assert.Equal(t, b.Bytes(), held)
+
+	err := DecodeSuccess(response(200, "multipart/form-data", nil), b.Bytes(), []ResponseTarget{{Status: "200", MediaType: "multipart/form-data", Dst: new(rgb)}})
+	require.ErrorIs(t, err, http.ErrMissingBoundary)
 }
 
 func TestDecodeSuccess(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -502,6 +503,50 @@ func TestDecodeMultipartEdges(t *testing.T) {
 	plain := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("a=1"))
 	plain.Header.Set("Content-Type", "text/plain")
 	require.Error(t, DecodeMultipart(plain, &got, 0, nil))
+}
+
+func TestDecodeMultipartBody(t *testing.T) {
+	t.Parallel()
+
+	r := multipartRequest(t, func(w *multipart.Writer) {
+		require.NoError(t, w.WriteField("title", "Report"))
+		part, err := w.CreateFormFile("file", "a.txt")
+		require.NoError(t, err)
+		_, err = part.Write([]byte("hi"))
+		require.NoError(t, err)
+	})
+	contentType := r.Header.Get("Content-Type")
+	body, err := io.ReadAll(r.Body)
+	require.NoError(t, err)
+
+	var got *upload
+	require.NoError(t, DecodeMultipartBody(bytes.NewReader(body), contentType, &got, nil))
+	require.NotNil(t, got)
+	assert.Equal(t, "Report", got.Title)
+	data, err := got.File.Bytes()
+	require.NoError(t, err)
+	assert.Equal(t, "hi", string(data))
+
+	tests := []struct {
+		name        string
+		body        string
+		contentType string
+		dst         any
+		wantErr     error
+	}{
+		{name: "A content type that does not parse", contentType: "multipart/form-data; boundary", dst: new(upload), wantErr: mime.ErrInvalidMediaParameter},
+		{name: "No boundary", contentType: "multipart/form-data", dst: new(upload), wantErr: http.ErrMissingBoundary},
+		{name: "A body cut short", body: "--b\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\nx", contentType: "multipart/form-data; boundary=b", dst: new(upload), wantErr: io.ErrUnexpectedEOF},
+		{name: "No struct", body: string(body), contentType: contentType, dst: new(int), wantErr: ErrBodyValue},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.ErrorIs(t, DecodeMultipartBody(strings.NewReader(tc.body), tc.contentType, tc.dst, nil), tc.wantErr)
+		})
+	}
 }
 
 func TestDecodeTextAndBytes(t *testing.T) {

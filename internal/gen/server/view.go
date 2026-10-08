@@ -193,14 +193,23 @@ func constructorView(c Constructor, status string, s *gocode.Scope) ConstructorV
 		doc += " that streams frames as " + c.Body.MediaType
 	case c.HasBody:
 		v.Arg, v.Body = "body", s.Expr(operation.BodyType(c.Body))
-		// A wildcard is no media type to send; the runtime picks one by the Go type.
-		if !strings.Contains(c.Body.MediaType, "*") {
-			v.ContentType = gocode.Quote(c.Body.MediaType)
-		}
+		v.ContentType = gocode.Quote(contentType(c.Body))
 		doc += " with its " + c.Body.MediaType + " body"
 	}
 	v.Doc = doc + "."
 	return v
+}
+
+// contentType is the media type a constructor sets, empty when the runtime takes it from the body.
+func contentType(c gomodel.Content) string {
+	written := writtenAs(c.MediaType)
+	switch {
+	case !strings.Contains(c.MediaType, "*"):
+		return c.MediaType
+	case strings.Contains(written, "*"), gomodel.Underlying(gomodel.Elem(operation.BodyType(c))) == fileType:
+		return ""
+	}
+	return written
 }
 
 func isSequential(c gomodel.Content) bool {

@@ -109,9 +109,12 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
   type, the JSON one when there are several.
   A binary body (`format: binary`) comes back as a `runtime.File` that holds the body as it came,
   under the response's media type. An `application/x-www-form-urlencoded` body is read as a form,
-  with the keys of `DecodeForm`. Under a wildcard media type (`*/*`, `application/*`) a string,
-  bytes or a `runtime.File` takes the body as it came whatever the response's media type, also
-  JSON, the same way the client sends them; anything else is read as JSON. Media types are
+  with the keys of `DecodeForm`. A `multipart/form-data` body is read into its struct the way the
+  server reads a multipart request, every part held in memory. Under a wildcard media type
+  (`*/*`, `application/*`) a string, bytes or a `runtime.File` takes the body as it came whatever
+  the response's media type, also JSON, the same way the client sends them; anything else is read
+  as JSON. A schema without a type, an `any`, holds a body that is no JSON as an absent schema
+  does: the text under `text/*`, else the bytes. Media types are
   compared without their parameters and in lower case, so `application/json; charset=utf-8` is
   JSON; a request body goes under the media type as the spec writes it.
 - `<Op>` and `<Op>WithResponse` send `Accept` with every media type the responses of the

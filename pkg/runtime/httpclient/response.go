@@ -20,7 +20,10 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
-var fileType = reflect.TypeFor[runtime.File]()
+var (
+	fileType = reflect.TypeFor[runtime.File]()
+	anyType  = reflect.TypeFor[any]()
+)
 
 // ResponseTarget is a field one documented response is decoded into. Status is the status as the
 // spec writes it: 200, 2XX or default; MediaType is the content's and Dst points at the field. With
@@ -75,7 +78,7 @@ func (e *APIError) Unwrap() error {
 func DecodeResponse(res *http.Response, body []byte, targets []ResponseTarget) error {
 	m := match(res, targets)
 	if m.body != nil && len(body) > 0 {
-		if err := decodeBody(body, m.mediaType, m.body); err != nil {
+		if err := decodeBody(body, res.Header, m.body); err != nil {
 			return err
 		}
 	}
@@ -96,7 +99,7 @@ func DecodeSuccess(res *http.Response, body []byte, targets []ResponseTarget) er
 		apiErr := &APIError{StatusCode: res.StatusCode, Header: res.Header, Body: body}
 		m := match(res, targets)
 		if m.body != nil && len(body) > 0 {
-			if typed, ok := m.body.Dst.(error); ok && decodeBody(body, m.mediaType, m.body) == nil {
+			if typed, ok := m.body.Dst.(error); ok && decodeBody(body, res.Header, m.body) == nil {
 				apiErr.Err = typed
 			}
 		}
@@ -111,7 +114,7 @@ func DecodeSuccess(res *http.Response, body []byte, targets []ResponseTarget) er
 	case len(body) == 0:
 		return nil
 	case m.body != nil:
-		return decodeBody(body, m.mediaType, m.body)
+		return decodeBody(body, res.Header, m.body)
 	case m.isUntaken:
 		return runtime.ContentTypeError(m.mediaType)
 	}
@@ -194,13 +197,14 @@ func mediaRank(documented, actual string) int {
 	return 0
 }
 
-// decodeBody reads body into the Dst of t, a pointer, by the type of Dst and the media type.
-func decodeBody(body []byte, mediaType string, t *ResponseTarget) error {
+// decodeBody reads body into the Dst of t, a pointer, by the type of Dst and the media type in header.
+func decodeBody(body []byte, header http.Header, t *ResponseTarget) error {
 	target := reflect.ValueOf(t.Dst)
 	if target.Kind() != reflect.Pointer || target.IsNil() {
 		return fmt.Errorf("%w: the target must be a pointer", runtime.ErrParamValue)
 	}
 
+	mediaType := runtime.ContentType(header)
 	leaf := target.Type()
 	for leaf.Kind() == reflect.Pointer {
 		leaf = leaf.Elem()
@@ -218,8 +222,21 @@ func decodeBody(body []byte, mediaType string, t *ResponseTarget) error {
 		return nil
 	case mediaType == "application/x-www-form-urlencoded":
 		return runtime.DecodeForm(bytes.NewReader(body), t.Dst, false, nil)
+	case mediaType == "multipart/form-data" && leaf != anyType:
+		return runtime.DecodeMultipartBody(bytes.NewReader(body), header.Get("Content-Type"), t.Dst, nil)
+	case leaf == anyType && mediaType != "" && !runtime.IsJSON(mediaType):
+		allocate(target).Set(reflect.ValueOf(untyped(body, mediaType)))
+		return nil
 	}
 	return json.Unmarshal(body, t.Dst)
+}
+
+// untyped is body as a schema without a type holds it outside JSON: text under text/*, else bytes.
+func untyped(body []byte, mediaType string) any {
+	if strings.HasPrefix(mediaType, "text/") {
+		return string(body)
+	}
+	return body
 }
 
 // allocate follows v through pointers, making each nil one point at a new value, and returns what
