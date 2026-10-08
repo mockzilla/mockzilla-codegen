@@ -37,7 +37,7 @@ func optionalValue(n *yaml.Node) *spec.Value {
 	return new(value(n))
 }
 
-// value turns YAML-only numbers like 0x1F into JSON numbers; .inf and .nan stay strings.
+// value reads scalars by the YAML 1.2 core schema: 0x1F is a number, 1_000 and .inf are strings.
 func value(n *yaml.Node) spec.Value {
 	for n.Kind == yaml.AliasNode {
 		n = n.Alias
@@ -75,25 +75,39 @@ func scalar(n *yaml.Node) spec.Value {
 	return spec.Value{Kind: spec.KindString, Str: n.Value}
 }
 
+// intNumber reads YAML 1.2 ints; the parser also tags YAML 1.1 forms such as 0b1 and 1_0.
 func intNumber(s string) (json.Number, bool) {
 	if isJSONNumber(s) {
 		return json.Number(s), true
 	}
-	plain := strings.ReplaceAll(s, "_", "")
-	if i, err := strconv.ParseInt(plain, 0, 64); err == nil {
+	if digits, ok := strings.CutPrefix(s, "0o"); ok {
+		return uintNumber(digits, 8)
+	}
+	if digits, ok := strings.CutPrefix(s, "0x"); ok {
+		return uintNumber(digits, 16)
+	}
+	if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 		return json.Number(strconv.FormatInt(i, 10)), true
 	}
-	if u, err := strconv.ParseUint(strings.TrimPrefix(plain, "+"), 0, 64); err == nil {
-		return json.Number(strconv.FormatUint(u, 10)), true
-	}
 	return "", false
+}
+
+func uintNumber(digits string, base int) (json.Number, bool) {
+	u, err := strconv.ParseUint(digits, base, 64)
+	if err != nil {
+		return "", false
+	}
+	return json.Number(strconv.FormatUint(u, 10)), true
 }
 
 func floatNumber(s string) (json.Number, bool) {
 	if isJSONNumber(s) {
 		return json.Number(s), true
 	}
-	f, err := strconv.ParseFloat(strings.ReplaceAll(s, "_", ""), 64)
+	if strings.Contains(s, "_") {
+		return "", false
+	}
+	f, err := strconv.ParseFloat(s, 64)
 	if err != nil || math.IsInf(f, 0) || math.IsNaN(f) {
 		return "", false
 	}

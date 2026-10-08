@@ -52,6 +52,15 @@ func TestRunPassesUnchangedBytesThrough(t *testing.T) {
 	assert.Empty(t, out.Diagnostics)
 }
 
+func TestRunReadsSlashEscapesInJSON(t *testing.T) {
+	t.Parallel()
+
+	src := `{"openapi": "3.0.3", "info": {"title": "a\/b", "version": "1"}, "paths": {}}`
+	out, err := Run(context.Background(), libopenapi.New(), Input{Spec: []byte(src), Config: parseConfig(t, "{}", "")})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"openapi": "3.0.3", "info": {"title": "a/b", "version": "1"}, "paths": {}}`, string(out.Bytes))
+}
+
 func TestRunWritesYAMLForChangedJSON(t *testing.T) {
 	t.Parallel()
 

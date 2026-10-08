@@ -75,7 +75,8 @@ output:
 
 Blocks:
 
-- `spec`: the input spec and how to prepare it (overlays, filter, prune, simplify).
+- `spec`: the input spec and how to prepare it (overlays, filter, prune, simplify). A spec file
+  is JSON or YAML 1.2 and holds one document, so `1_000` is a string and `012` the number 12.
 - `models`, `server`, `client`, `mcp`: what to generate. Models are always on. The other blocks
   are on when present, even as a bare key (`mcp:`). `mcp` needs `client`.
 - `templates`, `user-context`: overrides of the template blocks a config may replace, and the

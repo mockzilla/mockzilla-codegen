@@ -7,7 +7,10 @@
 package oasdoc
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"slices"
 	"strconv"
 	"strings"
@@ -48,12 +51,16 @@ type cursor struct {
 
 // Parse reads a spec. file is only used in errors and positions.
 func Parse(data []byte, file string) (*Doc, error) {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
 	var n yaml.Node
-	if err := yaml.Unmarshal(data, &n); err != nil {
+	if err := dec.Decode(&n); err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%w: %s: %w", ErrParse, file, err)
 	}
 	if len(n.Content) == 0 || n.Content[0].Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("%w: %s", ErrNotObject, file)
+	}
+	if err := noMoreDocuments(dec, file); err != nil {
+		return nil, err
 	}
 
 	root := n.Content[0]
@@ -286,6 +293,22 @@ func (d *Doc) lookup(tokens []string) *yaml.Node {
 	return n
 }
 
+// noMoreDocuments fails on a second YAML document with content: an OpenAPI document is one object.
+func noMoreDocuments(dec *yaml.Decoder, file string) error {
+	for {
+		var n yaml.Node
+		err := dec.Decode(&n)
+		switch {
+		case errors.Is(err, io.EOF):
+			return nil
+		case err != nil:
+			return fmt.Errorf("%w: %s: %w", ErrParse, file, err)
+		case n.Content[0].ShortTag() != "!!null" || n.Content[0].Value != "":
+			return fmt.Errorf("%w: %s", ErrManyDocuments, file)
+		}
+	}
+}
+
 func blockStyle(n *yaml.Node) {
 	n.Style = 0
 	for _, c := range n.Content {
@@ -293,12 +316,10 @@ func blockStyle(n *yaml.Node) {
 	}
 }
 
-// quoteUnsafeBlocks double-quotes strings the emitter would write as a block scalar without the
-// indentation indicator they need: yaml.v4 rc.6 leaves it out when line breaks come first.
+// quoteUnsafeBlocks quotes strings that need an indentation indicator, which emitters write wrong.
 func quoteUnsafeBlocks(n *yaml.Node) {
 	if n.Kind == yaml.ScalarNode && n.Style&(yaml.DoubleQuotedStyle|yaml.SingleQuotedStyle) == 0 {
-		rest := strings.TrimLeft(n.Value, "\r\n")
-		if len(rest) < len(n.Value) && strings.HasPrefix(rest, " ") {
+		if strings.HasPrefix(strings.TrimLeft(n.Value, "\r\n"), " ") {
 			n.Style = n.Style&^(yaml.LiteralStyle|yaml.FoldedStyle) | yaml.DoubleQuotedStyle
 		}
 	}

@@ -305,7 +305,7 @@ func (b *bundler) source(loc string) (*source, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrLoad, err)
 	}
-	doc, err := oasdoc.Parse(data, loc)
+	doc, err := oasdoc.Parse(oasdoc.UnescapeSlashes(data), loc)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrLoad, err)
 	}

@@ -323,7 +323,7 @@ Components:
         Types: number
         Enum:
           - 31
-          - 1000
+          - "1_000"
           - 1.5
           - ".inf"
         Default: 10

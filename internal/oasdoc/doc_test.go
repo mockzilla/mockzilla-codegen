@@ -56,6 +56,11 @@ func TestParse(t *testing.T) {
 		{name: "Empty input", src: "", wantErr: ErrNotObject},
 		{name: "Scalar root", src: "hello\n", wantErr: ErrNotObject},
 		{name: "Sequence root", src: "- a\n", wantErr: ErrNotObject},
+		{name: "Document start marker", src: "---\nopenapi: 3.1.0\n"},
+		{name: "Empty documents after the first", src: "openapi: 3.1.0\n---\n--- # end\n"},
+		{name: "Second document", src: "openapi: 3.1.0\n---\nopenapi: 3.1.0\n", wantErr: ErrManyDocuments},
+		{name: "Second document after an empty one", src: "openapi: 3.1.0\n---\n---\nb: 1\n", wantErr: ErrManyDocuments},
+		{name: "Invalid second document", src: "openapi: 3.1.0\n---\n[b\n", wantErr: ErrParse},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -152,6 +157,11 @@ func TestMarshal(t *testing.T) {
 			name: "Block scalar with an indented line after empty lines is quoted",
 			src:  "info:\n  description: |2-\n\n     a\n    b\n  summary: >2\n\n     c\n",
 			want: "info:\n  description: \"\\n a\\nb\"\n  summary: \"\\n c\\n\"\n",
+		},
+		{
+			name: "Block scalar that starts with an indented line is quoted",
+			src:  "info:\n  description: |2-\n      a\n    b\n",
+			want: "info:\n  description: \"  a\\nb\"\n",
 		},
 		{
 			name: "JSON string with an indented line after a line break is quoted",

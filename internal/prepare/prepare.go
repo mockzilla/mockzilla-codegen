@@ -81,6 +81,7 @@ func (j *job) read(ctx context.Context, data []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
+	data = oasdoc.UnescapeSlashes(data)
 	return data, j.parse(data)
 }
 
