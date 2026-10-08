@@ -227,6 +227,8 @@ func decodeBody(body []byte, header http.Header, t *ResponseTarget) error {
 	case leaf == anyType && mediaType != "" && !runtime.IsJSON(mediaType):
 		allocate(target).Set(reflect.ValueOf(untyped(body, mediaType)))
 		return nil
+	case strings.HasPrefix(mediaType, "text/"):
+		return runtime.DecodeTextValue(bytes.NewReader(body), t.Dst, false)
 	}
 	return json.Unmarshal(body, t.Dst)
 }

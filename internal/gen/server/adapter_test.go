@@ -101,6 +101,26 @@ func TestBodyView(t *testing.T) {
 			want:    view(BodyView{Kind: "none", MediaType: `"text/csv"`}),
 		},
 		{
+			name:    "Text into a number is its text",
+			content: gomodel.Content{MediaType: "text/plain", Type: gomodel.Builtin{Name: "int"}},
+			want:    view(BodyView{Kind: "value", MediaType: `"text/plain"`, IsValue: true}),
+		},
+		{
+			name:    "Text into any is its text",
+			content: gomodel.Content{MediaType: "text/*", Type: gomodel.Builtin{Name: "any"}},
+			want:    view(BodyView{Kind: "value", MediaType: `"text/*"`, IsValue: true}),
+		},
+		{
+			name:    "The text range into a struct is taken in as it is",
+			content: gomodel.Content{MediaType: "text/*", Type: gomodel.DeclRef{Decl: pet}},
+			want:    view(BodyView{Kind: "none", MediaType: `"text/*"`}),
+		},
+		{
+			name:    "The multipart range fills a struct",
+			content: gomodel.Content{MediaType: "multipart/*", Type: gomodel.DeclRef{Decl: pet}},
+			want:    view(BodyView{Kind: "multipart", MediaType: `"multipart/*"`, IsMultipart: true, Type: "Pet", Encoding: "nil"}),
+		},
+		{
 			name:    "Bytes into a defined byte slice",
 			content: gomodel.Content{MediaType: "image/png", Type: gomodel.DeclRef{Decl: blob}},
 			want:    view(BodyView{Kind: "bytes", MediaType: `"image/png"`, IsBytes: true, Assign: "Blob(data)"}),
@@ -160,7 +180,10 @@ func TestHandlerViewBodies(t *testing.T) {
 			{MediaType: "application/json; charset=utf-8", Type: gomodel.DeclRef{Decl: pet}},
 			{MediaType: "text/json", Type: gomodel.DeclRef{Decl: pet}},
 			{MediaType: "*/*", Type: gomodel.DeclRef{Decl: pet}},
-			{MediaType: "application/*"},
+			{MediaType: "application/*+json", Type: gomodel.DeclRef{Decl: pet}},
+			{MediaType: "text/*"},
+			{MediaType: "Text/*"},
+			{MediaType: "image/*"},
 			{MediaType: ""},
 		},
 	}
@@ -178,5 +201,6 @@ func TestHandlerViewBodies(t *testing.T) {
 	}
 	assert.True(t, v.HasBody)
 	assert.Equal(t, []string{`"application/json" BodyJSON`, `"text/json" BodyTextJSON`}, fields(v.Bodies))
+	assert.Equal(t, []string{`"text/*" BodyText`, `"image/*" BodyImage`}, fields(v.Ranges))
 	assert.Equal(t, []string{`"*/*" BodyAny`}, fields(v.Wildcards))
 }

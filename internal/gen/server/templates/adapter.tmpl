@@ -142,11 +142,22 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 		{{$.Handler.Return}}
 {{- end}}
 	default:
+{{- if .Ranges}}
+		switch {{$.Runtime}}.MediaRange(contentType) {
+{{- range .Ranges}}
+		case {{.MediaType}}:
+{{- template "server/body.tmpl" .}}
+{{- end}}
+		default:
+{{- end}}
 {{- range .Wildcards}}
 {{- template "server/body.tmpl" .}}
 {{- else}}
 		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorDecode, OperationID: {{.ID}}, Status: {{$.HTTP}}.StatusUnsupportedMediaType, Err: {{$.Runtime}}.ContentTypeError(contentType)})
 		{{$.Handler.Return}}
+{{- end}}
+{{- if .Ranges}}
+		}
 {{- end}}
 	}
 {{- end}}

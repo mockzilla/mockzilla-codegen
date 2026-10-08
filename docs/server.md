@@ -161,7 +161,9 @@ mux.HandleFunc("GET /pets", adapter.ListPets)
 - A body arrives in a media type the operation documents: JSON (`application/json` and `+json`)
   through the JSON decoder, `application/x-www-form-urlencoded` through `DecodeForm`,
   `multipart/form-data` into a struct or a union with `DecodeMultipart`, and any other media type
-  into a `runtime.File`, a string or bytes, whichever its field is. A `runtime.File`
+  into a `runtime.File`, a string or bytes, whichever its field is. A text media type also reads
+  a number, a boolean, a time or an `any` from its text, with `DecodeTextValue`, the way the
+  server writes them. A `runtime.File`
   (`format: binary`) streams the body: the service reads it once, before it returns. A documented
   media type that does not fit its type, such as XML into a struct, is accepted and left to
   `RawRequest`, and the generator warns about it (`server-body-unread`). Content under an empty
@@ -171,17 +173,18 @@ mux.HandleFunc("GET /pets", adapter.ListPets)
   text that is no JSON is a 400. A list of a multipart form is read from one part per item or
   from one part that holds the whole list as JSON. A part sent as a file, as browsers send a
   Blob, is read as the text of a property that holds no file.
-- Media types are matched without their parameters and in lower case. A wildcard such as `*/*`
-  takes every media type the operation does not name, as JSON unless its field is a file, a
-  string or bytes. Without a wildcard, a media type the operation does not document is answered
-  with 415.
+- Media types are matched without their parameters and in lower case. A range of one type, such
+  as `text/*`, takes the media types of that type the operation does not name, read as its
+  member: `text/*` as `text/plain`, `multipart/*` as `multipart/form-data`. `*/*`, or another key
+  with a `*` such as `application/*+json`, takes every media type left, as JSON unless its field
+  is a file, a string or bytes. A media type nothing takes is answered with 415.
 - A required body that is missing is a 400; a missing optional body leaves its field nil.
 - A service that returns an error type of the spec (see `models.error-mapping`), as a value, a
   pointer or wrapped, is answered with the status and the media type of the first response that
-  carries the type and the error as the body: the adapter sets the `Content-Type` before it calls
-  the error handler. An error that wraps `context.DeadlineExceeded`, as a service that gave up on a
-  request whose context ran out returns, is a 503. Any other error is a 500 whose message does not
-  reach the client.
+  carries the type and the error as the body, as JSON under a range: the adapter sets the
+  `Content-Type` before it calls the error handler. An error that wraps
+  `context.DeadlineExceeded`, as a service that gave up on a request whose context ran out
+  returns, is a 503. Any other error is a 500 whose message does not reach the client.
 - A service that returns nil for both values is a 500 with `ErrNoResponse`.
 - The response is written with its status, headers and content type, the body by its media type:
   JSON as JSON, a string too; a form as url-encoded values; `multipart/form-data` as a form of the

@@ -106,6 +106,11 @@ func TestBodyView(t *testing.T) {
 		{name: "A wildcard sends bytes as bytes", content: gomodel.Content{MediaType: "*/*"}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "BytesBody", Value: "opts.Body", MediaType: `"application/octet-stream"`}},
 		{name: "A wildcard streams a file under its own type", content: gomodel.Content{MediaType: "*/*", Type: fileType}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FileBody", Value: "*opts.Body", MediaType: `""`}},
 		{name: "A wildcard streams a file under an alias", content: gomodel.Content{MediaType: "*/*", Type: image}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FileBody", Value: "*opts.Body", MediaType: `""`}},
+		{name: "A number as its text", content: gomodel.Content{MediaType: "text/plain", Type: gomodel.Pointer{Elem: gomodel.Builtin{Name: "int"}}}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "TextValueBody", Value: "opts.Body", MediaType: `"text/plain"`}},
+		{name: "The text range sends bytes as text", content: gomodel.Content{MediaType: "text/*", Type: bytesType}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "BytesBody", Value: "opts.Body", MediaType: `"text/plain"`}},
+		{name: "The text range streams a file under its own type", content: gomodel.Content{MediaType: "text/*", Type: fileType}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FileBody", Value: "*opts.Body", MediaType: `""`}},
+		{name: "The text range cannot send a struct", content: gomodel.Content{MediaType: "text/*", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Value: "opts.Body", MediaType: `"text/plain"`}},
+		{name: "The multipart range sends a struct as a form", content: gomodel.Content{MediaType: "multipart/*", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "MultipartBody", Value: "opts.Body", Encoding: "nil"}},
 		{name: "XML into a struct cannot be sent", content: gomodel.Content{MediaType: "application/xml", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Value: "opts.Body", MediaType: `"application/xml"`}},
 	}
 

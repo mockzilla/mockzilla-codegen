@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -126,6 +127,33 @@ func TestDecodeFormResponse(t *testing.T) {
 	require.NoError(t, DecodeResponse(response(200, "application/x-www-form-urlencoded", nil), []byte("R=1&G=2"), targets))
 	assert.Equal(t, &rgb{R: 1, G: 2}, got)
 	require.Error(t, DecodeResponse(response(200, "application/x-www-form-urlencoded", nil), []byte("R=%zz"), targets))
+}
+
+func TestDecodeTextResponse(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		mediaType string
+		body      string
+		dst       any
+		want      any
+	}{
+		{name: "A number", mediaType: "text/plain", body: "3", dst: new(*int), want: new(new(3))},
+		{name: "A time by its text", mediaType: "text/plain", body: "2026-01-02T03:04:05Z", dst: new(time.Time), want: new(time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC))},
+		{name: "A boolean under a range", mediaType: "text/*", body: "true", dst: new(bool), want: new(true)},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := DecodeSuccess(response(200, "text/plain", nil), []byte(tc.body), []ResponseTarget{{Status: "200", MediaType: tc.mediaType, Dst: tc.dst}})
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, tc.dst)
+		})
+	}
 }
 
 func TestDecodeMultipartResponse(t *testing.T) {

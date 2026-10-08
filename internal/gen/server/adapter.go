@@ -26,6 +26,7 @@ const (
 	bodyForm      = "form"
 	bodyMultipart = "multipart"
 	bodyText      = "text"
+	bodyValue     = "value"
 	bodyBytes     = "bytes"
 	bodyFile      = "file"
 	bodyNone      = "none"
@@ -73,7 +74,8 @@ type AdapterView struct {
 }
 
 // HandlerView is one handler method. ID is the operation name as a string literal. Bodies are
-// the media types the handler tells apart, each once and never an empty one; Wildcards holds the
+// the media types the handler tells apart, each once and never an empty one; Ranges are the
+// ranges of one type, such as text/*, that take the media types inside them; Wildcards holds the
 // body that takes any other media type, when the operation documents one such as */*.
 type HandlerView struct {
 	Name           string
@@ -86,6 +88,7 @@ type HandlerView struct {
 	QueryString    *ParamView
 	HasBody        bool
 	Bodies         []BodyView
+	Ranges         []BodyView
 	Wildcards      []BodyView
 	IsBodyRequired bool
 	Errors         []TypedErrorView
@@ -129,6 +132,7 @@ type BodyView struct {
 	IsForm          bool
 	IsMultipart     bool
 	IsText          bool
+	IsValue         bool
 	IsBytes         bool
 	IsFile          bool
 	IsRequired      bool
@@ -229,14 +233,16 @@ func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope, table *pr
 	seen := []string{""}
 	for i, c := range op.Bodies {
 		mediaType := operation.BaseMediaType(c.MediaType)
-		isWildcard := strings.Contains(mediaType, "*")
 		switch {
-		case isWildcard && len(v.Wildcards) == 0:
-			v.Wildcards = append(v.Wildcards, bodyView(c, fields[i], at))
-		case !isWildcard && !slices.Contains(seen, mediaType):
-			seen = append(seen, mediaType)
+		case slices.Contains(seen, mediaType):
+		case isTypeRange(mediaType):
+			v.Ranges = append(v.Ranges, bodyView(c, fields[i], at))
+		case !strings.Contains(mediaType, "*"):
 			v.Bodies = append(v.Bodies, bodyView(c, fields[i], at))
+		case len(v.Wildcards) == 0:
+			v.Wildcards = append(v.Wildcards, bodyView(c, fields[i], at))
 		}
+		seen = append(seen, mediaType)
 	}
 	v.HasBody = len(op.Bodies) > 0
 	v.Errors = typedErrors(op, s)
@@ -314,6 +320,8 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 		v.IsFile, v.Assign = true, convert("file", conversion{raw: fileType, target: base, isPointer: isPointer}, s)
 	case bodyText:
 		v.IsText, v.Assign = true, convert("text", conversion{raw: stringType, target: base, isPointer: isPointer}, s)
+	case bodyValue:
+		v.IsValue = true
 	case bodyBytes:
 		v.IsBytes, v.Assign = true, convert("data", conversion{raw: bytesType, target: base, isPointer: isPointer}, s)
 	}
@@ -330,10 +338,11 @@ func encodingOf(c gomodel.Content, runtimePkg string) (string, string) {
 
 // bodyKind picks the decoder of a media type by the type of its field: JSON and forms decode into
 // anything, multipart into a struct or a union that reads forms, any other media type into a file,
-// a string or bytes. A wildcard media type into anything else decodes as JSON. Other pairs are
-// taken in but not decoded: bodyNone.
+// a string or bytes, and text into a value such as a number. A range reads as its member, text/*
+// as text/plain; another wildcard media type decodes as JSON. Other pairs are taken in but not
+// decoded: bodyNone.
 func bodyKind(c gomodel.Content) string {
-	mediaType := operation.BaseMediaType(c.MediaType)
+	mediaType := operation.Concrete(c.MediaType)
 	t := operation.BodyType(c)
 	_, isPointer := t.(gomodel.Pointer)
 	under := gomodel.Underlying(gomodel.Elem(t))
@@ -352,8 +361,16 @@ func bodyKind(c gomodel.Content) string {
 		return bodyText
 	case isBytes:
 		return bodyBytes
+	case strings.HasPrefix(mediaType, "text/") && operation.IsTextValue(under):
+		return bodyValue
 	}
 	return bodyNone
+}
+
+// isTypeRange reports a media range of one type, such as text/*, which takes the subtypes of its type.
+func isTypeRange(mediaType string) bool {
+	typ, subtype, _ := strings.Cut(mediaType, "/")
+	return subtype == "*" && typ != "*"
 }
 
 // convert writes value, of the raw type, as the target type of a body field: converted when the
@@ -383,9 +400,17 @@ func typedErrors(op *gomodel.Operation, s *gocode.Scope) []TypedErrorView {
 			out = append(out, TypedErrorView{
 				Type:      s.Expr(gomodel.DeclRef{Decl: d}),
 				Status:    operation.StatusOf(r.Status),
-				MediaType: gocode.Quote(c.MediaType),
+				MediaType: gocode.Quote(errorMediaType(c.MediaType)),
 			})
 		}
 	}
 	return out
+}
+
+// errorMediaType is the media type an error type answers with: the documented one, JSON under a range.
+func errorMediaType(mediaType string) string {
+	if strings.Contains(mediaType, "*") {
+		return "application/json"
+	}
+	return mediaType
 }

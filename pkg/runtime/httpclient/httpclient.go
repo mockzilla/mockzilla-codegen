@@ -189,6 +189,15 @@ func (b *RequestBuilder) TextBody(s, mediaType string) {
 	b.setBody([]byte(s), mediaType, nil)
 }
 
+// TextValueBody sends v, a number, a boolean or a value that marshals to text, as its text under mediaType.
+func (b *RequestBuilder) TextValueBody(v any, mediaType string) {
+	if b.err != nil {
+		return
+	}
+	text, err := runtime.EncodeText(v)
+	b.setBody([]byte(text), mediaType, err)
+}
+
 // BytesBody sends data as it is under mediaType.
 func (b *RequestBuilder) BytesBody(data []byte, mediaType string) {
 	b.setBody(data, mediaType, nil)

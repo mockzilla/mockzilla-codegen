@@ -241,6 +241,7 @@ func TestRequestBuilder(t *testing.T) {
 				b.MultipartBody(color, nil)
 				b.FileBody(runtime.NewFile(nil, "a", ""), "")
 				b.TextBody("x", "text/plain")
+				b.TextValueBody(1, "text/plain")
 			},
 			wantErr: runtime.ErrParamValue,
 		},
@@ -344,6 +345,18 @@ func TestRequestBuilder(t *testing.T) {
 			wantHeader: http.Header{"Content-Type": {"text/plain"}},
 			wantBody:   "hello",
 			wantLength: 5,
+		},
+		{
+			name:       "A number as its text",
+			build:      func(b *RequestBuilder) { b.TextValueBody(new(3), "text/plain") },
+			wantHeader: http.Header{"Content-Type": {"text/plain"}},
+			wantBody:   "3",
+			wantLength: 1,
+		},
+		{
+			name:    "A text body that is no text",
+			build:   func(b *RequestBuilder) { b.TextValueBody(color, "text/plain") },
+			wantErr: runtime.ErrContentType,
 		},
 		{
 			name:       "A bytes body",

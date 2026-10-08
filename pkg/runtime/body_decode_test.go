@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -144,6 +145,13 @@ func TestIsSequential(t *testing.T) {
 	assert.True(t, IsSequential("Text/Event-Stream; charset=utf-8"))
 	assert.False(t, IsSequential("application/json"))
 	assert.False(t, IsSequential("application/stream+json"))
+}
+
+func TestMediaRange(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "text/*", MediaRange("text/csv"))
+	assert.Equal(t, "image/*", MediaRange("image/png"))
 }
 
 func TestContentTypeError(t *testing.T) {
@@ -568,6 +576,43 @@ func TestDecodeTextAndBytes(t *testing.T) {
 	assert.Nil(t, data)
 	_, err = DecodeBytes(strings.NewReader(""), true)
 	require.ErrorIs(t, err, ErrBodyEmpty)
+}
+
+func TestDecodeTextValue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		body       string
+		dst        any
+		isRequired bool
+		want       any
+		wantErr    error
+	}{
+		{name: "A number", body: "3", dst: new(*int), want: new(new(3))},
+		{name: "A boolean", body: "true", dst: new(bool), want: new(true)},
+		{name: "A time by its text", body: "2026-01-02T03:04:05Z", dst: new(time.Time), want: new(time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC))},
+		{name: "Any holds the text", body: "3", dst: new(any), want: new(any("3"))},
+		{name: "An empty body leaves the value", dst: new(int), want: new(0)},
+		{name: "An empty required body", dst: new(int), isRequired: true, wantErr: ErrBodyEmpty},
+		{name: "Text that is no number", body: "three", dst: new(int), wantErr: ErrBodyValue},
+		{name: "No pointer", body: "3", dst: 3, wantErr: ErrParamValue},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := DecodeTextValue(strings.NewReader(tc.body), tc.dst, tc.isRequired)
+
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, tc.dst)
+		})
+	}
 }
 
 func TestDecodeFile(t *testing.T) {

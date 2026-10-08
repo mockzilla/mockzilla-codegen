@@ -137,15 +137,17 @@ func envelopeFields(g *Generator, op *gomodel.Operation) []envelopeField {
 	return out
 }
 
-// isDecodable reports JSON, a form or a wildcard into anything, multipart into a struct, else text, bytes or a file.
+// isDecodable reports JSON, a form or a wildcard into anything, multipart into a struct, text into a value, else a string, bytes or a file.
 func isDecodable(c gomodel.Content) bool {
-	mediaType := operation.BaseMediaType(c.MediaType)
-	if runtime.IsJSON(mediaType) || mediaType == "application/x-www-form-urlencoded" || strings.Contains(mediaType, "*") {
-		return true
-	}
-	if mediaType == "multipart/form-data" && gomodel.StructDecl(operation.BodyType(c)) != nil {
-		return true
-	}
+	mediaType := operation.Concrete(c.MediaType)
 	t := gomodel.Underlying(gomodel.Elem(operation.BodyType(c)))
+	switch {
+	case runtime.IsJSON(mediaType), mediaType == "application/x-www-form-urlencoded", strings.Contains(mediaType, "*"):
+		return true
+	case mediaType == "multipart/form-data" && gomodel.StructDecl(operation.BodyType(c)) != nil:
+		return true
+	case strings.HasPrefix(mediaType, "text/") && operation.IsTextValue(t):
+		return true
+	}
 	return t == stringType || t == bytesType || t == anyType || t == fileType
 }
