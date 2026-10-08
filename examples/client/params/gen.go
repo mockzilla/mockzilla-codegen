@@ -4,6 +4,7 @@ package params
 
 import (
 	"context"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"slices"
@@ -16,6 +17,11 @@ import (
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV1
+
+type Range struct {
+	Gte *int `json:"gte,omitempty"`
+	Lt  *int `json:"lt,omitempty"`
+}
 
 type Point struct {
 	X *int `json:"x,omitempty"`
@@ -81,6 +87,62 @@ func (q *QueryStylesQueryID) UnmarshalText(text []byte) error {
 func (q QueryStylesQueryID) Validate() error {
 	var errs validation.Errors
 	errs.Append("", validation.ExactlyOne(q.Int != nil, q.String != nil))
+	return errs.Err()
+}
+
+// QueryStylesQueryCreated is any of Range or Int.
+type QueryStylesQueryCreated struct {
+	Range *Range `json:"-"`
+	Int   *int   `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged.
+func (q QueryStylesQueryCreated) MarshalJSON() ([]byte, error) {
+	var set []any
+	if q.Range != nil {
+		set = append(set, q.Range)
+	}
+	if q.Int != nil {
+		set = append(set, q.Int)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets every variant data matches.
+func (q *QueryStylesQueryCreated) UnmarshalJSON(data []byte) error {
+	*q = QueryStylesQueryCreated{}
+	return runtime.UnmarshalUnion(data, q.union())
+}
+
+// UnmarshalForm sets every variant the form matches.
+func (q *QueryStylesQueryCreated) UnmarshalForm(form *multipart.Form) error {
+	*q = QueryStylesQueryCreated{}
+	return runtime.UnmarshalUnionForm(form, nil, q.union())
+}
+
+func (q *QueryStylesQueryCreated) union() runtime.Union {
+	return runtime.Union{
+		IsAnyOf: true,
+		Variants: []runtime.Variant{
+			{
+				Name:  "Range",
+				Kind:  runtime.KindObject,
+				Known: []string{"gte", "lt"},
+				Into:  runtime.Into(&q.Range),
+			},
+			{
+				Name: "Int",
+				Kind: runtime.KindInteger,
+				Into: runtime.Into(&q.Int),
+			},
+		},
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (q QueryStylesQueryCreated) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.AtLeastOne(q.Range != nil, q.Int != nil))
 	return errs.Err()
 }
 
@@ -166,6 +228,7 @@ type QueryStylesQuery struct {
 	Filter  *Filter                  `json:"filter,omitempty"`
 	Queries *QueryStylesQueryQueries `json:"queries,omitempty"`
 	ID      *QueryStylesQueryID      `json:"id,omitempty"`
+	Created *QueryStylesQueryCreated `json:"created,omitempty"`
 	IDs     *string                  `json:"ids,omitempty"`
 	Needed  string                   `json:"needed"`
 }
@@ -175,6 +238,9 @@ func (q QueryStylesQuery) Validate() error {
 	var errs validation.Errors
 	if q.ID != nil {
 		errs.Append("id", q.ID.Validate())
+	}
+	if q.Created != nil {
+		errs.Append("created", q.Created.Validate())
 	}
 	return errs.Err()
 }
@@ -431,6 +497,7 @@ func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesReques
 		b.QueryParam(opts.Query.Filter, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.Queries, runtime.Param{Name: "queries", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.ID, runtime.Param{Name: "id", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
+		b.QueryParam(opts.Query.Created, runtime.Param{Name: "created", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.IDs, runtime.Param{Name: "ids", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false, IsReserved: true})
 		b.QueryParam(opts.Query.Needed, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
 	}

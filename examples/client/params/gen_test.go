@@ -85,6 +85,16 @@ func TestQueryStyles(t *testing.T) {
 			want:  "id=a7&needed=yes",
 		},
 		{
+			name:  "A deepObject union writes an object variant under brackets",
+			query: &QueryStylesQuery{Created: &QueryStylesQueryCreated{Range: &Range{Gte: new(1), Lt: new(2)}}, Needed: "yes"},
+			want:  "created%5Bgte%5D=1&created%5Blt%5D=2&needed=yes",
+		},
+		{
+			name:  "A deepObject union writes one value under its name",
+			query: &QueryStylesQuery{Created: &QueryStylesQueryCreated{Int: new(5)}, Needed: "yes"},
+			want:  "created=5&needed=yes",
+		},
+		{
 			name:  "A space and a comma inside an item are escaped, reserved characters kept where allowed",
 			query: &QueryStylesQuery{Csv: []string{"a b", "c,d"}, IDs: new("List(1,2)"), Needed: "x y"},
 			want:  "csv=a%20b,c%2Cd&ids=List(1,2)&needed=x%20y",

@@ -52,6 +52,10 @@ func TestParamIssue(t *testing.T) {
 			want:  "is or holds a union of more than scalars",
 		},
 		{
+			name:  "A deep object union with an object variant",
+			param: spec.Parameter{In: spec.InQuery, Style: "deepObject", Schema: &spec.Schema{AnyOf: []*spec.Schema{pointSchema, textSchema}}},
+		},
+		{
 			name:  "A style the location does not allow comes before the shape",
 			param: spec.Parameter{In: spec.InQuery, Style: "label", Schema: &spec.Schema{Types: spec.TypeArray, Items: textList}},
 			want:  "has style label, which OpenAPI allows only in path parameters",

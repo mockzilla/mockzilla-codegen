@@ -26,6 +26,7 @@ paths:
         - {name: flat, in: query, explode: false, schema: {$ref: '#/components/schemas/Point'}}
         - {name: json, in: query, content: {application/json: {schema: {$ref: '#/components/schemas/Point'}}}}
         - {name: id, in: query, schema: {oneOf: [{type: integer}, {type: string}]}}
+        - {name: created, in: query, style: deepObject, schema: {anyOf: [{$ref: '#/components/schemas/Range'}, {type: integer}]}}
         - {name: needed, in: query, required: true, schema: {type: string}}
         - {name: limit, in: query, schema: {type: integer, default: 20}}
       responses:
@@ -77,6 +78,11 @@ paths:
             application/json: {schema: {$ref: '#/components/schemas/Echo'}}
 components:
   schemas:
+    Range:
+      type: object
+      properties:
+        gte: {type: integer}
+        lt: {type: integer}
     Point:
       type: object
       properties:
