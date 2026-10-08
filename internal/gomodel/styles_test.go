@@ -98,10 +98,10 @@ func TestParamIssue(t *testing.T) {
 		{name: "A deep object nests objects and lists", param: spec.Parameter{In: spec.InQuery, Style: "deepObject", Schema: objectOf("size", objectOf("tags", textList))}},
 		{name: "A deep object that refers to itself", param: spec.Parameter{In: spec.InQuery, Style: "deepObject", Schema: node}},
 		{
-			name:  "A deep object holds no list of objects at any depth",
+			name:  "A deep object holds a list of objects at any depth",
 			param: spec.Parameter{In: spec.InQuery, Style: "deepObject", Schema: objectOf("size", objectOf("points", &spec.Schema{Types: spec.TypeArray, Items: pointSchema}))},
-			want:  `holds a list of objects in property "points", which OpenAPI leaves to the implementation`,
 		},
+		{name: "A deep object of a list of lists", param: spec.Parameter{In: spec.InQuery, Style: "deepObject", Schema: &spec.Schema{Types: spec.TypeArray, Items: textList}}},
 		{name: "A schema with no type is not looked into", param: spec.Parameter{In: spec.InQuery, Style: "deepObject", Schema: &spec.Schema{}}},
 	}
 
@@ -162,6 +162,8 @@ func TestStyleIssue(t *testing.T) {
 		{name: "Pipe delimited object", param: spec.Parameter{In: spec.InQuery, Style: "pipeDelimited"}, shape: paramObject},
 		{name: "Deep object, its explode of no effect", param: spec.Parameter{In: spec.InQuery, Style: "deepObject"}, shape: paramObject},
 		{name: "Deep object of a type not looked into", param: spec.Parameter{In: spec.InQuery, Style: "deepObject"}, shape: paramUnknown},
+		{name: "Deep object of a list, by the bracket convention", param: spec.Parameter{In: spec.InQuery, Style: "deepObject"}, shape: paramList},
+		{name: "Deep object of a value, by the bracket convention", param: spec.Parameter{In: spec.InQuery, Style: "deepObject", Explode: true}, shape: paramValue},
 		{name: "Form cookie value, exploded", param: spec.Parameter{In: spec.InCookie, Style: "form", Explode: true}, shape: paramValue},
 		{name: "Form cookie list, not exploded", param: spec.Parameter{In: spec.InCookie, Style: "form"}, shape: paramList},
 		{name: "Cookie style list, exploded", param: spec.Parameter{In: spec.InCookie, Style: "cookie", Explode: true}, shape: paramList},
@@ -203,18 +205,6 @@ func TestStyleIssue(t *testing.T) {
 			want:  "has style pipeDelimited with explode true, which OpenAPI does not define",
 		},
 		{
-			name:  "Deep object of a list",
-			param: spec.Parameter{In: spec.InQuery, Style: "deepObject"},
-			shape: paramList,
-			want:  "has style deepObject, which OpenAPI defines for an object only",
-		},
-		{
-			name:  "Deep object of a value",
-			param: spec.Parameter{In: spec.InQuery, Style: "deepObject", Explode: true},
-			shape: paramValue,
-			want:  "has style deepObject, which OpenAPI defines for an object only",
-		},
-		{
 			name:  "Form cookie object, exploded",
 			param: spec.Parameter{In: spec.InCookie, Style: "form", Explode: true},
 			shape: paramObject,
@@ -227,6 +217,41 @@ func TestStyleIssue(t *testing.T) {
 			t.Parallel()
 
 			assert.Equal(t, tc.want, styleIssue(&tc.param, tc.shape))
+		})
+	}
+}
+
+func TestDeepUndefined(t *testing.T) {
+	t.Parallel()
+
+	looped := &spec.Schema{}
+	looped.AnyOf = []*spec.Schema{looped, pointSchema}
+	scalars := &spec.Schema{OneOf: []*spec.Schema{textSchema, {Types: spec.TypeInteger}}}
+	tests := []struct {
+		name   string
+		schema *spec.Schema
+		want   bool
+	}{
+		{name: "One value", schema: textSchema, want: true},
+		{name: "A list", schema: textList, want: true},
+		{name: "An object of scalars", schema: pointSchema},
+		{name: "A map of scalars", schema: &spec.Schema{Types: spec.TypeObject, AdditionalProperties: spec.Additional{Mode: spec.AdditionalSchema, Schema: textSchema}}},
+		{name: "An object holding a union of scalars", schema: objectOf("id", scalars)},
+		{name: "An object holding a list", schema: objectOf("tags", textList), want: true},
+		{name: "An object holding an object", schema: objectOf("size", pointSchema), want: true},
+		{name: "An object holding a union with a list", schema: objectOf("tags", &spec.Schema{AnyOf: []*spec.Schema{textList, textSchema}}), want: true},
+		{name: "A union of an object of scalars and a value", schema: &spec.Schema{AnyOf: []*spec.Schema{pointSchema, textSchema}}, want: true},
+		{name: "A union of objects of scalars", schema: &spec.Schema{AnyOf: []*spec.Schema{pointSchema, objectOf("y", textSchema)}}},
+		{name: "A union with an object holding a list", schema: &spec.Schema{AnyOf: []*spec.Schema{objectOf("tags", textList), pointSchema}}, want: true},
+		{name: "A union that holds itself", schema: &spec.Schema{AnyOf: []*spec.Schema{pointSchema, looped}}},
+		{name: "No type", schema: &spec.Schema{}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, styleCollector().deepUndefined(tc.schema, map[*spec.Schema]bool{}))
 		})
 	}
 }

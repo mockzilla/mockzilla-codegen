@@ -53,9 +53,12 @@ func (a assigner) assign(dst reflect.Value, v any) error {
 		return nil
 	default:
 	}
-	if nested, isNested := v.(map[string]any); isNested && dst.CanAddr() {
-		if u, ok := dst.Addr().Interface().(FormUnmarshaler); ok {
+	if u, ok := formUnmarshalerOf(dst); ok {
+		switch nested := v.(type) {
+		case map[string]any:
 			return u.UnmarshalForm(&multipart.Form{Value: formValues(nested)})
+		case []any:
+			return u.UnmarshalForm(&multipart.Form{Value: formValues(indexed(nested))})
 		}
 	}
 
@@ -250,6 +253,25 @@ func (a assigner) loose(s string) any {
 		}
 	}
 	return s
+}
+
+// formUnmarshalerOf is dst as a FormUnmarshaler, when it is one.
+func formUnmarshalerOf(dst reflect.Value) (FormUnmarshaler, bool) {
+	var u FormUnmarshaler
+	ok := dst.CanAddr() && reflect.PointerTo(dst.Type()).Implements(formUnmarshaler)
+	if ok {
+		u, _ = dst.Addr().Interface().(FormUnmarshaler)
+	}
+	return u, ok
+}
+
+// indexed is items as an object with the keys 0, 1, 2, as bracketed form keys write a list.
+func indexed(items []any) map[string]any {
+	out := make(map[string]any, len(items))
+	for i, item := range items {
+		out[strconv.Itoa(i)] = item
+	}
+	return out
 }
 
 // invalid wraps an error of the assigner in kind, ErrParamValue or ErrBodyValue; nil stays nil.

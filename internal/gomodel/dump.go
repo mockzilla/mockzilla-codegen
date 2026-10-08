@@ -350,7 +350,7 @@ func dumpOperation(b *strings.Builder, op *Operation) {
 			b.WriteString(" checks=" + bodyText(c.Body))
 		}
 		for _, name := range slices.Sorted(maps.Keys(c.Encoding)) {
-			b.WriteString(" encoding=" + name + ":" + c.Encoding[name])
+			b.WriteString(" encoding=" + name + ":" + encodingText(c.Encoding[name]))
 		}
 		b.WriteString("\n")
 	}
@@ -409,6 +409,21 @@ func valueLiteral(v spec.Value) string {
 		return strconv.Quote(v.Str)
 	}
 	return valueText(v)
+}
+
+// encodingText writes e as its content type, else its style with explode and reserved when set.
+func encodingText(e Encoding) string {
+	if e.Style == "" {
+		return e.ContentType
+	}
+	out := e.Style
+	if e.IsExplode {
+		out += ",explode"
+	}
+	if e.IsReserved {
+		out += ",reserved"
+	}
+	return out
 }
 
 // itemText is the frame type of a sequential media type, after its body type.

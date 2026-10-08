@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"slices"
@@ -20,6 +21,31 @@ import (
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV1
+
+type Customer struct {
+	Address   *CustomerAddress    `json:"address,omitempty"`
+	Expand    []string            `json:"expand,omitzero"`
+	Items     []CustomerItemsItem `json:"items,omitzero"`
+	ReturnURL *CustomerReturnURL  `json:"returnUrl,omitempty"`
+	Tags      []string            `json:"tags,omitzero"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c Customer) Validate() error {
+	var errs validation.Errors
+	if c.Address != nil {
+		errs.Append("address", c.Address.Validate())
+	}
+	if c.ReturnURL != nil {
+		errs.Append("returnUrl", c.ReturnURL.Validate())
+	}
+	return errs.Err()
+}
+
+type CustomerItemsItem struct {
+	Price    string `json:"price"`
+	Quantity *int   `json:"quantity,omitempty"`
+}
 
 type Parcel struct {
 	ID    string        `json:"id"`
@@ -61,6 +87,170 @@ type Problem struct {
 	Title *string `json:"title,omitempty"`
 }
 
+type CustomerAddressOption2 string
+
+const (
+	CustomerAddressOption2Empty CustomerAddressOption2 = ""
+)
+
+// CustomerAddressOption2Values returns the values of CustomerAddressOption2.
+func CustomerAddressOption2Values() []CustomerAddressOption2 {
+	return []CustomerAddressOption2{
+		CustomerAddressOption2Empty,
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c CustomerAddressOption2) Validate() error {
+	return validation.Enum(c, CustomerAddressOption2Empty)
+}
+
+type CustomerReturnURLOption2 string
+
+const (
+	CustomerReturnURLOption2Empty CustomerReturnURLOption2 = ""
+)
+
+// CustomerReturnURLOption2Values returns the values of CustomerReturnURLOption2.
+func CustomerReturnURLOption2Values() []CustomerReturnURLOption2 {
+	return []CustomerReturnURLOption2{
+		CustomerReturnURLOption2Empty,
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c CustomerReturnURLOption2) Validate() error {
+	return validation.Enum(c, CustomerReturnURLOption2Empty)
+}
+
+// CustomerAddress is any of Address or Option2.
+type CustomerAddress struct {
+	Address *Address                `json:"-"`
+	Option2 *CustomerAddressOption2 `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged.
+func (c CustomerAddress) MarshalJSON() ([]byte, error) {
+	var set []any
+	if c.Address != nil {
+		set = append(set, c.Address)
+	}
+	if c.Option2 != nil {
+		set = append(set, c.Option2)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets every variant data matches.
+func (c *CustomerAddress) UnmarshalJSON(data []byte) error {
+	*c = CustomerAddress{}
+	return runtime.UnmarshalUnion(data, c.union())
+}
+
+// UnmarshalForm sets every variant the form matches.
+func (c *CustomerAddress) UnmarshalForm(form *multipart.Form) error {
+	*c = CustomerAddress{}
+	return runtime.UnmarshalUnionForm(form, nil, c.union())
+}
+
+func (c *CustomerAddress) union() runtime.Union {
+	return runtime.Union{
+		IsAnyOf: true,
+		Variants: []runtime.Variant{
+			{
+				Name:     "Address",
+				Kind:     runtime.KindObject,
+				Required: []string{"city"},
+				Known:    []string{"city", "zip"},
+				Into:     runtime.Into(&c.Address),
+			},
+			{
+				Name: "Option2",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&c.Option2),
+			},
+		},
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c CustomerAddress) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.AtLeastOne(c.Address != nil, c.Option2 != nil))
+	var errsOption2 validation.Errors
+	if c.Option2 != nil {
+		errsOption2.Append("", c.Option2.Validate())
+	}
+	errs.Append("", validation.AnyValid(
+		validation.VariantErrors{IsSet: c.Address != nil},
+		validation.VariantErrors{IsSet: c.Option2 != nil, Errs: errsOption2},
+	))
+	return errs.Err()
+}
+
+// CustomerReturnURL is any of String or Option2.
+type CustomerReturnURL struct {
+	String  *string                   `json:"-"`
+	Option2 *CustomerReturnURLOption2 `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged.
+func (c CustomerReturnURL) MarshalJSON() ([]byte, error) {
+	var set []any
+	if c.String != nil {
+		set = append(set, c.String)
+	}
+	if c.Option2 != nil {
+		set = append(set, c.Option2)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets every variant data matches.
+func (c *CustomerReturnURL) UnmarshalJSON(data []byte) error {
+	*c = CustomerReturnURL{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		IsAnyOf: true,
+		Variants: []runtime.Variant{
+			{
+				Name: "String",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&c.String),
+			},
+			{
+				Name: "Option2",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&c.Option2),
+			},
+		},
+	})
+}
+
+// MarshalText writes the variant that is set as text.
+func (c CustomerReturnURL) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(c.MarshalJSON())
+}
+
+// UnmarshalText sets every variant text matches.
+func (c *CustomerReturnURL) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, c.UnmarshalJSON)
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c CustomerReturnURL) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.AtLeastOne(c.String != nil, c.Option2 != nil))
+	var errsOption2 validation.Errors
+	if c.Option2 != nil {
+		errsOption2.Append("", c.Option2.Validate())
+	}
+	errs.Append("", validation.AnyValid(
+		validation.VariantErrors{IsSet: c.String != nil},
+		validation.VariantErrors{IsSet: c.Option2 != nil, Errs: errsOption2},
+	))
+	return errs.Err()
+}
+
 type GetParcelPathParams struct {
 	ID string `json:"id"`
 }
@@ -75,6 +265,8 @@ type ServiceInterface interface {
 	GetParcel(ctx context.Context, opts *GetParcelServiceRequestOptions) (*GetParcelResponseData, error)
 	// PrintLabel handles POST /labels.
 	PrintLabel(ctx context.Context, opts *PrintLabelServiceRequestOptions) (*PrintLabelResponseData, error)
+	// CreateCustomer handles POST /customers.
+	CreateCustomer(ctx context.Context, opts *CreateCustomerServiceRequestOptions) (*CreateCustomerResponseData, error)
 }
 
 // SendParcelServiceRequestOptions is what SendParcel receives.
@@ -255,6 +447,68 @@ func (r *PrintLabelResponseData) ContentType() string {
 	return r.contentType
 }
 
+// CreateCustomerServiceRequestOptions is what CreateCustomer receives.
+type CreateCustomerServiceRequestOptions struct {
+	// Body sent as application/x-www-form-urlencoded.
+	Body       *Customer
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *CreateCustomerServiceRequestOptions) Validate() error {
+	var errs validation.Errors
+	if o.Body != nil {
+		errs.Append("body", o.Body.Validate())
+	}
+	return errs.Err()
+}
+
+// CreateCustomerResponseData is what CreateCustomer returns.
+type CreateCustomerResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewCreateCustomerResponseData returns the 200 response with its application/json body.
+func NewCreateCustomerResponseData(body *Customer) *CreateCustomerResponseData {
+	return &CreateCustomerResponseData{Status: 200, Body: body, contentType: "application/json"}
+}
+
+// WithStatus sets the status code.
+func (r *CreateCustomerResponseData) WithStatus(code int) *CreateCustomerResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *CreateCustomerResponseData) WithHeaders(h http.Header) *CreateCustomerResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *CreateCustomerResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *CreateCustomerResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *CreateCustomerResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType returns the media type of the body, empty for the default of its Go type.
+func (r *CreateCustomerResponseData) ContentType() string {
+	return r.contentType
+}
+
 // The error types the handlers use, as the runtime declares them.
 type (
 	ErrorKind           = httpserver.ErrorKind
@@ -279,6 +533,17 @@ var bodyPresence = runtime.Presence{
 		{Name: "Address", Props: []runtime.Prop{
 			{Key: "city", IsRequired: true},
 			{Key: "zip", Default: `"00000"`},
+		}},
+		{Name: "Customer", Props: []runtime.Prop{
+			{Key: "address"},
+			{Key: "expand", Items: &runtime.Prop{}},
+			{Key: "items", Items: &runtime.Prop{Object: "CustomerItemsItem"}},
+			{Key: "returnUrl"},
+			{Key: "tags", Items: &runtime.Prop{}},
+		}},
+		{Name: "CustomerItemsItem", Props: []runtime.Prop{
+			{Key: "price", IsRequired: true},
+			{Key: "quantity"},
 		}},
 		{Name: "Label", Props: []runtime.Prop{
 			{Key: "from", Object: "Address"},
@@ -382,10 +647,14 @@ func (a *HTTPAdapter) SendParcel(w http.ResponseWriter, r *http.Request) {
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "multipart/form-data":
 		encoding := runtime.Encoding{
-			"doc":   "application/pdf",
-			"id":    "application/json",
-			"note":  "text/plain; charset=utf-8",
-			"photo": "image/png, image/jpeg",
+			"doc":   {ContentType: "application/pdf"},
+			"id":    {ContentType: "application/json"},
+			"note":  {ContentType: "text/plain; charset=utf-8"},
+			"photo": {ContentType: "image/png, image/jpeg"},
+			"stops": {
+				Style:     runtime.StyleDeepObject,
+				IsExplode: true,
+			},
 		}
 		if err := a.opts.Presence.Multipart(r, runtime.Prop{Object: "Parcel"}, a.opts.MultipartMaxMemory, encoding); err != nil {
 			a.failBody(w, r, "SendParcel", err)
@@ -452,7 +721,7 @@ func (a *HTTPAdapter) PrintLabel(w http.ResponseWriter, r *http.Request) {
 	opts := &PrintLabelServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/x-www-form-urlencoded":
-		encoding := runtime.Encoding{"to": "application/json"}
+		encoding := runtime.Encoding{"to": {ContentType: "application/json"}}
 		body, err := a.opts.Presence.Form(r.Body, runtime.Prop{Object: "Label"}, encoding)
 		if err != nil {
 			a.failBody(w, r, "PrintLabel", err)
@@ -484,6 +753,64 @@ func (a *HTTPAdapter) PrintLabel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.write(w, r, "PrintLabel", res)
+}
+
+// CreateCustomer handles POST /customers.
+func (a *HTTPAdapter) CreateCustomer(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreateCustomer"))
+	opts := &CreateCustomerServiceRequestOptions{RawRequest: r}
+	switch contentType := runtime.ContentType(r.Header); contentType {
+	case "application/x-www-form-urlencoded":
+		encoding := runtime.Encoding{
+			"address": {
+				Style:     runtime.StyleDeepObject,
+				IsExplode: true,
+			},
+			"expand": {
+				Style:     runtime.StyleDeepObject,
+				IsExplode: true,
+			},
+			"items": {
+				Style:     runtime.StyleDeepObject,
+				IsExplode: true,
+			},
+			"returnUrl": {
+				Style:     runtime.StyleDeepObject,
+				IsExplode: true,
+			},
+			"tags": {Style: runtime.StyleForm},
+		}
+		body, err := a.opts.Presence.Form(r.Body, runtime.Prop{Object: "Customer"}, encoding)
+		if err != nil {
+			a.failBody(w, r, "CreateCustomer", err)
+			return
+		}
+		if err = runtime.DecodeForm(body, &opts.Body, true, encoding); err != nil {
+			a.failDecode(w, r, "CreateCustomer", err)
+			return
+		}
+	case "":
+		a.failDecode(w, r, "CreateCustomer", runtime.ErrBodyEmpty)
+		return
+	default:
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "CreateCustomer", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return
+	}
+	if err := opts.Validate(); err != nil {
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorValidation, OperationID: "CreateCustomer", Err: err})
+		return
+	}
+
+	res, err := a.svc.CreateCustomer(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreateCustomer", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreateCustomer", Err: httpserver.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "CreateCustomer", res)
 }
 
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {
@@ -532,6 +859,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 		r.Post("/parcels", a.SendParcel)
 		r.Get("/parcels/{id}", a.GetParcel)
 		r.Post("/labels", a.PrintLabel)
+		r.Post("/customers", a.CreateCustomer)
 	}
 
 	router, _ := o.Router.(chi.Router)
@@ -580,6 +908,21 @@ func (o *PrintLabelRequestOptions) Validate() error {
 	return nil
 }
 
+// CreateCustomerRequestOptions is what CreateCustomer sends.
+type CreateCustomerRequestOptions struct {
+	// Body sent as application/x-www-form-urlencoded.
+	Body *Customer
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *CreateCustomerRequestOptions) Validate() error {
+	var errs validation.Errors
+	if o.Body != nil {
+		errs.Append("body", o.Body.Validate())
+	}
+	return errs.Err()
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = httpclient.Doer
 
@@ -594,6 +937,8 @@ type ClientInterface interface {
 	GetParcel(ctx context.Context, opts *GetParcelRequestOptions, editors ...RequestEditor) (*Receipt, error)
 	// PrintLabel calls POST /labels.
 	PrintLabel(ctx context.Context, opts *PrintLabelRequestOptions, editors ...RequestEditor) (*Label, error)
+	// CreateCustomer calls POST /customers.
+	CreateCustomer(ctx context.Context, opts *CreateCustomerRequestOptions, editors ...RequestEditor) (*Customer, error)
 }
 
 var _ ClientInterface = (*Client)(nil)
@@ -682,10 +1027,14 @@ func (c *Client) SendParcelRequest(ctx context.Context, opts *SendParcelRequestO
 	switch {
 	case opts.Body != nil:
 		b.MultipartBody(opts.Body, runtime.Encoding{
-			"doc":   "application/pdf",
-			"id":    "application/json",
-			"note":  "text/plain; charset=utf-8",
-			"photo": "image/png, image/jpeg",
+			"doc":   {ContentType: "application/pdf"},
+			"id":    {ContentType: "application/json"},
+			"note":  {ContentType: "text/plain; charset=utf-8"},
+			"photo": {ContentType: "image/png, image/jpeg"},
+			"stops": {
+				Style:     runtime.StyleDeepObject,
+				IsExplode: true,
+			},
 		})
 	default:
 		return nil, runtime.ErrBodyEmpty
@@ -753,11 +1102,64 @@ func (c *Client) PrintLabelRequest(ctx context.Context, opts *PrintLabelRequestO
 	b := httpclient.NewRequestBuilder(http.MethodPost, "/labels")
 	switch {
 	case opts.Body != nil:
-		b.FormBody(opts.Body, runtime.Encoding{"to": "application/json"})
+		b.FormBody(opts.Body, runtime.Encoding{"to": {ContentType: "application/json"}})
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
 	return c.newRequest(ctx, "PrintLabel", b, editors)
+}
+
+// CreateCustomer calls POST /customers.
+func (c *Client) CreateCustomer(ctx context.Context, opts *CreateCustomerRequestOptions, editors ...RequestEditor) (*Customer, error) {
+	req, err := c.CreateCustomerRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := httpclient.Send(c.doer, req, "application/json", c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out *Customer
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
+		{Status: "200", MediaType: "application/json", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CreateCustomerRequest builds the request of POST /customers.
+func (c *Client) CreateCustomerRequest(ctx context.Context, opts *CreateCustomerRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &CreateCustomerRequestOptions{}
+	}
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/customers")
+	switch {
+	case opts.Body != nil:
+		b.FormBody(opts.Body, runtime.Encoding{
+			"address": {
+				Style:     runtime.StyleDeepObject,
+				IsExplode: true,
+			},
+			"expand": {
+				Style:     runtime.StyleDeepObject,
+				IsExplode: true,
+			},
+			"items": {
+				Style:     runtime.StyleDeepObject,
+				IsExplode: true,
+			},
+			"returnUrl": {
+				Style:     runtime.StyleDeepObject,
+				IsExplode: true,
+			},
+			"tags": {Style: runtime.StyleForm},
+		})
+	default:
+		return nil, runtime.ErrBodyEmpty
+	}
+	return c.newRequest(ctx, "CreateCustomer", b, editors)
 }
 
 func (c *Client) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {

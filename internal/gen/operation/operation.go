@@ -155,9 +155,24 @@ func Encoding(c gomodel.Content, runtimePkg string) string {
 	}
 	elems := make([]gocode.KeyValue, 0, len(c.Encoding))
 	for _, name := range slices.Sorted(maps.Keys(c.Encoding)) {
-		elems = append(elems, gocode.KeyValue{Key: gocode.Quote(name), Value: gocode.Quote(c.Encoding[name])})
+		elems = append(elems, gocode.KeyValue{Key: gocode.Quote(name), Value: propertyEncoding(c.Encoding[name], runtimePkg)})
 	}
 	return gocode.Composite(gocode.Selector(runtimePkg, "Encoding"), elems)
+}
+
+// propertyEncoding writes e as the value of a runtime.Encoding, its type left out.
+func propertyEncoding(e gomodel.Encoding, runtimePkg string) string {
+	if e.Style == "" {
+		return gocode.Composite("", []gocode.KeyValue{{Key: "ContentType", Value: gocode.Quote(e.ContentType)}})
+	}
+	fields := []gocode.KeyValue{{Key: "Style", Value: gocode.Selector(runtimePkg, styleNames[e.Style])}}
+	if e.IsExplode {
+		fields = append(fields, gocode.KeyValue{Key: "IsExplode", Value: "true"})
+	}
+	if e.IsReserved {
+		fields = append(fields, gocode.KeyValue{Key: "IsReserved", Value: "true"})
+	}
+	return gocode.Composite("", fields)
 }
 
 // FirstBody is the JSON body of a response, else its first one.

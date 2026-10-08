@@ -110,6 +110,14 @@ func DecodeForm(body io.Reader, dst any, isRequired bool, enc Encoding) error {
 	if err != nil {
 		return err
 	}
+
+	read, err := readStyled(target, ParseQuery(string(data)), enc, unescapeQuery)
+	if err != nil {
+		return invalid(ErrBodyValue, err)
+	}
+	for _, key := range read {
+		delete(values, key)
+	}
 	return invalid(ErrBodyValue, fillForm(target, &multipart.Form{Value: values}, enc))
 }
 
@@ -219,7 +227,55 @@ func fillMultipart(form *multipart.Form, dst any, enc Encoding) error {
 	if t.Kind() != reflect.Struct {
 		return fmt.Errorf("%w: a multipart form needs a struct, not %s", ErrBodyValue, t)
 	}
-	return invalid(ErrBodyValue, fillForm(target, form, enc))
+
+	read, err := readStyled(target, Query(form.Value), enc, keepValue)
+	if err != nil {
+		return invalid(ErrBodyValue, err)
+	}
+	values := maps.Clone(form.Value)
+	for _, key := range read {
+		delete(values, key)
+	}
+	return invalid(ErrBodyValue, fillForm(target, &multipart.Form{Value: values, File: form.File}, enc))
+}
+
+// readStyled decodes each property of target, a struct, that enc gives a style from q, and returns the keys it read.
+func readStyled(target reflect.Value, q Query, enc Encoding, read func(string) (string, error)) ([]string, error) {
+	target = allocate(target)
+	if len(enc) == 0 || target.Kind() != reflect.Struct {
+		return nil, nil
+	}
+	names := map[string]bool{}
+	for i := range target.NumField() {
+		names[jsonName(target.Type().Field(i))] = true
+	}
+
+	var out []string
+	for i := range target.NumField() {
+		f := target.Type().Field(i)
+		name := jsonName(f)
+		p, ok := enc.param(name)
+		if !ok || !f.IsExported() {
+			continue
+		}
+		// An exploded form object writes its properties as keys of their own: R=1&G=2.
+		isSpread := p.Style == StyleForm && p.IsExplode && shapeOf(target.Field(i).Type()) == shapeObject
+		own := Query{}
+		for key, values := range q {
+			if base := formName(key); base == name || isSpread && !names[base] {
+				own[key] = values
+			}
+		}
+		if err := decodeQuery(own, p, target.Field(i).Addr().Interface(), read); err != nil {
+			// The parameter decoder marks its errors ErrParamValue; the body marks its own.
+			if marked, isMarked := err.(interface{ Unwrap() []error }); isMarked {
+				err = marked.Unwrap()[1]
+			}
+			return nil, fmt.Errorf("%s: %w", name, err)
+		}
+		out = append(out, slices.Sorted(maps.Keys(own))...)
+	}
+	return out, nil
 }
 
 // fillForm stores form in target: by UnmarshalForm, field by field into a struct, else by keys.
@@ -234,7 +290,7 @@ func fillForm(target reflect.Value, form *multipart.Form, enc Encoding) error {
 		for i := range target.NumField() {
 			f := target.Type().Field(i)
 			name := jsonName(f)
-			if name == "" || !f.IsExported() {
+			if _, isStyled := enc.param(name); name == "" || !f.IsExported() || isStyled {
 				continue
 			}
 			if err := fillField(target.Field(i), name, form, enc); err != nil {

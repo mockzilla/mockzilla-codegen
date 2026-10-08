@@ -499,8 +499,9 @@ Any other union is one field of a form or multipart body:
 - an object or array variant goes as its JSON
 
 For example, `vertex=abc` or `vertex={"x":1,"y":2}`. The server reads a field that is JSON as JSON
-and other text as a string. An object with additional properties goes as JSON in a url-encoded
-form too, so its extra keys arrive.
+and other text as a string. Any object goes as JSON in a url-encoded form too, unless its encoding
+gives it a style. Under `style: deepObject` the variant that is set is written in brackets:
+`vertex[x]=1&vertex[y]=2`.
 
 A union that a form body holds, as the body or as a property at any depth, gets `UnmarshalForm`.
 

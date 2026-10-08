@@ -10,6 +10,7 @@ import (
 	"errors"
 	"mime/multipart"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -138,6 +139,29 @@ func (p post) MarshalJSON() ([]byte, error) {
 		set = append(set, p.Photo)
 	}
 	return MarshalUnion(plain(p), set...)
+}
+
+// lines stands in for a generated union of a list of objects and an empty string.
+type lines struct {
+	List  *[]address
+	Empty *string
+}
+
+func (l *lines) UnmarshalJSON(data []byte) error {
+	*l = lines{}
+	return UnmarshalUnion(data, l.union())
+}
+
+func (l *lines) UnmarshalForm(form *multipart.Form) error {
+	*l = lines{}
+	return UnmarshalUnionForm(form, nil, l.union())
+}
+
+func (l *lines) union() Union {
+	return Union{IsAnyOf: true, Variants: []Variant{
+		{Name: "List", Kind: KindArray, Into: Into(&l.List)},
+		{Name: "Empty", Kind: KindString, Into: Into(&l.Empty)},
+	}}
 }
 
 func (p *post) UnmarshalForm(form *multipart.Form) error {
@@ -604,6 +628,23 @@ func TestUnmarshalUnionForm(t *testing.T) {
 
 	require.NoError(t, got.UnmarshalForm(&multipart.Form{Value: url.Values{"id": {"7"}, "name": {"Tom"}, "meow": {"true"}}}))
 	assert.Equal(t, post{ID: "7", Cat: &cat{Name: "Tom", Meow: true}}, got)
+}
+
+func TestUnmarshalUnionFormList(t *testing.T) {
+	t.Parallel()
+
+	var got struct {
+		Lines lines `json:"lines"`
+	}
+	require.NoError(t, DecodeForm(strings.NewReader("lines[0][city]=Rome&lines[1][city]=Oslo"), &got, true, nil))
+	assert.Equal(t, lines{List: &[]address{{City: "Rome"}, {City: "Oslo"}}}, got.Lines)
+
+	require.NoError(t, DecodeForm(strings.NewReader("lines="), &got, true, nil))
+	assert.Equal(t, lines{Empty: new("")}, got.Lines)
+
+	assert.False(t, isIndexedForm(&multipart.Form{}), "an empty form is no list")
+	assert.True(t, isIndexedForm(&multipart.Form{File: map[string][]*multipart.FileHeader{"0": nil}}), "file parts count")
+	assert.False(t, isIndexedForm(&multipart.Form{Value: url.Values{"0": {"a"}, "name": {"b"}}}))
 }
 
 func TestUnmarshalUnionFormPicks(t *testing.T) {

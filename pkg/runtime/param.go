@@ -8,6 +8,7 @@
 package runtime
 
 import (
+	"bytes"
 	"encoding"
 	"encoding/base64"
 	"encoding/json"
@@ -59,7 +60,6 @@ var separators = map[Style]string{StyleSpaceDelimited: " ", StylePipeDelimited: 
 
 var (
 	textMarshaler   = reflect.TypeFor[encoding.TextMarshaler]()
-	jsonMarshaler   = reflect.TypeFor[json.Marshaler]()
 	formUnmarshaler = reflect.TypeFor[FormUnmarshaler]()
 )
 
@@ -149,38 +149,7 @@ func ParseQuery(raw string) Query {
 // that is not there sets its default, else leaves dst as it is, unless it is required. A value
 // that does not unescape is ErrParamValue.
 func DecodeQuery(q Query, p Param, dst any) error {
-	target, err := pointer(dst)
-	if err != nil {
-		return err
-	}
-	sh := shapeOf(target.Type())
-
-	switch {
-	case p.Style == StyleDeepObject:
-		var fields map[string]any
-		if fields, err = nested(q, p.Name); err != nil {
-			return err
-		}
-		if fields == nil {
-			return missing(p, target)
-		}
-		return setParam(target, fields)
-	case sh == shapeObject && p.IsExplode && !p.IsJSON:
-		if len(q) == 0 {
-			return missing(p, target)
-		}
-		var fields map[string]any
-		if fields, err = keyedValues(q, unescapeQuery); err != nil {
-			return err
-		}
-		return setParam(target, fields)
-	}
-
-	values, ok := q[p.Name]
-	if !ok {
-		return missing(p, target)
-	}
-	return decodeValues(target, values, p, unescapeQuery)
+	return decodeQuery(q, p, dst, unescapeQuery)
 }
 
 // DecodeHeader decodes a header into dst, a pointer to the parameter's type.
@@ -351,30 +320,8 @@ func EncodePath(v any, p Param) (string, error) {
 // the same byte inside a name or value escaped, a space as %20. With IsReserved, the reserved
 // characters a query holds and %XX escapes stay as they are.
 func EncodeQuery(v any, p Param) (string, error) {
-	t, err := encodeTree(v, p)
-	if err != nil {
-		return "", err
-	}
-
-	name, escaped := escapeQuery(p.Name, false), escapeTree(t, p.IsReserved)
-	switch e := escaped.(type) {
-	case nil:
-		return "", nil
-	case []pair:
-		if p.IsExplode || p.Style == StyleDeepObject {
-			return join(e, "&", true), nil
-		}
-	case []string:
-		if p.IsExplode {
-			named := make([]pair, len(e))
-			for i, item := range e {
-				named[i] = pair{name: name, value: item}
-			}
-			return join(named, "&", true), nil
-		}
-	}
-	// A comma is reserved and goes as it is; a space or a pipe is escaped.
-	return name + "=" + join(escaped, escapeQuery(separator(p.Style), true), false), nil
+	written, err := queryPairs(v, p, true)
+	return join(written, "&", true), err
 }
 
 // EncodeHeader writes v as a header value.
@@ -417,6 +364,87 @@ func EncodeCookie(v any, p Param) ([]*http.Cookie, error) {
 		out = append(out, &http.Cookie{Name: p.Name, Value: t})
 	}
 	return out, nil
+}
+
+// decodeQuery is DecodeQuery with read turning each value as it came into its text.
+func decodeQuery(q Query, p Param, dst any, read func(string) (string, error)) error {
+	target, err := pointer(dst)
+	if err != nil {
+		return err
+	}
+	sh := shapeOf(target.Type())
+
+	switch {
+	case p.Style == StyleDeepObject:
+		var fields map[string]any
+		if fields, err = nested(q, p.Name, read); err != nil {
+			return err
+		}
+		if fields != nil {
+			return setParam(target, listsOf(fields))
+		}
+		return bareValues(target, q, p, read)
+	case sh == shapeObject && p.IsExplode && !p.IsJSON:
+		if len(q) == 0 {
+			return missing(p, target)
+		}
+		var fields map[string]any
+		if fields, err = keyedValues(q, read); err != nil {
+			return err
+		}
+		return setParam(target, fields)
+	}
+
+	values, ok := q[p.Name]
+	if !ok {
+		return missing(p, target)
+	}
+	return decodeValues(target, values, p, read)
+}
+
+// queryPairs writes v as the name=value pairs of the query parameter p, percent-encoded when isEscaped.
+func queryPairs(v any, p Param, isEscaped bool) ([]pair, error) {
+	t, err := encodeTree(v, p)
+	if err != nil || t == nil {
+		return nil, err
+	}
+
+	name, sep := p.Name, separator(p.Style)
+	if isEscaped {
+		// A comma is reserved and goes as it is; a space or a pipe is escaped.
+		name, t, sep = escapeQuery(name, false), escapeTree(t, p.IsReserved), escapeQuery(sep, true)
+	}
+	switch t := t.(type) {
+	case []pair:
+		if p.IsExplode || p.Style == StyleDeepObject {
+			return t, nil
+		}
+	case []string:
+		if p.IsExplode {
+			named := make([]pair, len(t))
+			for i, item := range t {
+				named[i] = pair{name: name, value: item}
+			}
+			return named, nil
+		}
+	}
+	return []pair{{name: name, value: join(t, sep, false)}}, nil
+}
+
+// bareValues reads a deepObject parameter sent under its bare name, as a list or a union may be.
+func bareValues(target reflect.Value, q Query, p Param, read func(string) (string, error)) error {
+	values, ok := q[p.Name]
+	if !ok {
+		return missing(p, target)
+	}
+	items, err := readAll(values, read)
+	switch {
+	case err != nil:
+		return err
+	case len(items) == 1:
+		return setParam(target, items[0])
+	}
+	return setParam(target, items)
 }
 
 // decodeValues decodes the values a query or cookie parameter came with, one per item when
@@ -524,14 +552,14 @@ func tree(items []string, sh shape, isExplode bool) any {
 }
 
 // nested reads the deepObject keys of name: name[a]=1, name[b][c]=2, into a map.
-func nested(q Query, name string) (map[string]any, error) {
+func nested(q Query, name string, read func(string) (string, error)) (map[string]any, error) {
 	var out map[string]any
 	for _, key := range slices.Sorted(maps.Keys(q)) {
 		rest, ok := strings.CutPrefix(key, name+"[")
 		if !ok || len(q[key]) == 0 {
 			continue
 		}
-		values, err := readAll(q[key], unescapeQuery)
+		values, err := readAll(q[key], read)
 		if err != nil {
 			return nil, err
 		}
@@ -687,13 +715,14 @@ func encodeTree(v any, p Param) (any, error) {
 		return string(data), err
 	}
 
+	if p.Style == StyleDeepObject {
+		return deepPairs(p.Name, rv.Interface())
+	}
+
 	switch shapeOf(rv.Type()) {
 	case shapeList:
 		return itemTexts(rv)
 	case shapeObject:
-		if p.Style == StyleDeepObject {
-			return deepPairs(p.Name, rv)
-		}
 		return pairs(rv, p.IsExplode && (p.Style == StyleForm || p.Style == StyleCookie))
 	default:
 		return text(rv)
@@ -733,34 +762,36 @@ func pairs(rv reflect.Value, isRepeated bool) ([]pair, error) {
 	return out, nil
 }
 
-// deepPairs writes the object rv under key as deepObject nests it: key[name] for each property,
-// at any depth, and one pair per item of a list.
-func deepPairs(key string, rv reflect.Value) ([]pair, error) {
-	var out []pair
-	for name, v := range properties(rv) {
-		field := key + "[" + name + "]"
-		switch shapeOf(v.Type()) {
-		case shapeObject:
-			inner, err := deepPairs(field, v)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, inner...)
-		case shapeList:
-			items, err := repeated(field, v)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, items...)
-		default:
-			s, err := text(v)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, pair{name: field, value: s})
-		}
+// deepPairs writes v under key through its JSON: key[name] for each property, key[0] for each item.
+func deepPairs(key string, v any) ([]pair, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrParamValue, err)
 	}
-	return out, nil
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	return addDeep(dec, key, nil), nil
+}
+
+// addDeep reads one value from dec and adds its pairs under key to out, properties in the order written.
+func addDeep(dec *json.Decoder, key string, out []pair) []pair {
+	tok, _ := dec.Token() // json.Marshal wrote the JSON
+	switch t := tok.(type) {
+	case json.Delim:
+		for i := 0; dec.More(); i++ {
+			name := strconv.Itoa(i)
+			if t == '{' {
+				tok, _ = dec.Token()
+				name, _ = tok.(string)
+			}
+			out = addDeep(dec, key+"["+name+"]", out)
+		}
+		_, _ = dec.Token()
+	case nil:
+	default:
+		out = append(out, pair{name: key, value: formText(tok)})
+	}
+	return out
 }
 
 // repeated writes the list rv as one pair per item, each named name.
@@ -820,6 +851,9 @@ func isOmitted(f reflect.StructField, v reflect.Value) bool {
 
 // text writes one value as a parameter carries it.
 func text(v reflect.Value) (string, error) {
+	if v.Kind() == reflect.Interface && !v.IsNil() {
+		v = v.Elem()
+	}
 	if v.Type().Implements(textMarshaler) {
 		m, _ := v.Interface().(encoding.TextMarshaler)
 		b, err := m.MarshalText()
@@ -879,14 +913,13 @@ func escapeTree(t any, isReserved bool) any {
 			out[i] = escapeQuery(s, isReserved)
 		}
 		return out
-	case []pair:
-		out := make([]pair, len(t))
-		for i, f := range t {
-			out[i] = pair{name: escapeQuery(f.name, isReserved), value: escapeQuery(f.value, isReserved)}
-		}
-		return out
 	}
-	return nil
+	named, _ := t.([]pair) // encodeTree writes one of three
+	out := make([]pair, len(named))
+	for i, f := range named {
+		out[i] = pair{name: escapeQuery(f.name, isReserved), value: escapeQuery(f.value, isReserved)}
+	}
+	return out
 }
 
 // escapeQuery percent-encodes every byte of s but letters, digits and -._~. isReserved keeps the

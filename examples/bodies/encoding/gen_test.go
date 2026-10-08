@@ -8,10 +8,12 @@ package encoding
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,6 +45,10 @@ func (service) PrintLabel(_ context.Context, opts *PrintLabelServiceRequestOptio
 	return NewPrintLabelResponseData(opts.Body), nil
 }
 
+func (service) CreateCustomer(_ context.Context, opts *CreateCustomerServiceRequestOptions) (*CreateCustomerResponseData, error) {
+	return NewCreateCustomerResponseData(opts.Body), nil
+}
+
 func TestSendParcel(t *testing.T) {
 	t.Parallel()
 
@@ -69,6 +75,85 @@ func TestSendParcel(t *testing.T) {
 		Stops:     []Address{{City: "Pisa", Zip: new("00000")}, {City: "Siena", Zip: new("53100")}},
 		Note:      new("fragile"),
 	}, got)
+}
+
+func TestSendParcelStopsInBrackets(t *testing.T) {
+	t.Parallel()
+
+	c, err := NewClient("http://localhost:1")
+	require.NoError(t, err)
+	req, err := c.SendParcelRequest(t.Context(), &SendParcelRequestOptions{Body: &Parcel{ID: "p1", Stops: []Address{{City: "Pisa"}}}})
+	require.NoError(t, err)
+	require.NoError(t, req.ParseMultipartForm(1<<20))
+
+	assert.Equal(t, []string{"Pisa"}, req.MultipartForm.Value["stops[0][city]"])
+}
+
+func TestCreateCustomer(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(NewRouter(service{}))
+	t.Cleanup(srv.Close)
+	c, err := NewClient(srv.URL)
+	require.NoError(t, err)
+	var body Customer
+	require.NoError(t, json.Unmarshal([]byte(`{
+		"address": {"city": "Rome"}, "expand": ["a", "b"], "items": [{"price": "p1", "quantity": 2}],
+		"returnUrl": "https://x.test/a b", "tags": ["x", "y,z"]
+	}`), &body))
+	opts := &CreateCustomerRequestOptions{Body: &body}
+
+	req, err := c.CreateCustomerRequest(t.Context(), opts)
+	require.NoError(t, err)
+	sent, err := io.ReadAll(req.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "address%5Bcity%5D=Rome&expand%5B0%5D=a&expand%5B1%5D=b&items%5B0%5D%5Bprice%5D=p1&items%5B0%5D%5Bquantity%5D=2"+
+		"&returnUrl=https%3A%2F%2Fx.test%2Fa%20b&tags=x,y%2Cz", string(sent))
+
+	got, err := c.CreateCustomer(t.Context(), opts)
+	require.NoError(t, err)
+	data, err := json.Marshal(got)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{
+		"address": {"city": "Rome"}, "expand": ["a", "b"], "items": [{"price": "p1", "quantity": 2}],
+		"returnUrl": "https://x.test/a b", "tags": ["x", "y,z"]
+	}`, string(data))
+}
+
+func TestCreateCustomerFromOtherClients(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "Brackets as most form clients write them",
+			body: "address[city]=Rome&expand[0]=a&items[0][price]=p1&items[0][quantity]=2&returnUrl=https://x.test",
+			want: `{"address": {"city": "Rome"}, "expand": ["a"], "items": [{"price": "p1", "quantity": 2}], "returnUrl": "https://x.test"}`,
+		},
+		{name: "Empty brackets for a list", body: "expand[]=a&expand[]=b", want: `{"expand": ["a", "b"]}`},
+		{name: "A list under its bare name", body: "expand=a&expand=b", want: `{"expand": ["a", "b"]}`},
+		{name: "An empty value clears a field", body: "address=&returnUrl=", want: `{"address": "", "returnUrl": ""}`},
+	}
+
+	srv := httptest.NewServer(NewRouter(service{}))
+	t.Cleanup(srv.Close)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			res, err := http.Post(srv.URL+"/customers", "application/x-www-form-urlencoded", strings.NewReader(tc.body))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = res.Body.Close() })
+			got, err := io.ReadAll(res.Body)
+			require.NoError(t, err)
+
+			require.Equal(t, http.StatusOK, res.StatusCode, string(got))
+			assert.JSONEq(t, tc.want, string(got))
+		})
+	}
 }
 
 func TestSendParcelPhotoNeedsAType(t *testing.T) {
@@ -130,7 +215,7 @@ func TestPrintLabel(t *testing.T) {
 	require.NoError(t, err)
 	sent, err := io.ReadAll(req.Body)
 	require.NoError(t, err)
-	assert.Equal(t, "from%5Bcity%5D=Pisa&to=%7B%22city%22%3A%22Rome%22%7D", string(sent))
+	assert.Equal(t, "from=%7B%22city%22%3A%22Pisa%22%7D&to=%7B%22city%22%3A%22Rome%22%7D", string(sent), "an object without a style goes as JSON")
 }
 
 func TestGetParcelAccept(t *testing.T) {

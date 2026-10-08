@@ -16,7 +16,6 @@ import (
 	"maps"
 	"mime/multipart"
 	"net/textproto"
-	"net/url"
 	"reflect"
 	"slices"
 	"strconv"
@@ -25,30 +24,28 @@ import (
 
 var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
 
-// EncodeForm writes v, a struct or a map, as form values: nested objects with bracketed keys,
-// address[city]=Berlin, lists as repeated keys, tags=a&tags=b, and lists of objects with an
-// index, lines[0][city]=Berlin. Values go through their JSON form, so json tags and marshalers
-// apply. A value that writes its own JSON object or array, such as a union, is one JSON value. So
-// is a property enc declares JSON.
-func EncodeForm(v any, enc Encoding) (url.Values, error) {
+// EncodeForm writes v, a struct or a map, as a url-encoded form, each property as enc says.
+func EncodeForm(v any, enc Encoding) (string, error) {
 	fields, err := jsonObject(v)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
+	styled := styledValues(v, enc)
 
-	out := url.Values{}
+	var out []pair
 	for _, name := range slices.Sorted(maps.Keys(fields)) {
-		var mediaType string
-		if mediaType, err = enc.partType(name, isFormText(fields[name])); err != nil {
-			return nil, err
+		var items []pair
+		if p, ok := enc.param(name); ok {
+			items, err = queryPairs(styled[name], p, true)
+		} else {
+			items, err = enc.formPairs(name, fields[name])
 		}
-		if IsJSON(mediaType) {
-			out.Add(name, string(encodeJSON(fields[name])))
-			delete(fields, name)
+		if err != nil {
+			return "", err
 		}
+		out = append(out, items...)
 	}
-	addForm(out, "", jsonFields(reflect.ValueOf(v), fields))
-	return out, nil
+	return join(out, "&", true), nil
 }
 
 // WriteMultipart writes v, a struct, to mw as a multipart form and closes mw, which ends the
@@ -114,7 +111,13 @@ func (w *formWriter) write(v any) error {
 		if name == "" || !f.IsExported() || isOmitted(f, rv.Field(i)) {
 			continue
 		}
-		if err := w.part(name, rv.Field(i)); err != nil {
+		var err error
+		if p, ok := w.encoding.param(name); ok {
+			err = w.styled(rv.Field(i).Interface(), p)
+		} else {
+			err = w.part(name, rv.Field(i))
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -161,6 +164,20 @@ func (w *formWriter) part(name string, v reflect.Value) error {
 		return w.mw.WriteField(name, s)
 	}
 	return w.dataPart(name, mediaType, []byte(s))
+}
+
+// styled writes v as one text part for each pair the query parameter p writes, not percent-encoded.
+func (w *formWriter) styled(v any, p Param) error {
+	items, err := queryPairs(v, p, false)
+	if err != nil {
+		return err
+	}
+	for _, f := range items {
+		if err = w.mw.WriteField(f.name, f.value); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // object writes a struct with UnmarshalForm member by member from its JSON, files as file parts.
@@ -317,71 +334,19 @@ func jsonObject(v any) (map[string]any, error) {
 	return out, nil
 }
 
-// jsonFields puts the text of jsonField into encoded, the JSON of rv, for each value of rv.
-func jsonFields(rv reflect.Value, encoded any) any {
-	v, _ := present(rv)
-	switch t := encoded.(type) {
-	case map[string]any:
-		if v.Kind() == reflect.Struct || v.Kind() == reflect.Map {
-			for name, field := range properties(v) {
-				if item, ok := t[name]; ok {
-					t[name] = jsonField(field, item)
-				}
-			}
-		}
-	case []any:
-		if v.Kind() == reflect.Slice || v.Kind() == reflect.Array {
-			for i := range min(v.Len(), len(t)) {
-				t[i] = jsonField(v.Index(i), t[i])
-			}
+// styledValues are the Go values of the properties of v that enc gives a style, by name.
+func styledValues(v any, enc Encoding) map[string]any {
+	out := map[string]any{}
+	rv, ok := held(reflect.ValueOf(v))
+	if !ok || rv.Kind() != reflect.Struct && rv.Kind() != reflect.Map {
+		return out
+	}
+	for name, field := range properties(rv) {
+		if _, isStyled := enc.param(name); isStyled {
+			out[name] = field.Interface()
 		}
 	}
-	return encoded
-}
-
-// jsonField is item, the JSON of v, as text when v writes its own JSON object or array.
-func jsonField(v reflect.Value, item any) any {
-	v, ok := held(v)
-	if !ok {
-		return item
-	}
-	t := v.Type()
-	if !t.Implements(jsonMarshaler) && !reflect.PointerTo(t).Implements(jsonMarshaler) {
-		return jsonFields(v, item)
-	}
-	switch item.(type) {
-	case map[string]any, []any:
-		data, _ := json.Marshal(v.Interface()) // jsonObject has marshaled it already
-		return string(data)
-	}
-	return item
-}
-
-// addForm adds v under key: an object with bracketed keys, a list as repeated keys, or as one
-// value.
-func addForm(out url.Values, key string, v any) {
-	switch v := v.(type) {
-	case map[string]any:
-		for _, name := range slices.Sorted(maps.Keys(v)) {
-			sub := name
-			if key != "" {
-				sub = key + "[" + name + "]"
-			}
-			addForm(out, sub, v[name])
-		}
-	case []any:
-		for i, item := range v {
-			switch item.(type) {
-			case map[string]any, []any:
-				addForm(out, key+"["+strconv.Itoa(i)+"]", item)
-			default:
-				addForm(out, key, item)
-			}
-		}
-	case nil:
-	default:
-		out.Add(key, formText(v))
-	}
+	return out
 }
 
 // formText writes a JSON scalar as form text.

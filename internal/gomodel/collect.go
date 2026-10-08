@@ -263,9 +263,13 @@ func (c *collector) params(op *Operation) {
 				continue
 			}
 			seen[p.Name] = true
+			what := fmt.Sprintf("%s parameter %q", in, p.Name)
 			if why := c.paramIssue(p); why != "" {
-				c.unsupported(p, fmt.Sprintf("%s parameter %q", in, p.Name), why)
+				c.unsupported(p, what, why)
 				continue
+			}
+			if p.Style == styleDeep && c.deepUndefined(p.Schema, map[*spec.Schema]bool{}) {
+				c.diags.Append(deepConvention(p.Origin.Pointer, p.Origin, what))
 			}
 			list = append(list, p)
 		}

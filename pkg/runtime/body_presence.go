@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -56,10 +57,12 @@ type Prop struct {
 
 var _ PresenceChecker = Presence{}
 
+// walker checks a body; added takes the pairs a url-encoded form gets, percent-encoded already.
 type walker struct {
 	presence  Presence
 	errs      validation.Errors
 	isChanged bool
+	added     *[]string
 }
 
 // formAt is where a form value sits: its path in errors, its key, and at the top the encoding.
@@ -103,13 +106,13 @@ func (pr Presence) Form(body io.Reader, p Prop, enc Encoding) (io.Reader, error)
 		return bytes.NewReader(data), nil
 	}
 
-	w := &walker{presence: pr}
+	w := &walker{presence: pr, added: new([]string)}
 	w.form(values, nil, p, enc)
 	if err = w.errs.Err(); err != nil {
 		return nil, err
 	}
 	if w.isChanged {
-		data = []byte(values.Encode())
+		data = []byte(rewriteForm(string(data), values, *w.added))
 	}
 	return bytes.NewReader(data), nil
 }
@@ -194,6 +197,9 @@ func (w *walker) form(values url.Values, files map[string][]*multipart.FileHeade
 			fields[name] = []string(nil)
 		}
 	}
+	for _, prop := range o.Props {
+		spread(fields, o, prop, enc)
+	}
 	w.formObject(fields, o, formAt{path: "body", values: values, encoding: enc})
 }
 
@@ -210,6 +216,10 @@ func (w *walker) formObject(m map[string]any, o Object, at formAt) {
 			at.values.Add(p.Key, p.Default)
 			w.isChanged = true
 		case p.Default != "":
+			if param, isStyled := at.encoding.param(p.Key); isStyled {
+				w.styledDefault(at, param, p.Default)
+				break
+			}
 			w.formDefault(at.field(p.Key), p.Default)
 		}
 	}
@@ -314,6 +324,27 @@ func (w *walker) formDefault(at formAt, def string) {
 	w.isChanged = true
 }
 
+// styledDefault adds the default of a styled property as its style writes it.
+func (w *walker) styledDefault(at formAt, param Param, def string) {
+	v, isJSON := parseJSON([]byte(def))
+	if !isJSON || v == nil {
+		return
+	}
+	items, err := queryPairs(v, param, w.added != nil)
+	if err != nil {
+		return
+	}
+
+	for _, f := range items {
+		if w.added != nil {
+			*w.added = append(*w.added, f.name+"="+f.value)
+		} else {
+			at.values.Add(f.name, f.value)
+		}
+	}
+	w.isChanged = true
+}
+
 // lookup finds the object of a name by binary search, as Objects is sorted by name.
 func (w *walker) lookup(name string) (Object, bool) {
 	i, isFound := slices.BinarySearchFunc(w.presence.Objects, name, func(o Object, target string) int { return strings.Compare(o.Name, target) })
@@ -340,6 +371,50 @@ func (a formAt) nested(name string) string {
 		return name
 	}
 	return a.key + "[" + name + "]"
+}
+
+// spread moves the keys no property of o names under prop, when its style writes it as keys of their own: R=1&G=2.
+func spread(fields map[string]any, o Object, prop Prop, enc Encoding) {
+	param, isStyled := enc.param(prop.Key)
+	if !isStyled || param.Style != StyleForm || !param.IsExplode || prop.Object == "" && prop.Values == nil {
+		return
+	}
+	own := map[string]any{}
+	for key, v := range fields {
+		if !isProp(o, key) {
+			own[key] = v
+			delete(fields, key)
+		}
+	}
+	if len(own) > 0 {
+		fields[prop.Key] = own
+	}
+}
+
+// rewriteForm writes values over the form data they came from, each pair that did not change as it came, then added.
+func rewriteForm(data string, values url.Values, added []string) string {
+	var out []string
+	seen := map[string]int{}
+	for item := range strings.SplitSeq(data, "&") {
+		if item == "" {
+			continue
+		}
+		rawKey, rawValue, _ := strings.Cut(item, "=")
+		key, _ := url.QueryUnescape(rawKey) // url.ParseQuery read the form
+		value, _ := url.QueryUnescape(rawValue)
+		i := seen[key]
+		seen[key]++
+		if i < len(values[key]) && values[key][i] != value {
+			item = escapeQuery(key, false) + "=" + escapeQuery(values[key][i], false)
+		}
+		out = append(out, item)
+	}
+	for _, key := range slices.Sorted(maps.Keys(values)) {
+		for _, v := range values[key][min(seen[key], len(values[key])):] {
+			out = append(out, escapeQuery(key, false)+"="+escapeQuery(v, false))
+		}
+	}
+	return strings.Join(append(out, added...), "&")
 }
 
 // parseJSON reads one JSON value with its numbers as written, and reports whether data is one.

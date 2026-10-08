@@ -73,8 +73,58 @@ paths:
               pets: {style: deepObject, explode: true, contentType: application/json}
       responses:
         '204': {description: done}
+  /ghosts:
+    post:
+      operationId: sendGhost
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema: {$ref: '#/components/schemas/Parcel'}
+            encoding:
+              ghost: {contentType: application/json}
+      responses:
+        '204': {description: done}
+  /styles:
+    post:
+      operationId: sendStyles
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema: {$ref: '#/components/schemas/Styles'}
+            encoding:
+              matrixList: {style: matrix}
+              spaceWord: {style: spaceDelimited}
+              pipeList: {style: pipeDelimited, explode: true}
+              formNested: {style: form, explode: false}
+              formUnion: {style: form}
+              deepUnion: {style: deepObject}
+              deepWord: {style: deepObject}
+              deepPet: {style: deepObject}
+              csv: {style: form, explode: false}
+              path: {allowReserved: true}
+          multipart/form-data:
+            schema: {$ref: '#/components/schemas/Styles'}
+            encoding:
+              file: {style: deepObject}
+              deepPet: {style: deepObject, explode: true}
+      responses:
+        '204': {description: done}
 components:
   schemas:
+    Styles:
+      type: object
+      properties:
+        matrixList: {type: array, items: {type: string}}
+        spaceWord: {type: string}
+        pipeList: {type: array, items: {type: string}}
+        formNested: {type: object, properties: {tags: {type: array, items: {type: string}}}}
+        formUnion: {oneOf: [{$ref: '#/components/schemas/Pet'}, {type: object, required: [kind], properties: {kind: {type: string}}}]}
+        deepUnion: {anyOf: [{type: object, properties: {tags: {type: array, items: {type: string}}}}, {type: string, enum: ['']}]}
+        deepWord: {type: string}
+        deepPet: {$ref: '#/components/schemas/Pet'}
+        csv: {type: array, items: {type: string}}
+        path: {type: string}
+        file: {type: string, format: binary}
     Parcel:
       type: object
       required: [id]

@@ -8,8 +8,11 @@ ListItemsPathParams struct models.params
   ID Point json=id required
 ListItemsQuery struct models.params
   IDs []string json=ids omitempty omitzero
+  DeepList []string json=deepList omitempty omitzero
   DeepAny *url.Values json=deepAny omitempty
   Filter *ListItemsQueryFilter json=filter omitempty
+  DeepGrid *ListItemsQueryDeepGrid json=deepGrid omitempty
+  DeepNest *ListItemsQueryDeepNest json=deepNest omitempty
   Anything any json=anything omitempty
   Queries *ListItemsQueryQueries json=queries omitempty
   DeepMap map[string]Point json=deepMap omitempty omitzero
@@ -18,6 +21,12 @@ ListItemsQueryFilter struct models.params
   Tags []string json=tags omitempty omitzero
   Size *Point json=size omitempty
   Tree *Node json=tree omitempty
+ListItemsQueryDeepGrid struct models.params
+  Grid [][]int json=grid omitempty omitzero
+ListItemsQueryDeepNest struct models.params
+  Size *ListItemsQueryDeepNestSize json=size omitempty
+ListItemsQueryDeepNestSize struct models.params
+  Grid [][]int json=grid omitempty omitzero
 ListItemsQueryQueries struct models.params
   Reference *string json=reference omitempty
   Status []string json=status omitempty omitzero
@@ -45,12 +54,14 @@ warning param-unsupported 11:11 /paths/~1items~1{id}~1{form}/get/parameters/3: q
 warning param-unsupported 12:11 /paths/~1items~1{id}~1{form}/get/parameters/4: query parameter "word" has style spaceDelimited, which OpenAPI defines for a list or an object only; it gets no field and is neither sent nor read
 warning param-unsupported 13:11 /paths/~1items~1{id}~1{form}/get/parameters/5: query parameter "odd" has style "odd", which OpenAPI does not define; it gets no field and is neither sent nor read
 warning param-unsupported 14:11 /paths/~1items~1{id}~1{form}/get/parameters/6: query parameter "label" has style label, which OpenAPI allows only in path parameters; it gets no field and is neither sent nor read
-warning param-unsupported 15:11 /paths/~1items~1{id}~1{form}/get/parameters/7: query parameter "deepList" has style deepObject, which OpenAPI defines for an object only; it gets no field and is neither sent nor read
-warning param-unsupported 26:11 /paths/~1items~1{id}~1{form}/get/parameters/10: query parameter "deepGrid" holds a list of lists in property "grid", which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
-warning param-unsupported 30:11 /paths/~1items~1{id}~1{form}/get/parameters/11: query parameter "deepNest" holds a list of lists in property "grid", which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+info deepobject-convention 15:11 /paths/~1items~1{id}~1{form}/get/parameters/7: query parameter "deepList" has style deepObject on a value other than an object of scalars, which OpenAPI leaves undefined; it is written with brackets at every level and an index per list item, as in items[0][price]=1, and one value as name=value
+info deepobject-convention 17:11 /paths/~1items~1{id}~1{form}/get/parameters/9: query parameter "filter" has style deepObject on a value other than an object of scalars, which OpenAPI leaves undefined; it is written with brackets at every level and an index per list item, as in items[0][price]=1, and one value as name=value
+info deepobject-convention 26:11 /paths/~1items~1{id}~1{form}/get/parameters/10: query parameter "deepGrid" has style deepObject on a value other than an object of scalars, which OpenAPI leaves undefined; it is written with brackets at every level and an index per list item, as in items[0][price]=1, and one value as name=value
+info deepobject-convention 30:11 /paths/~1items~1{id}~1{form}/get/parameters/11: query parameter "deepNest" has style deepObject on a value other than an object of scalars, which OpenAPI leaves undefined; it is written with brackets at every level and an index per list item, as in items[0][price]=1, and one value as name=value
 warning param-unsupported 38:11 /paths/~1items~1{id}~1{form}/get/parameters/14: query parameter "flat" holds a list in property "status", which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
 warning param-unsupported 42:11 /paths/~1items~1{id}~1{form}/get/parameters/15: query parameter "nested" holds an object in property "size", which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
 warning param-unsupported 45:11 /paths/~1items~1{id}~1{form}/get/parameters/16: query parameter "byKey" holds a list of objects in its map values, which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+info deepobject-convention 48:11 /paths/~1items~1{id}~1{form}/get/parameters/17: query parameter "deepMap" has style deepObject on a value other than an object of scalars, which OpenAPI leaves undefined; it is written with brackets at every level and an index per list item, as in items[0][price]=1, and one value as name=value
 warning param-unsupported 52:11 /paths/~1items~1{id}~1{form}/get/parameters/18: query parameter "grid" is a list of lists, which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
 warning param-unsupported 53:11 /paths/~1items~1{id}~1{form}/get/parameters/19: query parameter "points" is a list of objects, which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
 warning param-unsupported 55:11 /paths/~1items~1{id}~1{form}/get/parameters/21: header parameter "X-Form" has style form, which OpenAPI allows only in query and cookie parameters; it gets no field and is neither sent nor read

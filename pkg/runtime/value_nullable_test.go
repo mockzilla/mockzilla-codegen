@@ -150,10 +150,12 @@ func TestNullableForm(t *testing.T) {
 	in := patch{Name: Some("a"), Count: Null[int](), Address: Some(address{City: "Rome"}), Scores: []Nullable[int]{Some(1), Null[int]()}}
 	form, err := EncodeForm(in, nil)
 	require.NoError(t, err)
-	assert.Equal(t, url.Values{"name": {"a"}, "address[city]": {"Rome"}, "address[country]": {""}, "scores": {"1"}}, form)
+	values, err := url.ParseQuery(form)
+	require.NoError(t, err)
+	assert.Equal(t, url.Values{"name": {"a"}, "address": {`{"city":"Rome","country":""}`}, "scores": {"1"}}, values)
 
 	var out patch
-	require.NoError(t, DecodeForm(bytes.NewReader([]byte(form.Encode())), &out, true, nil))
+	require.NoError(t, DecodeForm(bytes.NewReader([]byte(form)), &out, true, nil))
 	assert.Equal(t, Some("a"), out.Name)
 	assert.False(t, out.Count.IsSet())
 	assert.Equal(t, Some(address{City: "Rome"}), out.Address)

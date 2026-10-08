@@ -67,7 +67,7 @@ func TestQueryStyles(t *testing.T) {
 			query: &QueryStylesQuery{
 				Filter: &Filter{Name: new("a"), Tags: []string{"b", "c"}, Size: &Point{X: new(1)}}, Needed: "yes",
 			},
-			want: "filter%5Bname%5D=a&filter%5Btags%5D=b&filter%5Btags%5D=c&filter%5Bsize%5D%5Bx%5D=1&needed=yes",
+			want: "filter%5Bname%5D=a&filter%5Btags%5D%5B0%5D=b&filter%5Btags%5D%5B1%5D=c&filter%5Bsize%5D%5Bx%5D=1&needed=yes",
 		},
 		{
 			name:  "An object whose list is unset",

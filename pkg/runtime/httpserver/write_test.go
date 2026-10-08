@@ -73,7 +73,7 @@ func TestWrite(t *testing.T) {
 		{name: "JSON with parameters", headers: http.Header{"Content-Type": {"application/json; charset=utf-8"}}, body: map[string]int{"a": 1}, wantContentType: "application/json; charset=utf-8", wantBody: `{"a":1}`},
 		{name: "A defined string as it is", headers: http.Header{"Content-Type": {"text/plain"}}, body: runtime.Ptr(note("hi")), wantContentType: "text/plain", wantBody: "hi"},
 		{name: "A nil pointer without JSON", headers: http.Header{"Content-Type": {"application/xml"}}, body: (*struct{})(nil), wantContentType: "application/xml"},
-		{name: "A form", headers: http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}, body: map[string]any{"text": "x y", "stars": 2}, wantContentType: "application/x-www-form-urlencoded", wantBody: "stars=2&text=x+y"},
+		{name: "A form", headers: http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}, body: map[string]any{"text": "x y", "stars": 2}, wantContentType: "application/x-www-form-urlencoded", wantBody: "stars=2&text=x%20y"},
 		{name: "A number as text", headers: http.Header{"Content-Type": {"text/plain"}}, body: runtime.Ptr(42), wantContentType: "text/plain", wantBody: "42"},
 		{name: "A time as text", headers: http.Header{"Content-Type": {"text/plain"}}, body: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC), wantContentType: "text/plain", wantBody: "2026-01-02T03:04:05Z"},
 		{name: "Events", headers: http.Header{"Content-Type": {"text/event-stream"}}, body: slices.Values([]map[string]int{{"a": 1}, {"a": 2}}), wantContentType: "text/event-stream", wantBody: "data: {\"a\":1}\n\ndata: {\"a\":2}\n\n"},

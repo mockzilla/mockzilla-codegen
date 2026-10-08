@@ -75,13 +75,21 @@ type QueryString struct {
 // Content is one media type; Type is nil when it has no schema. Item is the type of one frame of
 // a sequential media type such as text/event-stream: its itemSchema, else its schema, which
 // describes one event in specs before 3.2; nil for a media type with neither. Body is what the
-// server checks of a request body. Encoding is the declared content type of a form property.
+// server checks of a request body. Encoding is how a form writes each property, by name.
 type Content struct {
 	MediaType string
 	Type      Type
 	Item      Type
 	Body      *BodyValue
-	Encoding  map[string]string
+	Encoding  map[string]Encoding
+}
+
+// Encoding is a form property written in ContentType, or as a query parameter of Style when set.
+type Encoding struct {
+	ContentType string
+	Style       string
+	IsExplode   bool
+	IsReserved  bool
 }
 
 // Response is one status of an operation. Headers is the struct of its typed headers, nil when it
@@ -220,7 +228,7 @@ func Build(doc *spec.Document, opts Options) (*Model, []diag.Diagnostic) {
 	b := newBuilder(opts, r, &diags)
 	decls := b.build(c.pending, ops, c.headers)
 	markForms(ops)
-	planEncodings(ops, &diags)
+	c.planEncodings(ops)
 	if opts.IsServer {
 		b.planBodies(ops)
 	}

@@ -129,11 +129,11 @@ func writeText(w http.ResponseWriter, status int, body any) error {
 }
 
 func writeForm(w http.ResponseWriter, status int, body any) error {
-	values, err := runtime.EncodeForm(body, nil)
+	form, err := runtime.EncodeForm(body, nil)
 	if err != nil {
 		return err
 	}
-	return writeBytes(w, status, []byte(values.Encode()))
+	return writeBytes(w, status, []byte(form))
 }
 
 func writeMultipart(w http.ResponseWriter, status int, body any) error {

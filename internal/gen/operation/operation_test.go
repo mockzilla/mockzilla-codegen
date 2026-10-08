@@ -208,12 +208,22 @@ func TestEncoding(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		encoding map[string]string
+		encoding map[string]gomodel.Encoding
 		want     string
 	}{
 		{name: "None", want: "nil"},
-		{name: "One on one line", encoding: map[string]string{"meta": "application/json"}, want: `rt.Encoding{"meta": "application/json"}`},
-		{name: "Several one per line, by name", encoding: map[string]string{"photo": "image/png, image/jpeg", "id": "application/json"}, want: "rt.Encoding{\n\"id\": \"application/json\",\n\"photo\": \"image/png, image/jpeg\",\n}"},
+		{name: "One on one line", encoding: map[string]gomodel.Encoding{"meta": {ContentType: "application/json"}}, want: `rt.Encoding{"meta": {ContentType: "application/json"}}`},
+		{
+			name:     "Several one per line, by name",
+			encoding: map[string]gomodel.Encoding{"photo": {ContentType: "image/png, image/jpeg"}, "id": {ContentType: "application/json"}},
+			want:     "rt.Encoding{\n\"id\": {ContentType: \"application/json\"},\n\"photo\": {ContentType: \"image/png, image/jpeg\"},\n}",
+		},
+		{name: "A style alone", encoding: map[string]gomodel.Encoding{"tags": {Style: "pipeDelimited"}}, want: `rt.Encoding{"tags": {Style: rt.StylePipeDelimited}}`},
+		{
+			name:     "A style with explode and reserved",
+			encoding: map[string]gomodel.Encoding{"filter": {Style: "deepObject", IsExplode: true, IsReserved: true}},
+			want:     "rt.Encoding{\"filter\": {\nStyle: rt.StyleDeepObject,\nIsExplode: true,\nIsReserved: true,\n}}",
+		},
 	}
 
 	for _, tc := range tests {

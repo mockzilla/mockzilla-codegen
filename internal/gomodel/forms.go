@@ -46,7 +46,8 @@ func markForm(t Type, seen map[*Decl]bool) {
 
 		switch {
 		case d.Union != nil:
-			d.IsForm = slices.ContainsFunc(d.Union.Variants, func(v *Variant) bool { return v.Kinds == 0 || v.Kinds&JSONObject != 0 })
+			// Bracketed keys reach an object or a list: address[city], items[0][price].
+			d.IsForm = slices.ContainsFunc(d.Union.Variants, func(v *Variant) bool { return v.Kinds == 0 || v.Kinds&(JSONObject|JSONArray) != 0 })
 			for _, v := range d.Union.Variants {
 				markForm(v.Type, seen)
 			}

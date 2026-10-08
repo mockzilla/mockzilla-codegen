@@ -79,7 +79,7 @@ func TestEncodeForm(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "Nested objects, lists and lists of objects, in the shape DecodeForm reads",
+			name: "Text for a scalar, JSON for an object, a list item by item",
 			value: order{
 				Name:    "Rex",
 				Age:     Ptr(3),
@@ -92,11 +92,11 @@ func TestEncodeForm(t *testing.T) {
 			},
 			want: url.Values{
 				"name": {"Rex"}, "age": {"3"}, "active": {"true"},
-				"address[city]": {"Berlin"}, "address[country]": {"DE"},
-				"items":          {"a", "b"},
-				"lines[0][city]": {"Paris"}, "lines[0][country]": {""},
-				"extra[n]": {"1.5"}, "extra[list][0]": {"1", "2"},
-				"phone": {""},
+				"address": {`{"city":"Berlin","country":"DE"}`},
+				"items":   {"a", "b"},
+				"lines":   {`{"city":"Paris","country":""}`},
+				"extra":   {`{"list":[[1,2]],"n":1.5}`},
+				"phone":   {""},
 			},
 		},
 		{name: "A map", value: map[string]int{"b": 2, "a": 1}, want: url.Values{"a": {"1"}, "b": {"2"}}},
@@ -116,9 +116,19 @@ func TestEncodeForm(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tc.want, got)
+			values, err := url.ParseQuery(got)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, values)
 		})
 	}
+}
+
+func TestEncodeFormEscapes(t *testing.T) {
+	t.Parallel()
+
+	got, err := EncodeForm(map[string]string{"a b": "c+d&e=f/g h"}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "a%20b=c%2Bd%26e%3Df%2Fg%20h", got)
 }
 
 func TestEncodeFormJSONValues(t *testing.T) {
@@ -130,22 +140,24 @@ func TestEncodeFormJSONValues(t *testing.T) {
 		Named:    map[string]vertex{"n": {Point: &point{X: 2}}},
 		Origin:   &point{X: 3},
 	}
-	values, err := EncodeForm(in, nil)
+	got, err := EncodeForm(in, nil)
+	require.NoError(t, err)
+	values, err := url.ParseQuery(got)
 	require.NoError(t, err)
 	assert.Equal(t, url.Values{
-		"vertex":    {`{"x":7}`},
-		"vertices":  {"a", `{"x":1}`},
-		"named[n]":  {`{"x":2}`},
-		"origin[x]": {"3"},
+		"vertex":   {`{"x":7}`},
+		"vertices": {"a", `{"x":1}`},
+		"named":    {`{"n":{"x":2}}`},
+		"origin":   {`{"x":3}`},
 	}, values)
 
 	var out drawing
-	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &out, false, nil))
+	require.NoError(t, DecodeForm(strings.NewReader(got), &out, false, nil))
 	assert.Equal(t, in, out)
 
 	raw, err := EncodeForm(json.RawMessage(`{"a":{"b":1}}`), nil)
 	require.NoError(t, err)
-	assert.Equal(t, url.Values{"a[b]": {"1"}}, raw)
+	assert.Equal(t, "a=%7B%22b%22%3A1%7D", raw)
 }
 
 func TestEncodeFormRoundTrip(t *testing.T) {
@@ -158,15 +170,15 @@ func TestEncodeFormRoundTrip(t *testing.T) {
 		Address: address{City: "Berlin", Country: "DE"},
 		Items:   []string{"a", "b"},
 		Lines:   []address{{City: "Paris"}, {City: "Rome"}},
-		Extra:   map[string]any{"n": int64(1)},
+		Extra:   map[string]any{"n": 1.5},
 		Codes:   []int{7},
 		Meta:    map[string]bool{"x": true},
 	}
-	values, err := EncodeForm(in, nil)
+	got, err := EncodeForm(in, nil)
 	require.NoError(t, err)
 
 	var out order
-	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &out, true, nil))
+	require.NoError(t, DecodeForm(strings.NewReader(got), &out, true, nil))
 
 	assert.Equal(t, in, out)
 }
@@ -175,14 +187,93 @@ func TestEncodeFormEncoding(t *testing.T) {
 	t.Parallel()
 
 	in := parcel{ID: Ptr("p1"), Pet: &address{City: "Rome"}, Pets: []address{{City: "A"}}, Tags: []string{"x", "y"}, Note: "hi"}
-	got, err := EncodeForm(in, Encoding{"id": "application/json", "pet": "application/json", "pets": "application/json", "note": "text/plain"})
+	got, err := EncodeForm(in, Encoding{"id": {ContentType: "application/json"}, "pet": {ContentType: "application/json"}, "pets": {ContentType: "application/json"}, "note": {ContentType: "text/plain"}})
 	require.NoError(t, err)
-	assert.Equal(t, `id=%22p1%22&note=hi&pet=%7B%22city%22%3A%22Rome%22%2C%22country%22%3A%22%22%7D&pets=%5B%7B%22city%22%3A%22A%22%2C%22country%22%3A%22%22%7D%5D&tags=x&tags=y`, got.Encode())
+	assert.Equal(t, `id=%22p1%22&note=hi&pet=%7B%22city%22%3A%22Rome%22%2C%22country%22%3A%22%22%7D&pets=%5B%7B%22city%22%3A%22A%22%2C%22country%22%3A%22%22%7D%5D&tags=x&tags=y`, got)
 
-	_, err = EncodeForm(in, Encoding{"pet": "text/plain"})
+	_, err = EncodeForm(in, Encoding{"pet": {ContentType: "text/plain"}})
 	require.EqualError(t, err, "unsupported content type: pet in text/plain")
-	_, err = EncodeForm(in, Encoding{"tags": "text/plain"})
+	_, err = EncodeForm(in, Encoding{"tags": {ContentType: "text/plain"}})
 	require.NoError(t, err)
+}
+
+func TestEncodeFormStyles(t *testing.T) {
+	t.Parallel()
+
+	in := styledForm{
+		Tags:   []string{"a", "b,c"},
+		Color:  &rgb{R: 1, G: 2, B: 3},
+		Filter: map[string]any{"a": map[string]any{"b": []any{"1", "x y"}}},
+		Note:   "a/b?c d",
+		Lines:  []address{{City: "Rome"}},
+	}
+	tests := []struct {
+		name string
+		enc  Encoding
+		want string
+	}{
+		{name: "Form exploded, a list", enc: Encoding{"tags": {Style: StyleForm, IsExplode: true}}, want: "tags=a&tags=b%2Cc"},
+		{name: "Form, a list", enc: Encoding{"tags": {Style: StyleForm}}, want: "tags=a,b%2Cc"},
+		{name: "Form, an object", enc: Encoding{"color": {Style: StyleForm}}, want: "color=R,1,G,2,B,3"},
+		{name: "Form exploded, an object", enc: Encoding{"color": {Style: StyleForm, IsExplode: true}}, want: "R=1&G=2&B=3"},
+		{name: "Space delimited, a list", enc: Encoding{"tags": {Style: StyleSpaceDelimited}}, want: "tags=a%20b%2Cc"},
+		{name: "Pipe delimited, a list", enc: Encoding{"tags": {Style: StylePipeDelimited}}, want: "tags=a%7Cb%2Cc"},
+		{name: "Pipe delimited, an object", enc: Encoding{"color": {Style: StylePipeDelimited}}, want: "color=R%7C1%7CG%7C2%7CB%7C3"},
+		{name: "Deep object, an object", enc: Encoding{"color": {Style: StyleDeepObject, IsExplode: true}}, want: "color%5BR%5D=1&color%5BG%5D=2&color%5BB%5D=3"},
+		{name: "Deep object, a list", enc: Encoding{"tags": {Style: StyleDeepObject}}, want: "tags%5B0%5D=a&tags%5B1%5D=b%2Cc"},
+		{name: "Deep object, nested values", enc: Encoding{"filter": {Style: StyleDeepObject}}, want: "filter%5Ba%5D%5Bb%5D%5B0%5D=1&filter%5Ba%5D%5Bb%5D%5B1%5D=x%20y"},
+		{name: "Deep object, a list of objects", enc: Encoding{"lines": {Style: StyleDeepObject}}, want: "lines%5B0%5D%5Bcity%5D=Rome&lines%5B0%5D%5Bcountry%5D="},
+		{name: "Deep object, one value", enc: Encoding{"note": {Style: StyleDeepObject}}, want: "note=a%2Fb%3Fc%20d"},
+		{name: "Reserved characters kept", enc: Encoding{"note": {Style: StyleForm, IsExplode: true, IsReserved: true}}, want: "note=a/b?c%20d"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := EncodeForm(in, tc.enc)
+			require.NoError(t, err)
+			assert.Contains(t, "&"+got+"&", "&"+tc.want+"&")
+
+			var out styledForm
+			require.NoError(t, DecodeForm(strings.NewReader(got), &out, true, tc.enc))
+			assert.Equal(t, in, out)
+		})
+	}
+}
+
+func TestMultipartStyles(t *testing.T) {
+	t.Parallel()
+
+	in := styledForm{Tags: []string{"a", "b"}, Color: &rgb{R: 1, G: 2}, Note: "a/b c"}
+	enc := Encoding{"tags": {Style: StyleDeepObject}, "color": {Style: StyleForm, IsExplode: true}, "note": {Style: StyleForm, IsReserved: true}}
+	assert.Equal(t, []part{
+		{Name: "tags[0]", Body: "a"},
+		{Name: "tags[1]", Body: "b"},
+		{Name: "R", Body: "1"},
+		{Name: "G", Body: "2"},
+		{Name: "B", Body: "0"},
+		{Name: "note", Body: "a/b c"},
+	}, partsOf(t, in, enc), "parts are not percent-encoded")
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	require.NoError(t, WriteMultipart(mw, in, enc))
+	var out styledForm
+	require.NoError(t, DecodeMultipartBody(&buf, mw.FormDataContentType(), &out, enc))
+	assert.Equal(t, in, out)
+
+	err := WriteMultipart(multipart.NewWriter(io.Discard), styledForm{Filter: map[string]any{"a": map[string]any{"b": 1}}}, Encoding{"filter": {Style: StyleForm}})
+	require.ErrorIs(t, err, ErrParamValue)
+	err = WriteMultipart(multipart.NewWriter(&failAfter{n: 0}), in, enc)
+	require.ErrorIs(t, err, io.ErrClosedPipe)
+
+	buf.Reset()
+	mw = multipart.NewWriter(&buf)
+	require.NoError(t, mw.WriteField("color[R]", "x"))
+	require.NoError(t, mw.Close())
+	err = DecodeMultipartBody(&buf, mw.FormDataContentType(), &out, Encoding{"color": {Style: StyleDeepObject}})
+	require.EqualError(t, err, `invalid body value: color: R: "x" is no int`)
 }
 
 func TestWriteMultipart(t *testing.T) {
@@ -356,9 +447,9 @@ func TestWriteMultipartEncoding(t *testing.T) {
 	err := WriteMultipart(multipart.NewWriter(io.Discard), in, parcelEncoding())
 	require.EqualError(t, err, "invalid body value: logo: the file has no content type; the spec takes image/png, image/jpeg")
 
-	err = WriteMultipart(multipart.NewWriter(io.Discard), parcel{Pet: &address{}}, Encoding{"pet": "application/xml"})
+	err = WriteMultipart(multipart.NewWriter(io.Discard), parcel{Pet: &address{}}, Encoding{"pet": {ContentType: "application/xml"}})
 	require.EqualError(t, err, "unsupported content type: pet in application/xml")
-	err = WriteMultipart(multipart.NewWriter(io.Discard), parcel{Note: "x"}, Encoding{"note": "image/*"})
+	err = WriteMultipart(multipart.NewWriter(io.Discard), parcel{Note: "x"}, Encoding{"note": {ContentType: "image/*"}})
 	require.EqualError(t, err, "unsupported content type: note in image/*")
 }
 
@@ -516,11 +607,11 @@ func TestEncodingRoundTrip(t *testing.T) {
 	assert.Equal(t, in.Plain, out.Plain)
 
 	in.Doc, in.Logo = nil, nil
-	enc := Encoding{"id": "application/json", "pet": "application/json", "pets": "application/json", "tags": "application/json"}
-	values, err := EncodeForm(in, enc)
+	enc := Encoding{"id": {ContentType: "application/json"}, "pet": {ContentType: "application/json"}, "pets": {ContentType: "application/json"}, "tags": {ContentType: "application/json"}}
+	body, err := EncodeForm(in, enc)
 	require.NoError(t, err)
 	var form parcel
-	require.NoError(t, DecodeForm(strings.NewReader(values.Encode()), &form, true, enc))
+	require.NoError(t, DecodeForm(strings.NewReader(body), &form, true, enc))
 	assert.Equal(t, in, form)
 }
 
@@ -536,8 +627,8 @@ func multipartOf(t *testing.T, v any) ([]byte, string) {
 
 func parcelEncoding() Encoding {
 	return Encoding{
-		"id": "application/json", "doc": "application/pdf", "logo": "image/png, image/jpeg", "pet": "application/json",
-		"pets": "application/json", "tags": "application/json", "note": "text/plain; charset=utf-8",
+		"id": {ContentType: "application/json"}, "doc": {ContentType: "application/pdf"}, "logo": {ContentType: "image/png, image/jpeg"}, "pet": {ContentType: "application/json"},
+		"pets": {ContentType: "application/json"}, "tags": {ContentType: "application/json"}, "note": {ContentType: "text/plain; charset=utf-8"},
 	}
 }
 

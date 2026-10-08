@@ -156,10 +156,10 @@ func TestQueryStyles(t *testing.T) {
 			name:  "Deep object with a list, an object and a map inside",
 			param: explode(StyleDeepObject, false),
 			value: filter{Name: new("a"), Tags: []string{"x", "y"}, Size: &rgb{R: 1}, Labels: map[string]string{"k": "v"}},
-			text: "color%5Bname%5D=a&color%5Btags%5D=x&color%5Btags%5D=y&color%5Bsize%5D%5BR%5D=1&color%5Bsize%5D%5BG%5D=0" +
+			text: "color%5Bname%5D=a&color%5Btags%5D%5B0%5D=x&color%5Btags%5D%5B1%5D=y&color%5Bsize%5D%5BR%5D=1&color%5Bsize%5D%5BG%5D=0" +
 				"&color%5Bsize%5D%5BB%5D=0&color%5Blabels%5D%5Bk%5D=v",
 		},
-		{name: "Deep object with a list of one", param: explode(StyleDeepObject, false), value: filter{Tags: []string{"x"}}, text: "color%5Btags%5D=x"},
+		{name: "Deep object with a list of one", param: explode(StyleDeepObject, false), value: filter{Tags: []string{"x"}}, text: "color%5Btags%5D%5B0%5D=x"},
 		{name: "Form object with its list unset", param: explode(StyleForm, false), value: filter{Name: new("a")}, text: "color=name,a"},
 		{
 			name:  "Form exploded object with a list, its key once per item",
@@ -320,6 +320,15 @@ func TestDecodeParamEdges(t *testing.T) {
 			return DecodeQuery(nil, Param{Name: "c", Style: StyleForm, IsExplode: true, IsRequired: true}, dst)
 		}, dst: new(rgb), wantErr: ErrParamMissing},
 		{name: "Missing deep object", decode: func(dst any) error { return DecodeQuery(Query{"x": {"1"}}, explode(StyleDeepObject, true), dst) }, dst: new(rgb), want: rgb{}},
+		{name: "Deep object list with an index", decode: func(dst any) error {
+			return DecodeQuery(Query{"color[1]": {"b"}, "color[0]": {"a"}}, explode(StyleDeepObject, true), dst)
+		}, dst: new([]string), want: []string{"a", "b"}},
+		{name: "Deep object list under its bare name", decode: func(dst any) error {
+			return DecodeQuery(Query{"color": {"a", "b"}}, explode(StyleDeepObject, true), dst)
+		}, dst: new([]string), want: []string{"a", "b"}},
+		{name: "Deep object of one value", decode: func(dst any) error {
+			return DecodeQuery(Query{"color": {"a%20b"}}, explode(StyleDeepObject, true), dst)
+		}, dst: new(string), want: "a b"},
 		{name: "Missing header", decode: func(dst any) error { return DecodeHeader(http.Header{}, required, dst) }, dst: new(string), wantErr: ErrParamMissing},
 		{name: "Missing cookie", decode: func(dst any) error { return DecodeCookie(nil, required, dst) }, dst: new(string), wantErr: ErrParamMissing},
 		{name: "Bad number", decode: func(dst any) error { return DecodePath("x", explode(StyleSimple, false), dst) }, dst: new(int), wantErr: ErrParamValue},
@@ -414,6 +423,9 @@ func TestDecodeParamEdges(t *testing.T) {
 		{name: "A deep object value that does not unescape", decode: func(dst any) error {
 			return DecodeQuery(Query{"color[R]": {"%zz"}}, explode(StyleDeepObject, true), dst)
 		}, dst: new(rgb), wantErr: ErrParamValue},
+		{name: "A deep object list under its bare name that does not unescape", decode: func(dst any) error {
+			return DecodeQuery(Query{"color": {"%zz"}}, explode(StyleDeepObject, true), dst)
+		}, dst: new([]string), wantErr: ErrParamValue},
 		{name: "An exploded object value that does not unescape", decode: func(dst any) error {
 			return DecodeQuery(Query{"R": {"%zz"}}, explode(StyleForm, true), dst)
 		}, dst: new(rgb), wantErr: ErrParamValue},
