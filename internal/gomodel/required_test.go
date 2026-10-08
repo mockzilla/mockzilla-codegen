@@ -61,9 +61,9 @@ func TestRequiredCount(t *testing.T) {
 			wantWhy: `it has no property "fax"`,
 		},
 		{
-			name:    "An optional field without a pointer",
-			schema:  &spec.Schema{OneOf: lists([]string{"email"}, []string{"nick"})},
-			wantWhy: `property "nick" has no pointer, so whether it is set is unknown`,
+			name:   "An optional field without a pointer counts by its zero value",
+			schema: &spec.Schema{OneOf: lists([]string{"email"}, []string{"nick"})},
+			want:   Count{Func: "ExactlyOneOf", Fields: [][]*Field{{email}, {nick}}, Names: "email or nick"},
 		},
 	}
 

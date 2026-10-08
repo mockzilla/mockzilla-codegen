@@ -60,11 +60,8 @@ func requiredCount(d *Decl, r *spec.Schema) (Count, string) {
 			}
 
 			// A required field that cannot be nil is always there.
-			switch f := d.Struct.Fields[j]; {
-			case nilable(f.Type), isWrapped(f.Type):
+			if f := d.Struct.Fields[j]; !f.Required || nilable(f.Type) || isWrapped(f.Type) {
 				fields = append(fields, f)
-			case !f.Required:
-				return Count{}, fmt.Sprintf("property %q has no pointer, so whether it is set is unknown", name)
 			}
 		}
 		c.Fields = append(c.Fields, fields)

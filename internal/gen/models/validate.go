@@ -217,9 +217,14 @@ func countCall(c gomodel.Count, r, vd string) string {
 		conds := make([]string, len(fields))
 		for i, f := range fields {
 			value := gocode.Selector(r, f.Name)
-			conds[i] = gocode.NotNil(value)
-			if _, isWrapped := f.Type.(gomodel.Nullable); isWrapped {
+			_, isWrapped := f.Type.(gomodel.Nullable)
+			switch {
+			case isWrapped:
 				conds[i] = gocode.Call(gocode.Selector(value, "IsSet"))
+			case f.IsZeroAbsent():
+				conds[i] = gocode.NotZero(value, gomodel.ZeroLiteral(f.Type), gocode.Selector(vd, "IsZero"))
+			default:
+				conds[i] = gocode.NotNil(value)
 			}
 		}
 		args = append(args, gocode.And(conds...))
@@ -316,6 +321,8 @@ func checkView(c *gomodel.Check, at checkAt, vd string, side methodSide) CheckVi
 		guard = gocode.Get(value, deref, "ok"+suffix)
 	case c.IsPointer:
 		deref = gocode.Deref(value)
+	case c.IsZeroAbsent:
+		guard = gocode.NotZero(value, c.Zero, gocode.Selector(vd, "IsZero"))
 	}
 
 	cv := CheckView{Errs: at.errs, Path: path, Value: value, Deref: deref, IsRequired: c.IsRequired}

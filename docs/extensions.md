@@ -9,7 +9,7 @@ Extensions change what mockzilla-codegen writes for one schema, property or para
 | `x-go-type-name` | schema | the name of the type the schema declares |
 | `x-go-name` | schema, property, parameter or its schema | the name of the type, field or parameter field |
 | `x-go-name-exact` | next to `x-go-name` | use the name as written, even unexported |
-| `x-go-type-skip-optional-pointer` | property, parameter or its schema | no pointer for an optional field |
+| `x-go-type-skip-optional-pointer` | property, parameter or its schema | no pointer for an optional field, whose zero value then counts as absent ([pointers](types.md#pointers)) |
 | `x-go-nullable` | property, parameter or its schema | `runtime.Nullable[T]` (`true`) or a pointer (`false`), over `models.nullable` ([nullable](types.md#nullable)) |
 | `x-go-json-ignore` | property | JSON tag `-` |
 | `x-omitempty` | property | `omitempty` on (`true`) or off (`false`) |

@@ -14,6 +14,31 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
+func TestFieldIsZeroAbsent(t *testing.T) {
+	t.Parallel()
+
+	str := Builtin{Name: "string"}
+	tests := []struct {
+		name  string
+		field Field
+		want  bool
+	}{
+		{name: "Optional plain value", field: Field{Type: str}, want: true},
+		{name: "Required plain value", field: Field{Type: str, Required: true}},
+		{name: "Pointer", field: Field{Type: Pointer{Elem: str}}},
+		{name: "Slice", field: Field{Type: Slice{Elem: str}}},
+		{name: "Nullable", field: Field{Type: Nullable{Elem: str}}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, tc.field.IsZeroAbsent())
+		})
+	}
+}
+
 func TestEnumConst(t *testing.T) {
 	t.Parallel()
 

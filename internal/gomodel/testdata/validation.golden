@@ -293,6 +293,20 @@ Shelf struct models.types
   ? Inline path=inline guarded enumJSON(true,"x")
   ? Rows path=rows guarded
   ?   items - path= guarded enumJSON({"r":1})
+Plain struct models.types
+  Name string json=name omitempty
+  Size int json=size omitempty
+  On bool json=on omitempty
+  Kind Kind json=kind omitempty
+  Car Car json=car omitempty
+  Code string json=code required
+  ? validate
+  ? Name path=name guarded zero="" minLength(2)
+  ? Size path=size guarded zero=0 minimum(1)
+  ? On path=on guarded zero=false const(true)
+  ? Kind path=kind guarded nested zero=""
+  ? Car path=car guarded nested zero=IsZero
+  ? Code path=code maxLength(3)
 pattern patternPetName models.types "^[A-Z]" "^[A-Z]"
 pattern patternPetTagsItem models.types "^[a-z]+$" "^[a-z]+$"
 pattern patternPetAccent models.types "^\\u00e9" "^\\xE9"

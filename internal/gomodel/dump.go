@@ -156,6 +156,9 @@ func dumpCheck(b *strings.Builder, c *Check, indent string) {
 			b.WriteString(" " + flag.word)
 		}
 	}
+	if c.IsZeroAbsent {
+		b.WriteString(" zero=" + cmp.Or(c.Zero, "IsZero"))
+	}
 	for _, r := range c.Rules {
 		b.WriteString(" " + ruleText(r))
 	}

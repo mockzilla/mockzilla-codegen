@@ -10,3 +10,7 @@ components:
         language:
           type: string
           x-go-type-skip-optional-pointer: true
+        fontSize:
+          type: integer
+          minimum: 8
+          x-go-type-skip-optional-pointer: true

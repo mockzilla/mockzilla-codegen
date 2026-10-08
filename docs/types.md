@@ -111,6 +111,10 @@ Optional fields get `omitempty` in their JSON tag. Required fields do not, apart
 value, such as `time.Time`, also gets `omitzero`: `omitempty` alone never leaves out a struct. A
 slice or map gets `omitzero` instead, so `nil` is left out and an empty one is sent as `[]` or `{}`.
 
+`x-go-type-skip-optional-pointer` makes an optional field a plain `T`. Its zero value then counts as
+absent: `Validate` skips its checks, and parameters, multipart forms and typed headers leave it
+out, as JSON does. A zero value set on purpose is not sent either, the price of having no pointer.
+
 ### Nullable
 
 A pointer cannot tell `null` from a property that was left out: both are `nil`. With
@@ -399,10 +403,10 @@ func (l Lookup) Validate() error {
 }
 ```
 
-An `anyOf` uses `AtLeastOneOf`. A required property that cannot be nil counts as set. The check is
-left out, with a warning, when a listed name is no property of the struct, or names a field with no
-pointer. A member that only lists `required` next to members with a type or `null` is not checked
-either, with a warning.
+An `anyOf` uses `AtLeastOneOf`. A required property that cannot be nil counts as set, an optional
+one with no pointer when it is not its zero value. The check is left out, with a warning, when a
+listed name is no property of the struct. A member that only lists `required` next to members with
+a type or `null` is not checked either, with a warning.
 
 ### Shared properties
 

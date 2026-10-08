@@ -138,6 +138,7 @@ type Count struct {
 // absent; IsRequired reports it. Nested is the declaration whose Validate is called, nil with
 // IsNested for runtime.Email. IsWrapped marks a Nullable; IsNullRejected reports it set to null.
 // IsVariant marks the check of a union variant, Member which of its members it checks.
+// IsZeroAbsent skips a plain optional field at its zero value: Zero, or validation.IsZero if empty.
 type Check struct {
 	Field          string
 	Path           string
@@ -146,6 +147,8 @@ type Check struct {
 	IsPointer      bool
 	IsWrapped      bool
 	IsGuarded      bool
+	IsZeroAbsent   bool
+	Zero           string
 	IsRequired     bool
 	IsNullRejected bool
 	Side           Side
@@ -309,6 +312,11 @@ type Field struct {
 	goName           string
 	isPointerSkipped bool
 	wrap             wrapping
+}
+
+// IsZeroAbsent reports an optional field held as a plain value, which is absent at its zero value.
+func (f *Field) IsZeroAbsent() bool {
+	return !f.Required && !nilable(f.Type) && !isWrapped(f.Type)
 }
 
 // Tag is a struct tag written next to json, such as yaml:"name,omitempty".

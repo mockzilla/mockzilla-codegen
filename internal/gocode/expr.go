@@ -144,6 +144,17 @@ func NotEmpty(x string) string {
 	return x + ` != ""`
 }
 
+// NotZero writes x != zero, x when zero is false, or !isZero(x) when zero, a literal, is empty.
+func NotZero(x, zero, isZero string) string {
+	switch zero {
+	case "":
+		return "!" + Call(isZero, x)
+	case "false":
+		return x
+	}
+	return x + " != " + zero
+}
+
 // Zero writes the zero value of t, a type whose underlying type is a string or one that can be
 // nil: "" or nil.
 func Zero(t gomodel.Type) string {

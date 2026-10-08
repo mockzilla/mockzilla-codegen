@@ -61,6 +61,24 @@ func Underlying(t Type) Type {
 	}
 }
 
+// ZeroLiteral is the zero value of t as a Go literal: "", 0 or false, empty for other types.
+func ZeroLiteral(t Type) string {
+	t = Underlying(t)
+	if r, ok := t.(DeclRef); ok && r.Decl.Kind == KindEnum {
+		t = r.Decl.Enum.Base
+	}
+	switch groupOf(t) {
+	case groupString:
+		return `""`
+	case groupNumber:
+		return "0"
+	case groupBool:
+		return "false"
+	case groupOther, groupBytes, groupSlice, groupMap:
+	}
+	return ""
+}
+
 // StructDecl is the struct declaration a value of type t is, through pointers and aliases, or nil.
 func StructDecl(t Type) *Decl {
 	if r, ok := unalias(Elem(t)).(DeclRef); ok && r.Decl.Kind == KindStruct {

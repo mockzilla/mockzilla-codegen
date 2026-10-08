@@ -223,3 +223,13 @@ components:
           type: array
           items: {type: object, enum: [{r: 1}]}
         allNull: {type: array, items: {type: integer}, enum: [null]}
+    Plain:
+      type: object
+      properties:
+        name: {type: string, minLength: 2, x-go-type-skip-optional-pointer: true}
+        size: {type: integer, minimum: 1, x-go-type-skip-optional-pointer: true}
+        on: {type: boolean, const: true, x-go-type-skip-optional-pointer: true}
+        kind: {$ref: '#/components/schemas/Kind', x-go-type-skip-optional-pointer: true}
+        car: {$ref: '#/components/schemas/Car', x-go-type-skip-optional-pointer: true}
+        code: {type: string, maxLength: 3, x-go-type-skip-optional-pointer: true}
+      required: [code]

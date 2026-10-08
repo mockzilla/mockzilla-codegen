@@ -176,6 +176,7 @@ type Contact struct {
 	Name  string                   `json:"name"`
 	Email *string                  `json:"email,omitempty"`
 	Phone runtime.Nullable[string] `json:"phone,omitzero"`
+	Nick  string                   `json:"nick,omitempty"`
 }
 
 // Validate checks the value against the constraints of the spec.
@@ -183,6 +184,32 @@ func (c Contact) Validate() error {
 	var errs validation.Errors
 	errs.Append("", validation.ExactlyOneOf("email or phone", c.Email != nil, c.Phone.IsSet()))
 	errs.Append("", validation.AtLeastOneOf("name or (email and phone)", true, c.Email != nil && c.Phone.IsSet()))
+	errs.Append("", validation.ExactlyOneOf("nick or email", c.Nick != "", c.Email != nil))
+	return errs.Err()
+}
+
+type Settings struct {
+	Theme string `json:"theme,omitempty"`
+	Size  int    `json:"size,omitempty"`
+	On    bool   `json:"on,omitempty"`
+	Owner Owner  `json:"owner,omitempty,omitzero"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (s Settings) Validate() error {
+	var errs validation.Errors
+	if s.Theme != "" {
+		errs.Append("theme", validation.MinLength(s.Theme, 2))
+	}
+	if s.Size != 0 {
+		errs.Append("size", validation.Minimum(s.Size, 1, false))
+	}
+	if s.On {
+		errs.Append("on", validation.Const(s.On, true))
+	}
+	if !validation.IsZero(s.Owner) {
+		errs.Append("owner", s.Owner.Validate())
+	}
 	return errs.Err()
 }
 

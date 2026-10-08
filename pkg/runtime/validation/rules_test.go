@@ -11,6 +11,7 @@ import (
 	"math"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -134,4 +135,32 @@ func TestPaths(t *testing.T) {
 	assert.Equal(t, `labels["a b"]`, Key("labels", "a b"))
 	assert.Equal(t, "team", Key("", "team"))
 	assert.Equal(t, []string{"a", "b", "c"}, SortedKeys(map[string]int{"c": 1, "a": 2, "b": 3}))
+}
+
+func TestIsZero(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		v    any
+		want bool
+	}{
+		{name: "Nil", v: nil, want: true},
+		{name: "Empty string", v: level(""), want: true},
+		{name: "String", v: level("a")},
+		{name: "Zero struct", v: shade{}, want: true},
+		{name: "Struct with a field set", v: shade{G: new(0)}},
+		{name: "Nil pointer", v: (*time.Time)(nil), want: true},
+		{name: "Pointer to a zero value", v: new(0)},
+		{name: "Zero by its own IsZero", v: time.Time{}.In(time.FixedZone("x", 3600)), want: true},
+		{name: "Time", v: time.Unix(1, 0)},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, IsZero(tc.v))
+		})
+	}
 }
