@@ -34,6 +34,7 @@ const (
 	StyleSpaceDelimited Style = "spaceDelimited"
 	StylePipeDelimited  Style = "pipeDelimited"
 	StyleDeepObject     Style = "deepObject"
+	StyleCookie         Style = "cookie"
 )
 
 // shape is what a parameter's Go type holds: one value, a list, or an object with named values.
@@ -62,7 +63,7 @@ var (
 
 // Param describes one parameter: its name, how it is written, and whether it must be there. IsJSON
 // is set for content application/json; Default is the JSON a decoder sets when it is not there.
-// IsReserved is allowReserved: a query value keeps the reserved characters a query holds.
+// IsReserved is allowReserved: a query value or form cookie keeps the reserved characters.
 type Param struct {
 	Name       string
 	Style      Style
@@ -121,7 +122,7 @@ func DecodePath(raw string, p Param, dst any) error {
 			return setParam(target, tree(items, sh, sh == shapeObject))
 		}
 		raw = strings.TrimPrefix(raw, p.Name+"=")
-	case StyleSimple, StyleForm, StyleSpaceDelimited, StylePipeDelimited, StyleDeepObject:
+	case StyleSimple, StyleForm, StyleSpaceDelimited, StylePipeDelimited, StyleDeepObject, StyleCookie:
 	}
 	return setParam(target, pieces(raw, ",", sh, p.IsExplode))
 }
@@ -166,8 +167,8 @@ func DecodeQuery(q Query, p Param, dst any) error {
 		if len(q) == 0 {
 			return missing(p, target)
 		}
-		var fields map[string]string
-		if fields, err = firstValues(q, unescapeQuery); err != nil {
+		var fields map[string]any
+		if fields, err = keyedValues(q, unescapeQuery); err != nil {
 			return err
 		}
 		return setParam(target, fields)
@@ -197,26 +198,43 @@ func DecodeHeader(h http.Header, p Param, dst any) error {
 	return setParam(target, pieces(raw, ",", shapeOf(target.Type()), p.IsExplode))
 }
 
-// DecodeCookie decodes a cookie into dst, a pointer to the parameter's type.
+// DecodeCookie decodes a cookie into dst, a pointer to its type; a form cookie is percent-encoded.
 func DecodeCookie(cookies []*http.Cookie, p Param, dst any) error {
 	target, err := pointer(dst)
 	if err != nil {
 		return err
 	}
-	q := url.Values{}
-	for _, c := range cookies {
-		q.Add(c.Name, c.Value)
+
+	read := unescapeCookie
+	if p.Style == StyleCookie || p.IsJSON {
+		read = keepValue
 	}
 
 	if shapeOf(target.Type()) == shapeObject && p.IsExplode && !p.IsJSON {
-		fields, _ := firstValues(q, keepValue) // keepValue never fails
+		q := map[string][]string{}
+		for _, c := range cookies {
+			if name, nameErr := read(c.Name); nameErr == nil {
+				q[name] = append(q[name], c.Value)
+			}
+		}
+
+		var fields map[string]any
+		if fields, err = keyedValues(q, read); err != nil {
+			return err
+		}
 		return setParam(target, fields)
 	}
-	values, ok := q[p.Name]
-	if !ok {
+
+	var values []string
+	for _, c := range cookies {
+		if c.Name == p.Name {
+			values = append(values, c.Value)
+		}
+	}
+	if len(values) == 0 {
 		return missing(p, target)
 	}
-	return decodeValues(target, values, p, keepValue)
+	return decodeValues(target, values, p, read)
 }
 
 // DecodeQueryString decodes raw, the whole query, into dst: percent-encoded JSON or a form.
@@ -243,7 +261,7 @@ func DecodeQueryString(raw string, p Param, dst any) error {
 }
 
 // Headers adds the fields of v, a struct of typed headers, to h and returns it, made when nil. A
-// field that is nil or that cannot be written is left out.
+// field that is nil or that cannot be written is left out. Its header tag may say explode or json.
 func Headers(h http.Header, v any) http.Header {
 	if h == nil {
 		h = http.Header{}
@@ -262,15 +280,16 @@ func Headers(h http.Header, v any) http.Header {
 		if name == "" || !f.IsExported() {
 			continue
 		}
-		if t, err := encodeTree(rv.Field(i).Interface(), Param{Style: StyleSimple}); err == nil && t != nil {
-			h.Set(name, join(t, ",", false))
+		p := headerParam(f, name)
+		if t, err := encodeTree(rv.Field(i).Interface(), p); err == nil && t != nil {
+			h.Set(name, join(t, ",", p.IsExplode))
 		}
 	}
 	return h
 }
 
 // DecodeHeaders reads h into dst, a pointer to a struct of typed headers whose fields name their
-// header in a json tag, each as a simple-style parameter. A header that is not there leaves its
+// header in a json tag, each read as Headers writes it. A header that is not there leaves its
 // field as it is.
 func DecodeHeaders(h http.Header, dst any) error {
 	target, err := pointer(dst)
@@ -288,7 +307,7 @@ func DecodeHeaders(h http.Header, dst any) error {
 		if name == "" || !f.IsExported() {
 			continue
 		}
-		if err = DecodeHeader(h, Param{Name: name, Style: StyleSimple}, target.Field(i).Addr().Interface()); err != nil {
+		if err = DecodeHeader(h, headerParam(f, name), target.Field(i).Addr().Interface()); err != nil {
 			return fmt.Errorf("%w %s: %w", ErrHeaderValue, name, err)
 		}
 	}
@@ -320,7 +339,7 @@ func EncodePath(v any, p Param) (string, error) {
 			}
 		}
 		return ";" + p.Name + "=" + join(t, ",", false), nil
-	case StyleSimple, StyleForm, StyleSpaceDelimited, StylePipeDelimited, StyleDeepObject:
+	case StyleSimple, StyleForm, StyleSpaceDelimited, StylePipeDelimited, StyleDeepObject, StyleCookie:
 	}
 	return join(t, ",", p.IsExplode), nil
 }
@@ -365,11 +384,15 @@ func EncodeHeader(v any, p Param) (string, error) {
 	return join(t, ",", p.IsExplode), nil
 }
 
-// EncodeCookie writes v as cookies: one, or one per item of an exploded list or object.
+// EncodeCookie writes v as cookies, one per item when exploded; a form cookie is percent-encoded.
 func EncodeCookie(v any, p Param) ([]*http.Cookie, error) {
 	t, err := encodeTree(v, p)
 	if err != nil || t == nil {
 		return nil, err
+	}
+
+	if p.Style != StyleCookie && !p.IsJSON {
+		t = escapeTree(t, p.IsReserved)
 	}
 
 	var out []*http.Cookie
@@ -439,7 +462,13 @@ func unescapeQuery(s string) (string, error) {
 	return out, invalid(ErrParamValue, err)
 }
 
-// keepValue reads a cookie value, which is not percent-encoded.
+// unescapeCookie reads a form-style cookie value, where a + is a plus.
+func unescapeCookie(s string) (string, error) {
+	out, err := url.PathUnescape(s)
+	return out, invalid(ErrParamValue, err)
+}
+
+// keepValue reads a value that is not percent-encoded: a cookie-style or JSON cookie.
 func keepValue(s string) (string, error) {
 	return s, nil
 }
@@ -549,17 +578,19 @@ func setPath(m map[string]any, path []string, values []string) {
 	m[last] = values
 }
 
-func firstValues(q map[string][]string, read func(string) (string, error)) (map[string]string, error) {
-	out := make(map[string]string, len(q))
+// keyedValues reads an exploded object: one value per key, or a list when it came more than once.
+func keyedValues(q map[string][]string, read func(string) (string, error)) (map[string]any, error) {
+	out := make(map[string]any, len(q))
 	for _, key := range slices.Sorted(maps.Keys(q)) {
-		if len(q[key]) == 0 {
-			continue
-		}
-		value, err := read(q[key][0])
-		if err != nil {
+		values, err := readAll(q[key], read)
+		switch {
+		case err != nil:
 			return nil, err
+		case len(values) == 1:
+			out[key] = values[0]
+		case len(values) > 1:
+			out[key] = values
 		}
-		out[key] = value
 	}
 	return out, nil
 }
@@ -610,6 +641,18 @@ func allocate(v reflect.Value) reflect.Value {
 	return v
 }
 
+// headerParam is the parameter of a typed header field, as its header tag says.
+func headerParam(f reflect.StructField, name string) Param {
+	p := Param{Name: name, Style: StyleSimple}
+	switch f.Tag.Get("header") {
+	case "explode":
+		p.IsExplode = true
+	case "json":
+		p.IsJSON = true
+	}
+	return p
+}
+
 // shapeOf is what a Go type holds as a parameter. A type that reads text on its own, such as
 // time.Time, is one value.
 func shapeOf(t reflect.Type) shape {
@@ -649,7 +692,7 @@ func encodeTree(v any, p Param) (any, error) {
 		if p.Style == StyleDeepObject {
 			return deepPairs(p.Name, rv)
 		}
-		return pairs(rv)
+		return pairs(rv, p.IsExplode && (p.Style == StyleForm || p.Style == StyleCookie))
 	default:
 		return text(rv)
 	}
@@ -667,9 +710,18 @@ func itemTexts(rv reflect.Value) ([]string, error) {
 	return out, nil
 }
 
-func pairs(rv reflect.Value) ([]pair, error) {
+// pairs writes rv as name-value pairs; with isRepeated a list is its name once per item.
+func pairs(rv reflect.Value, isRepeated bool) ([]pair, error) {
 	var out []pair
 	for name, v := range properties(rv) {
+		if isRepeated && shapeOf(v.Type()) == shapeList {
+			items, err := repeated(name, v)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, items...)
+			continue
+		}
 		s, err := text(v)
 		if err != nil {
 			return nil, err
@@ -693,13 +745,11 @@ func deepPairs(key string, rv reflect.Value) ([]pair, error) {
 			}
 			out = append(out, inner...)
 		case shapeList:
-			texts, err := itemTexts(v)
+			items, err := repeated(field, v)
 			if err != nil {
 				return nil, err
 			}
-			for _, s := range texts {
-				out = append(out, pair{name: field, value: s})
-			}
+			out = append(out, items...)
 		default:
 			s, err := text(v)
 			if err != nil {
@@ -707,6 +757,19 @@ func deepPairs(key string, rv reflect.Value) ([]pair, error) {
 			}
 			out = append(out, pair{name: field, value: s})
 		}
+	}
+	return out, nil
+}
+
+// repeated writes the list rv as one pair per item, each named name.
+func repeated(name string, rv reflect.Value) ([]pair, error) {
+	texts, err := itemTexts(rv)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]pair, len(texts))
+	for i, s := range texts {
+		out[i] = pair{name: name, value: s}
 	}
 	return out, nil
 }

@@ -43,6 +43,7 @@ var styleNames = map[string]string{
 	"spaceDelimited": "StyleSpaceDelimited",
 	"pipeDelimited":  "StylePipeDelimited",
 	"deepObject":     "StyleDeepObject",
+	"cookie":         "StyleCookie",
 }
 
 var bytesType = gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}

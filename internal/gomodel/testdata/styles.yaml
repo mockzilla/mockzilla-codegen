@@ -1,0 +1,80 @@
+openapi: 3.2.0
+info: {title: styles, version: "1"}
+paths:
+  /items/{id}/{form}:
+    get:
+      operationId: listItems
+      parameters:
+        - {name: id, in: path, style: matrix, explode: true, schema: {$ref: '#/components/schemas/Point'}}
+        - {name: form, in: path, style: form, schema: {type: string}}
+        - {name: ids, in: query, style: pipeDelimited, schema: {type: array, items: {type: string}}}
+        - {name: pipes, in: query, style: pipeDelimited, explode: true, schema: {type: array, items: {type: string}}}
+        - {name: word, in: query, style: spaceDelimited, schema: {type: string}}
+        - {name: odd, in: query, style: odd, schema: {type: string}}
+        - {name: label, in: query, style: label, schema: {type: string}}
+        - {name: deepList, in: query, style: deepObject, schema: {type: array, items: {type: string}}}
+        - {name: deepAny, in: query, style: deepObject, schema: {x-go-type: url.Values, x-go-type-import: net/url}}
+        - name: filter
+          in: query
+          style: deepObject
+          schema:
+            type: object
+            properties:
+              tags: {type: array, items: {type: string}}
+              size: {$ref: '#/components/schemas/Point'}
+              tree: {$ref: '#/components/schemas/Node'}
+        - name: deepGrid
+          in: query
+          style: deepObject
+          schema: {type: object, properties: {grid: {type: array, items: {type: array, items: {type: integer}}}}}
+        - name: deepNest
+          in: query
+          style: deepObject
+          schema: {type: object, properties: {size: {type: object, properties: {grid: {type: array, items: {type: array, items: {type: integer}}}}}}}
+        - {name: anything, in: query, style: deepObject, schema: {}}
+        - name: queries
+          in: query
+          schema: {type: object, properties: {reference: {type: string}, status: {type: array, items: {type: string}}}}
+        - name: flat
+          in: query
+          explode: false
+          schema: {type: object, properties: {status: {type: array, items: {type: string}}}}
+        - name: nested
+          in: query
+          schema: {type: object, properties: {size: {$ref: '#/components/schemas/Point'}}}
+        - name: byKey
+          in: query
+          schema: {type: object, additionalProperties: {type: array, items: {$ref: '#/components/schemas/Point'}}}
+        - name: deepMap
+          in: query
+          style: deepObject
+          schema: {type: object, additionalProperties: {$ref: '#/components/schemas/Point'}}
+        - {name: grid, in: query, schema: {type: array, items: {type: array, items: {type: string}}}}
+        - {name: points, in: query, schema: {type: array, items: {$ref: '#/components/schemas/Point'}}}
+        - {name: when, in: query, schema: {type: array, items: {type: string, format: date}}}
+        - {name: X-Form, in: header, style: form, schema: {type: string}}
+        - {name: X-Point, in: header, explode: true, schema: {$ref: '#/components/schemas/Point'}}
+        - {name: X-Tags, in: header, explode: true, schema: {type: object, properties: {tags: {type: array, items: {type: string}}}}}
+        - {name: session, in: cookie, schema: {type: string}}
+        - {name: colors, in: cookie, schema: {type: array, items: {type: string}}}
+        - {name: shades, in: cookie, explode: false, schema: {type: array, items: {type: string}}}
+        - {name: prefs, in: cookie, style: cookie, schema: {type: object, properties: {tags: {type: array, items: {type: string}}}}}
+        - {name: flags, in: cookie, style: cookie, explode: false, schema: {type: object, properties: {tags: {type: array, items: {type: string}}}}}
+        - {name: deepCookie, in: cookie, style: deepObject, schema: {$ref: '#/components/schemas/Point'}}
+      responses:
+        "200":
+          description: ok
+          headers:
+            X-Point: {explode: true, schema: {$ref: '#/components/schemas/Point'}}
+            X-Flat: {schema: {$ref: '#/components/schemas/Point'}}
+            X-JSON: {content: {application/json: {schema: {$ref: '#/components/schemas/Point'}}}}
+            X-Grid: {schema: {type: array, items: {type: array, items: {type: string}}}}
+            X-Form: {style: form, schema: {type: string}}
+        "204":
+          description: none
+          headers:
+            X-Grid: {schema: {type: array, items: {type: array, items: {type: string}}}}
+components:
+  schemas:
+    Point: {type: object, properties: {x: {type: integer}, y: {type: integer}}}
+    Node: {type: object, properties: {name: {type: string}, child: {$ref: '#/components/schemas/Node'}}}

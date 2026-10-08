@@ -1,0 +1,63 @@
+Point struct models.types
+  X *int json=x omitempty
+  Y *int json=y omitempty
+Node struct models.types
+  Name *string json=name omitempty
+  Child *Node json=child omitempty
+ListItemsPathParams struct models.params
+  ID Point json=id required
+ListItemsQuery struct models.params
+  IDs []string json=ids omitempty omitzero
+  DeepAny *url.Values json=deepAny omitempty
+  Filter *ListItemsQueryFilter json=filter omitempty
+  Anything any json=anything omitempty
+  Queries *ListItemsQueryQueries json=queries omitempty
+  DeepMap map[string]Point json=deepMap omitempty omitzero
+  When []runtime.Date json=when omitempty omitzero
+ListItemsQueryFilter struct models.params
+  Tags []string json=tags omitempty omitzero
+  Size *Point json=size omitempty
+  Tree *Node json=tree omitempty
+ListItemsQueryQueries struct models.params
+  Reference *string json=reference omitempty
+  Status []string json=status omitempty omitzero
+ListItemsHeaders struct models.params
+  XPoint *Point json=X-Point omitempty
+ListItemsCookies struct models.params
+  Session *string json=session omitempty
+  Shades []string json=shades omitempty omitzero
+  Prefs *ListItemsCookiesPrefs json=prefs omitempty
+ListItemsCookiesPrefs struct models.params
+  Tags []string json=tags omitempty omitzero
+ListItemsResponse200Headers struct models.responses
+  XPoint *Point json=X-Point omitempty header=explode
+  XFlat *Point json=X-Flat omitempty
+  XJSON *Point json=X-JSON omitempty header=json
+op ListItems GET /items/{id}/{form}
+  params path ListItemsPathParams
+  params query ListItemsQuery
+  params header ListItemsHeaders
+  params cookie ListItemsCookies
+  response 200 headers ListItemsResponse200Headers
+---
+warning param-unsupported 9:11 /paths/~1items~1{id}~1{form}/get/parameters/1: path parameter "form" has style form, which OpenAPI allows only in query and cookie parameters; it gets no field and is neither sent nor read
+warning param-unsupported 11:11 /paths/~1items~1{id}~1{form}/get/parameters/3: query parameter "pipes" has style pipeDelimited with explode true, which OpenAPI does not define; it gets no field and is neither sent nor read
+warning param-unsupported 12:11 /paths/~1items~1{id}~1{form}/get/parameters/4: query parameter "word" has style spaceDelimited, which OpenAPI defines for a list or an object only; it gets no field and is neither sent nor read
+warning param-unsupported 13:11 /paths/~1items~1{id}~1{form}/get/parameters/5: query parameter "odd" has style "odd", which OpenAPI does not define; it gets no field and is neither sent nor read
+warning param-unsupported 14:11 /paths/~1items~1{id}~1{form}/get/parameters/6: query parameter "label" has style label, which OpenAPI allows only in path parameters; it gets no field and is neither sent nor read
+warning param-unsupported 15:11 /paths/~1items~1{id}~1{form}/get/parameters/7: query parameter "deepList" has style deepObject, which OpenAPI defines for an object only; it gets no field and is neither sent nor read
+warning param-unsupported 26:11 /paths/~1items~1{id}~1{form}/get/parameters/10: query parameter "deepGrid" holds a list of lists in property "grid", which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+warning param-unsupported 30:11 /paths/~1items~1{id}~1{form}/get/parameters/11: query parameter "deepNest" holds a list of lists in property "grid", which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+warning param-unsupported 38:11 /paths/~1items~1{id}~1{form}/get/parameters/14: query parameter "flat" holds a list in property "status", which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+warning param-unsupported 42:11 /paths/~1items~1{id}~1{form}/get/parameters/15: query parameter "nested" holds an object in property "size", which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+warning param-unsupported 45:11 /paths/~1items~1{id}~1{form}/get/parameters/16: query parameter "byKey" holds a list of objects in its map values, which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+warning param-unsupported 52:11 /paths/~1items~1{id}~1{form}/get/parameters/18: query parameter "grid" is a list of lists, which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+warning param-unsupported 53:11 /paths/~1items~1{id}~1{form}/get/parameters/19: query parameter "points" is a list of objects, which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+warning param-unsupported 55:11 /paths/~1items~1{id}~1{form}/get/parameters/21: header parameter "X-Form" has style form, which OpenAPI allows only in query and cookie parameters; it gets no field and is neither sent nor read
+warning param-unsupported 57:11 /paths/~1items~1{id}~1{form}/get/parameters/23: header parameter "X-Tags" holds a list in property "tags", which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+warning param-unsupported 59:11 /paths/~1items~1{id}~1{form}/get/parameters/25: cookie parameter "colors" has style form with explode true, which OpenAPI says writes the wrong delimiter for several cookie values (use style cookie); it gets no field and is neither sent nor read
+warning param-unsupported 62:11 /paths/~1items~1{id}~1{form}/get/parameters/28: cookie parameter "flags" holds a list in property "tags", which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+warning param-unsupported 63:11 /paths/~1items~1{id}~1{form}/get/parameters/29: cookie parameter "deepCookie" has style deepObject, which OpenAPI allows only in query parameters; it gets no field and is neither sent nor read
+warning param-unsupported 71:21 /paths/~1items~1{id}~1{form}/get/responses/200/headers/X-Grid: response header "X-Grid" is a list of lists, which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
+warning param-unsupported 72:21 /paths/~1items~1{id}~1{form}/get/responses/200/headers/X-Form: response header "X-Form" has style form, which OpenAPI allows only in query and cookie parameters; it gets no field and is neither sent nor read
+warning param-unsupported 76:21 /paths/~1items~1{id}~1{form}/get/responses/204/headers/X-Grid: response header "X-Grid" is a list of lists, which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read

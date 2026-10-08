@@ -19,6 +19,7 @@ paths:
     get:
       parameters:
         - {name: cursor, in: query, schema: {type: string}}
+        - {name: theme, in: cookie, style: cookie, schema: {type: array, items: {type: string}}}
       responses: {'200': {description: ok}}
 components:
   parameters:

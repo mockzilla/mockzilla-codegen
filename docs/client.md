@@ -146,9 +146,12 @@ func (o *CreatePetRequestOptions) Validate() error
   no cookie holds, such as `;` or `"`, is `runtime.ErrParamValue`, where net/http would drop the
   byte and log it. An object leaves out a property that is nil or a
   list or map with no items. A `deepObject` writes a list inside it once per item,
-  `filter[tags]=a&filter[tags]=b`, and an object inside it nested, `filter[size][x]=1`. The other
-  styles have no way to write a list or object inside an object, so setting one is
-  `runtime.ErrParamValue`.
+  `filter[tags]=a&filter[tags]=b`, and an object inside it nested, `filter[size][x]=1`. An
+  exploded `form` or `cookie` object writes a list inside it as its key once per item,
+  `status=a&status=b`. The other styles have no way to write a list or object inside an object,
+  so setting one is `runtime.ErrParamValue`; generation leaves such parameters out with a warning.
+- A `form` cookie is percent-encoded as a query value is, `allowReserved` included; a
+  `cookie`-style one goes as it is, so a value that needs escaping is escaped by the caller.
 - Query parameters go in the order of the spec, percent-encoded as RFC 6570 writes a form-style
   query: every byte but letters, digits and `-._~` is escaped, a space as `%20`. A separator goes
   as it is and the same byte inside a value is escaped, so `[]string{"a", "b,c"}` goes as

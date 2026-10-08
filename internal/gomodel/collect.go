@@ -170,9 +170,9 @@ func (c *collector) responseHeaders(op *Operation, r *spec.Response) {
 		return
 	}
 
-	list := make([]*spec.Parameter, len(r.Headers))
-	for i, h := range r.Headers {
-		list[i] = &spec.Parameter{
+	var list []*spec.Parameter
+	for _, h := range r.Headers {
+		p := &spec.Parameter{
 			Name:        h.Name,
 			In:          spec.InHeader,
 			Description: h.Description,
@@ -185,6 +185,15 @@ func (c *collector) responseHeaders(op *Operation, r *spec.Response) {
 			Extensions:  h.Extensions,
 			Origin:      h.Origin,
 		}
+		if why := c.paramIssue(p); why != "" {
+			c.unsupported(p, fmt.Sprintf("response header %q", h.Name), why)
+			continue
+		}
+		list = append(list, p)
+	}
+	if len(list) == 0 {
+		c.headerDecls[id] = nil
+		return
 	}
 
 	name, rank := c.namer.ResponseHeaders(op.Name, r.Status), naming.RankOperation
@@ -254,14 +263,8 @@ func (c *collector) params(op *Operation) {
 				continue
 			}
 			seen[p.Name] = true
-			if in != spec.InPath && p.Schema != nil && c.isUnionLost(p.Schema, map[*spec.Schema]bool{}) {
-				c.diags.Append(diag.Diagnostic{
-					Severity: diag.Warning,
-					Code:     diag.CodeParamUnsupported,
-					Pointer:  p.Origin.Pointer,
-					Origin:   origin(p.Origin),
-					Message:  fmt.Sprintf("%s parameter %q is or holds a union of more than scalars; it gets no field and is neither sent nor read", in, p.Name),
-				})
+			if why := c.paramIssue(p); why != "" {
+				c.unsupported(p, fmt.Sprintf("%s parameter %q", in, p.Name), why)
 				continue
 			}
 			list = append(list, p)
@@ -280,6 +283,17 @@ func (c *collector) params(op *Operation) {
 		}
 	}
 	c.queryString(op)
+}
+
+// unsupported warns that p, named by what, gets no field, and why.
+func (c *collector) unsupported(p *spec.Parameter, what, why string) {
+	c.diags.Append(diag.Diagnostic{
+		Severity: diag.Warning,
+		Code:     diag.CodeParamUnsupported,
+		Pointer:  p.Origin.Pointer,
+		Origin:   origin(p.Origin),
+		Message:  what + " " + why + "; it gets no field and is neither sent nor read",
+	})
 }
 
 // queryString walks the one querystring parameter of op that OpenAPI allows, in a form or JSON.

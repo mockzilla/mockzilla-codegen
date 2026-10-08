@@ -199,8 +199,8 @@ var Params = []Request{
 	{
 		Name:     "Cookies",
 		Path:     "/cookie",
-		Headers:  http.Header{"Cookie": {"session=abc; flags=1,2"}},
-		WantBody: `{"cookie":{"session":"abc","flags":[1,2]}}`,
+		Headers:  http.Header{"Cookie": {"session=a%20b%2Bc; flags=1,2"}},
+		WantBody: `{"cookie":{"session":"a b+c","flags":[1,2]}}`,
 	},
 	{
 		Name:     "A querystring parameter reads the whole query",

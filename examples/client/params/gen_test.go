@@ -70,11 +70,14 @@ func TestQueryStyles(t *testing.T) {
 			want: "filter%5Bname%5D=a&filter%5Btags%5D=b&filter%5Btags%5D=c&filter%5Bsize%5D%5Bx%5D=1&needed=yes",
 		},
 		{
-			name: "An object whose list is unset",
-			query: &QueryStylesQuery{
-				Filter: &Filter{Name: new("a"), Tags: []string{}}, Where: &Filter{Name: new("b")}, Needed: "yes",
-			},
-			want: "filter%5Bname%5D=a&where=name,b&needed=yes",
+			name:  "An object whose list is unset",
+			query: &QueryStylesQuery{Filter: &Filter{Name: new("a"), Tags: []string{}}, Needed: "yes"},
+			want:  "filter%5Bname%5D=a&needed=yes",
+		},
+		{
+			name:  "An exploded object writes a list as its key once per item",
+			query: &QueryStylesQuery{Queries: &QueryStylesQueryQueries{Reference: new("r"), Status: []string{"a", "b"}}, Needed: "yes"},
+			want:  "reference=r&status=a&status=b&needed=yes",
 		},
 		{
 			name:  "A union writes the variant that is set",
@@ -132,16 +135,21 @@ func TestCookieStyles(t *testing.T) {
 
 	c, seen := serve(t)
 
-	_, err := c.CookieStyles(context.Background(), &CookieStylesRequestOptions{Cookies: &CookieStylesCookies{Session: new("abc"), Flags: []int{1, 2}}})
+	_, err := c.CookieStyles(context.Background(), &CookieStylesRequestOptions{Cookies: &CookieStylesCookies{
+		Session: new("a b!"), Flags: []int{1, 2}, Prefs: []string{"dark%20mode", "wide"},
+	}})
 
 	require.NoError(t, err)
 	r := <-seen
 	session, err := r.Cookie("session")
 	require.NoError(t, err)
-	assert.Equal(t, "abc", session.Value)
+	assert.Equal(t, "a%20b%21", session.Value, "a form cookie is percent-encoded")
 	flags, err := r.Cookie("flags")
 	require.NoError(t, err)
 	assert.Equal(t, "1,2", flags.Value)
+	prefs, err := r.Cookie("prefs")
+	require.NoError(t, err)
+	assert.Equal(t, "dark%20mode,wide", prefs.Value, "a cookie-style cookie goes as it is")
 }
 
 func TestMissingParameters(t *testing.T) {
@@ -160,9 +168,6 @@ func TestMissingParameters(t *testing.T) {
 
 	_, err = c.PathStylesRequest(ctx, nil)
 	require.EqualError(t, err, "parameter is required: simple", "a path group left out leaves its placeholders")
-
-	_, err = c.QueryStylesRequest(ctx, &QueryStylesRequestOptions{Query: &QueryStylesQuery{Where: &Filter{Tags: []string{"a"}}}})
-	require.ErrorIs(t, err, runtime.ErrParamValue, "only a deep object can hold a list")
 
 	_, err = c.QueryStylesRequest(ctx, &QueryStylesRequestOptions{Query: &QueryStylesQuery{ID: &QueryStylesQueryID{}}})
 	require.EqualError(t, err, "invalid parameter value: cannot write null as text", "a union with no variant set")

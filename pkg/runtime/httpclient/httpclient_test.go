@@ -217,7 +217,7 @@ func TestRequestBuilder(t *testing.T) {
 		{
 			name: "A cookie value net/http would alter",
 			build: func(b *RequestBuilder) {
-				b.CookieParam("a;b", runtime.Param{Name: "session", Style: runtime.StyleForm})
+				b.CookieParam("a;b", runtime.Param{Name: "session", Style: runtime.StyleCookie})
 			},
 			wantErrText: `invalid parameter value: session: http: invalid byte ';' in Cookie.Value`,
 		},

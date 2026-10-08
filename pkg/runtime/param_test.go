@@ -161,6 +161,13 @@ func TestQueryStyles(t *testing.T) {
 		},
 		{name: "Deep object with a list of one", param: explode(StyleDeepObject, false), value: filter{Tags: []string{"x"}}, text: "color%5Btags%5D=x"},
 		{name: "Form object with its list unset", param: explode(StyleForm, false), value: filter{Name: new("a")}, text: "color=name,a"},
+		{
+			name:  "Form exploded object with a list, its key once per item",
+			param: explode(StyleForm, true),
+			value: filter{Name: new("a"), Tags: []string{"x", "y,z"}},
+			text:  "name=a&tags=x&tags=y%2Cz",
+		},
+		{name: "Form exploded object with a list of one", param: explode(StyleForm, true), value: filter{Tags: []string{"x"}}, text: "tags=x"},
 		{name: "JSON", param: Param{Name: "color", IsJSON: true}, value: color, text: "color=%7B%22R%22%3A100%2C%22G%22%3A200%2C%22B%22%3A150%7D"},
 		{name: "A space is %20 and a plus escaped", param: explode(StyleForm, true), value: "name eq 'a+b'", text: "color=name%20eq%20%27a%2Bb%27"},
 		{name: "A comma inside an item is escaped, one between items is not", param: explode(StyleForm, false), value: []string{"a", "b,c"}, text: "color=a,b%2Cc"},
@@ -259,6 +266,26 @@ func TestCookieStyles(t *testing.T) {
 		{name: "Exploded list", param: explode(StyleForm, true), value: colors, cookies: []*http.Cookie{cookie("color", "blue"), cookie("color", "black"), cookie("color", "brown")}},
 		{name: "Exploded object", param: explode(StyleForm, true), value: color, cookies: []*http.Cookie{cookie("R", "100"), cookie("G", "200"), cookie("B", "150")}},
 		{name: "JSON", param: Param{Name: "color", IsJSON: true}, value: colors, cookies: []*http.Cookie{cookie("color", `["blue","black","brown"]`)}},
+		{name: "Form is percent-encoded", param: explode(StyleForm, false), value: "Hello, world!", cookies: []*http.Cookie{cookie("color", "Hello%2C%20world%21")}},
+		{name: "Form list with a comma in an item", param: explode(StyleForm, false), value: []string{"a", "b,c"}, cookies: []*http.Cookie{cookie("color", "a,b%2Cc")}},
+		{name: "Form object with a name to escape", param: explode(StyleForm, true), value: map[string]string{"a b": "+"}, cookies: []*http.Cookie{cookie("a%20b", "%2B")}},
+		{
+			name:    "Form with allowReserved keeps reserved characters",
+			param:   Param{Name: "color", Style: StyleForm, IsReserved: true},
+			value:   "a/b:c+d e",
+			cookies: []*http.Cookie{cookie("color", "a/b:c+d%20e")},
+		},
+		{name: "Cookie string as it is", param: explode(StyleCookie, false), value: "Hello%2C world!", cookies: []*http.Cookie{cookie("color", "Hello%2C world!")}},
+		{name: "Cookie list", param: explode(StyleCookie, false), value: colors, cookies: []*http.Cookie{cookie("color", "blue,black,brown")}},
+		{name: "Cookie object", param: explode(StyleCookie, false), value: color, cookies: []*http.Cookie{cookie("color", "R,100,G,200,B,150")}},
+		{name: "Cookie exploded list", param: explode(StyleCookie, true), value: colors, cookies: []*http.Cookie{cookie("color", "blue"), cookie("color", "black"), cookie("color", "brown")}},
+		{name: "Cookie exploded object", param: explode(StyleCookie, true), value: color, cookies: []*http.Cookie{cookie("R", "100"), cookie("G", "200"), cookie("B", "150")}},
+		{
+			name:    "Cookie exploded object with a list, its name once per item",
+			param:   explode(StyleCookie, true),
+			value:   filter{Name: new("a"), Tags: []string{"x", "y"}},
+			cookies: []*http.Cookie{cookie("name", "a"), cookie("tags", "x"), cookie("tags", "y")},
+		},
 	}
 
 	for _, tc := range tests {
@@ -306,6 +333,21 @@ func TestDecodeParamEdges(t *testing.T) {
 		{name: "Cookie object exploded", decode: func(dst any) error {
 			return DecodeCookie([]*http.Cookie{{Name: "R", Value: "1"}}, explode(StyleForm, true), dst)
 		}, dst: new(rgb), want: rgb{R: 1}},
+		{name: "An exploded cookie name that does not unescape is left out", decode: func(dst any) error {
+			return DecodeCookie([]*http.Cookie{{Name: "%zz", Value: "1"}, {Name: "G", Value: "2"}}, explode(StyleForm, true), dst)
+		}, dst: new(map[string]string), want: map[string]string{"G": "2"}},
+		{name: "A form cookie value that does not unescape", decode: func(dst any) error {
+			return DecodeCookie([]*http.Cookie{{Name: "color", Value: "%zz"}}, optional, dst)
+		}, dst: new(string), wantErr: ErrParamValue},
+		{name: "An exploded form cookie value that does not unescape", decode: func(dst any) error {
+			return DecodeCookie([]*http.Cookie{{Name: "R", Value: "%zz"}}, explode(StyleForm, true), dst)
+		}, dst: new(rgb), wantErr: ErrParamValue},
+		{name: "A plus in a form cookie is a plus", decode: func(dst any) error {
+			return DecodeCookie([]*http.Cookie{{Name: "color", Value: "a+b"}}, optional, dst)
+		}, dst: new(string), want: "a+b"},
+		{name: "An exploded object takes a key that came twice as a list", decode: func(dst any) error {
+			return DecodeQuery(Query{"name": {"a"}, "tags": {"x", "y%2Cz"}}, explode(StyleForm, true), dst)
+		}, dst: new(filter), want: filter{Name: new("a"), Tags: []string{"x", "y,z"}}},
 		{name: "Missing query takes its default", decode: func(dst any) error {
 			return DecodeQuery(nil, Param{Name: "color", Style: StyleForm, Default: `["red"]`}, dst)
 		}, dst: new([]string), want: []string{"red"}},
@@ -416,8 +458,14 @@ func TestEncodeParamEdges(t *testing.T) {
 	require.ErrorIs(t, err, ErrParamValue)
 	_, err = EncodeQuery(struct{ C chan int }{}, p)
 	require.ErrorIs(t, err, ErrParamValue)
-	_, err = EncodeQuery(filter{Tags: []string{"x"}}, p)
-	require.ErrorIs(t, err, ErrParamValue, "only a deep object writes a list inside")
+	for _, style := range []Style{StyleSimple, StylePipeDelimited} {
+		_, err = EncodeQuery(filter{Tags: []string{"x"}}, explode(style, true))
+		require.ErrorIs(t, err, ErrParamValue, "only a style that gives each property a key writes a list inside")
+	}
+	_, err = EncodeQuery(filter{Tags: []string{"x"}}, explode(StyleForm, false))
+	require.ErrorIs(t, err, ErrParamValue)
+	_, err = EncodeQuery(struct{ L []chan int }{L: []chan int{nil}}, p)
+	require.ErrorIs(t, err, ErrParamValue)
 	deep := explode(StyleDeepObject, false)
 	for _, value := range []any{struct{ C chan int }{}, struct{ L []chan int }{L: []chan int{nil}}, struct{ O struct{ C chan int } }{}} {
 		_, err = EncodeQuery(value, deep)
@@ -460,11 +508,20 @@ func TestHeaders(t *testing.T) {
 		Token  *string  `json:"X-Page-Token"`
 		Tags   []string `json:"X-Tags"`
 		Bad    chan int `json:"X-Bad"`
+		Obj    *rgb     `json:"X-Obj" header:"explode"`
+		Flat   *rgb     `json:"X-Flat"`
+		JSON   *rgb     `json:"X-Json" header:"json"`
 		hidden string
-	}{Count: 3, Tags: []string{"a", "b"}, hidden: "x"}
+	}{Count: 3, Tags: []string{"a", "b"}, Obj: &rgb{R: 1}, Flat: &rgb{R: 1}, JSON: &rgb{R: 1}, hidden: "x"}
 
 	got := Headers(nil, &typed)
-	assert.Equal(t, http.Header{"X-Total-Count": {"3"}, "X-Tags": {"a,b"}}, got)
+	assert.Equal(t, http.Header{
+		"X-Total-Count": {"3"},
+		"X-Tags":        {"a,b"},
+		"X-Obj":         {"R=1,G=0,B=0"},
+		"X-Flat":        {"R,1,G,0,B,0"},
+		"X-Json":        {`{"R":1,"G":0,"B":0}`},
+	}, got)
 	assert.Equal(t, http.Header{"A": {"1"}}, Headers(http.Header{"A": {"1"}}, 5))
 	assert.Equal(t, http.Header{}, Headers(nil, (*rgb)(nil)))
 }
@@ -476,6 +533,8 @@ func TestDecodeHeaders(t *testing.T) {
 		Count  *int     `json:"X-Total-Count"`
 		Tags   []string `json:"X-Tags"`
 		Token  string   `json:"X-Page-Token"`
+		Obj    *rgb     `json:"X-Obj" header:"explode"`
+		JSON   *rgb     `json:"X-Json" header:"json"`
 		Skip   string   `json:"-"`
 		hidden string   //nolint:unused // left alone by the decoder
 	}
@@ -493,6 +552,12 @@ func TestDecodeHeaders(t *testing.T) {
 			want:   &typed{Count: Ptr(3), Tags: []string{"a", "b"}, Token: "kept"},
 		},
 		{name: "A nil struct pointer is made", header: http.Header{"X-Page-Token": {"t"}}, dst: new(*typed), want: new(&typed{Token: "t"})},
+		{
+			name:   "An exploded object and JSON as their tags say",
+			header: http.Header{"X-Obj": {"R=1,B=3"}, "X-Json": {`{"G":2}`}},
+			dst:    &typed{},
+			want:   &typed{Obj: &rgb{R: 1, B: 3}, JSON: &rgb{G: 2}},
+		},
 		{name: "A header that does not decode", header: http.Header{"X-Total-Count": {"x"}}, dst: &typed{}, wantErr: `invalid response header X-Total-Count: invalid parameter value: "x" is no int`},
 		{name: "A target that is no pointer", dst: typed{}, wantErr: "invalid parameter value: the target must be a pointer"},
 		{name: "A target that is no struct", dst: new(int), wantErr: "invalid parameter value: typed headers need a struct, not int"},

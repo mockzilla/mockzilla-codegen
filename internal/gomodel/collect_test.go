@@ -29,6 +29,7 @@ func TestCollector(t *testing.T) {
 		{name: "refs", fixture: "refs", opts: testOptions()},
 		{name: "server", fixture: "server", opts: server},
 		{name: "streaming", fixture: "streaming", opts: testOptions()},
+		{name: "styles", fixture: "styles", opts: server},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -24,7 +24,6 @@ ListItemsQuery struct models.params
   ID2 *ListItemsQueryID2 json=id2 omitempty
   Wait *time.Duration json=wait omitempty
   Bare []any json=bare omitempty omitzero
-  Tree Tree json=tree omitempty omitzero
   Labels map[string]ListItemsQueryLabelsValue json=labels omitempty omitzero
   Open map[string]any json=open omitempty omitzero
 ListItemsQueryID2 union models.unions
@@ -73,6 +72,7 @@ warning param-unsupported 24:11 /paths/~1items~1{id}/get/parameters/10: query pa
 warning param-unsupported 27:11 /paths/~1items~1{id}/get/parameters/11: header parameter "X-Owned" is or holds a union of more than scalars; it gets no field and is neither sent nor read
 warning param-unsupported 32:11 /paths/~1items~1{id}/get/parameters/12: header parameter "X-Typed" is or holds a union of more than scalars; it gets no field and is neither sent nor read
 warning param-unsupported 36:11 /paths/~1items~1{id}/get/parameters/13: query parameter "shapeRef" is or holds a union of more than scalars; it gets no field and is neither sent nor read
+warning param-unsupported 39:11 /paths/~1items~1{id}/get/parameters/16: query parameter "tree" is a list of lists, which OpenAPI leaves to the implementation; it gets no field and is neither sent nor read
 warning param-unsupported 43:11 /paths/~1items~1{id}/get/parameters/18: query parameter "byState" is or holds a union of more than scalars; it gets no field and is neither sent nor read
 warning querystring-unsupported 66:11 /paths/~1search/get/parameters/1: querystring parameter "again" gets no field and is neither sent nor read: the operation has querystring parameter "filter" already
 warning querystring-unsupported 84:11 /paths/~1search/put/parameters/0: querystring parameter "q" gets no field and is neither sent nor read: the operation has query parameters too

@@ -271,7 +271,7 @@ func groupView(g *Generator, p gomodel.ParamGroup) GroupView {
 			IsExplode:  param.Explode,
 			IsRequired: param.Required || p.In == spec.InPath,
 			IsJSON:     operation.IsJSONParam(param),
-			IsReserved: param.AllowReserved && param.Schema != nil && p.In == spec.InQuery,
+			IsReserved: param.AllowReserved && param.Schema != nil && (p.In == spec.InQuery || p.In == spec.InCookie && param.Style == "form"),
 		})
 	}
 	return v
