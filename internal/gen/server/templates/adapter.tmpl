@@ -131,15 +131,19 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 	}
 {{- end}}
 {{- if .HasBody}}
-	switch contentType := {{$.Runtime}}.ContentType(r.Header); contentType {
+	switch contentType := {{$.Runtime}}.ContentType(r.Header); {{.Tag}} {
 {{- range .Bodies}}
-	case {{.MediaType}}:
+	case {{.Case}}:
 {{- template "server/body.tmpl" .}}
 {{- end}}
-	case "":
+	case {{.Empty}}:
 {{- if .IsBodyRequired}}
 		a.failDecode(w, r, {{.ID}}, {{$.Runtime}}.ErrBodyEmpty)
 		{{$.Handler.Return}}
+{{- end}}
+{{- range .Patterns}}
+	case {{.Case}}:
+{{- template "server/body.tmpl" .}}
 {{- end}}
 	default:
 {{- range .Wildcards}}

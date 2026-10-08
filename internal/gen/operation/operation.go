@@ -48,6 +48,9 @@ var styleNames = map[string]string{
 
 var bytesType = gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}
 
+// rangeMembers are the media types a body under a range is sent as, for the ranges that have one.
+var rangeMembers = map[string]string{"text/*": "text/plain", "multipart/*": "multipart/form-data"}
+
 // defaultStyles are the styles of parameters that name none, by location.
 var defaultStyles = map[string]string{spec.InPath: "simple", spec.InQuery: "form", spec.InHeader: "simple", spec.InCookie: "form"}
 
@@ -128,6 +131,21 @@ func FrameType(c gomodel.Content) gomodel.Type {
 func BaseMediaType(mediaType string) string {
 	base, _, _ := strings.Cut(strings.ToLower(mediaType), ";")
 	return strings.TrimSpace(base)
+}
+
+// Concrete is the media type a body under mediaType is sent as: the member of a range that has one, else mediaType without parameters.
+func Concrete(mediaType string) string {
+	base := BaseMediaType(mediaType)
+	return cmp.Or(rangeMembers[base], base)
+}
+
+// IsTextValue reports a type a text body holds as its text: a builtin, any included, or a type from a package such as time.Time.
+func IsTextValue(t gomodel.Type) bool {
+	switch gomodel.Underlying(t).(type) {
+	case gomodel.Builtin, gomodel.Qualified:
+		return true
+	}
+	return false
 }
 
 // Encoding writes the runtime.Encoding of a form body, nil when it declares none.

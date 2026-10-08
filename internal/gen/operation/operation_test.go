@@ -154,6 +154,55 @@ func TestQueryStringType(t *testing.T) {
 	}
 }
 
+func TestConcrete(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		mediaType string
+		want      string
+	}{
+		{name: "A media type without its parameters", mediaType: "Text/CSV; charset=utf-8", want: "text/csv"},
+		{name: "The text range as plain text", mediaType: "text/*", want: "text/plain"},
+		{name: "The multipart range as a form", mediaType: "multipart/*", want: "multipart/form-data"},
+		{name: "Another range stays", mediaType: "image/*", want: "image/*"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, Concrete(tc.mediaType))
+		})
+	}
+}
+
+func TestIsTextValue(t *testing.T) {
+	t.Parallel()
+
+	count := &gomodel.Decl{Name: "Count", Kind: gomodel.KindAlias, Target: gomodel.Builtin{Name: "int"}}
+	tests := []struct {
+		name string
+		typ  gomodel.Type
+		want bool
+	}{
+		{name: "A number", typ: gomodel.Builtin{Name: "int"}, want: true},
+		{name: "Any", typ: gomodel.Builtin{Name: "any"}, want: true},
+		{name: "A time", typ: gomodel.Qualified{Import: gomodel.Import{Path: "time"}, Name: "Time"}, want: true},
+		{name: "A named number", typ: gomodel.DeclRef{Decl: count}, want: true},
+		{name: "A struct", typ: gomodel.DeclRef{Decl: &gomodel.Decl{Name: "Pet", Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}}},
+		{name: "A list", typ: gomodel.Slice{Elem: gomodel.Builtin{Name: "int"}}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, IsTextValue(tc.typ))
+		})
+	}
+}
+
 func TestEncoding(t *testing.T) {
 	t.Parallel()
 

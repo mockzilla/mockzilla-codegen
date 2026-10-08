@@ -114,7 +114,8 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
   (`*/*`, `application/*`) a string, bytes or a `runtime.File` takes the body as it came whatever
   the response's media type, also JSON, the same way the client sends them; anything else is read
   as JSON. A schema without a type, an `any`, holds a body that is no JSON as an absent schema
-  does: the text under `text/*`, else the bytes. Media types are
+  does: the text under `text/*`, else the bytes. A text body into a number, a boolean or a time
+  is read from its text. Media types are
   compared without their parameters and in lower case, so `application/json; charset=utf-8` is
   JSON; a request body goes under the media type as the spec writes it.
 - `<Op>` and `<Op>WithResponse` send `Accept` with every media type the responses of the
@@ -178,14 +179,16 @@ func (o *CreatePetRequestOptions) Validate() error
 - The body goes as its media type: JSON for `application/json` and `+json`,
   `application/x-www-form-urlencoded` as a form (a union or an object with additional
   properties in it goes as one JSON value), `multipart/form-data` as a multipart form, a
-  `runtime.File` body streamed, text and bytes as they are. A multipart form is
+  `runtime.File` body streamed, text and bytes as they are, and a number, a boolean, a time or an
+  `any` under a text media type as its text, see `runtime.EncodeText`. A multipart form is
   written while it is sent, so its files stream too, each as a file part named `blob` when it has
   no name, as browsers name a Blob. It goes with a `Content-Length` when every file knows its
   size, and chunked when one does not, such as a `runtime.NewFileReader` of size -1. A list goes
   as one part per item, a list of objects as one JSON part per item. With several body fields, the first one set is sent. A required body
   with none set is `runtime.ErrBodyEmpty`; a body the client cannot write, such as XML into a
   struct, is `runtime.ErrContentType`, and generation warns about it (`client-body-unwritable`). A
-  wildcard media type sends its field as JSON, text or bytes, whichever the field is.
+  range goes as its member: `text/*` as `text/plain`, `multipart/*` as `multipart/form-data`.
+  Another wildcard media type sends its field as JSON, text or bytes, whichever the field is.
 - The `encoding` object of a form body names the content type of a property. Multipart and
   url-encoded forms follow it. In a multipart form each part goes in that type:
   `application/json` writes the JSON of the value, `"p1"` for a string, and any other type the

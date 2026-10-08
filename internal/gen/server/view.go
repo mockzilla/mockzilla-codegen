@@ -202,7 +202,7 @@ func constructorView(c Constructor, status string, s *gocode.Scope) ConstructorV
 
 // contentType is the media type a constructor sets, empty when the runtime takes it from the body.
 func contentType(c gomodel.Content) string {
-	written := writtenAs(c.MediaType)
+	written := operation.Concrete(c.MediaType)
 	switch {
 	case !strings.Contains(c.MediaType, "*"):
 		return c.MediaType

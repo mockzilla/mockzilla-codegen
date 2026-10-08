@@ -25,6 +25,7 @@ const (
 	encodeForm      = "FormBody"
 	encodeMultipart = "MultipartBody"
 	encodeText      = "TextBody"
+	encodeTextValue = "TextValueBody"
 	encodeBytes     = "BytesBody"
 	encodeFile      = "FileBody"
 )
@@ -281,7 +282,8 @@ func groupView(g *Generator, p gomodel.ParamGroup) GroupView {
 func bodyView(c gomodel.Content, field string, s *gocode.Scope) BodyView {
 	t := operation.BodyType(c)
 	value := gocode.Selector("opts", field)
-	v := BodyView{IsSet: gocode.NotNil(value), Encoder: encoderOf(c), Value: value, MediaType: gocode.Quote(c.MediaType)}
+	encoder := encoderOf(c)
+	v := BodyView{IsSet: gocode.NotNil(value), Encoder: encoder, Value: value, MediaType: gocode.Quote(sentMediaType(c, encoder))}
 	base := gomodel.Elem(t)
 
 	switch v.Encoder {
@@ -297,20 +299,31 @@ func bodyView(c gomodel.Content, field string, s *gocode.Scope) BodyView {
 	case encodeBytes:
 		v.Value = held(value, base, t, s)
 	}
-	if strings.Contains(operation.BaseMediaType(c.MediaType), "*") {
-		v.MediaType = gocode.Quote(wildcardMediaTypes[v.Encoder])
-	}
 	return v
+}
+
+// sentMediaType is the media type a body goes as: the documented one, its range's member, else its encoder's, none for a file.
+func sentMediaType(c gomodel.Content, encoder string) string {
+	mediaType := operation.Concrete(c.MediaType)
+	switch {
+	case !strings.Contains(c.MediaType, "*"):
+		return c.MediaType
+	case !strings.Contains(mediaType, "*") && encoder != encodeFile:
+		return mediaType
+	}
+	return wildcardMediaTypes[encoder]
 }
 
 // encoderOf picks the encoder of a media type by the type of its field: JSON and forms take
 // anything, multipart a struct or a union that reads forms, a File streams, any other media type
-// is sent as a string or as bytes, whichever its field is. A wildcard media type sends anything
-// else as JSON. Other pairs, such as XML into a struct, cannot be sent: their encoder is empty.
+// is sent as a string or as bytes, whichever its field is, and text also as the text of a value
+// such as a number. A range sends as its member, text/* as text/plain; another wildcard media
+// type sends anything else as JSON. Other pairs, such as XML into a struct, cannot be sent: their
+// encoder is empty.
 func encoderOf(c gomodel.Content) string {
 	t := operation.BodyType(c)
 	under := gomodel.Underlying(gomodel.Elem(t))
-	mediaType := operation.BaseMediaType(c.MediaType)
+	mediaType := operation.Concrete(c.MediaType)
 	isWildcard := strings.Contains(mediaType, "*")
 
 	switch {
@@ -326,6 +339,8 @@ func encoderOf(c gomodel.Content) string {
 		return encodeText
 	case under == bytesType:
 		return encodeBytes
+	case strings.HasPrefix(mediaType, "text/") && operation.IsTextValue(under):
+		return encodeTextValue
 	}
 	return ""
 }

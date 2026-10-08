@@ -9,7 +9,6 @@
 package server
 
 import (
-	"cmp"
 	"embed"
 	"io/fs"
 	"path"
@@ -67,9 +66,6 @@ const (
 // mainTemplate is the template a framework whose server is not an http.Server gives the main
 // scaffold in place of the shared one.
 const mainTemplate = "scaffold-main.tmpl"
-
-// rangeMembers are the media types the server writes a body under a range as, where one fits.
-var rangeMembers = map[string]string{"text/*": "text/plain", "multipart/*": "multipart/form-data"}
 
 // Options are the settings of the server generator. Name is the base of the interface name.
 // Scaffold flags say which scaffold files the config asks for. User is the config's
@@ -307,7 +303,7 @@ func warning(op *gomodel.Operation, code, message string) diag.Diagnostic {
 
 // isWritable reports a body httpserver.Write encodes under its media type.
 func isWritable(c gomodel.Content) bool {
-	mediaType := writtenAs(c.MediaType)
+	mediaType := operation.Concrete(c.MediaType)
 	base := gomodel.Elem(operation.BodyType(c))
 	under := gomodel.Underlying(base)
 	switch {
@@ -318,17 +314,9 @@ func isWritable(c gomodel.Content) bool {
 	case mediaType == "multipart/form-data":
 		return gomodel.StructDecl(base) != nil
 	case strings.HasPrefix(mediaType, "text/"):
-		_, isBuiltin := under.(gomodel.Builtin)
-		_, isQualified := under.(gomodel.Qualified)
-		return isBuiltin || isQualified
+		return operation.IsTextValue(under)
 	}
 	return false
-}
-
-// writtenAs is the media type the server writes a body under mediaType as, a range kept when no member fits.
-func writtenAs(mediaType string) string {
-	base := operation.BaseMediaType(mediaType)
-	return cmp.Or(rangeMembers[base], base)
 }
 
 // operationTypes lists the types an operation's contract names.

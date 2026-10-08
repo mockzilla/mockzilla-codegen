@@ -63,6 +63,11 @@
 			{{.Return}}
 		}
 		opts.{{.Field}} = {{.Assign}}
+{{- else if .IsValue}}
+		if err := {{.Runtime}}.DecodeTextValue(r.Body, {{.Target}}, {{.IsRequired}}); err != nil {
+			a.failDecode(w, r, {{.OperationID}}, err)
+			{{.Return}}
+		}
 {{- else if .IsBytes}}
 		data, err := {{.Runtime}}.DecodeBytes(r.Body, {{.IsRequired}})
 		if err != nil {

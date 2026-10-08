@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=../../../config.schema.json
+spec: {path: api.yaml}
+package: ranges
+server:
+  framework: chi
+client: {}

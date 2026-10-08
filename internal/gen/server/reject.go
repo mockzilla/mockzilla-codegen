@@ -107,8 +107,11 @@ func rejectWarnings(ops []*gomodel.Operation) []diag.Diagnostic {
 // constructor.
 func rejections(op *gomodel.Operation) ([]rejection, []*gomodel.Decl) {
 	statuses := []int{http.StatusBadRequest}
-	isWildcard := func(c gomodel.Content) bool { return strings.Contains(operation.BaseMediaType(c.MediaType), "*") }
-	if len(op.Bodies) > 0 && !slices.ContainsFunc(op.Bodies, isWildcard) {
+	isCatchAll := func(c gomodel.Content) bool {
+		mediaType := operation.BaseMediaType(c.MediaType)
+		return strings.Contains(mediaType, "*") && !isTypeRange(mediaType) && !isJSONPattern(mediaType)
+	}
+	if len(op.Bodies) > 0 && !slices.ContainsFunc(op.Bodies, isCatchAll) {
 		statuses = append(statuses, http.StatusUnsupportedMediaType)
 	}
 
@@ -128,7 +131,7 @@ func rejections(op *gomodel.Operation) ([]rejection, []*gomodel.Decl) {
 			unbuilt = append(unbuilt, d)
 			continue
 		}
-		out = append(out, rejection{status: status, decl: d, mediaType: r.Contents[i].MediaType})
+		out = append(out, rejection{status: status, decl: d, mediaType: errorMediaType(r.Contents[i].MediaType)})
 	}
 
 	isOne := len(out) == len(statuses)

@@ -1,0 +1,65 @@
+openapi: 3.1.0
+info: {title: media ranges, version: "1"}
+paths:
+  /attachments:
+    post:
+      operationId: addAttachment
+      requestBody:
+        required: true
+        content:
+          text/*: {schema: {type: string}}
+          image/*: {schema: {type: string, format: binary}}
+      responses:
+        "200":
+          description: the size of what came in, in bytes
+          content:
+            text/plain: {schema: {type: integer}}
+  /scores:
+    put:
+      operationId: putScore
+      requestBody:
+        required: true
+        content:
+          text/plain: {schema: {type: integer}}
+      responses:
+        "200":
+          description: the score doubled
+          content:
+            text/plain: {schema: {type: integer}}
+  /cards:
+    post:
+      operationId: addCard
+      requestBody:
+        required: true
+        content:
+          multipart/*: {schema: {$ref: '#/components/schemas/Card'}}
+      responses:
+        "200":
+          description: the name and the type of the photo that came in
+          content:
+            text/plain: {schema: {type: string}}
+  /events:
+    post:
+      operationId: addEvent
+      requestBody:
+        required: true
+        content:
+          application/*+json: {schema: {$ref: '#/components/schemas/Event'}}
+      responses:
+        "200":
+          description: the name of the event and the media type it came in
+          content:
+            text/plain: {schema: {type: string}}
+components:
+  schemas:
+    Event:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+    Card:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+        photo: {type: string, format: binary}

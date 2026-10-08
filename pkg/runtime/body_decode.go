@@ -67,6 +67,12 @@ func IsSequential(mediaType string) bool {
 	return mediaType == mediaTypeEventStream || slices.Contains(lineMediaTypes, mediaType)
 }
 
+// MediaRange is the range of one type a media type falls in, text/* for text/csv.
+func MediaRange(mediaType string) string {
+	typ, _, _ := strings.Cut(mediaType, "/")
+	return typ + "/*"
+}
+
 // ContentTypeError is the error of a body in a media type the operation does not take.
 func ContentTypeError(mediaType string) error {
 	return fmt.Errorf("%w: %s", ErrContentType, mediaType)
@@ -137,6 +143,20 @@ func DecodeMultipartBody(body io.Reader, contentType string, dst any, enc Encodi
 		return err
 	}
 	return fillMultipart(form, dst, enc)
+}
+
+// DecodeTextValue reads a text body into what dst points to, by its type, as EncodeText writes it.
+func DecodeTextValue(body io.Reader, dst any, isRequired bool) error {
+	value, err := DecodeText(body, isRequired)
+	if err != nil || value == "" {
+		return err
+	}
+
+	target, err := pointer(dst)
+	if err != nil {
+		return err
+	}
+	return invalid(ErrBodyValue, assigner{}.assign(target, value))
 }
 
 // DecodeText reads a text body.
