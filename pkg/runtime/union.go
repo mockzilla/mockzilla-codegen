@@ -38,10 +38,16 @@ type Variant struct {
 	Into      Setter
 }
 
-// Setter sets a variant field from JSON or from a form.
+// Setter decodes a variant field from JSON or from a form.
 type Setter interface {
-	decode(data []byte) error
-	fill(form *multipart.Form) error
+	decode(data []byte) (variantValue, error)
+	fill(form *multipart.Form) (variantValue, error)
+}
+
+// variantValue is a decoded variant: set stores it, isValid is false when it fails its Validate.
+type variantValue struct {
+	set     func()
+	isValid bool
 }
 
 // Shape is one object a variant can be, with property names as Variant has them.
@@ -70,32 +76,41 @@ type candidate struct {
 	isPerfect bool
 }
 
+// decoded is a candidate with the value it decoded.
+type decoded struct {
+	candidate
+	variantValue
+}
+
 // into is the Setter of a variant field.
 type into[T any] struct {
 	dst *T
 }
 
-// Into returns the Setter of the variant field dst, which sets it only when a value decodes.
+// Into returns the Setter of the variant field dst, which sets it only when the union picks it.
 func Into[T any](dst *T) Setter {
 	return into[T]{dst: dst}
 }
 
-func (t into[T]) decode(data []byte) error {
+func (t into[T]) decode(data []byte) (variantValue, error) {
 	var v T
 	if err := json.Unmarshal(data, &v); err != nil {
-		return err
+		return variantValue{}, err
 	}
-	*t.dst = v
-	return nil
+	return t.hold(v), nil
 }
 
-func (t into[T]) fill(form *multipart.Form) error {
+func (t into[T]) fill(form *multipart.Form) (variantValue, error) {
 	var v T
 	if err := fillForm(reflect.ValueOf(&v).Elem(), form, nil); err != nil {
-		return err
+		return variantValue{}, err
 	}
-	*t.dst = v
-	return nil
+	return t.hold(v), nil
+}
+
+func (t into[T]) hold(v T) variantValue {
+	c, isChecked := any(v).(interface{ Validate() error })
+	return variantValue{set: func() { *t.dst = v }, isValid: !isChecked || c.Validate() == nil}
 }
 
 // UnmarshalUnion decodes data into the variants of u it matches: one for oneOf, every match for
@@ -116,7 +131,7 @@ func UnmarshalUnion(data []byte, u Union) error {
 			return err
 		}
 	}
-	return u.setAll(obj, kind, "a JSON "+kind.String(), func(t Setter) error { return t.decode(data) })
+	return u.setAll(obj, kind, "a JSON "+kind.String(), func(t Setter) (variantValue, error) { return t.decode(data) })
 }
 
 // UnmarshalUnionForm reads form into the shared fields, then into the variants it matches.
@@ -126,7 +141,7 @@ func UnmarshalUnionForm(form *multipart.Form, fields any, u Union) error {
 			return err
 		}
 	}
-	return u.setAll(formMembers(form), KindObject, "a form", func(t Setter) error { return t.fill(form) })
+	return u.setAll(formMembers(form), KindObject, "a form", func(t Setter) (variantValue, error) { return t.fill(form) })
 }
 
 // UnmarshalUnionText decodes raw with a union's UnmarshalJSON, as a number or boolean first.
@@ -154,7 +169,7 @@ func (u Union) groups() []Union {
 }
 
 // setAll decodes into the variants of each group a value of kind matches.
-func (u Union) setAll(obj map[string]json.RawMessage, kind Kind, what string, decode func(Setter) error) error {
+func (u Union) setAll(obj map[string]json.RawMessage, kind Kind, what string, decode func(Setter) (variantValue, error)) error {
 	for _, g := range u.groups() {
 		if err := g.setVariants(obj, kind, what, decode); err != nil {
 			return err
@@ -164,7 +179,7 @@ func (u Union) setAll(obj map[string]json.RawMessage, kind Kind, what string, de
 }
 
 // setVariants decodes into the variants a value of kind matches; what names the value in errors.
-func (u Union) setVariants(obj map[string]json.RawMessage, kind Kind, what string, decode func(Setter) error) error {
+func (u Union) setVariants(obj map[string]json.RawMessage, kind Kind, what string, decode func(Setter) (variantValue, error)) error {
 	pool := make([]int, len(u.Variants))
 	for i := range pool {
 		pool[i] = i
@@ -175,7 +190,11 @@ func (u Union) setVariants(obj map[string]json.RawMessage, kind Kind, what strin
 		case err != nil:
 			return err
 		case picked >= 0:
-			return decode(u.Variants[picked].Into)
+			var v variantValue
+			if v, err = decode(u.Variants[picked].Into); err == nil {
+				v.set()
+			}
+			return err
 		}
 		pool = rest
 	}
@@ -186,10 +205,8 @@ func (u Union) setVariants(obj map[string]json.RawMessage, kind Kind, what strin
 		return err
 	case u.IsAnyOf:
 		return u.decodeAll(cands, what, decode)
-	case kind == KindObject && len(cands) > 1 && cands[0].score == cands[1].score:
-		return fmt.Errorf("%w: %s and %s", ErrAmbiguous, u.Variants[cands[0].index].Name, u.Variants[cands[1].index].Name)
 	}
-	return u.decodeFirst(cands, what, decode)
+	return u.decodeOne(cands, kind, what, decode)
 }
 
 // tag fills an empty discriminator value and checks that the value picks a variant of set.
@@ -348,33 +365,67 @@ func (u Union) width(c candidate) int {
 	return bits.OnesCount8(uint8(u.Variants[c.index].Kind))
 }
 
-// decodeAll sets every candidate that decodes.
-func (u Union) decodeAll(cands []candidate, what string, decode func(Setter) error) error {
+// decodeAll sets every candidate that decodes and passes its checks, else every one that decodes.
+func (u Union) decodeAll(cands []candidate, what string, decode func(Setter) (variantValue, error)) error {
 	var errs []error
+	var all, valid []variantValue
 	for _, c := range cands {
 		v := u.Variants[c.index]
-		if err := decode(v.Into); err != nil {
+		value, err := decode(v.Into)
+		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", v.Name, err))
+			continue
+		}
+		all = append(all, value)
+		if value.isValid {
+			valid = append(valid, value)
 		}
 	}
-	if len(errs) < len(cands) {
-		return nil
+	if len(all) == 0 {
+		return noVariant(what, errs)
 	}
-	return noVariant(what, errs)
+
+	if len(valid) > 0 {
+		all = valid
+	}
+	for _, value := range all {
+		value.set()
+	}
+	return nil
 }
 
-// decodeFirst sets the first candidate that decodes.
-func (u Union) decodeFirst(cands []candidate, what string, decode func(Setter) error) error {
+// decodeOne sets the first candidate that passes its checks, else the first that decodes.
+func (u Union) decodeOne(cands []candidate, kind Kind, what string, decode func(Setter) (variantValue, error)) error {
 	var errs []error
+	var all, valid []decoded
 	for _, c := range cands {
-		v := u.Variants[c.index]
-		err := decode(v.Into)
-		if err == nil {
-			return nil
+		if len(valid) > 0 && (kind != KindObject || c.score < valid[0].score) {
+			break
 		}
-		errs = append(errs, fmt.Errorf("%s: %w", v.Name, err))
+		v := u.Variants[c.index]
+		value, err := decode(v.Into)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", v.Name, err))
+			continue
+		}
+		d := decoded{candidate: c, variantValue: value}
+		all = append(all, d)
+		if value.isValid {
+			valid = append(valid, d)
+		}
 	}
-	return noVariant(what, errs)
+
+	if len(valid) > 0 {
+		all = valid
+	}
+	switch {
+	case len(all) == 0:
+		return noVariant(what, errs)
+	case kind == KindObject && len(all) > 1 && all[0].score == all[1].score:
+		return fmt.Errorf("%w: %s and %s", ErrAmbiguous, u.Variants[all[0].index].Name, u.Variants[all[1].index].Name)
+	}
+	all[0].set()
+	return nil
 }
 
 func (c candidate) outranks(other candidate) bool {

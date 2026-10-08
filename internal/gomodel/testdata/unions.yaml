@@ -280,3 +280,49 @@ components:
       oneOf:
         - $ref: '#/components/schemas/TwoOneOfs'
         - $ref: '#/components/schemas/TwoRefs'
+    Web:
+      type: object
+      properties: {host: {type: string}}
+    Shell:
+      type: object
+      properties: {key: {type: string}}
+    Server:
+      oneOf:
+        - $ref: '#/components/schemas/Web'
+        - $ref: '#/components/schemas/Shell'
+      discriminator:
+        propertyName: server_type
+        mapping:
+          shell: '#/components/schemas/Shell'
+          nginx: '#/components/schemas/Web'
+          apache: '#/components/schemas/Web'
+    SharedServerType:
+      type: object
+      properties: {server_type: {type: string}}
+      anyOf:
+        - $ref: '#/components/schemas/Web'
+        - $ref: '#/components/schemas/Shell'
+      discriminator:
+        propertyName: server_type
+        mapping:
+          nginx: '#/components/schemas/Web'
+          apache: '#/components/schemas/Web'
+    Secure:
+      type: object
+      properties:
+        is_secure: {type: boolean, enum: [true]}
+        host: {type: string}
+    Plain:
+      type: object
+      properties:
+        is_secure: {enum: [false]}
+        port: {type: integer}
+    Connection:
+      oneOf:
+        - $ref: '#/components/schemas/Secure'
+        - $ref: '#/components/schemas/Plain'
+      discriminator:
+        propertyName: is_secure
+        mapping:
+          "true": '#/components/schemas/Secure'
+          "false": '#/components/schemas/Plain'

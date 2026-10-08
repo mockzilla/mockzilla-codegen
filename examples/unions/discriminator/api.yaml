@@ -57,3 +57,42 @@ components:
             kind: {const: square}
             side: {type: number}
       discriminator: {propertyName: kind}
+    Web:
+      type: object
+      properties:
+        host: {type: string}
+    Shell:
+      type: object
+      properties:
+        key: {type: string}
+    Server:
+      description: Two values pick Web, which has no server_type, so the union keeps the value.
+      oneOf:
+        - $ref: '#/components/schemas/Web'
+        - $ref: '#/components/schemas/Shell'
+      discriminator:
+        propertyName: server_type
+        mapping:
+          nginx: '#/components/schemas/Web'
+          apache: '#/components/schemas/Web'
+          shell: '#/components/schemas/Shell'
+    Secure:
+      type: object
+      properties:
+        is_secure: {type: boolean, enum: [true]}
+        cert: {type: string}
+    Plain:
+      type: object
+      properties:
+        is_secure: {type: boolean, enum: [false]}
+        port: {type: integer}
+    Connection:
+      description: A boolean property is no discriminator, so the enums pick the variant.
+      oneOf:
+        - $ref: '#/components/schemas/Secure'
+        - $ref: '#/components/schemas/Plain'
+      discriminator:
+        propertyName: is_secure
+        mapping:
+          "true": '#/components/schemas/Secure'
+          "false": '#/components/schemas/Plain'

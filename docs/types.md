@@ -312,19 +312,23 @@ Decoding, in `UnmarshalJSON`:
 1. With a discriminator, its value picks the variant: the values the mapping lists for it, else the
    `const` or single-value `enum` of its discriminator property, else its component name. A 3.2
    `defaultMapping` takes any other value; without one, an unknown value is an error that lists the
-   allowed ones. A missing property falls back to step 2.
+   allowed ones. A missing property falls back to step 2. A discriminator whose property is no
+   string is ignored, with a warning: mapping keys are strings.
 2. Only variants that take the JSON kind are tried (object, array, string, number, boolean). An
    integer goes to integer variants before float ones.
 3. An object must have the required properties of a variant. When it has those of none, decoding
    fails and says what each variant needs: `Cat needs meow, Dog needs bark`. A variant with
    `additionalProperties: false` is ruled out by an unknown key. A variant that is itself a union
    matches when one of the objects it can be matches, at any depth.
-4. Objects are ranked by required properties present less unknown keys. For `oneOf`, two variants
-   with the same top rank are an error: `{"meow":true,"bark":true}` is a Cat and a Dog alike.
-   Generation warns (`union-ambiguous`) when object variants of a `oneOf` without a discriminator
-   require the same properties, or none: an object with only those always hits this error.
-5. For `oneOf`, the first variant in that order that decodes is set. For `anyOf`, every variant
-   that decodes is set.
+4. Objects are ranked by required properties present less unknown keys.
+5. A variant that decodes passes when the value passes the `Validate` of the variant's type: an
+   enum, a pattern, a struct with checks. For `oneOf`, the first variant in that order that
+   passes is set, else the first that decodes, so `Validate` reports why. For `anyOf`, every
+   variant that passes is set, else every one that decodes.
+6. For `oneOf`, two objects of the same rank among those step 5 picks from are an error:
+   `{"meow":true,"bark":true}` is a Cat and a Dog alike. Generation warns (`union-ambiguous`) when
+   object variants of a `oneOf` without a discriminator require the same properties, or none: an
+   object with only those hits this error unless their checks tell them apart.
 
 `null` sets nothing. Decoding resets the union first.
 
@@ -336,6 +340,11 @@ With a discriminator, `MarshalJSON` also writes the discriminator value. An empt
 variant's value when it has exactly one: `Pet{Cat: &Cat{}}` writes `{"kind":"cat"}`. The variant
 itself is not changed. A value that decoding would not read as the variant set is an error, and
 `Validate` reports the same: `kind: "dog" picks Dog, not Cat`.
+
+A variant that several values pick and that has no such property cannot keep the value. The union
+gets a field for it then, `ServerType *string`, unless it has the property already. Decoding
+fills it, and built in code it is set by hand: `Server{Web: &Web{}}` fails with `server_type: must
+be set, Web takes nginx or apache`.
 
 A union of strings, numbers and booleans with no shared properties also gets `MarshalText` and
 `UnmarshalText`, so it works as a parameter, a header or a form field. The text is the set variant

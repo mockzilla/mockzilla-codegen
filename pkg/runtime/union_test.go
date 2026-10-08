@@ -7,6 +7,7 @@ package runtime
 
 import (
 	"encoding/json"
+	"errors"
 	"mime/multipart"
 	"net/url"
 	"testing"
@@ -70,6 +71,48 @@ func (s *scalars) UnmarshalJSON(data []byte) error {
 		u.Variants = u.Variants[:2]
 	}
 	return UnmarshalUnion(data, u)
+}
+
+// onlyA and onlyB pass their checks with one value each, as single-value enums do.
+type onlyA string
+
+func (o onlyA) Validate() error {
+	if o != "a" {
+		return errors.New("must be a")
+	}
+	return nil
+}
+
+type onlyB string
+
+func (o onlyB) Validate() error {
+	if o != "b" {
+		return errors.New("must be b")
+	}
+	return nil
+}
+
+// left and right are objects of one shape whose checks take one side each.
+type left struct {
+	Side string `json:"side"`
+}
+
+func (l left) Validate() error {
+	if l.Side != "left" {
+		return errors.New("must be left")
+	}
+	return nil
+}
+
+type right struct {
+	Side string `json:"side"`
+}
+
+func (r right) Validate() error {
+	if r.Side != "right" {
+		return errors.New("must be right")
+	}
+	return nil
 }
 
 type photo struct {
@@ -358,6 +401,84 @@ func TestUnmarshalUnionShapes(t *testing.T) {
 	}
 }
 
+func TestUnmarshalUnionChecks(t *testing.T) {
+	t.Parallel()
+
+	type got struct {
+		A     *onlyA
+		B     *onlyB
+		Left  *left
+		Right *right
+		Any   map[string]any
+	}
+	letters := func(g *got) []Variant {
+		return []Variant{
+			{Name: "A", Kind: KindString, Into: Into(&g.A)},
+			{Name: "B", Kind: KindString, Into: Into(&g.B)},
+		}
+	}
+	sides := func(g *got) []Variant {
+		return []Variant{
+			{Name: "Left", Kind: KindObject, Required: []string{"side"}, Known: []string{"side"}, Into: Into(&g.Left)},
+			{Name: "Right", Kind: KindObject, Required: []string{"side"}, Known: []string{"side"}, Into: Into(&g.Right)},
+		}
+	}
+	tests := []struct {
+		name       string
+		data       string
+		isAnyOf    bool
+		variants   func(g *got) []Variant
+		want       got
+		wantErrMsg string
+	}{
+		{name: "A later variant whose checks pass", data: `"b"`, variants: letters, want: got{B: new(onlyB("b"))}},
+		{name: "The first variant when its checks pass", data: `"a"`, variants: letters, want: got{A: new(onlyA("a"))}},
+		{name: "The first that decodes when no checks pass", data: `"c"`, variants: letters, want: got{A: new(onlyA("c"))}},
+		{name: "Any of sets only those whose checks pass", data: `"b"`, isAnyOf: true, variants: letters, want: got{B: new(onlyB("b"))}},
+		{name: "Any of sets every one that decodes when no checks pass", data: `"c"`, isAnyOf: true, variants: letters, want: got{A: new(onlyA("c")), B: new(onlyB("c"))}},
+		{name: "Checks break a tie of objects", data: `{"side":"right"}`, variants: sides, want: got{Right: &right{Side: "right"}}},
+		{
+			name:       "Objects of one rank that fail their checks are ambiguous",
+			data:       `{"side":"up"}`,
+			variants:   sides,
+			wantErrMsg: "more than one union variant matches: Left and Right",
+		},
+		{
+			name: "Objects of one rank that pass their checks are ambiguous",
+			data: `{"side":"left"}`,
+			variants: func(g *got) []Variant {
+				return []Variant{sides(g)[0], {Name: "Any", Kind: KindObject, Required: []string{"side"}, Into: Into(&g.Any)}}
+			},
+			wantErrMsg: "more than one union variant matches: Left and Any",
+		},
+		{
+			name: "A lower rank whose checks pass",
+			data: `{"side":"up"}`,
+			variants: func(g *got) []Variant {
+				return []Variant{sides(g)[0], {Name: "Any", Kind: KindObject, Known: []string{}, Into: Into(&g.Any)}}
+			},
+			want: got{Any: map[string]any{"side": "up"}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var g got
+			err := UnmarshalUnion([]byte(tc.data), Union{IsAnyOf: tc.isAnyOf, Variants: tc.variants(&g)})
+
+			if tc.wantErrMsg != "" {
+				require.ErrorIs(t, err, ErrAmbiguous)
+				require.EqualError(t, err, tc.wantErrMsg)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, g)
+		})
+	}
+}
+
 func TestUnmarshalUnionText(t *testing.T) {
 	t.Parallel()
 
@@ -411,13 +532,23 @@ func TestInto(t *testing.T) {
 	dst := &n
 	set := Into(&dst)
 
-	require.Error(t, set.decode([]byte(`"a"`)))
+	_, err := set.decode([]byte(`"a"`))
+	require.Error(t, err)
 	assert.Equal(t, 1, *dst)
-	require.NoError(t, set.decode([]byte(`2`)))
+	value, err := set.decode([]byte(`2`))
+	require.NoError(t, err)
+	assert.Equal(t, 1, *dst)
+	value.set()
 	assert.Equal(t, 2, *dst)
 
-	require.Error(t, set.fill(&multipart.Form{Value: url.Values{"": {"a"}}}))
+	_, err = set.fill(&multipart.Form{Value: url.Values{"": {"a"}}})
+	require.Error(t, err)
 	assert.Equal(t, 2, *dst)
+
+	var only *onlyA
+	value, err = Into(&only).decode([]byte(`"b"`))
+	require.NoError(t, err)
+	assert.False(t, value.isValid)
 }
 
 func TestUnmarshalUnionForm(t *testing.T) {

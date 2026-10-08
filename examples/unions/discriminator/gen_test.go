@@ -117,3 +117,93 @@ func TestTolerantMarshalDefault(t *testing.T) {
 	_, err = json.Marshal(Tolerant{Card: &Card{Type: "cash"}})
 	require.ErrorContains(t, err, `type: "cash" picks Unknown, not Card`)
 }
+
+func TestServerJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		data string
+		want Server
+	}{
+		{name: "The second value of Web", data: `{"server_type":"apache","host":"h"}`, want: Server{ServerType: new("apache"), Web: &Web{Host: new("h")}}},
+		{name: "The one value of Shell", data: `{"server_type":"shell","key":"k"}`, want: Server{ServerType: new("shell"), Shell: &Shell{Key: new("k")}}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got Server
+			require.NoError(t, json.Unmarshal([]byte(tc.data), &got))
+			assert.Equal(t, tc.want, got)
+
+			out, err := json.Marshal(got)
+			require.NoError(t, err)
+			assert.JSONEq(t, tc.data, string(out))
+		})
+	}
+}
+
+func TestServerMarshal(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		value   Server
+		want    string
+		wantErr string
+	}{
+		{name: "The value set on the union", value: Server{ServerType: new("nginx"), Web: &Web{}}, want: `{"server_type":"nginx"}`},
+		{name: "An empty value gets the only one", value: Server{Shell: &Shell{}}, want: `{"server_type":"shell"}`},
+		{name: "Two values are not chosen from", value: Server{Web: &Web{}}, wantErr: "server_type: must be set, Web takes nginx or apache"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			out, err := json.Marshal(tc.value)
+
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				require.EqualError(t, tc.value.Validate(), tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.JSONEq(t, tc.want, string(out))
+		})
+	}
+}
+
+func TestConnectionJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		data string
+		want Connection
+	}{
+		{name: "A true flag picks Secure", data: `{"is_secure":true,"cert":"c"}`, want: Connection{Secure: &Secure{IsSecure: new(SecureIsSecureTrue), Cert: new("c")}}},
+		{name: "A false flag picks Plain", data: `{"is_secure":false,"port":1}`, want: Connection{Plain: &Plain{IsSecure: new(PlainIsSecureFalse), Port: new(1)}}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got Connection
+			require.NoError(t, json.Unmarshal([]byte(tc.data), &got))
+			assert.Equal(t, tc.want, got)
+			require.NoError(t, got.Validate())
+
+			out, err := json.Marshal(got)
+			require.NoError(t, err)
+			assert.JSONEq(t, tc.data, string(out))
+		})
+	}
+
+	out, err := json.Marshal(Connection{Plain: &Plain{Port: new(1)}})
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"port":1}`, string(out))
+}

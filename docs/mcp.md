@@ -119,7 +119,8 @@ validates every call against:
   mapping lists for it, else its component name. A variant that holds the property to one value
   itself keeps that value. Without this, two variants of the same shape both match, and `oneOf`
   turns the body down. A variant no value picks alone, such as an inline one without a value or
-  the `defaultMapping` one, matches next to the others, so the list becomes `anyOf`.
+  the `defaultMapping` one, matches next to the others, so the list becomes `anyOf`. A
+  discriminator whose property is no string pins nothing, as the Go union ignores it.
 - A `readOnly` property is not in the input and not required, since a request does not carry it.
   `Validate` leaves it out the same way. A property `readOnly` in one `allOf` member is left out of
   every member, as the Go type merges them.

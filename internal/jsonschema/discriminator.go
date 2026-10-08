@@ -82,6 +82,32 @@ func isPinned(s *spec.Schema) bool {
 	return false
 }
 
+// isNoStringProperty reports prop typed as no string by s or a variant, a discriminator Go ignores.
+func isNoStringProperty(s *spec.Schema, prop string) bool {
+	for _, m := range append([]*spec.Schema{s}, s.OneOf...) {
+		for x := range composed(m) {
+			if slices.ContainsFunc(x.Properties, func(p *spec.Property) bool { return p.Name == prop && takesNoString(p.Schema) }) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// takesNoString reports s, or what composes it, with a type, const or enum that takes no string.
+func takesNoString(s *spec.Schema) bool {
+	isString := func(v spec.Value) bool { return v.Kind == spec.KindString }
+	isOther := func(v spec.Value) bool { return v.Kind != spec.KindString && v.Kind != spec.KindNull }
+	for x := range composed(s) {
+		types := x.Types &^ spec.TypeNull
+		if types != 0 && !types.Has(spec.TypeString) || x.Const != nil && isOther(*x.Const) ||
+			slices.ContainsFunc(x.Enum, isOther) && !slices.ContainsFunc(x.Enum, isString) {
+			return true
+		}
+	}
+	return false
+}
+
 // takesOnlyNull reports a member of a union that stands for null, which is no variant.
 func takesOnlyNull(s *spec.Schema) bool {
 	isNull := func(v spec.Value) bool { return v.Kind == spec.KindNull }

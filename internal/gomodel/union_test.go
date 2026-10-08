@@ -154,3 +154,29 @@ func TestIsSameMember(t *testing.T) {
 		})
 	}
 }
+
+func TestIsNoString(t *testing.T) {
+	t.Parallel()
+
+	str, flag, null := spec.Value{Kind: spec.KindString, Str: "a"}, spec.Value{Kind: spec.KindBool}, spec.Value{Kind: spec.KindNull}
+	tests := []struct {
+		name   string
+		schema *spec.Schema
+		want   bool
+	}{
+		{name: "No type", schema: &spec.Schema{}},
+		{name: "A string or null", schema: &spec.Schema{Types: spec.TypeString | spec.TypeNull}},
+		{name: "A boolean", schema: &spec.Schema{Types: spec.TypeBoolean}, want: true},
+		{name: "Only null", schema: &spec.Schema{Types: spec.TypeNull}},
+		{name: "A boolean const", schema: &spec.Schema{Const: &flag}, want: true},
+		{name: "A null const", schema: &spec.Schema{Const: &null}},
+		{name: "An enum of booleans and null", schema: &spec.Schema{Enum: []spec.Value{flag, null}}, want: true},
+		{name: "An enum with a string", schema: &spec.Schema{Enum: []spec.Value{flag, str}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, isNoString(tt.schema))
+		})
+	}
+}

@@ -39,11 +39,13 @@ type unionSchema struct {
 	members    []unionMember
 }
 
-// unionGroup is one union of a union schema.
+// unionGroup is one union of a union schema; ignored is the property of a discriminator left out.
 type unionGroup struct {
 	isAnyOf       bool
 	isNullable    bool
 	discriminator string
+	ignored       string
+	origin        spec.Origin
 }
 
 // unionReader reads each union schema once, so the collector and the builder see the same
@@ -81,7 +83,7 @@ func (r *unionReader) read(f *spec.Schema) *unionSchema {
 	at := 0
 	for _, s := range list {
 		g := len(u.groups)
-		u.groups = append(u.groups, unionGroup{isNullable: f.Nullable})
+		u.groups = append(u.groups, unionGroup{isNullable: f.Nullable, origin: s.Origin})
 		switch {
 		case s.Then != nil:
 			r.add(u, g, at, []*spec.Schema{s.Then, s.Else})
@@ -89,12 +91,12 @@ func (r *unionReader) read(f *spec.Schema) *unionSchema {
 			at += 2
 		case s.OneOf != nil:
 			r.add(u, g, at, s.OneOf)
-			r.discriminate(u, g, s.Discriminator)
+			r.discriminate(u, g, f, s.Discriminator)
 			at += len(s.OneOf)
 		default:
 			u.groups[g].isAnyOf = true
 			r.add(u, g, at, s.AnyOf)
-			r.discriminate(u, g, s.Discriminator)
+			r.discriminate(u, g, f, s.Discriminator)
 			at += len(s.AnyOf)
 		}
 	}
@@ -126,8 +128,14 @@ func (r *unionReader) add(u *unionSchema, g, at int, list []*spec.Schema) {
 
 // discriminate gives each member of group g its discriminator values: those the mapping lists for
 // it, else the const or single-value enum of its discriminator property, else its component name.
-func (r *unionReader) discriminate(u *unionSchema, g int, d *spec.Discriminator) {
+func (r *unionReader) discriminate(u *unionSchema, g int, f *spec.Schema, d *spec.Discriminator) {
 	if d == nil {
+		return
+	}
+
+	// Mapping keys are strings; OpenAPI leaves how other values compare to the implementation.
+	if r.isNoStringProperty(u, g, f, d.Property) {
+		u.groups[g].ignored = d.Property
 		return
 	}
 
@@ -206,11 +214,33 @@ func (r *unionReader) typeList(u *unionSchema, f *spec.Schema) {
 	}
 }
 
-// propertyValues are the values the property prop of s allows alone.
-func (r *unionReader) propertyValues(s *spec.Schema, prop string) []string {
+// isNoStringProperty reports the property prop typed as no string by f or a member of group g.
+func (r *unionReader) isNoStringProperty(u *unionSchema, g int, f *spec.Schema, prop string) bool {
+	schemas := []*spec.Schema{f}
+	for _, m := range u.members {
+		if m.group == g {
+			schemas = append(schemas, m.schema)
+		}
+	}
+	return slices.ContainsFunc(schemas, func(s *spec.Schema) bool {
+		p := r.property(s, prop)
+		return p != nil && isNoString(r.flat.flatten(target(p.Schema)))
+	})
+}
+
+// property is the property prop of s, nil when s has none.
+func (r *unionReader) property(s *spec.Schema, prop string) *spec.Property {
 	f := r.flat.flatten(target(s))
 	if i := slices.IndexFunc(f.Properties, func(p *spec.Property) bool { return p.Name == prop }); i >= 0 {
-		return r.constValues(f.Properties[i].Schema)
+		return f.Properties[i]
+	}
+	return nil
+}
+
+// propertyValues are the values the property prop of s allows alone.
+func (r *unionReader) propertyValues(s *spec.Schema, prop string) []string {
+	if p := r.property(s, prop); p != nil {
+		return r.constValues(p.Schema)
 	}
 	return nil
 }
@@ -532,6 +562,15 @@ func isBareRef(s *spec.Schema) bool {
 	rest := *s
 	rest.Ref = nil
 	return s.Ref != nil && isBare(&rest)
+}
+
+// isNoString reports a schema whose type, const or enum takes no string; null counts as neither.
+func isNoString(f *spec.Schema) bool {
+	isString := func(v spec.Value) bool { return v.Kind == spec.KindString }
+	isOther := func(v spec.Value) bool { return v.Kind != spec.KindString && v.Kind != spec.KindNull }
+	types := f.Types &^ spec.TypeNull
+	return types != 0 && !types.Has(spec.TypeString) || f.Const != nil && isOther(*f.Const) ||
+		slices.ContainsFunc(f.Enum, isOther) && !slices.ContainsFunc(f.Enum, isString)
 }
 
 // enumOfType keeps the enum values of one JSON type.

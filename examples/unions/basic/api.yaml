@@ -53,3 +53,8 @@ components:
       properties:
         id: {type: integer}
         email: {type: string}
+    Stage:
+      oneOf:
+        - {type: string, enum: [draft]}
+        - {type: string, enum: [review]}
+        - {type: string, enum: [live]}

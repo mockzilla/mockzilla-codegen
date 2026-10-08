@@ -3,6 +3,8 @@
 package discriminator
 
 import (
+	"encoding/json"
+
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
@@ -62,6 +64,78 @@ func (i InlineSquare) Validate() error {
 		errs.Append("kind", validation.Const(*i.Kind, "square"))
 	}
 	return errs.Err()
+}
+
+type Web struct {
+	Host *string `json:"host,omitempty"`
+}
+
+type Shell struct {
+	Key *string `json:"key,omitempty"`
+}
+
+type Secure struct {
+	IsSecure *SecureIsSecure `json:"is_secure,omitempty"`
+	Cert     *string         `json:"cert,omitempty"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (s Secure) Validate() error {
+	var errs validation.Errors
+	if s.IsSecure != nil {
+		errs.Append("is_secure", s.IsSecure.Validate())
+	}
+	return errs.Err()
+}
+
+type Plain struct {
+	IsSecure *PlainIsSecure `json:"is_secure,omitempty"`
+	Port     *int           `json:"port,omitempty"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (p Plain) Validate() error {
+	var errs validation.Errors
+	if p.IsSecure != nil {
+		errs.Append("is_secure", p.IsSecure.Validate())
+	}
+	return errs.Err()
+}
+
+type SecureIsSecure bool
+
+const (
+	SecureIsSecureTrue SecureIsSecure = true
+)
+
+// SecureIsSecureValues returns the values of SecureIsSecure.
+func SecureIsSecureValues() []SecureIsSecure {
+	return []SecureIsSecure{
+		SecureIsSecureTrue,
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (s SecureIsSecure) Validate() error {
+	return validation.Enum(s, SecureIsSecureTrue)
+}
+
+type PlainIsSecure bool
+
+const (
+	PlainIsSecureFalse PlainIsSecure = false
+)
+
+// PlainIsSecureValues returns the values of PlainIsSecure.
+func PlainIsSecureValues() []PlainIsSecure {
+	return []PlainIsSecure{
+		PlainIsSecureFalse,
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (p PlainIsSecure) Validate() error {
+	return validation.Enum(p, PlainIsSecureFalse)
 }
 
 // Explicit mapping for card, the implicit component name for Bank, a const for Wallet.
@@ -226,6 +300,112 @@ func (i Inline) Validate() error {
 	}
 	if i.Square != nil {
 		errs.Append("", i.Square.Validate())
+	}
+	return errs.Err()
+}
+
+// Two values pick Web, which has no server_type, so the union keeps the value.
+type Server struct {
+	ServerType *string `json:"server_type,omitempty"`
+	Web        *Web    `json:"-"`
+	Shell      *Shell  `json:"-"`
+}
+
+// MarshalJSON writes the variant that is set, with the discriminator value that picks it.
+func (s Server) MarshalJSON() ([]byte, error) {
+	type plain Server
+	return runtime.MarshalVariants(plain(s), s.union(), s.Web, s.Shell)
+}
+
+// UnmarshalJSON sets the variant data matches, and the shared properties.
+func (s *Server) UnmarshalJSON(data []byte) error {
+	*s = Server{}
+	type plain Server
+	if err := json.Unmarshal(data, (*plain)(s)); err != nil {
+		return err
+	}
+	return runtime.UnmarshalUnion(data, s.union())
+}
+
+func (s *Server) union() runtime.Union {
+	return runtime.Union{
+		Discriminator: "server_type",
+		Shared:        []string{"server_type"},
+		Variants: []runtime.Variant{
+			{
+				Name:   "Web",
+				Kind:   runtime.KindObject,
+				Values: []string{"nginx", "apache"},
+				Known:  []string{"host"},
+				Into:   runtime.Into(&s.Web),
+			},
+			{
+				Name:   "Shell",
+				Kind:   runtime.KindObject,
+				Values: []string{"shell"},
+				Known:  []string{"key"},
+				Into:   runtime.Into(&s.Shell),
+			},
+		},
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (s Server) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(s.Web != nil, s.Shell != nil))
+	errs.Append("", runtime.DiscriminatorError(s.MarshalJSON()))
+	return errs.Err()
+}
+
+// A boolean property is no discriminator, so the enums pick the variant.
+type Connection struct {
+	Secure *Secure `json:"-"`
+	Plain  *Plain  `json:"-"`
+}
+
+// MarshalJSON writes the variant that is set.
+func (c Connection) MarshalJSON() ([]byte, error) {
+	var set []any
+	if c.Secure != nil {
+		set = append(set, c.Secure)
+	}
+	if c.Plain != nil {
+		set = append(set, c.Plain)
+	}
+	return runtime.MarshalOneOf(nil, set...)
+}
+
+// UnmarshalJSON sets the variant data matches.
+func (c *Connection) UnmarshalJSON(data []byte) error {
+	*c = Connection{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name:  "Secure",
+				Kind:  runtime.KindObject,
+				Known: []string{"is_secure", "cert"},
+				Into:  runtime.Into(&c.Secure),
+			},
+			{
+				Name:  "Plain",
+				Kind:  runtime.KindObject,
+				Known: []string{"is_secure", "port"},
+				Into:  runtime.Into(&c.Plain),
+			},
+		},
+	})
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c Connection) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(c.Secure != nil, c.Plain != nil))
+	if c.Secure != nil {
+		errs.Append("", c.Secure.Validate())
+	}
+	if c.Plain != nil {
+		errs.Append("", c.Plain.Validate())
 	}
 	return errs.Err()
 }
