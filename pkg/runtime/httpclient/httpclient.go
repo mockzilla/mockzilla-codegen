@@ -102,9 +102,7 @@ func (b *RequestBuilder) QueryString(v any, p runtime.Param) {
 		b.queryString, b.err = escape(string(data), isUnreserved), err
 		return
 	}
-	values, err := runtime.EncodeForm(v, nil)
-	// Encode writes a space as + and a + as %2B, so each + left is a space.
-	b.queryString, b.err = strings.ReplaceAll(values.Encode(), "+", "%20"), err
+	b.queryString, b.err = runtime.EncodeForm(v, nil)
 }
 
 // HeaderParam adds v as the header p, left out as QueryParam leaves it.
@@ -157,12 +155,8 @@ func (b *RequestBuilder) FormBody(v any, enc runtime.Encoding) {
 	if b.err != nil {
 		return
 	}
-	values, err := runtime.EncodeForm(v, enc)
-	if err != nil {
-		b.err = err
-		return
-	}
-	b.setBody([]byte(values.Encode()), "application/x-www-form-urlencoded", nil)
+	body, err := runtime.EncodeForm(v, enc)
+	b.setBody([]byte(body), "application/x-www-form-urlencoded", err)
 }
 
 // MultipartBody sends v as multipart/form-data, see runtime.WriteMultipart. The form is written

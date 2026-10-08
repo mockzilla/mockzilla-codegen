@@ -59,6 +59,7 @@ const (
 	CodeStreamUnread           = "stream-unread"
 	CodeQueryStringUnsupported = "querystring-unsupported"
 	CodeParamUnsupported       = "param-unsupported"
+	CodeDeepObjectConvention   = "deepobject-convention"
 	CodeEncodingIgnored        = "encoding-ignored"
 	CodeEncodingUnsupported    = "encoding-unsupported"
 	CodeMCPToolName            = "mcp-tool-name"

@@ -93,11 +93,14 @@ OpenAPI leaves values nested deeper than one level to the implementation. These 
 
 | Style | Example |
 |---|---|
-| `deepObject`, an object inside | `filter[size][x]=1` |
-| `deepObject`, a list of values inside | `filter[tags]=a&filter[tags]=b` |
+| `deepObject`, any value at any depth | `filter[size][x]=1`, `filter[tags][0]=a`, `expand[0]=a` |
 | exploded `form` query object or `cookie` object, a list of values inside | `reference=r&status=a&status=b` |
 
 Any other nesting, such as a list of lists or an object inside a `simple` object, gets no field.
+
+OpenAPI defines `deepObject` for an object of scalars only. Lists, nesting and single values follow
+[the bracket form](client.md#deepobject-past-an-object) of the client. The server also reads `[]`
+and a repeated bare name: `expand[]=a`, `expand=a&expand=b`.
 
 ### Parameters without a field
 
@@ -118,7 +121,6 @@ Styles the table does not define:
 - `matrix` in a query
 - any style but `simple` on a header
 - `pipeDelimited` with `explode: true`
-- `deepObject` on a list
 - a style OpenAPI does not name
 
 ## Response data
@@ -284,8 +286,12 @@ A body arrives in a media type the operation documents:
 ### Form bodies
 
 A form body follows its `encoding` object as the client writes it, see
-[the client](client.md#request-options).
+[the client](client.md#the-encoding-object).
 
+- A property with a style is read as a query parameter of that style. `tags=a,b%2Cc` under
+  `style: form` is `a` and `b,c`.
+- A property without one is read from JSON or from brackets, whichever came:
+  `address={"city":"Rome"}` and `address[city]=Rome` give the same value.
 - A property declared JSON is read as JSON. Text that is not JSON is a 400.
 - A list of a multipart form is read from one part per item, or from one part that holds the whole
   list as JSON.
@@ -1093,7 +1099,9 @@ goes as it is.
 
 - `DecodeJSON`, `DecodeText`, `DecodeBytes` and `DecodeFile`.
 - `DecodeForm`: bracketed keys nest, `address[city]=Berlin`, `items[0]=a`. One value for a struct
-  or map is read as JSON, else as a string.
+  or map is read as JSON, else as a string. A property its `Encoding` gives a style is read as a
+  query parameter of that style.
+- `EncodeForm` writes what `DecodeForm` reads: each property in its style, else an object as JSON.
 - `DecodeMultipart`: files as `runtime.File`, JSON parts into structs.
 - A type with `UnmarshalForm` reads a form itself.
 - A required body that is empty gives `ErrBodyEmpty`. An empty optional one is left alone.

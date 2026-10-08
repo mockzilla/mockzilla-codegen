@@ -1,3 +1,31 @@
+Styles struct models.types
+  MatrixList []string json=matrixList omitempty omitzero
+  SpaceWord runtime.Nullable[string] json=spaceWord omitempty omitzero
+  PipeList []string json=pipeList omitempty omitzero
+  FormNested runtime.Nullable[StylesFormNested] json=formNested omitempty omitzero
+  FormUnion runtime.Nullable[StylesFormUnion] json=formUnion omitempty omitzero
+  DeepUnion runtime.Nullable[StylesDeepUnion] json=deepUnion omitempty omitzero
+  DeepWord runtime.Nullable[string] json=deepWord omitempty omitzero
+  DeepPet runtime.Nullable[Pet] json=deepPet omitempty omitzero
+  Csv []string json=csv omitempty omitzero
+  Path runtime.Nullable[string] json=path omitempty omitzero
+  File runtime.Nullable[runtime.File] json=file omitempty omitzero
+StylesFormNested struct models.types
+  Tags []string json=tags omitempty omitzero
+StylesFormUnion union models.unions form
+  | oneOf
+  | Pet *Pet kinds=object known=name
+  | Option2 *StylesFormUnionOption2 kinds=object required=kind known=kind
+StylesFormUnionOption2 struct models.types
+  Kind string json=kind required
+StylesDeepUnion union models.unions form
+  | anyOf
+  | Option1 *StylesDeepUnionOption1 kinds=object known=tags
+  | Option2 *StylesDeepUnionOption2 kinds=string
+StylesDeepUnionOption1 struct models.types
+  Tags []string json=tags omitempty omitzero
+StylesDeepUnionOption2 enum string models.enums
+  StylesDeepUnionOption2Empty ""
 Parcel struct models.types
   ID string json=id required
   Doc runtime.Nullable[runtime.File] json=doc omitempty omitzero
@@ -20,25 +48,38 @@ SendUnionMultipartRequestBodyOption2 struct models.bodies
   X string json=x required
 SendUnionFormRequestBody defined map[string]string models.bodies
 op SendParcel POST /parcels
-  body multipart/form-data Parcel encoding=doc:application/pdf encoding=id:application/json encoding=labels:text/csv, application/vnd.a+json encoding=logo:image/png, image/jpeg encoding=meta:text/plain encoding=pet:application/xml encoding=pets:text/plain, application/* encoding=signed:application/pdf
-  body application/x-www-form-urlencoded Parcel encoding=pet:application/json
+  body multipart/form-data Parcel encoding=doc:application/pdf encoding=flags:form,explode,reserved encoding=id:application/json encoding=labels:text/csv, application/vnd.a+json encoding=logo:image/png, image/jpeg encoding=meta:text/plain encoding=note:form,explode encoding=pet:application/xml encoding=pets:text/plain, application/* encoding=signed:application/pdf encoding=tags:form,explode
+  body application/x-www-form-urlencoded Parcel encoding=pet:application/json encoding=pets:deepObject,explode
   body application/json Parcel
   response 200 multipart/form-data Parcel
 op SendUnion POST /unions
   body multipart/form-data SendUnionMultipartRequestBody
   body application/x-www-form-urlencoded SendUnionFormRequestBody
 op SendStyled POST /styled
+  body application/x-www-form-urlencoded Parcel encoding=pets:deepObject,explode
+op SendGhost POST /ghosts
   body application/x-www-form-urlencoded Parcel
+op SendStyles POST /styles
+  body application/x-www-form-urlencoded Styles encoding=csv:form encoding=deepPet:deepObject encoding=deepUnion:deepObject encoding=deepWord:deepObject encoding=path:form,explode,reserved
+  body multipart/form-data Styles encoding=deepPet:deepObject,explode
 ---
 warning encoding-ignored 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data names "ghost", which the body has no property for
 warning encoding-ignored 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data sets headers for "signed", which is not supported yet; each part goes without them
-warning encoding-ignored 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data sets style, explode or allowReserved for "note", "tags", "flags", which is not supported yet; each is written and read by its schema type
 warning encoding-unsupported 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data declares "meta" as text/plain, but it holds an object, which is written and read as JSON only, so sending or reading it fails
 warning encoding-unsupported 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data declares "pet" as application/xml, but it holds an object, which is written and read as JSON only, so sending or reading it fails
 warning encoding-unsupported 10:13 /paths/~1parcels/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data declares "pets" as text/plain, application/*, but it holds an object, which is written and read as JSON only, so sending or reading it fails
-warning encoding-ignored 28:13 /paths/~1parcels/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded sets style, explode or allowReserved for "pets", which is not supported yet; each is written and read by its schema type
+info deepobject-convention 28:13 /paths/~1parcels/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded: property "pets" has style deepObject on a value other than an object of scalars, which OpenAPI leaves undefined; it is written with brackets at every level and an index per list item, as in items[0][price]=1, and one value as name=value
 warning encoding-ignored 36:13 /paths/~1parcels/post/requestBody/content/application~1json/encoding: the encoding of application/json is ignored, as it applies to forms only
 warning encoding-ignored 44:15 /paths/~1parcels/post/responses/200/content/multipart~1form-data/encoding: the encoding of multipart/form-data in a response is not supported yet; its parts are written and read by their schema types
 warning encoding-ignored 53:13 /paths/~1unions/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data is not supported for a union body yet; its parts are written and read by their schema types
 warning encoding-ignored 60:13 /paths/~1unions/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded is ignored, as the body has no properties
-warning encoding-ignored 71:13 /paths/~1styled/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded sets style, explode or allowReserved for "pets", which is not supported yet; each is written and read by its schema type
+info deepobject-convention 71:13 /paths/~1styled/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded: property "pets" has style deepObject on a value other than an object of scalars, which OpenAPI leaves undefined; it is written with brackets at every level and an index per list item, as in items[0][price]=1, and one value as name=value
+warning encoding-ignored 82:13 /paths/~1ghosts/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded names "ghost", which the body has no property for
+info deepobject-convention 93:13 /paths/~1styles/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded: property "deepUnion" has style deepObject on a value other than an object of scalars, which OpenAPI leaves undefined; it is written with brackets at every level and an index per list item, as in items[0][price]=1, and one value as name=value
+info deepobject-convention 93:13 /paths/~1styles/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded: property "deepWord" has style deepObject on a value other than an object of scalars, which OpenAPI leaves undefined; it is written with brackets at every level and an index per list item, as in items[0][price]=1, and one value as name=value
+warning encoding-ignored 93:13 /paths/~1styles/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded: property "formNested" holds a list in property "tags", which OpenAPI leaves to the implementation; it is written and read by its schema type
+warning encoding-ignored 93:13 /paths/~1styles/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded: property "formUnion" is or holds a union of more than scalars; it is written and read by its schema type
+warning encoding-ignored 93:13 /paths/~1styles/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded: property "matrixList" has style matrix, which OpenAPI allows only in path parameters; it is written and read by its schema type
+warning encoding-ignored 93:13 /paths/~1styles/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded: property "pipeList" has style pipeDelimited with explode true, which OpenAPI does not define; it is written and read by its schema type
+warning encoding-ignored 93:13 /paths/~1styles/post/requestBody/content/application~1x-www-form-urlencoded/encoding: the encoding of application/x-www-form-urlencoded: property "spaceWord" has style spaceDelimited, which OpenAPI defines for a list or an object only; it is written and read by its schema type
+warning encoding-ignored 106:13 /paths/~1styles/post/requestBody/content/multipart~1form-data/encoding: the encoding of multipart/form-data: property "file" holds a file, which no style writes; it is written and read by its schema type

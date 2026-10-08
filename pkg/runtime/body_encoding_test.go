@@ -33,7 +33,7 @@ func TestEncodingPartType(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := Encoding{"p": tc.declared}.partType("p", tc.isText)
+			got, err := Encoding{"p": {ContentType: tc.declared}}.partType("p", tc.isText)
 
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)
@@ -65,7 +65,7 @@ func TestEncodingFileType(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := Encoding{"p": tc.declared}.fileType("p", tc.file)
+			got, err := Encoding{"p": {ContentType: tc.declared}}.fileType("p", tc.file)
 
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)
@@ -80,7 +80,7 @@ func TestEncodingFileType(t *testing.T) {
 func TestEncodingIsJSON(t *testing.T) {
 	t.Parallel()
 
-	enc := Encoding{"a": "application/json", "b": "application/json, application/x+json", "c": "application/json, text/plain", "d": ""}
+	enc := Encoding{"a": {ContentType: "application/json"}, "b": {ContentType: "application/json, application/x+json"}, "c": {ContentType: "application/json, text/plain"}, "d": {ContentType: ""}}
 	tests := []struct {
 		name     string
 		property string

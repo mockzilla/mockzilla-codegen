@@ -14,6 +14,7 @@ paths:
               doc: {contentType: application/pdf}
               photo: {contentType: 'image/png, image/jpeg'}
               note: {contentType: text/plain; charset=utf-8}
+              stops: {style: deepObject, explode: true}
       responses:
         "200":
           description: what came in
@@ -49,8 +50,48 @@ paths:
           description: the label as it came in
           content:
             application/json: {schema: {$ref: '#/components/schemas/Label'}}
+  /customers:
+    post:
+      operationId: createCustomer
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: {$ref: '#/components/schemas/Customer'}
+            encoding:
+              address: {style: deepObject, explode: true}
+              expand: {style: deepObject, explode: true}
+              items: {style: deepObject, explode: true}
+              returnUrl: {style: deepObject, explode: true}
+              tags: {style: form, explode: false}
+      responses:
+        "200":
+          description: the customer as it came in
+          content:
+            application/json: {schema: {$ref: '#/components/schemas/Customer'}}
 components:
   schemas:
+    Customer:
+      type: object
+      properties:
+        address:
+          anyOf:
+            - {$ref: '#/components/schemas/Address'}
+            - {type: string, enum: [""]}
+        expand: {type: array, items: {type: string}}
+        items:
+          type: array
+          items:
+            type: object
+            required: [price]
+            properties:
+              price: {type: string}
+              quantity: {type: integer}
+        returnUrl:
+          anyOf:
+            - {type: string}
+            - {type: string, enum: [""]}
+        tags: {type: array, items: {type: string}}
     Parcel:
       type: object
       required: [id]

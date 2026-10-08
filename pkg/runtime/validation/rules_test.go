@@ -89,6 +89,7 @@ func TestChecksOfValues(t *testing.T) {
 		{name: "Not the const", err: Const(2, 3), want: Error{Message: "must be 3", Rule: RuleConst, Limit: 3}},
 		{name: "One of", err: Enum(level("b"), "a", "b")},
 		{name: "None of", err: Enum(level("c"), "a", "b"), want: Error{Message: "must be one of a, b", Rule: RuleEnum, Limit: []level{"a", "b"}}},
+		{name: "Not empty", err: Enum(level("c"), ""), want: Error{Message: `must be one of ""`, Rule: RuleEnum, Limit: []level{""}}},
 		{name: "One of by JSON as Go holds it", err: EnumJSON(shade{R: 255}, `{"r":255,"g":null}`, `{"r":0,"g":255}`)},
 		{name: "Key order does not count", err: EnumJSON(shade{G: new(255)}, `{"g":255,"r":0}`)},
 		{name: "Numbers in any compare by value", err: EnumJSON[any](map[string]any{"a": []any{json.Number("1.50")}}, `{"a":[1.5]}`)},

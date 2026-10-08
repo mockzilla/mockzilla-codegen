@@ -236,10 +236,29 @@ A list or object inside an object:
 
 | Style | Example |
 |---|---|
-| `deepObject`, list inside | `filter[tags]=a&filter[tags]=b` |
+| `deepObject`, list inside | `filter[tags][0]=a&filter[tags][1]=b` |
 | `deepObject`, object inside | `filter[size][x]=1` |
+| `deepObject`, list of objects inside | `filter[items][0][price]=p1` |
 | exploded `form` or `cookie`, list inside | `status=a&status=b` |
 | any other style | cannot be written: `runtime.ErrParamValue`. Generation leaves such a parameter out with a warning. |
+
+#### deepObject past an object
+
+OpenAPI defines `deepObject` for an object of scalars only. Everything else is written in the
+bracket form most form APIs read, Stripe's among them: a bracket per level, an index per list item.
+
+| Value | Written |
+|---|---|
+| `{city: Rome}` | `address[city]=Rome` |
+| `[a, b]` | `expand[0]=a&expand[1]=b` |
+| `[{price: p1}]` | `items[0][price]=p1` |
+| `{a: {b: [1]}}` | `filter[a][b][0]=1` |
+| `https://x.test`, one value | `url=https%3A%2F%2Fx.test` |
+
+Brackets are shown as they read. On the wire they are `%5B` and `%5D`.
+
+Generation notes each such parameter with `-v` (`deepobject-convention`). A server reads `[0]`,
+`[]` and a repeated bare name, `expand=a&expand=b`, the same way.
 
 ### Query parameters
 
@@ -301,7 +320,7 @@ The body is written in its media type:
 | Media type | Written as |
 |---|---|
 | `application/json`, `+json` | JSON |
-| `application/x-www-form-urlencoded` | a form. A union, or an object with additional properties, inside it goes as one JSON value |
+| `application/x-www-form-urlencoded` | a form, see [the encoding object](#the-encoding-object) |
 | `multipart/form-data` | a multipart form, see below |
 | any, holding a `runtime.File` | the file, streamed |
 | text or bytes | as they are |
@@ -325,10 +344,20 @@ A multipart form is written while it is sent, so its files stream too.
 
 #### The encoding object
 
-The `encoding` object of a form body sets the content type of a property. Multipart and
-url-encoded forms both follow it.
+The `encoding` object of a form body says how each property is written. Url-encoded and multipart
+forms both follow it.
 
-In a multipart form, each part goes in that type:
+| The property's encoding has | It is written |
+|---|---|
+| nothing | text for a scalar, JSON for an object, a list one item at a time |
+| `contentType` | in that type, see [Content types](#content-types) |
+| `style`, `explode` or `allowReserved` | as a query parameter of that style, see [Styles](#styles) |
+
+So without an encoding, an object is one JSON field, as OpenAPI says: `address={"city":"Rome"}`.
+
+##### Content types
+
+In a multipart form, each part goes in the declared type:
 
 | Declared type | The part holds |
 |---|---|
@@ -347,6 +376,39 @@ A list too.
 - From a list of types, the first one that fits is used.
 - An object under a type that is not JSON cannot be written: `runtime.ErrContentType`.
   Generation warns (`encoding-unsupported`).
+
+##### Styles
+
+A property with `style`, `explode` or `allowReserved` is written as a query parameter of that style.
+Its `contentType` is ignored, as OpenAPI says. Without `style`, the style is `form`.
+
+| Encoding | Value | Url-encoded form |
+|---|---|---|
+| `style: form` | `tags: [a, b]` | `tags=a,b` |
+| `style: form, explode: true` | `tags: [a, b]` | `tags=a&tags=b` |
+| `style: form, explode: true` | `color: {R: 1, G: 2}` | `R=1&G=2` |
+| `style: spaceDelimited` | `tags: [a, b]` | `tags=a%20b` |
+| `style: pipeDelimited` | `tags: [a, b]` | `tags=a%7Cb` |
+| `style: deepObject` | `address: {city: Rome}` | `address[city]=Rome` |
+| `style: deepObject` | `expand: [a, b]` | `expand[0]=a&expand[1]=b` |
+| `allowReserved: true` | `url: a/b?c` | `url=a/b?c` |
+
+- `deepObject` past an object of scalars follows [the bracket form](#deepobject-past-an-object).
+- A union under `deepObject` is written by the variant that is set: `address[city]=Rome`, or
+  `address=` for an empty string.
+- In a multipart form each pair is a text part of its own, not percent-encoded: a part named
+  `address[city]` holds `Rome`.
+- Styles count in a multipart form in every OpenAPI version. 3.0 names url-encoded forms only, but
+  specs written for 3.0 use them in multipart forms too.
+
+A style that cannot write the property is dropped, and the property is written as if it had no
+style. Generation warns (`encoding-ignored`):
+
+- a style a query does not take, such as `matrix`
+- `spaceDelimited` or `pipeDelimited` on one value, or with `explode: true`
+- a list or object inside a `form` or delimited object
+- a union of more than scalars under any style but `deepObject`
+- a file
 
 ## Envelopes
 
@@ -567,11 +629,9 @@ The helpers work off any `*http.Response`:
 
 ### Encoding keys
 
-`style`, `explode`, `allowReserved` and `headers` in the `encoding` object are not read.
-
-- A property with `style`, `explode` or `allowReserved` is written and read by its schema type. Its
-  `contentType` is ignored, as the spec says.
-- The encoding of a body that is a union is not read either, nor is the encoding of a response.
+- `headers` in the `encoding` object are not read. Each part goes without them.
+- The encoding of a body that is a union is not read, nor is the encoding of a response. Their
+  properties are written as if they had none.
 
 Generation warns (`encoding-ignored`).
 

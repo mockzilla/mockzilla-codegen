@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
 
@@ -47,19 +48,23 @@ func (c *collector) paramIssue(p *spec.Parameter) string {
 	if p.In != spec.InPath && c.isUnionLost(p.Schema, map[*spec.Schema]bool{}) {
 		return "is or holds a union of more than scalars"
 	}
+	return c.shapeIssue(p)
+}
+
+// shapeIssue says why the style of p cannot write its value, or "" when it can. deepObject nests at any depth.
+func (c *collector) shapeIssue(p *spec.Parameter) string {
 	sh, f := c.paramShapeOf(p.Schema)
 	if why := styleIssue(p, sh); why != "" {
 		return why
 	}
-	switch sh {
-	case paramList:
+	switch {
+	case p.Style == styleDeep:
+	case sh == paramList:
 		if item, _ := c.paramShapeOf(f.Items); item == paramList || item == paramObject {
 			return "is a list of " + plural(item) + ", which OpenAPI leaves to the implementation"
 		}
-	case paramObject:
-		isRepeated := p.Explode && (p.Style == styleForm || p.Style == styleCookie)
-		return c.propertyIssue(f, p.Style == styleDeep, isRepeated, map[*spec.Schema]bool{})
-	case paramUnknown, paramValue:
+	case sh == paramObject:
+		return c.propertyIssue(f, p.Explode && (p.Style == styleForm || p.Style == styleCookie))
 	}
 	return ""
 }
@@ -92,13 +97,7 @@ func (c *collector) paramShapeOf(s *spec.Schema) (paramShape, *spec.Schema) {
 }
 
 // propertyIssue says why a property of f is nested deeper than its style writes, or "" if none.
-func (c *collector) propertyIssue(f *spec.Schema, isDeep, isRepeated bool, on map[*spec.Schema]bool) string {
-	if on[f] {
-		return ""
-	}
-	on[f] = true
-	defer delete(on, f)
-
+func (c *collector) propertyIssue(f *spec.Schema, isRepeated bool) string {
 	for _, p := range objectValues(f) {
 		sh, inner := c.paramShapeOf(p.Schema)
 		where := "its map values"
@@ -106,13 +105,9 @@ func (c *collector) propertyIssue(f *spec.Schema, isDeep, isRepeated bool, on ma
 			where = fmt.Sprintf("property %q", p.Name)
 		}
 		switch {
-		case sh == paramObject && isDeep:
-			if why := c.propertyIssue(inner, true, false, on); why != "" {
-				return why
-			}
 		case sh == paramObject:
 			return "holds an object in " + where + ", which OpenAPI leaves to the implementation"
-		case sh == paramList && !isDeep && !isRepeated:
+		case sh == paramList && !isRepeated:
 			return "holds a list in " + where + ", which OpenAPI leaves to the implementation"
 		case sh == paramList:
 			if item, _ := c.paramShapeOf(inner.Items); item == paramList || item == paramObject {
@@ -121,6 +116,42 @@ func (c *collector) propertyIssue(f *spec.Schema, isDeep, isRepeated bool, on ma
 		}
 	}
 	return ""
+}
+
+// deepUndefined reports a value deepObject is undefined for: one value, a list, or an object holding a list or an object.
+func (c *collector) deepUndefined(s *spec.Schema, on map[*spec.Schema]bool) bool {
+	sh, f := c.paramShapeOf(s)
+	switch sh {
+	case paramValue, paramList:
+		return true
+	case paramObject:
+		return slices.ContainsFunc(objectValues(f), func(p *spec.Property) bool { return c.holdsComposite(p.Schema, on) })
+	case paramUnknown:
+	}
+	return c.anyMember(f, on, c.deepUndefined)
+}
+
+// holdsComposite reports a list or an object, or a union with a member that is one.
+func (c *collector) holdsComposite(s *spec.Schema, on map[*spec.Schema]bool) bool {
+	sh, f := c.paramShapeOf(s)
+	switch sh {
+	case paramList, paramObject:
+		return true
+	case paramUnknown:
+		return c.anyMember(f, on, c.holdsComposite)
+	case paramValue:
+	}
+	return false
+}
+
+// anyMember reports a member of the union f that is reports, looking at each union once.
+func (c *collector) anyMember(f *spec.Schema, on map[*spec.Schema]bool, is func(*spec.Schema, map[*spec.Schema]bool) bool) bool {
+	if f == nil || on[f] {
+		return false
+	}
+	on[f] = true
+	defer delete(on, f)
+	return slices.ContainsFunc(slices.Concat(f.OneOf, f.AnyOf), func(m *spec.Schema) bool { return is(m, on) })
 }
 
 // styleIssue says why the style of p does not fit its location or a value of shape sh.
@@ -144,8 +175,6 @@ func styleIssue(p *spec.Parameter, sh paramShape) string {
 		return fmt.Sprintf("has style %s, which OpenAPI defines for a list or an object only", p.Style)
 	case isDelimited && p.Explode:
 		return fmt.Sprintf("has style %s with explode true, which OpenAPI does not define", p.Style)
-	case p.Style == styleDeep && (sh == paramValue || sh == paramList):
-		return "has style deepObject, which OpenAPI defines for an object only"
 	case p.In == spec.InCookie && p.Style == styleForm && p.Explode && (sh == paramList || sh == paramObject):
 		return "has style form with explode true, which OpenAPI says writes the wrong delimiter for several cookie values (use style cookie)"
 	}
@@ -159,6 +188,18 @@ func objectValues(f *spec.Schema) []*spec.Property {
 		out = append(out, &spec.Property{Schema: f.AdditionalProperties.Schema})
 	}
 	return out
+}
+
+// deepConvention is the info that what has style deepObject on a value OpenAPI does not define it for.
+func deepConvention(pointer string, o spec.Origin, what string) diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.Info,
+		Code:     diag.CodeDeepObjectConvention,
+		Pointer:  pointer,
+		Origin:   origin(o),
+		Message: what + " has style deepObject on a value other than an object of scalars, which OpenAPI leaves undefined; " +
+			"it is written with brackets at every level and an index per list item, as in items[0][price]=1, and one value as name=value",
+	}
 }
 
 func plural(sh paramShape) string {

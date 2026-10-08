@@ -145,7 +145,11 @@ func UnmarshalUnionForm(form *multipart.Form, fields any, u Union) error {
 			return err
 		}
 	}
-	return u.setAll(formMembers(form), KindObject, "a form", func(t Setter) (variantValue, error) { return t.fill(form) })
+	kind, members := KindObject, formMembers(form)
+	if isIndexedForm(form) {
+		kind, members = KindArray, nil
+	}
+	return u.setAll(members, kind, "a form", func(t Setter) (variantValue, error) { return t.fill(form) })
 }
 
 // UnmarshalUnionText decodes raw with a union's UnmarshalJSON, as a number or boolean first.
@@ -486,6 +490,23 @@ func isLiteral(raw []byte) bool {
 	default:
 	}
 	return false
+}
+
+// isIndexedForm reports a form whose keys all start with an index, 0[name], as a list writes them.
+func isIndexedForm(form *multipart.Form) bool {
+	var keys []string
+	for key := range form.Value {
+		keys = append(keys, key)
+	}
+	for key := range form.File {
+		keys = append(keys, key)
+	}
+	for _, key := range keys {
+		if _, err := strconv.Atoi(formName(key)); err != nil {
+			return false
+		}
+	}
+	return len(keys) > 0
 }
 
 // formMembers are the names of form as object members, each text as a JSON string or literal.

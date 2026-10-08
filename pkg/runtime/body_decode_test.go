@@ -108,6 +108,15 @@ type parcel struct {
 	Plain []address `json:"plain,omitempty"`
 }
 
+// styledForm holds a property of each shape a style writes.
+type styledForm struct {
+	Tags   []string       `json:"tags,omitempty"`
+	Color  *rgb           `json:"color,omitempty"`
+	Filter map[string]any `json:"filter,omitempty"`
+	Note   string         `json:"note,omitempty"`
+	Lines  []address      `json:"lines,omitempty"`
+}
+
 // scores stands in for a generated struct with integer additional properties that reads forms.
 type scores struct {
 	Name  string         `json:"name,omitempty"`
@@ -250,6 +259,51 @@ func TestDecodeForm(t *testing.T) {
 			assert.Equal(t, tc.want, got)
 		})
 	}
+}
+
+func TestDecodeFormStyles(t *testing.T) {
+	t.Parallel()
+
+	deep := Encoding{"tags": {Style: StyleDeepObject}, "color": {Style: StyleDeepObject}}
+	tests := []struct {
+		name    string
+		body    string
+		enc     Encoding
+		want    styledForm
+		wantErr string
+	}{
+		{name: "A deep object list under empty brackets", body: "tags[]=a&tags[]=b", enc: deep, want: styledForm{Tags: []string{"a", "b"}}},
+		{name: "A deep object list under its bare name", body: "tags=a&tags=b", enc: deep, want: styledForm{Tags: []string{"a", "b"}}},
+		{name: "A deep object list of one under its bare name", body: "tags=a", enc: deep, want: styledForm{Tags: []string{"a"}}},
+		{name: "A list split before it is read", body: "tags=a,b%2Cc", enc: Encoding{"tags": {Style: StyleForm}}, want: styledForm{Tags: []string{"a", "b,c"}}},
+		{name: "An exploded form object takes the keys no property names", body: "R=1&G=2&note=x", enc: Encoding{"color": {Style: StyleForm, IsExplode: true}}, want: styledForm{Color: &rgb{R: 1, G: 2}, Note: "x"}},
+		{name: "A value of the wrong type", body: "color[R]=x", enc: deep, wantErr: `invalid body value: color: R: "x" is no int`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got styledForm
+			err := DecodeForm(strings.NewReader(tc.body), &got, true, tc.enc)
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+
+	var hidden struct {
+		tags []string
+		Tags []string `json:"tags"`
+	}
+	require.NoError(t, DecodeForm(strings.NewReader("tags[0]=a"), &hidden, true, deep))
+	assert.Equal(t, []string{"a"}, hidden.Tags)
+	var m map[string]any
+	require.NoError(t, DecodeForm(strings.NewReader("tags[0]=a"), &m, true, deep))
+	assert.Equal(t, map[string]any{"tags": []any{"a"}}, m, "a map is no struct to read styles into")
 }
 
 func TestDecodeFormValueErrors(t *testing.T) {
@@ -659,7 +713,7 @@ func TestDecodeFile(t *testing.T) {
 func TestDecodeEncoding(t *testing.T) {
 	t.Parallel()
 
-	enc := Encoding{"id": "application/json", "pet": "application/json", "pets": "application/json", "tags": "application/json"}
+	enc := Encoding{"id": {ContentType: "application/json"}, "pet": {ContentType: "application/json"}, "pets": {ContentType: "application/json"}, "tags": {ContentType: "application/json"}}
 	tests := []struct {
 		name    string
 		body    string
@@ -707,7 +761,7 @@ func TestDecodeMultipartFilePartAsText(t *testing.T) {
 	})
 
 	var got parcel
-	require.NoError(t, DecodeMultipart(r, &got, 0, Encoding{"pet": "application/json"}))
+	require.NoError(t, DecodeMultipart(r, &got, 0, Encoding{"pet": {ContentType: "application/json"}}))
 	assert.Equal(t, parcel{Pet: &address{City: "Rome"}, Note: "hi"}, got)
 
 	r = multipartRequest(t, func(w *multipart.Writer) {

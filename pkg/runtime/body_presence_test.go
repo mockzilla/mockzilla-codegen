@@ -24,6 +24,7 @@ import (
 )
 
 var testObjects = []Object{
+	{Name: "Color", IsClosed: true, Props: []Prop{{Key: "G"}, {Key: "R", IsRequired: true}}},
 	{Name: "Meta", Extra: &Prop{IsNullable: true}},
 	{Name: "Owner", Props: []Prop{
 		{Key: "city", Default: `"Berlin"`},
@@ -43,6 +44,15 @@ var testObjects = []Object{
 		{Key: "toys", Items: &Prop{Object: "Owner"}, Default: `[{"id":1}]`},
 	}},
 	{Name: "Strict", Extra: &Prop{}},
+	{Name: "Styled", IsClosed: true, Props: []Prop{
+		{Key: "bad", Object: "Meta", Default: `{"a":{"b":1}}`},
+		{Key: "color", Object: "Color"},
+		{Key: "csv", Items: &Prop{}, Default: `["a","b"]`},
+		{Key: "deep", Items: &Prop{}, Default: `["x","y"]`},
+		{Key: "name", Default: `"n"`},
+		{Key: "none", Default: `null`},
+		{Key: "odd", Default: `{`},
+	}},
 	{Name: "Upload", Props: []Prop{
 		{Key: "note", Default: `"none"`},
 		{Key: "photo", IsRequired: true},
@@ -130,7 +140,7 @@ func TestPresenceForm(t *testing.T) {
 		}
 		return out
 	}
-	declared := Encoding{"name": "application/json", "tag": "application/json", "tags": "application/json", "toys": "application/json"}
+	declared := Encoding{"name": {ContentType: "application/json"}, "tag": {ContentType: "application/json"}, "tags": {ContentType: "application/json"}, "toys": {ContentType: "application/json"}}
 	tests := []struct {
 		name    string
 		p       Prop
@@ -186,6 +196,50 @@ func TestPresenceForm(t *testing.T) {
 			assert.Equal(t, tc.want, values)
 		})
 	}
+}
+
+func TestPresenceFormStyles(t *testing.T) {
+	t.Parallel()
+
+	enc := Encoding{
+		"bad": {Style: StyleForm}, "color": {Style: StyleForm, IsExplode: true}, "csv": {Style: StyleForm},
+		"deep": {Style: StyleDeepObject}, "none": {Style: StyleDeepObject}, "odd": {Style: StyleDeepObject},
+	}
+	tests := []struct {
+		name    string
+		body    string
+		want    string
+		wantErr string
+	}{
+		{name: "Pairs that did not change go as they came", body: "R=1&&csv=a,b%2Cc&deep%5B0%5D=q", want: "R=1&csv=a,b%2Cc&deep%5B0%5D=q&name=n"},
+		{name: "A styled default goes in its style", body: "R=1&G=2", want: "R=1&G=2&name=n&csv=a,b&deep%5B0%5D=x&deep%5B1%5D=y"},
+		{name: "An exploded form object takes the keys no property names", body: "G=2", wantErr: "body.color.R: is required"},
+		{name: "Its keys are checked as its own", body: "R=1&X=1", wantErr: "body.color.X: is not allowed"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := Presence{IsChecked: true, Objects: testObjects}.Form(strings.NewReader(tc.body), Prop{Object: "Styled"}, enc)
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			data, err := io.ReadAll(got)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, string(data))
+		})
+	}
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	require.NoError(t, mw.WriteField("R", "1"))
+	require.NoError(t, mw.Close())
+	r := httptest.NewRequest(http.MethodPost, "/", &buf)
+	r.Header.Set("Content-Type", mw.FormDataContentType())
+	require.NoError(t, Presence{IsChecked: true, Objects: testObjects}.Multipart(r, Prop{Object: "Styled"}, 0, enc))
+	assert.Equal(t, url.Values{"R": {"1"}, "name": {"n"}, "csv": {"a,b"}, "deep[0]": {"x"}, "deep[1]": {"y"}}, url.Values(r.MultipartForm.Value))
 }
 
 func TestPresenceMultipart(t *testing.T) {

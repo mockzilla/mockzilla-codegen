@@ -9,6 +9,7 @@ package validation
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -210,7 +211,7 @@ func Enum[T comparable](v T, values ...T) error {
 	}
 	texts := make([]string, len(values))
 	for i, value := range values {
-		texts[i] = fmt.Sprint(value)
+		texts[i] = cmp.Or(fmt.Sprint(value), `""`)
 	}
 	return Error{Message: "must be one of " + strings.Join(texts, ", "), Rule: RuleEnum, Limit: values}
 }
