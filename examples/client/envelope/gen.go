@@ -53,6 +53,10 @@ type GetJobLogHeaders struct {
 	Accept *string `json:"accept,omitempty"`
 }
 
+type CancelJobPathParams struct {
+	ID string `json:"id"`
+}
+
 type SubmitJobResponse201Headers struct {
 	Location *string `json:"Location,omitempty"`
 }
@@ -99,6 +103,16 @@ func (o *GetJobLogRequestOptions) Validate() error {
 	return nil
 }
 
+// CancelJobRequestOptions is what CancelJob sends.
+type CancelJobRequestOptions struct {
+	PathParams *CancelJobPathParams
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *CancelJobRequestOptions) Validate() error {
+	return nil
+}
+
 // SubmitJobResponse is what SubmitJobWithResponse returns.
 type SubmitJobResponse struct {
 	HTTPResponse *http.Response
@@ -135,6 +149,19 @@ func (r *GetJobLogResponse) StatusCode() int {
 	return r.HTTPResponse.StatusCode
 }
 
+// CancelJobResponse is what CancelJobWithResponse returns.
+type CancelJobResponse struct {
+	HTTPResponse *http.Response
+	Body         []byte
+	// ProblemJSON4XX is the body of a 4XX response as application/problem+json.
+	ProblemJSON4XX *Problem
+}
+
+// StatusCode is the status of the response.
+func (r *CancelJobResponse) StatusCode() int {
+	return r.HTTPResponse.StatusCode
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = httpclient.Doer
 
@@ -151,6 +178,9 @@ type ClientInterface interface {
 	// GetJobLog calls GET /jobs/{id}/log.
 	GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions, editors ...RequestEditor) (GetJobLogJSONResponse200, error)
 	GetJobLogWithResponse(ctx context.Context, opts *GetJobLogRequestOptions, editors ...RequestEditor) (*GetJobLogResponse, error)
+	// CancelJob calls DELETE /jobs/{id}.
+	CancelJob(ctx context.Context, opts *CancelJobRequestOptions, editors ...RequestEditor) error
+	CancelJobWithResponse(ctx context.Context, opts *CancelJobRequestOptions, editors ...RequestEditor) (*CancelJobResponse, error)
 }
 
 var _ ClientInterface = (*Client)(nil)
@@ -327,6 +357,55 @@ func (c *Client) GetJobLogRequest(ctx context.Context, opts *GetJobLogRequestOpt
 		b.HeaderParam(opts.Headers.Accept, runtime.Param{Name: "accept", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false})
 	}
 	return c.newRequest(ctx, "GetJobLog", b, editors)
+}
+
+// CancelJob calls DELETE /jobs/{id}.
+func (c *Client) CancelJob(ctx context.Context, opts *CancelJobRequestOptions, editors ...RequestEditor) error {
+	req, err := c.CancelJobRequest(ctx, opts, editors...)
+	if err != nil {
+		return err
+	}
+	res, body, err := httpclient.Send(c.doer, req, "application/problem+json", c.timeout)
+	if err != nil {
+		return err
+	}
+	return httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
+		{Status: "4XX", MediaType: "application/problem+json", Dst: new(Problem)},
+		{Status: "410"},
+	})
+}
+
+// CancelJobWithResponse calls DELETE /jobs/{id} and returns the whole response.
+func (c *Client) CancelJobWithResponse(ctx context.Context, opts *CancelJobRequestOptions, editors ...RequestEditor) (*CancelJobResponse, error) {
+	req, err := c.CancelJobRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := httpclient.Send(c.doer, req, "application/problem+json", c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	out := &CancelJobResponse{HTTPResponse: res, Body: body}
+	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
+		{Status: "4XX", MediaType: "application/problem+json", Dst: &out.ProblemJSON4XX},
+		{Status: "410"},
+	}); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+// CancelJobRequest builds the request of DELETE /jobs/{id}.
+func (c *Client) CancelJobRequest(ctx context.Context, opts *CancelJobRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &CancelJobRequestOptions{}
+	}
+	b := httpclient.NewRequestBuilder(http.MethodDelete, "/jobs/{id}")
+	if opts.PathParams != nil {
+		b.PathParam(opts.PathParams.ID, runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false})
+	}
+	return c.newRequest(ctx, "CancelJob", b, editors)
 }
 
 func (c *Client) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {

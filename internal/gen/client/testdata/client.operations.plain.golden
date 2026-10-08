@@ -72,6 +72,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *types.CreatePetRequestO
 		{Status: "202"},
 		{Status: "4XX", MediaType: "application/problem+json", Dst: new(types.Problem)},
 		{Status: "5XX", MediaType: "application/problem+json", Dst: new(types.Problem)},
+		{Status: "409"},
 	}); err != nil {
 		return nil, err
 	}

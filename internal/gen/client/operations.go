@@ -10,6 +10,7 @@ package client
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gen/operation"
@@ -142,9 +143,9 @@ type BodyView struct {
 	Encoding  string
 }
 
-// TargetView is one httpclient.ResponseTarget: the quoted status and media type, and the address of
-// what the body is decoded into, empty for a status whose body is not read; IsHeaders marks the
-// typed headers of the status.
+// TargetView is one httpclient.ResponseTarget: the status and media type, and the address of what
+// the body is decoded into, empty for a status whose body is not read; IsHeaders marks the typed
+// headers of the status.
 type TargetView struct {
 	Status    string
 	MediaType string
@@ -200,7 +201,7 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 	v.Accept = gocode.Quote(accept(op))
 	if r, c, ok := SuccessBody(op); ok {
 		v.Zero = gocode.Zero(operation.BodyType(c))
-		v.Targets = append(v.Targets, TargetView{Status: gocode.Quote(r.Status), MediaType: gocode.Quote(c.MediaType), Dst: gocode.AddressOf("out")})
+		v.Targets = append(v.Targets, TargetView{Status: r.Status, MediaType: c.MediaType, Dst: gocode.AddressOf("out")})
 		v.Targets = append(v.Targets, otherSuccesses(op, r.Status)...)
 	}
 	v.Targets = append(v.Targets, errorTargets(op, s)...)
@@ -215,12 +216,13 @@ func operationView(g *Generator, op *gomodel.Operation, s *gocode.Scope, httpPkg
 				continue
 			}
 			v.EnvelopeTargets = append(v.EnvelopeTargets, TargetView{
-				Status:    gocode.Quote(f.status),
-				MediaType: gocode.Quote(f.mediaType),
+				Status:    f.status,
+				MediaType: f.mediaType,
 				Dst:       gocode.AddressOf(gocode.Selector("out", f.name)),
 				IsHeaders: f.isHeaders,
 			})
 		}
+		v.EnvelopeTargets = append(v.EnvelopeTargets, bareTargets(op.Responses, v.EnvelopeTargets)...)
 	}
 	return v
 }
@@ -439,29 +441,51 @@ func otherSuccesses(op *gomodel.Operation, success string) []TargetView {
 	var out []TargetView
 	for _, r := range op.Responses {
 		if IsOtherSuccess(r, success) {
-			out = append(out, TargetView{Status: gocode.Quote(r.Status)})
+			out = append(out, TargetView{Status: r.Status})
 		}
 	}
 	return out
 }
 
-// errorTargets are the bodies of the responses outside 2xx that the client decodes and whose
-// type is an error type, which the plain method decodes into the error it returns.
+// errorTargets are the error types the plain method decodes outside 2xx, then their bareTargets.
 func errorTargets(op *gomodel.Operation, s *gocode.Scope) []TargetView {
 	var out []TargetView
+	var failures []gomodel.Response
 	for _, r := range op.Responses {
 		if status := operation.StatusOf(r.Status); status >= 200 && status <= 299 {
 			continue
 		}
+		failures = append(failures, r)
 		for _, c := range r.Contents {
 			d := gomodel.ErrorDecl(c.Type)
 			if d == nil || !isDecodable(c) {
 				continue
 			}
-			out = append(out, TargetView{Status: gocode.Quote(r.Status), MediaType: gocode.Quote(c.MediaType), Dst: gocode.Call("new", s.Expr(gomodel.DeclRef{Decl: d}))})
+			out = append(out, TargetView{Status: r.Status, MediaType: c.MediaType, Dst: gocode.Call("new", s.Expr(gomodel.DeclRef{Decl: d}))})
+		}
+	}
+	return append(out, bareTargets(failures, out)...)
+}
+
+// bareTargets lists, without Dst, each status no target names that a wider target would take.
+func bareTargets(responses []gomodel.Response, targets []TargetView) []TargetView {
+	var out []TargetView
+	for _, r := range responses {
+		isNamed := slices.ContainsFunc(targets, func(t TargetView) bool { return t.Status == r.Status })
+		if !isNamed && slices.ContainsFunc(targets, func(t TargetView) bool { return isWider(t.Status, r.Status) }) {
+			out = append(out, TargetView{Status: r.Status})
 		}
 	}
 	return out
+}
+
+// isWider reports a status that also takes narrow: default takes any other, a range its codes.
+func isWider(wide, narrow string) bool {
+	if strings.EqualFold(wide, "default") {
+		return !strings.EqualFold(narrow, "default")
+	}
+	code, err := strconv.Atoi(narrow)
+	return err == nil && strings.EqualFold(wide, strconv.Itoa(code/100)+"XX")
 }
 
 // methodExpr is the net/http constant of an HTTP method, or the method quoted when it has none.
