@@ -69,6 +69,9 @@ func TestRefOf(t *testing.T) {
 		{name: "allOf of an inline schema", schema: spec.Schema{AllOf: []*spec.Schema{{Types: spec.TypeString}}}},
 		{name: "allOf of two refs", schema: spec.Schema{AllOf: []*spec.Schema{{Ref: ref}, {Ref: ref}}}},
 		{name: "allOf of a ref and docs", schema: spec.Schema{AllOf: []*spec.Schema{{Description: "d"}, {Ref: ref}, {Nullable: true}}}, want: ref},
+		{name: "allOf of a ref and a default", schema: spec.Schema{AllOf: []*spec.Schema{{Ref: ref}, {Default: new(strVal("a"))}}}, want: ref},
+		{name: "allOf of a ref and required", schema: spec.Schema{AllOf: []*spec.Schema{{Ref: ref}, {Required: []string{"a"}}}}},
+		{name: "Ref with required", schema: spec.Schema{Ref: ref, Required: []string{"a"}}},
 		{name: "allOf of docs only", schema: spec.Schema{AllOf: []*spec.Schema{{Description: "d"}}}},
 		{name: "No ref", schema: spec.Schema{Types: spec.TypeString}},
 		{name: "oneOf of a ref and null", schema: spec.Schema{OneOf: []*spec.Schema{{Ref: ref}, {Types: spec.TypeNull}}}, want: ref},
@@ -94,6 +97,8 @@ func TestIsDocOnly(t *testing.T) {
 	}{
 		{name: "Description and flags", schema: spec.Schema{Description: "d", ReadOnly: true, Nullable: true}, want: true},
 		{name: "Limits", schema: spec.Schema{Limits: spec.Limits{MaxLength: new(int64(5))}}, want: true},
+		{name: "Default", schema: spec.Schema{Default: new(strVal("a"))}, want: true},
+		{name: "Required", schema: spec.Schema{Required: []string{"a"}}},
 		{name: "Type", schema: spec.Schema{Types: spec.TypeString}},
 		{name: "Format", schema: spec.Schema{Format: "date"}},
 		{name: "Const", schema: spec.Schema{Const: new(strVal("a"))}},

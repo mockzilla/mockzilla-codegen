@@ -44,6 +44,15 @@ components:
     NullableRef:
       allOf: [{$ref: '#/components/schemas/Animal'}]
       description: Just an animal
+    Addressed:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - required: [address]
+    Located:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - properties:
+            address: {required: [geo]}
     Loop1:
       allOf:
         - $ref: '#/components/schemas/Loop2'
