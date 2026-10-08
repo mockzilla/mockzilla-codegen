@@ -10,6 +10,7 @@ import "errors"
 var (
 	ErrParse              = errors.New("parse spec")
 	ErrNotObject          = errors.New("spec root is not an object")
+	ErrManyDocuments      = errors.New("spec holds more than one YAML document")
 	ErrUnsupportedVersion = errors.New("unsupported OpenAPI version")
 	ErrPointer            = errors.New("invalid JSON pointer")
 	ErrNotFound           = errors.New("JSON pointer not found")

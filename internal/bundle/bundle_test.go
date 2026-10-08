@@ -131,6 +131,19 @@ func TestRunInMemory(t *testing.T) {
 	}
 }
 
+func TestRunReadsSlashEscapesInJSON(t *testing.T) {
+	t.Parallel()
+
+	doc, err := oasdoc.Parse([]byte("openapi: 3.1.0\ncomponents:\n  schemas:\n    A: {$ref: ./a.json}\n"), "spec.yaml")
+	require.NoError(t, err)
+
+	_, _, err = Run(context.Background(), Input{Doc: doc, Location: "spec.yaml", Load: mapLoader(map[string]string{"a.json": `{"pattern": "^a\/b$"}`})})
+	require.NoError(t, err)
+	out, err := doc.Marshal()
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "pattern: ^a/b$")
+}
+
 func TestRunWithLocalRefsOnly(t *testing.T) {
 	t.Parallel()
 
