@@ -18,15 +18,31 @@ func (e ErrorResponse) Error() string
 func NewErrorResponse(message string) ErrorResponse
 ```
 
-- A path is dotted JSON property names. A name ending in `[]` takes the first item of that array.
-- `Error` returns the value at the path, as text. A missing value gives the type name.
-- The constructor needs a string at the end of the path.
-- A path may go through a union. The union's shared properties come first, else each variant is
-  tried; one that has the rest of the path is enough. A union gets no constructor: a message does
-  not say which variant to build.
-- A name that is no struct or union, or a path that leads nowhere, is a warning. That type gets no
-  `Error` method.
-- A field of an error type that would be named `Error` is renamed, since the method takes the name.
+## The path
+
+A path is dotted JSON property names: `error.message`. A name ending in `[]` takes the first item of
+that array: `errors[].detail`.
+
+A path may go through a union. The union's shared properties come first. If the path is not there,
+each variant is tried, and one that has the rest of the path is enough.
+
+## Error and the constructor
+
+| Generated | Behavior |
+|---|---|
+| `Error` | returns the value at the path, as text. A missing value gives the type name |
+| the constructor, `NewErrorResponse` above | needs a string at the end of the path |
+
+A union gets no constructor, since a message does not say which variant to build.
+
+A field of an error type that would be named `Error` is renamed, since the method takes the name.
+
+## Mappings that do not work
+
+A name that is not a struct or a union, or a path that leads nowhere, is a warning. That type gets
+no `Error` method.
+
+## errors.As
 
 Error types work with `errors.As`. The client puts a pointer in the error it returns, so the target
 is a pointer too:
@@ -38,7 +54,11 @@ if errors.As(err, &e) {
 }
 ```
 
+## In the server
+
 A service may return the error type as a value or as a pointer. The server finds both and answers
-with the status the spec gives it. A request the server turns away itself, such as one that fails
-validation, is answered with the type the operation documents for 400, built by the constructor,
-see [server errors](server.md#errors).
+with the status the spec gives it.
+
+A request the server turns away itself, such as one that fails validation, is answered with the
+type the operation documents for 400, built by the constructor. See
+[server errors](server.md#errors).

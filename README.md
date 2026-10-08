@@ -26,8 +26,8 @@ the built-in templates can be replaced. The output reads like Go a person wrote.
   union ([types](docs/types.md)).
 - Validation is plain Go code, no reflection ([validation](docs/validation.md)).
 - Each documented error response can be a Go error type ([error types](docs/errors.md)).
-- One spec gives a server for 14 routers, a client that streams, and MCP tools for AI assistants
-  ([server](docs/server.md), [client](docs/client.md), [MCP](docs/mcp.md)).
+- One spec gives a server for any of 14 routers, a client that streams, and MCP tools for AI
+  assistants ([server](docs/server.md), [client](docs/client.md), [MCP](docs/mcp.md)).
 
 Coming from another generator? The [migration guides](docs/migration.md) say what changes and show
 the code before and after.
@@ -69,7 +69,7 @@ components:
         tag: {type: string}
 ```
 
-gives, among the rest:
+gives this, among other code:
 
 ```go
 type Pet struct {

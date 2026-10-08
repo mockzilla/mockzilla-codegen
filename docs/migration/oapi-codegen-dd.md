@@ -10,25 +10,33 @@ which are built and tested.
 
 ## What is different
 
-The config has the same blocks under other keys, the service interface keeps its methods, and the
-same extensions are read. Most of the move is renaming keys. What changes in the code:
+Most of the move is renaming keys:
 
-- There is a response data constructor per status. `NewGetPetResponseData(&pet)` is
+- The config has the same blocks under other keys.
+- The service interface keeps its methods.
+- The same extensions are read.
+
+What changes in the code:
+
+- There is a response data constructor per status: `NewGetPetResponseData(&pet)` becomes
   `NewGetPetResponseData200(&pet)`.
 - An error response is the error type, returned as the error. The adapter writes it with the
   status the spec gives it, so `WithStatus(404)` next to the error goes.
-- Param structs have other names. `GetPetPath` is `GetPetPathParams`, the `Header` field is
-  `Headers`, and cookie params are read into `Cookies`.
-- The client returns `*Error`, not `Error`. An `errors.As` needs `var e *Error`.
-- `GetPetWithResponse` returns a `GetPetResponse`, not a `GetPetResp`, and no error for a status
-  the spec documents. `GetPetResponse` was the success body there. `StatusCode()` is a method.
-- `NewDefaultPetClient(baseURL)` is `NewPetClient(baseURL)`. There is no `runtime.APIClient`.
+- Param structs have other names. `GetPetPath` becomes `GetPetPathParams`, the `Header` field
+  becomes `Headers`, and cookie params are read into `Cookies`.
+- The client returns `*Error`, where it returned `Error`. An `errors.As` needs `var e *Error`.
+- `GetPetWithResponse` returns a `GetPetResponse`, where it returned a `GetPetResp`. It returns no
+  error for a status the spec documents. `StatusCode()` is a method.
+- `GetPetResponse` was the success body in oapi-codegen-dd. It is the envelope now.
+- `NewDefaultPetClient(baseURL)` becomes `NewPetClient(baseURL)`. There is no `runtime.APIClient`.
 - The MCP tools are built on the official Go SDK, and named in snake case.
 - A union is a struct with one field per variant, whatever their number. There is no
   `runtime.Either`.
 - `Validate()` is plain generated code. The `validate` struct tags are gone.
 
 ## Before and after
+
+### The handler
 
 The handler of `GET /pets/{id}` in oapi-codegen-dd:
 
@@ -57,6 +65,8 @@ func (s *Service) GetPet(_ context.Context, opts *GetPetServiceRequestOptions) (
 
 `return NewGetPetResponseData404(&Error{...}), nil` gives the same response. `NewRouter(svc)`
 mounts the service in both.
+
+### The client call
 
 The client call in oapi-codegen-dd:
 
@@ -93,6 +103,8 @@ if err != nil {
 }
 ```
 
+### The MCP server
+
 The MCP server, before and after:
 
 ```go
@@ -107,10 +119,12 @@ api.NewMCPTools(client).Register(s)
 s.Run(ctx, &mcp.StdioTransport{})
 ```
 
-The tools are `list_pets` and `get_pet` now, where they were `ListPets` and `GetPet`. Prompts and
-host settings that name the old tool break; `x-mcp: {name: ListPets}` on the operation keeps it
-([MCP](../mcp.md#x-mcp)). A tool without a summary is described by its method and path,
-`GET /pets`, where it had its name.
+The tools are `list_pets` and `get_pet` now, where they were `ListPets` and `GetPet`.
+
+- Prompts and host settings that name the old tool break. `x-mcp: {name: ListPets}` on the
+  operation keeps the old name ([MCP](../mcp.md#x-mcp)).
+- A tool without a summary is described by its method and path, `GET /pets`. It used to be
+  described by its name.
 
 ## Steps
 
@@ -178,7 +192,7 @@ host settings that name the old tool break; `x-mcp: {name: ListPets}` on the ope
 
 The keys of `error-mapping` are type names in both. An error response written inline in an
 operation is `<Op>Response<Status>` here ([names](../naming.md#names-for-types-without-a-name)),
-not `<Op>ErrorResponse`.
+where it was `<Op>ErrorResponse`.
 
 ### Not carried over
 
@@ -191,10 +205,13 @@ not `<Op>ErrorResponse`.
 
 ### Extensions
 
-The list is the same, `x-mcp` included ([extensions](../extensions.md)), apart from two names:
-`x-oapi-codegen-extra-tags` is `x-go-extra-tags`, and `x-oapi-codegen-only-honour-go-name` is
-`x-go-name-exact`. The old names are ignored. `x-go-type-name` on a component declares the type
-under the new name only, without an alias under the component name.
+The list is the same, `x-mcp` included ([extensions](../extensions.md)), apart from these:
+
+| oapi-codegen-dd | mockzilla-codegen |
+|---|---|
+| `x-oapi-codegen-extra-tags` | `x-go-extra-tags`; the old name is ignored |
+| `x-oapi-codegen-only-honour-go-name` | `x-go-name-exact`; the old name is ignored |
+| `x-go-type-name` on a component | declares the type under the new name only, without an alias under the component name |
 
 ### Server
 
@@ -222,8 +239,8 @@ under the new name only, without an alias under the component name.
 ### Types
 
 - A `oneOf` or `anyOf` is a struct with one field per variant, whatever their number
-  ([unions](../types.md#unions)), instead of `runtime.Either[A, B]` for two variants and a raw
+  ([unions](../types.md#unions)). Before, it was `runtime.Either[A, B]` for two variants and a raw
   message with accessors for more.
 - A `number` without a format is `float64` ([type mapping](../types.md#type-mapping)).
-- The [pointer rules](../types.md#pointers) and [naming rules](../naming.md) are written down;
-  compare a generated file against the old one before touching call sites.
+- The [pointer rules](../types.md#pointers) and [naming rules](../naming.md) are written down.
+  Compare a generated file against the old one before touching call sites.

@@ -1,10 +1,14 @@
 # Configuration
 
-The config is a YAML file. Unknown keys are errors, and every problem is reported at once with its
-key path (`server.scaffold.port`). Paths are relative to the config file. `config.schema.json`
-describes every key; the first line of the example points editors at it.
+The config is a YAML file.
 
-Every key, with example values:
+- Unknown keys are errors.
+- Every problem is reported at once, with its key path (`server.scaffold.port`).
+- Paths are relative to the config file.
+
+`config.schema.json` describes every key. The first line of the example points editors at it.
+
+The main keys, with example values:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla-codegen/main/config.schema.json
@@ -73,24 +77,31 @@ output:
   format: true
 ```
 
-Blocks:
+## Blocks
 
-- `spec`: the input spec and how to prepare it (overlays, filter, prune, simplify). A spec file
-  is JSON or YAML 1.2 and holds one document, so `1_000` is a string and `012` the number 12.
-- `models`, `server`, `client`, `mcp`: what to generate. Models are always on. The other blocks
-  are on when present, even as a bare key (`mcp:`). `mcp` needs `client`.
-- `templates`, `user-context`: overrides of the template blocks a config may replace, and the
-  values they see as `.User` ([blocks](templates.md#blocks)).
-- `extra-files`: files written from your own templates, on the service, the operations and the
-  types ([extra files](templates.md#extra-files)).
-- `imports`: the packages that the text of a block or an `x-go-type` names. A generated file
-  imports one when its code refers to it ([imports](templates.md#imports)).
-- `output`: where the files go. Only this block says where.
+| Block | What it does |
+|---|---|
+| `spec` | the input spec and how to prepare it (overlays, filter, prune, simplify) |
+| `models`, `server`, `client`, `mcp` | what to generate |
+| `templates`, `user-context` | overrides of the template blocks a config may replace, and the values they see as `.User` ([blocks](templates.md#blocks)) |
+| `extra-files` | files written from your own templates, on the service, the operations and the types ([extra files](templates.md#extra-files)) |
+| `imports` | the packages that the text of a block or an `x-go-type` names. A generated file imports one when its code refers to it ([imports](templates.md#imports)). |
+| `output` | where the files go. Only this block says where. |
+
+### The spec file
+
+A spec file is JSON or YAML 1.2 and holds one document. So `1_000` is a string and `012` is the
+number 12.
+
+### What to generate
+
+Models are always on. The other blocks (`server`, `client`, `mcp`) are on when present, even as a
+bare key (`mcp:`). `mcp` needs `client`.
 
 ## Output files
 
 `output.file` is the default file for every part. `output.files` moves parts to other files with
-selectors, and the most specific selector wins. A selector can be listed only once.
+selectors. The most specific selector wins. A selector can be listed only once.
 
 | Selector | Parts |
 |---|---|
@@ -101,17 +112,31 @@ selectors, and the most specific selector wins. A selector can be listed only on
 | `client`, `client.<part>` | `core`, `options`, `operations`, `responses` |
 | `mcp`, `mcp.<part>` | `tools`, `inputs` |
 
-The folder of `output.file` uses `package`. Other folders use `output.packages`, else their own
-name. `output.packages` wins over `package` when both name the same folder. Output in more than one
-folder needs a module path for the imports between them: from the nearest `go.mod`, or
-`output.module`. Folders that import each other are an error.
+### Packages
 
-The model parts refer to each other's types, so they share one folder: split them into files, not
-packages. `client.operations` sits with `client.core`, whose methods it declares. Every other part
-can have a package of its own. [examples/layout](../examples/layout) generates one spec in five
-layouts: parts in several files of one package, models apart from the rest, each family in its
-own package, the service interface apart from the router, and a client in a folder that
-`output.packages` names.
+- The folder of `output.file` uses `package`.
+- Other folders use `output.packages`, else their own name.
+- `output.packages` wins over `package` when both name the same folder.
+- Output in more than one folder needs a module path for the imports between them. It comes from
+  the nearest `go.mod`, or from `output.module`.
+- Folders that import each other are an error.
+
+### What can be split
+
+The model parts refer to each other's types, so they share one folder. Split them into files, not
+packages.
+
+`client.operations` sits with `client.core`, whose methods it declares.
+
+Every other part can have a package of its own.
+
+[examples/layout](../examples/layout) generates one spec in five layouts:
+
+- parts in several files of one package
+- models apart from the rest
+- each family in its own package
+- the service interface apart from the router
+- a client in a folder that `output.packages` names
 
 ## Defaults
 

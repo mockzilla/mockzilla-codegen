@@ -15,13 +15,12 @@ make generate                                   # examples and config.schema.jso
 make test-integration SPEC=3.0/misc/<spec>.yml  # one real-world spec, end to end
 ```
 
-`make check` has to pass before a pull request. The full integration run covers 2,200+ specs and
-takes a while; run one spec, or `make test-integration-ci` for the set CI uses.
+`make check` has to pass before you open a pull request. The full integration run covers 2,200+
+specs and takes a while; run one spec, or `make test-integration-ci` for the set CI uses.
 
 ## Rules
 
-[AGENTS.md](AGENTS.md) has the layout of the repo and its rules. They hold for people too. The
-short version:
+[AGENTS.md](AGENTS.md) has the layout of the repo and its rules. They apply to people too. In short:
 
 - Every `.go` file starts with the MIT license header. Copy it from any file.
 - Library code returns errors and diagnostics. Only `pkg/cli` prints, to the writers it is given.
