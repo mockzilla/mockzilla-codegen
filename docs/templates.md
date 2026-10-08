@@ -6,14 +6,14 @@ The config changes the generated code in two ways, both with Go templates:
   method of the service scaffold
 - an [extra file](#extra-files) is a file of your own, written from your template on every run
 
-Nothing replaces a whole built-in template, so no template is copied to change a few lines. To
-write a file your own way, leave its scaffold out and write it as an extra file.
+Nothing replaces a whole built-in template, so you never copy one to change a few lines. To write a
+file your own way, leave its scaffold out and write it as an extra file.
 
 ## Examples
 
-From simple to complex. Each one starts from a need and shows the config for it. The health
-route, the 501 stubs and the mock server are examples in this repository, built and tested on
-every change.
+From simple to complex. Each one starts from a need and shows the config for it. The health route,
+the 501 stubs and the mock server are examples in this repository, built and tested on every
+change.
 
 ### A health route
 
@@ -99,12 +99,17 @@ extra-files:
 1. `server.request-options-extra` gives the request options of every operation a typed field.
 2. `server.scaffold.service-method` makes every method of the scaffold return what that field
    makes.
-3. The handlers leave the field unset. The extra file `wrap.go` writes `WithBodies`: a service that
-   sets the field, then calls the service it wraps.
+3. The handlers leave the field unset. The extra file `wrap.go` writes `WithBodies`, a service that
+   sets the field and then calls the service it wraps.
 
-`wrapper.tmpl` ranges over the operations of [the data](#the-data) and calls the constructor of
-each success response: with `new` for a pointer body, with a zero value for another body, without
-a body when there is none. An operation without a success response answers 200:
+`wrapper.tmpl` ranges over the operations of [the data](#the-data). For the success response of
+each operation, it calls the constructor:
+
+- with `new` for a pointer body
+- with a zero value for another body
+- without a body when there is none
+
+An operation without a success response answers 200:
 
 ```
 {{- $context := import "context"}}
@@ -143,10 +148,12 @@ The server is `NewRouter(WithBodies(NewPets()))`.
 
 ## Blocks
 
-A block is a named piece of a built-in template. The config replaces it with text of its own;
-until it does, the block writes its default. A value is the template text. To keep the text in a
-file, write `{file: <path>}`, with the path relative to the config. The form of the value alone
-says which of the two it is: a text is never read as a path, whatever it looks like.
+A block is a named piece of a built-in template. Until the config replaces it with text of its own,
+the block writes its default.
+
+The value of a block is the template text. To keep the text in a file, write `{file: <path>}`
+instead, with the path relative to the config. The form of the value tells the two apart. A text is
+never read as a path, whatever it looks like.
 
 ```yaml
 templates:
@@ -156,11 +163,6 @@ templates:
 user-context:
   health: healthHandler
 ```
-
-The text of a block goes on lines of its own, without the blank lines around it, so it needs no
-line break at its start or its end. `server.service-header` and `client.interface-header` are
-followed by a blank line, which keeps them out of the comment of the interface. A block whose text
-comes out empty adds nothing.
 
 | Block | Where | Data | Default |
 |---|---|---|---|
@@ -172,21 +174,46 @@ comes out empty adds nothing.
 | `server.scaffold.service-fields` | in the struct of the service scaffold | the scaffold | nothing |
 | `server.scaffold.service-method` | the body of every method of the service scaffold | the method | `return nil, ErrNotImplemented` |
 
-In `server.service-header`, `.Name` is the name of the service interface, and in
-`client.interface-header` the name of the client interface. In the request options and response
-data blocks, the operation's `.Options` and `.Data` are the names of the two structs. In the
-scaffold blocks, `.Name` is the name of the service struct or of the method, and the
-method's `.Options` and `.Data` are written as the scaffold's file spells them.
+### Line breaks
+
+The text of a block goes on lines of its own, without the blank lines around it. So it needs no
+line break at its start or its end.
+
+`server.service-header` and `client.interface-header` are followed by a blank line. That keeps them
+out of the comment of the interface.
+
+A block whose text comes out empty adds nothing.
+
+### Names in a block
+
+| Block | Field | Holds |
+|---|---|---|
+| `server.service-header` | `.Name` | the name of the service interface |
+| `client.interface-header` | `.Name` | the name of the client interface |
+| `server.request-options-extra`, `server.response-data-extra` | `.Options`, `.Data` | the names of the two structs of the operation |
+| `server.scaffold.service-fields` | `.Name` | the name of the service struct |
+| `server.scaffold.service-method` | `.Name` | the name of the method |
+| `server.scaffold.service-method` | `.Options`, `.Data` | the method's two structs, written as the scaffold's file spells them |
+
+### Funcs in a block
 
 The text of a block is a `text/template` of its own. It can call the funcs every template of the
-generator has, such as `comment` and `quote`, listed under [Funcs](#funcs). It has no
-`expr`, `import` or `symbol`: the packages its code names are listed under [`imports`](#imports).
+generator has, such as `comment` and `quote`, listed under [Funcs](#funcs).
 
-`user-context` is available as `.User` in every block and as `.UserContext` in an extra file. A key
-it does not have is an error: `{{.User.team}}` fails in a config that sets no `team`. Ask for a
-key that may be missing with `index` under `if` or `with`, as in `{{if index .User "team"}}`. A
-block that writes `<no value>` all the same is an error too: it prints a key the config gives no
-value, or an `index` on its own.
+It has no `expr`, `import` or `symbol`. The packages its code names are listed under
+[`imports`](#imports).
+
+### User context
+
+`user-context` is available as `.User` in every block and as `.UserContext` in an extra file.
+
+A key it does not have is an error: `{{.User.team}}` fails in a config that sets no `team`. To read
+a key that may be missing, use `index` under `if` or `with`, as in `{{if index .User "team"}}`.
+
+A block that writes `<no value>` anyway is an error too. It prints a key the config gives no value,
+or an `index` on its own.
+
+### Block errors
 
 These are config errors:
 
@@ -194,12 +221,14 @@ These are config errors:
 - a `server` block in a config without `server`, and a `client` block in one without `client`
 - a scaffold block in a config that does not write that scaffold
 - a value without text, and `{file: }` without a path
-- text that can only be a path, such as `./header.tmpl` or `templates/header.txt`: it would be
-  written into the code as it is, so the error asks for `{file: ./header.tmpl}`
+- text that can only be a path, such as `./header.tmpl` or `templates/header.txt`
+
+Text that can only be a path would be written into the code as it is. So the error asks for
+`{file: ./header.tmpl}`.
 
 ### Routes
 
-In `server.router-extra`, the router and the way a route goes on it depend on the framework. Each
+In `server.router-extra`, the router and the way you add a route to it depend on the framework. Each
 line below adds `GET /health`, with `health` an `http.HandlerFunc` of yours, as in
 [A health route](#a-health-route).
 
@@ -219,11 +248,11 @@ line below adds `GET /health`, with `health` an `http.HandlerFunc` of yours, as 
 | hertz | `h`, a `*server.Hertz` | `h.GET("/health", handle(route(health)))` |
 | goframe | `s`, a `*ghttp.Server` | `s.BindHandler("GET:/health", handle(route(health)))` |
 
-Pass a route through `route`, or `m...` on echo, and the middleware of `WithMiddleware` wraps it
-like the generated ones. On chi and kratos the router `r` adds the middleware itself. `handle`
-makes the framework's handler from an `http.Handler`. On gin it also takes the names of the path
-values after the handler, in path order, `handle(route(h), "id")`; a value without one keeps the
-name in gin's pattern.
+- Pass a route through `route`, or `m...` on echo, and the middleware of `WithMiddleware` wraps it
+  like the generated ones. On chi and kratos the router `r` adds the middleware itself.
+- `handle` makes the framework's handler from an `http.Handler`.
+- On gin, `handle` also takes the names of the path values after the handler, in path order:
+  `handle(route(h), "id")`. A value without a name keeps the name in gin's pattern.
 
 ## Imports
 
@@ -242,24 +271,41 @@ templates:
 
 The file that holds the request options now imports `github.com/google/uuid`, and
 `example.com/shop/tenant` as `tn`. A generated file imports a listed package when its code names
-it, and leaves it out otherwise, so one list serves every file. A package that an
-[`x-go-type`](extensions.md#x-go-type) names is listed the same way.
+it, and leaves it out otherwise. So one list serves every file.
 
-- The name is the `alias`, else the one the path gives: its last element, without a major version
-  (`chi` for `github.com/go-chi/chi/v5`), a `go-` prefix or what follows a dot (`yaml` for
-  `gopkg.in/yaml.v3`). A package named otherwise needs the alias.
-- In a file that names a listed package, the name is that package's. Another package the
-  generator imports under the same name gets a number there, such as `models2`.
-- A listed package the generator imports too goes by the listed name in the generated code. So
-  an alias for such a package must not be a name that code gives a variable, like `ctx` or `r`.
+A package that an [`x-go-type`](extensions.md#x-go-type) names is listed the same way.
+
+### Package names
+
+The name of a listed package is its `alias`. Without an alias, the name is the last element of the
+path, without:
+
+- a major version: `chi` for `github.com/go-chi/chi/v5`
+- a `go-` prefix
+- what follows a dot: `yaml` for `gopkg.in/yaml.v3`
+
+A package named any other way needs the alias.
+
+### Name clashes
+
+In a file that names a listed package, the name is that package's. Another package the generator
+imports under the same name gets a number in that file, such as `models2`.
+
+A listed package that the generator imports too goes by the listed name in the generated code. So
+an alias for such a package must not be a name that code gives a variable, like `ctx` or `r`.
+
+### Side effects and unused entries
+
 - With `alias: _` every generated file imports the package, for its side effects.
-- An entry that no file names changes nothing, and is reported as an `import-unused` warning.
+- An entry that no file names changes nothing. It is reported as an `import-unused` warning.
+
+### Import errors
 
 These are config errors:
 
 - an entry without `package`
-- an alias that is no Go identifier
-- `alias: .`: Go rejects a file that imports a package without using it, and under `.` the use
+- an alias that is not a Go identifier
+- `alias: .`: Go rejects a file that imports a package without using it, and with `.` the use
   cannot be checked
 - a path that is listed twice under a name, or twice under `_`
 - two entries with one name
@@ -282,11 +328,12 @@ extra-files:
     }
 ```
 
-An extra file is a generated file like the others: it gets the header, the package of its
-folder, the imports its code names, and it is written on every run. Its template runs on
-[the data](#the-data): the service, every operation with its types, responses and constructors,
-and every model type. The template writes Go declarations; the generator formats them. For the
-pets API, `routes.go` is:
+An extra file is a generated file like the others. It gets the header, the package of its folder
+and the imports its code names, and it is written on every run.
+
+Its template runs on [the data](#the-data): the service, every operation with its types, responses
+and constructors, and every model type. The template writes Go declarations, and the generator
+formats them. For the pets API, `routes.go` is:
 
 ```go
 // Routes lists the method and path of every route the router registers.
@@ -302,8 +349,8 @@ var Routes = []string{
 
 ### Funcs
 
-The template of an extra file sees three funcs bound to the file it writes, `expr`, `import` and
-`symbol`, and the funcs every template of the generator has:
+The template of an extra file sees two sets of funcs. Three are bound to the file it writes: `expr`,
+`import` and `symbol`. The others are the funcs every template of the generator has.
 
 | Func | Does |
 |---|---|
@@ -315,14 +362,18 @@ The template of an extra file sees three funcs bound to the file it writes, `exp
 | `lower <text>` | lowers every letter |
 | `ucFirst <text>` | raises the first character |
 
-`toGoComment` is `comment` under another name, and `escapeGoString` is `quote` without the quotes
-around the text. The generator's `tag` is of no use here: it takes the tags of a model field, a
-value an extra file does not have.
+`toGoComment` is `comment` under another name. `escapeGoString` is `quote` without the quotes around
+the text. The generator's `tag` is of no use here: it takes the tags of a model field, and an extra
+file has no such value.
 
-`symbol` reaches what the data does not list: the functions of the server, such as `NewRouter`
-and `WithErrorHandler`, and what another extra file declares. The part is named as in
-`output.files`, such as `server.router`, a scaffold as `server.scaffold.service`, and an extra file
-by its path as the config writes it, such as `./wrap.go`. For a chi router:
+#### symbol
+
+`symbol` reaches what the data does not list: the functions of the server, such as `NewRouter` and
+`WithErrorHandler`, and what another extra file declares.
+
+The part is named as in `output.files`, such as `server.router`. A scaffold is named
+`server.scaffold.service`, and an extra file by its path as the config writes it, such as
+`./wrap.go`. For a chi router:
 
 ```
 {{- $http := import "net/http"}}
@@ -334,15 +385,21 @@ func Handler(svc {{expr .Service}}) {{$http}}.Handler {
 
 In the folder of the router this writes `NewRouter`. In another folder it writes `api.NewRouter`,
 for a router in package `api`, and imports that package. So an extra file can sit in a package of
-its own. A part the config does not write is an error, such as
-`server.router` without a `server` block, and so is a name that is no identifier. A name that is
-not exported is an error when the part is in another folder. The generator does not check that
-the part declares the name: the Go compiler reports that.
+its own.
 
-An extra file can use the types and functions of any package the generator writes. Its path
-decides what it imports. When it makes two output folders
-import each other, `Generate` fails with the cycle and the file that closes it, as it does for the
-built-in parts:
+These are errors:
+
+- a part the config does not write, such as `server.router` without a `server` block
+- a name that is not an identifier
+- a name that is not exported, when the part is in another folder
+
+The generator does not check that the part declares the name. The Go compiler reports that.
+
+### Import cycles
+
+An extra file can use the types and functions of any package the generator writes. Its path decides
+what it imports. When it makes two output folders import each other, `Generate` fails with the
+cycle and the file that closes it, as it does for the built-in parts:
 
 ```
 import cycle: api -> models -> api (server.service uses example.com/work/models, ./wrap.go uses example.com/work/api)
@@ -350,15 +407,22 @@ import cycle: api -> models -> api (server.service uses example.com/work/models,
 
 Move the extra file to a folder that the folders it uses do not import.
 
-A key that a map does not have is an error, where `text/template` alone writes `<no value>` into
-the code: `{{.UserContext.owner}}` fails in a config that sets no `owner`. Ask for a key that may
-be missing with `index` under `with` or `if`, as in
+### Missing keys
+
+`text/template` alone writes `<no value>` into the code for a key that a map does not have. In an
+extra file that is an error: `{{.UserContext.owner}}` fails in a config that sets no `owner`.
+
+To read a key that may be missing, use `index` under `with` or `if`, as in
 `{{with index .UserContext "owner"}}// Owned by {{.}}.{{end}}`.
 
-A template that does not parse or run, or that writes no Go declarations, is an `ErrExtraFile`
-with the path. These are config errors:
+### Extra file errors
 
-- a path that is no `.go` file
+A template that does not parse or run, or that writes no Go declarations, is an `ErrExtraFile` with
+the path.
+
+These are config errors:
+
+- a path that is not a `.go` file
 - a path that `output.file`, `output.files` or a scaffold writes too, or two paths that are one
   file
 - a value as for a block: without text, with text and a file, or text that can only be a path
@@ -411,12 +475,25 @@ type Response struct {
 }
 ```
 
-`Responses` come in the order of the generated code: codes, ranges, other keys, then `default`,
-whatever the order in the spec. `Code` is what the generated client and error mapping read from
-the key: the key when it is a number, the first digit times 100 for a range such as `2XX`, else 0
-(`default`). A key that is no code from 100 to 599, no range and not `default` is left out, with a
-warning (`invalid-status`). `Success` is the first response with a `Code` from 200 to 299, and
-points into `Responses`.
+### Responses
+
+`Responses` come in the order of the generated code: codes, ranges, other keys, then `default`. The
+order in the spec does not matter.
+
+`Code` is what the generated client and error mapping read from the key:
+
+| Key | `Code` |
+|---|---|
+| a number | the number |
+| a range such as `2XX` | the first digit times 100 |
+| anything else (`default`) | 0 |
+
+A key that is not a code from 100 to 599, not a range and not `default` is left out. Generation
+warns (`invalid-status`).
+
+`Success` is the first response with a `Code` from 200 to 299. It points into `Responses`.
+
+### Bodies
 
 `Bodies` lists the request bodies the server and the client options hold, each with the field it
 is in, so a template can make one. For a JSON body of type `*Pet`:
@@ -427,14 +504,24 @@ is in, so a template can make one. For a JSON body of type `*Pet`:
 {{- end}}{{end}}
 ```
 
+### Constructors
+
 `Constructor` is the function a hand-written service calls to answer with one status, such as
-`NewGetPetResponseData404`. It takes the status first when `HasStatusArg` is set, which is when
-the key is no number, such as a range or `default`. Then it takes the body, when the response has
-one; with `IsStream` set that is an `iter.Seq` of `Body`, the frames of a response that is only a
-stream. A response with a body read whole and a stream describes the first, and its stream has a
-constructor of the same name with the suffix `Stream`. It also sets the content type the spec gives. That field is unexported, so a literal of
-`ResponseData` in another package cannot set it. Write the constructor with `expr`, like a type.
-For a success response with a body, and `body` of the type it takes:
+`NewGetPetResponseData404`. It takes these arguments, in order:
+
+1. The status, when `HasStatusArg` is set. That is when the key is not a number, such as a range or
+   `default`.
+2. The body, when the response has one. With `IsStream` set, the body is an `iter.Seq` of `Body`:
+   the frames of a response that is only a stream.
+
+A response with a body read whole and a stream describes the first. Its stream has a constructor of
+the same name with the suffix `Stream`.
+
+A constructor also sets the content type the spec gives. That field is unexported, so a literal of
+`ResponseData` in another package cannot set it.
+
+Write the constructor with `expr`, like a type. For a success response with a body, and `body` of
+the type it takes:
 
 ```
 {{- with .Success}}
@@ -442,25 +529,53 @@ For a success response with a body, and `body` of the type it takes:
 {{- end}}
 ```
 
-`examples/templates/wrapper/wrapper.tmpl` calls it for every operation: with a body, with `new`
-for a pointer body, and without one.
+`examples/templates/wrapper/wrapper.tmpl` calls it for every operation: with a body, with `new` for
+a pointer body, and without one.
 
-`TypeRef` is a Go type, or a function such as `Constructor`: `Name` as the package that declares
-it writes it, and `Package` and `ImportPath` of the identifier in it. With an import path, `Name`
-is an identifier, or a pointer, slice, array, map or channel around one (`Pet`, `[]Pet`, `*Pet`,
-`map[string]Pet`): the package goes before that identifier, and a map key or an array length is
-written as it is. A generic type, a func type or a name that is qualified already cannot carry an
-import path. `Package`, when set, is the name of the package: an identifier other than `_`, and
-only with an import path. Without an import path, the type needs no import, `Name` is written as
-it is (`string`, `func() any`) and `Package` is empty. A type the generator declares has neither
-when the output is one package outside a module.
+### TypeRef
 
-`expr` writes a type as the file being written spells it and adds the import. It fails on a
-type whose `Name` cannot carry its import path, and on a `Package` without an import path, in
-every file, so a template does not start to fail when the output is split into packages. To
-write a type around one of another package, put it together in the template:
+`TypeRef` is a Go type, or a function such as `Constructor`. It has three parts:
+
+| Part | Holds |
+|---|---|
+| `Name` | the type as the package that declares it writes it |
+| `Package` | the name of the package of the identifier in it |
+| `ImportPath` | the import path of the identifier in it |
+
+#### With an import path
+
+`Name` is an identifier, or a pointer, slice, array, map or channel around one (`Pet`, `[]Pet`,
+`*Pet`, `map[string]Pet`). The package goes before that identifier. A map key or an array length is
+written as it is.
+
+A generic type, a func type or a name that is qualified already cannot carry an import path.
+
+`Package`, when set, is the name of the package: an identifier other than `_`, and only with an
+import path.
+
+#### Without an import path
+
+The type needs no import. `Name` is written as it is (`string`, `func() any`) and `Package` is
+empty.
+
+A type the generator declares has neither a package nor an import path when the output is one
+package outside a module.
+
+#### Writing a type with expr
+
+`expr` writes a type as the file being written spells it and adds the import.
+
+It fails on a type whose `Name` cannot carry its import path, and on a `Package` without an import
+path. It fails in every file, so a template does not start to fail when the output is split into
+packages.
+
+To write a type around one of another package, put it together in the template:
 `Page[{{expr .Body}}]`.
 
+#### Elem
+
 `Elem()` is the type a pointer points to, in the same package: `Pet` for `*Pet`. It is empty for
-any other type. A constructor that takes `*Pet` gets a body that is not nil from
-`new({{expr .Body.Elem}})`, or from `var body {{expr .Body.Elem}}` passed as `&body`.
+any other type.
+
+A constructor that takes `*Pet` gets a body that is not nil from `new({{expr .Body.Elem}})`, or
+from `var body {{expr .Body.Elem}}` passed as `&body`.

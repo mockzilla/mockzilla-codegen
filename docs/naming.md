@@ -21,9 +21,12 @@ each rename.
 | `日本語Name`, `名前` | `Name`, `X540D` | Other letters are dropped. When nothing is left, the name is `X` and the first character's code in hex. |
 | empty string | `Empty` | An enum value `""` gives `StatusEmpty`. A property, parameter or header named `""` gets no field, with a warning (`name-empty`). |
 
-Unexported names (function arguments, local variables) follow the same rules with the first word in
-lower case: `HTTPServer` gives `httpServer`. A Go keyword or predeclared name gets `Val`: `type`
-gives `typeVal`, `string` gives `stringVal`.
+### Unexported names
+
+Names of function arguments and local variables follow the same rules, with the first word in
+lower case: `HTTPServer` gives `httpServer`.
+
+A Go keyword or predeclared name gets `Val`: `type` gives `typeVal`, `string` gives `stringVal`.
 
 ### Initialisms
 
@@ -52,9 +55,9 @@ Schemas under `components` keep their own name. Everything else is named after w
 | Request body, one of several media types | operation + media type + `RequestBody` | `CreatePetJSONRequestBody` |
 | Response | operation + `Response` + status | `GetPetResponse200`, `GetPetResponse4XX`, `GetPetResponseDefault` |
 | Response, one of several media types | operation + media type + `Response` + status | `GetPetJSONResponse200` |
-| Frame of a streamed response (`itemSchema`, or the schema of `text/event-stream` and the line-delimited JSON types) | operation + `ResponseItem` | `ListEventsResponseItem` |
+| Frame of a streamed response (from `itemSchema`, or from the schema of `text/event-stream` or a line-delimited JSON type) | operation + `ResponseItem` | `ListEventsResponseItem` |
 | Frame of a streamed response, when the operation has more than one inline | response + `Item` | `ListEventsResponse200Item`, `ListEventsNdjsonResponse200Item` |
-| Item of a component or a request body with `itemSchema`, or the schema of a sequential request body | parent + `Item` | `LinesItem`, `ChatRequestBodyItem` |
+| Item of a component or a request body that has `itemSchema`; the schema of a sequential request body | parent + `Item` | `LinesItem`, `ChatRequestBodyItem` |
 | Path parameters | operation + `PathParams` | `GetPetPathParams` |
 | Query parameters | operation + `Query` | `GetPetQuery` |
 | Header parameters | operation + `Headers` | `GetPetHeaders` |
@@ -63,52 +66,103 @@ Schemas under `components` keep their own name. Everything else is named after w
 | Service method output | operation + `ResponseData` | `GetPetResponseData` |
 | Enum constant | type + value | `StatusActive`, `LevelMinus1`, `StatusEmpty` |
 
-Media types in a name: `application/json` gives `JSON`, `application/x-www-form-urlencoded` gives
-`Form`, `multipart/form-data` gives `Multipart`, `text/plain` gives `Text`. Any other media type
-gives its subtype without an `x-` prefix: `application/problem+json` gives `ProblemJSON`,
-`application/x-ndjson` gives `Ndjson`. A wildcard subtype gives the type (`image/*` gives `Image`),
+### Media types in a name
+
+Four media types have a fixed name:
+
+| Media type | In a name |
+|---|---|
+| `application/json` | `JSON` |
+| `application/x-www-form-urlencoded` | `Form` |
+| `multipart/form-data` | `Multipart` |
+| `text/plain` | `Text` |
+
+Any other media type gives its subtype without an `x-` prefix. A wildcard subtype gives the type,
 and `*/*` gives `Any`.
+
+| Media type | In a name |
+|---|---|
+| `application/problem+json` | `ProblemJSON` |
+| `application/x-ndjson` | `Ndjson` |
+| `image/*` | `Image` |
+| `*/*` | `Any` |
 
 ## Clashes
 
-Two names clash when they are equal ignoring case: `PetId` and `PetID` clash. Names the generator
+Two names clash when they are equal ignoring case. `PetId` and `PetID` clash. Names the generator
 itself declares, such as `NewRouter`, are taken before anything from the spec.
+
+### Who gets the name
 
 When several things want the same name, it goes to the first in this order:
 
-1. a name set with `x-go-name`
+1. a name set with `x-go-name` or `x-go-type-name`
 2. a schema under `components/schemas`
 3. anything else under `components`
 4. a type named after an operation
 5. an inline type
 
-Within one group the spec order decides. The others try a name that says where they come from, such
-as `PetResponse` for a response called `Pet`. When that is taken too, they get the first free
-number from 2: `PetResponse2`, `PetResponse3`.
+Within one group the spec order decides.
 
-Struct fields clash with the methods the generator puts on the struct: `Validate`, `MarshalJSON`
-and `UnmarshalJSON` on every struct, plus `Get`, `Set` and the `AdditionalProperties` field on a
-struct with additional properties. A property called `validate` gives the field `Validate2`. A
-getter (`Get` + field, see [defaults](types.md#defaults)) never renames a field: when a field has
-its name, the getter is left out with a warning (`name-clash`). Enum constants clash with every
-other name in the package. An enum holds the name of its values func, `<Enum>Values`: a constant
-or a type that wants it is renamed, so the value `values` of `Status` gives `StatusValues2`.
+The others try a name that says where they come from, such as `PetResponse` for a response called
+`Pet`. When that is taken too, they get the first free number from 2: `PetResponse2`,
+`PetResponse3`.
+
+### Struct fields
+
+A struct field clashes with the methods the generator puts on the struct.
+
+| Struct | Names taken |
+|---|---|
+| every struct | `Validate`, `MarshalJSON`, `UnmarshalJSON` |
+| one with additional properties | also `Get`, `Set` and the `AdditionalProperties` field |
+
+A property called `validate` gives the field `Validate2`.
+
+A getter (`Get` + field, see [defaults](types.md#defaults)) never renames a field. When a field
+already has the getter's name, the getter is left out with a warning (`name-clash`).
+
+### Enums
+
+Enum constants clash with every other name in the package.
+
+An enum also holds the name of its values func, `<Enum>Values`. A constant or a type that wants
+that name is renamed, so the value `values` of `Status` gives `StatusValues2`.
+
+### Operations
 
 Operations become methods, so their names clash only with each other. An operation also holds the
-names of the other methods it gets: `<Op>Request` on the client, plus `<Op>WithResponse` with
-`client.with-response`; `<Op>Stream` and `<Op>StreamWithResponse` with `client.streaming`, when it
-answers a 2xx as a stream; `<Op>Tool` when the MCP tools keep it. Webhooks get none of them. So of
-`getCert` and `getCertRequest` the second is renamed, whatever the spec order: `GetCertRequest2`
-in the service, the client and the tools. The MCP tool name stays `get_cert_request`. With MCP,
-`Register` is taken.
+names of the other methods it gets:
+
+| Name held | When |
+|---|---|
+| `<Op>Request` | on the client |
+| `<Op>WithResponse` | with `client.with-response` |
+| `<Op>Stream`, `<Op>StreamWithResponse` | with `client.streaming`, when the operation answers a 2xx as a stream |
+| `<Op>Tool` | when the MCP tools keep the operation |
+
+Webhooks get none of them.
+
+So of `getCert` and `getCertRequest`, the second is renamed, whatever the spec order:
+`GetCertRequest2` in the service, the client and the tools. The MCP tool name stays
+`get_cert_request`. With MCP, `Register` is taken.
+
+### Duplicate operationId
 
 OpenAPI wants every `operationId` to be unique. One that an earlier operation already has is
-renamed with a number, `ListThings2`, and reported as a warning (`operation-id-duplicate`) that
-names both operations.
+renamed with a number, `ListThings2`. This is reported as a warning (`operation-id-duplicate`)
+that names both operations.
 
-Names are given in rounds: first every type named directly (components, operation types), then the
-types inside them, one level at a time. An inline type is named after the final name of its parent,
-so when `Client` is renamed to `ClientSchema`, its inline `address` becomes `ClientSchemaAddress`.
+### Order of naming
+
+Names are given in rounds. First every type named directly (components, operation types), then the
+types inside them, one level at a time.
+
+An inline type is named after the final name of its parent. When `Client` is renamed to
+`ClientSchema`, its inline `address` becomes `ClientSchemaAddress`.
+
+### Reports
 
 Every rename is reported as a `name-clash` diagnostic with the spec location of the renamed item.
-Losing an `x-go-name` is a warning. Set `x-go-name` to choose a name yourself.
+Losing a name set with `x-go-name` or `x-go-type-name` is a warning. Set one of them to choose a
+name yourself.

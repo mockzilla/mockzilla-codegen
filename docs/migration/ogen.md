@@ -9,24 +9,26 @@ are built and tested.
 
 ## What is different
 
-- Optional values are pointers. `OptString` and `OptNilString` are both `*string`, so null and
-  absent are one state. With `models.nullable: true` they are `runtime.Nullable[string]`, which
-  keeps them apart and has `Get` and `Or` ([nullable](../types.md#nullable)).
-- A handler returns response data, not a sum type. `&pet` becomes `NewGetPetResponseData200(&pet)`.
-  With `models.error-mapping`, an error schema is a Go error: the service returns it, and it is
+- You choose how optional values look: see [Optional values](#optional-values).
+- A handler returns response data, not a sum type: `&pet` becomes `NewGetPetResponseData200(&pet)`.
+- With `models.error-mapping`, an error schema is a Go error. The service returns it, and it is
   written with the status the spec gives it.
 - The client returns the success body, and an error for any other status. There is no `<Op>Res`
   to switch on.
-- The params of an operation sit in one options struct, by where they go: `PathParams`, `Query`,
-  `Headers`, `Cookies` and `Body`. The body is no second argument.
-- JSON goes through `encoding/json`, not `jx`. A `uuid`, `uri` or `ipv4` format is a `string`
-  checked by `Validate`, unless `models.format-types` names a type for it.
+- The params of an operation sit in one options struct, with a field for each place they go:
+  `PathParams`, `Query`, `Headers` and `Cookies`. The body is `Body` in the same struct, not a
+  second argument.
+- JSON goes through `encoding/json`, not `jx`.
+- A `uuid`, `uri` or `ipv4` format is a `string` checked by `Validate`, unless
+  `models.format-types` names a type for it.
 - There is no security handler and no OpenTelemetry. A middleware checks credentials, and a
   wrapped `http.Client` traces the client.
 - The routes go on the router of `server.framework`. `std-http` is the standard library's
   `ServeMux`.
 
 ## Before and after
+
+### The handler
 
 The handler of `GET /pets/{id}` in ogen, and how it is mounted:
 
@@ -58,6 +60,8 @@ h := NewRouter(&Service{})
 
 `return NewGetPetResponseData404(&Error{...}), nil` gives the same response. Returning the error
 lets code deep in the service fail with the type the spec documents.
+
+### The client call
 
 The client call in ogen:
 
@@ -97,6 +101,8 @@ if err != nil {
 }
 ```
 
+### An optional field
+
 An optional field in ogen:
 
 ```go
@@ -106,7 +112,7 @@ if tag, ok := pet.Tag.Get(); ok {
 }
 ```
 
-The same field after the move:
+The same field after the move, with the default, a pointer:
 
 ```go
 body := NewPet{Name: "Rex", Tag: new("dog")}
@@ -114,6 +120,19 @@ if pet.Tag != nil {
 	fmt.Println(*pet.Tag)
 }
 ```
+
+### Optional values
+
+ogen wraps an optional value in an `Opt` type, such as `OptString` or `OptNilString`. Here you
+choose what it becomes:
+
+| Choice | How | `OptString` becomes | null and absent |
+|---|---|---|---|
+| pointer | the default | `*string` | one state: `nil` |
+| `runtime.Nullable` | `models.nullable: true`, or `x-go-nullable: true` on one field | `runtime.Nullable[string]`, with `Get` and `Or` as in ogen | two states, `runtime.Null[string]()` and absent |
+| plain value | `x-go-type-skip-optional-pointer` on one field | `string` | the zero value counts as absent |
+
+See [pointers](../types.md#pointers) and [nullable](../types.md#nullable).
 
 ## Steps
 
@@ -134,8 +153,8 @@ if pet.Tag != nil {
 
 ### Command
 
-ogen is driven by flags, with an optional config file. The output flags have a counterpart, and
-the config file is optional here too. The rest moves into `codegen.yaml`.
+ogen is driven by flags, with an optional config file. The same holds here: the output flags have
+a counterpart, and the config file is optional. The rest moves into `codegen.yaml`.
 
 | ogen | mockzilla-codegen |
 |---|---|
@@ -147,7 +166,7 @@ the config file is optional here too. The rest moves into `codegen.yaml`.
 | `--version` | `mockzilla-codegen version` |
 | `-v`, `--loglevel` | `-v` prints info diagnostics and the files written |
 
-ogen writes one file per concern, `oas_client_gen.go`, `oas_server_gen.go`, `oas_schemas_gen.go`
+ogen writes one file per concern: `oas_client_gen.go`, `oas_server_gen.go`, `oas_schemas_gen.go`
 and so on. mockzilla-codegen writes one file, or the files `output.files` names
 ([output files](../config.md#output-files)).
 
@@ -214,7 +233,7 @@ The full list is in [extensions](../extensions.md).
 | the static radix router | the router of `server.framework`; `std-http` is the standard library's `ServeMux` |
 | `UnimplementedHandler` | the service scaffold |
 | `SecurityHandler` | none; check credentials in a middleware, `opts.RawRequest` has the headers |
-| `ogenerrors.DecodeParamsError` and friends | `*HandlerError` with a kind; its `Body` is the mapped error type the operation documents for 400, which the default handler writes ([errors](../server.md#errors)) |
+| `ogenerrors.DecodeParamsError` and friends | `*HandlerError` with a kind. Its `Body` is the mapped error type the operation documents for 400, and the default handler writes it ([errors](../server.md#errors)) |
 
 ### Client
 
@@ -232,17 +251,18 @@ The full list is in [extensions](../extensions.md).
 
 | ogen | mockzilla-codegen |
 |---|---|
-| `OptString`, `OptInt`, `OptPet` | `*string`, `*int`, `*Pet`; `.Get()` becomes a nil check, `NewOptString(v)` becomes `new(v)` ([pointers](../types.md#pointers)). With `models.nullable: true`, `runtime.Nullable[string]`: `.Get()` and `.Or()` stay, `NewOptString(v)` becomes `runtime.Some(v)` ([nullable](../types.md#nullable)) |
-| `NilString`, `OptNilString` | `*string` for both; `null` and absent are one state. With `models.nullable: true`, `runtime.Nullable[string]` for both, which keeps them apart: `runtime.Null[string]()`, `.IsNull()` |
+| `OptString`, `OptInt`, `OptPet` | `*string`, `*int`, `*Pet`: `.Get()` becomes a nil check, and `NewOptString(v)` becomes `new(v)` ([pointers](../types.md#pointers)). With `models.nullable: true`, `runtime.Nullable[string]`: `.Get()` and `.Or()` stay, and `NewOptString(v)` becomes `runtime.Some(v)` ([nullable](../types.md#nullable)). With `x-go-type-skip-optional-pointer` on a field, a plain `string`. See [Optional values](#optional-values) |
+| `NilString`, `OptNilString` | `*string` for both, so `null` and absent are one state. With `models.nullable: true`, `runtime.Nullable[string]` for both, which keeps them apart: `runtime.Null[string]()`, `.IsNull()` |
 | `[]T` for an optional array | the same |
 | sum type `ID{Type IDType, String string, Int int}` with `NewStringID` | a union struct with a field per variant: `ID{String: &s}` ([unions](../types.md#unions)) |
 | `<Schema>Sum` for an inline `oneOf` | a union type named after where it sits ([names](../naming.md#names-for-types-without-a-name)) |
-| `uuid.UUID`, `url.URL`, `net.IP`, `time.Duration` for the formats | `string`, checked by `Validate`; `models.format-types` keeps a package type for a format, `x-go-type` for one schema ([your own type for a format](../types.md#your-own-type-for-a-format)) |
+| `uuid.UUID`, `url.URL`, `net.IP`, `time.Duration` for the formats | `string`, checked by `Validate`. `models.format-types` keeps a package type for a format, and `x-go-type` for one schema ([your own type for a format](../types.md#your-own-type-for-a-format)) |
 | `time.Time` for `date` | `runtime.Date` |
 | `jx` encoders, `Encode`/`Decode` methods | `encoding/json`, `MarshalJSON` only where the shape needs it |
 | `Validate() error` | the same, plain code over the runtime helpers ([validation](../validation.md)) |
 | `Pet` with `IsSet` helpers | none |
 
-`allOf` is merged into one struct in both. An enum is a named string type with constants in both,
-prefixed with the type name here (`StatusSold`), and with a `Validate` instead of ogen's
-`MarshalText` check.
+Both tools merge `allOf` into one struct.
+
+An enum is a named string type with constants in both. Here the constants are prefixed with the
+type name (`StatusSold`), and a `Validate` method replaces the `MarshalText` check of ogen.

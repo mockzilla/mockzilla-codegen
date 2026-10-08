@@ -1,8 +1,12 @@
 # Migrating from another generator
 
 Guides for Go projects that generate code from an OpenAPI spec with another tool today. Each guide
-says what is different, shows one handler and one client call before and after, lists the steps,
-and ends with every command flag, config key and extension of that tool mapped to this one.
+has:
+
+- what is different
+- one handler and one client call, before and after
+- the steps of the move
+- a closing section that maps every command flag, config key and extension of that tool to this one
 
 ## How big the move is
 
@@ -11,17 +15,22 @@ and ends with every command flag, config key and extension of that tool mapped t
 | [oapi-codegen-dd](migration/oapi-codegen-dd.md) v3 | rename keys | a constructor per status, other param struct names | `*Error` in `errors.As`, other envelope names |
 | [oapi-codegen](migration/oapi-codegen.md), strict server | rename keys | new signatures, same flow | the call returns the body; other statuses are Go errors |
 | [oapi-codegen](migration/oapi-codegen.md), plain server | rename keys | rewritten: no `http.ResponseWriter` | the same as above |
-| [ogen](migration/ogen.md) | flags and keys to `codegen.yaml` | response data instead of sum types; `Opt` types are pointers | no `switch` on the response type |
+| [ogen](migration/ogen.md) | flags and keys move to `codegen.yaml` | response data instead of sum types; `Opt` types become pointers, `runtime.Nullable` or plain values, [your choice](migration/ogen.md#optional-values) | no `switch` on the response type |
 
-The spec stays as it is. Every version from 3.0 to 3.2 is read, and the `x-go-*` extensions it
+Your spec stays as it is. Every version from 3.0 to 3.2 is read, and the `x-go-*` extensions it
 already carries keep working ([extensions](extensions.md)).
 
 ## The examples
 
-Each guide walks through a folder of `examples/migration/` that holds the same petstore spec, the
-old tool's config, its translation to `codegen.yaml`, the generated code, and the service and
-client calls after the move. They are built and tested with the other examples, so the code the
-guides quote compiles.
+Each guide walks through a folder of `examples/migration/`. A folder holds the same petstore spec,
+and:
+
+- the old tool's config
+- its translation to `codegen.yaml`
+- the generated code
+- the service and client calls after the move
+
+The examples are built and tested with the other examples, so the code the guides quote compiles.
 
 | From | Example |
 |---|---|

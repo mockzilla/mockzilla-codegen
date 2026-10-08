@@ -9,22 +9,24 @@ the move, which are built and tested.
 
 ## What is different
 
-- There is one server shape. A handler is a method of the service interface: it gets `ctx` and
-  one options struct, and returns response data or an error. There is no `http.ResponseWriter`.
-  A strict server handler keeps its flow. A plain `ServerInterface` handler is rewritten.
+- There is one server shape: a method of the service interface. It gets `ctx` and one options
+  struct, and returns response data or an error. There is no `http.ResponseWriter`. A strict
+  server handler keeps its flow. A plain `ServerInterface` handler is rewritten.
 - Error schemas are Go errors. With `models.error-mapping`, `Error` gets an `Error()` method. The
   service returns it, and it is written with the status the spec gives it.
 - The client returns the success body. `GetPet` returns `*Pet`, and any other status is an error.
   `client.with-response: true` adds the `<Op>WithResponse` methods, on the same client.
-- The params of an operation sit in one options struct, by where they go: `PathParams`, `Query`,
-  `Headers`, `Cookies` and `Body`.
-- `Id` is `ID`. The [naming rules](../naming.md) are fixed, and close to
+- The params of an operation sit in one options struct, with a field for each place they go:
+  `PathParams`, `Query`, `Headers`, `Cookies` and `Body`.
+- `Id` becomes `ID`. The [naming rules](../naming.md) are fixed, and close to
   `ToCamelCaseWithInitialisms`.
 - A union is a struct with one field per variant, not a raw message with `As` and `From` methods.
 - Every type gets `Validate() error`. The server can check requests and responses with plain
   generated code, without kin-openapi ([validation](../validation.md)).
 
 ## Before and after
+
+### The handler
 
 The handler of `GET /pets/{id}` in the strict server, and how it is mounted:
 
@@ -57,6 +59,8 @@ h := NewRouter(&Service{})
 
 `return NewGetPetResponseData404(&Error{...}), nil` gives the same response. Returning the error
 lets code deep in the service fail with the type the spec documents.
+
+### The client call
 
 The client call, with `ClientWithResponses`:
 
@@ -140,7 +144,7 @@ if err != nil {
 | `output-options.include-operation-ids`, `exclude-operation-ids` | `spec.filter.include.operation-ids`, `spec.filter.exclude.operation-ids` |
 | `output-options.exclude-schemas` | `spec.filter.exclude.schema-properties` drops properties; an [overlay](../config.md) removes a whole schema |
 | `output-options.overlay.path` | `spec.overlays: [path]`, several in order |
-| `output-options.additional-initialisms` | `naming.initialisms`, in effect without a `name-normalizer` |
+| `output-options.additional-initialisms` | `naming.initialisms`, which applies without a `name-normalizer` |
 | `output-options.yaml-tags`, `struct-tags` | `models.extra-tags: [yaml]`; each tag repeats the JSON name |
 | `output-options.skip-enum-validate` | `models.validation.skip`, for every `Validate` method |
 | `output-options.user-templates` | `templates` for the [blocks that may be replaced](../templates.md#blocks), else [`extra-files`](../templates.md#extra-files) |
@@ -165,19 +169,19 @@ if err != nil {
 - `generate.server-urls`: the client takes a base URL string.
 - `output-options.name-normalizer`: the [naming rules](../naming.md) are fixed. They are closest
   to `ToCamelCaseWithInitialisms`, so a project on `ToCamelCase` sees `Id` become `ID`.
-- `output-options.prefer-skip-optional-pointer`: no global switch; `x-go-type-skip-optional-pointer`
-  per field.
+- `output-options.prefer-skip-optional-pointer`: there is no global switch. Use
+  `x-go-type-skip-optional-pointer` on a field.
 - `output-options.response-type-suffix`, `content-types`: type names follow fixed rules,
   `<Op>Response<Status>` and `<Op>JSONRequestBody` ([names](../naming.md#names-for-types-without-a-name)).
-- `output-options.type-mapping`, `disable-type-aliases-for-type`: `x-go-type` on a schema, and
+- `output-options.type-mapping`, `disable-type-aliases-for-type`: use `x-go-type` on a schema, and
   `models.int-type` for integers without a format.
 - `output-options.client-response-bytes-function`, `skip-client-response-content-type`,
   `skip-response-body-getters`: an [envelope](../client.md#envelopes) always has `Body` and
   `HTTPResponse`, and a field per documented body.
-- `output-options.lenient-union-accessors`, `skip-enum-via-oneof`, `prefer-skip-optional-pointer-with-omitzero`:
-  unions and enums have one shape ([unions](../types.md#unions)); `omitzero` is added where a
-  struct has `omitempty`, and an optional slice or map has `omitzero` alone, so an empty one is
-  sent.
+- `output-options.lenient-union-accessors`, `skip-enum-via-oneof`: unions and enums have one shape
+  ([unions](../types.md#unions)).
+- `output-options.prefer-skip-optional-pointer-with-omitzero`: `omitzero` is added where a struct
+  has `omitempty`. An optional slice or map has `omitzero` alone, so an empty one is sent.
 - `compatibility.schema-merging-behavior`, `old-merge-schemas`, `old-allof-sibling-merging`,
   `old-enum-conflicts`, `old-aliasing`: an `allOf` is merged into one type, with its sibling
   properties ([allOf](../types.md#allof)), and enum constants are prefixed. The old behaviours
@@ -187,10 +191,10 @@ if err != nil {
 - `compatibility.sort-handler-registrations`: routes are registered in spec order.
 - `compatibility.enable-auth-scopes-on-context`, `circular-reference-limit`,
   `preserve-original-operation-id-casing-in-embedded-spec`: nothing to replace.
-- `import-mapping`: a `$ref` into another file is resolved and its types generated with the rest.
-  To keep several packages, run once with `output.files` and `output.packages` sending parts to
-  their folders ([output files](../config.md#output-files)); the imports between them are
-  written for you.
+- `import-mapping`: a `$ref` into another file is resolved, and its types are generated with the
+  rest. To keep several packages, run once with `output.files` and `output.packages`, which send
+  parts to their folders ([output files](../config.md#output-files)). The imports between them
+  are written for you.
 
 ### Extensions
 
@@ -224,7 +228,7 @@ Every extension oapi-codegen documents keeps its meaning, apart from these
 | the status written by hand in the handler | the status of the response data, or of the error type returned ([HTTP adapter](../server.md#http-adapter)) |
 
 The [scaffolds](../server.md#scaffolds) write a service stub, a middleware file and a `main`
-once, which oapi-codegen leaves to the project.
+once. oapi-codegen leaves these to the project.
 
 ### Client
 
@@ -239,8 +243,8 @@ once, which oapi-codegen leaves to the project.
 | `<Op>JSONRequestBody` | `<Op>RequestBody`, or the referenced type; `JSON` appears only with several media types |
 | `ClientInterface` | `<Name>Interface`, checked at compile time |
 
-A 4xx or 5xx is an error: the type of `models.error-mapping` when the spec documents it, else
-`httpclient.APIError` with the status and the body.
+A 4xx or 5xx is an error. It has the type of `models.error-mapping` when the spec documents it,
+and is `httpclient.APIError` with the status and the body otherwise.
 
 ### Types
 
@@ -253,13 +257,13 @@ A 4xx or 5xx is an error: the type of `models.error-mapping` when the spec docum
 Beyond the type mapping:
 
 - `openapi_types.Date`, `File`, `Email` and `UUID` are `runtime.Date`, `runtime.File`,
-  `runtime.Email` and a validated `string`. `models.format-types` keeps `uuid.UUID` for every
-  `format: uuid` ([your own type for a format](../types.md#your-own-type-for-a-format)), and
-  `x-go-type` does it for one schema.
+  `runtime.Email` and a validated `string`.
+- `models.format-types` keeps `uuid.UUID` for every `format: uuid`
+  ([your own type for a format](../types.md#your-own-type-for-a-format)). `x-go-type` does it for
+  one schema.
 - A union is a struct with one field per variant, set or nil, instead of a raw `union` with
   `As<Variant>`, `From<Variant>` and `Merge<Variant>` ([unions](../types.md#unions)).
 - Enum constants are `<Type><Value>` for every enum, not only on conflict, unless
   `naming.enum-prefix: false`.
 - `AdditionalProperties` stays a map field with `Get` and `Set`, written next to the properties
   ([additionalProperties](../types.md#additionalproperties)).
-
