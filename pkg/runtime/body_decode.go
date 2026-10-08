@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -118,15 +119,24 @@ func DecodeMultipart(r *http.Request, dst any, maxMemory int64, enc Encoding) er
 	if err := r.ParseMultipartForm(maxMemory); err != nil {
 		return err
 	}
+	return fillMultipart(r.MultipartForm, dst, enc)
+}
 
-	target, err := pointer(dst)
+// DecodeMultipartBody is DecodeMultipart for a body without its request, held in memory whole.
+func DecodeMultipartBody(body io.Reader, contentType string, dst any, enc Encoding) error {
+	_, params, err := mime.ParseMediaType(contentType)
+	switch {
+	case err != nil:
+		return err
+	case params["boundary"] == "":
+		return http.ErrMissingBoundary
+	}
+
+	form, err := multipart.NewReader(body, params["boundary"]).ReadForm(math.MaxInt64)
 	if err != nil {
 		return err
 	}
-	if target.Kind() != reflect.Struct {
-		return fmt.Errorf("%w: a multipart form needs a struct, not %s", ErrBodyValue, target.Type())
-	}
-	return invalid(ErrBodyValue, fillForm(target, r.MultipartForm, enc))
+	return fillMultipart(form, dst, enc)
 }
 
 // DecodeText reads a text body.
@@ -173,6 +183,23 @@ func fillPointer(form *multipart.Form, dst any) error {
 		return err
 	}
 	return fillForm(target, form, nil)
+}
+
+// fillMultipart stores a multipart form in dst, a pointer to a struct.
+func fillMultipart(form *multipart.Form, dst any, enc Encoding) error {
+	target, err := pointer(dst)
+	if err != nil {
+		return err
+	}
+
+	t := target.Type()
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return fmt.Errorf("%w: a multipart form needs a struct, not %s", ErrBodyValue, t)
+	}
+	return invalid(ErrBodyValue, fillForm(target, form, enc))
 }
 
 // fillForm stores form in target: by UnmarshalForm, field by field into a struct, else by keys.

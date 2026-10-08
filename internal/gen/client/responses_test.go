@@ -83,6 +83,8 @@ func TestIsDecodable(t *testing.T) {
 		{name: "Text into a string", content: gomodel.Content{MediaType: "text/html", Type: gomodel.Builtin{Name: "string"}}, want: true},
 		{name: "Anything into bytes", content: gomodel.Content{MediaType: "image/png"}, want: true},
 		{name: "Anything into a file", content: gomodel.Content{MediaType: "application/pdf", Type: image}, want: true},
+		{name: "Multipart into a struct", content: gomodel.Content{MediaType: "multipart/form-data", Type: gomodel.Pointer{Elem: pet}}, want: true},
+		{name: "Multipart into no struct", content: gomodel.Content{MediaType: "multipart/form-data", Type: gomodel.Builtin{Name: "int"}}},
 		{name: "XML into a struct", content: gomodel.Content{MediaType: "application/xml", Type: pet}},
 	}
 
