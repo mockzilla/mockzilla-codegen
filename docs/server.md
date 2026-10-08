@@ -51,6 +51,17 @@ func (o *ListPetsServiceRequestOptions) Validate() error
 - A query, header or cookie parameter whose union has an object or array variant gets no field:
   no style writes it as text. The same holds for a list or map of such unions. Generation warns
   (`param-unsupported`).
+- A parameter or response header gets no field when the OpenAPI style table does not define its
+  style for its location or value: `matrix` in a query, any style but `simple` on a header,
+  `pipeDelimited` with `explode: true`, `deepObject` on a list, a style OpenAPI does not name. So
+  does a form-style cookie that holds a list or object with `explode: true`, which OpenAPI says
+  writes the wrong delimiter for cookies; `style: cookie` writes it. Generation warns
+  (`param-unsupported`).
+- A value nested deeper than one level is left to the implementation by OpenAPI. A `deepObject`
+  nests objects and lists of values: `filter[size][x]=1`, `filter[tags]=a&filter[tags]=b`. An
+  exploded `form` query object or `cookie` object writes a list of values as its key once per
+  item: `reference=r&status=a&status=b`. Any other nesting, such as a list of lists or an object
+  inside a `simple` object, gets no field. Generation warns (`param-unsupported`).
 - A parameter without `in`, or with an `in` other than `path`, `query`, `header`, `cookie` and
   `querystring`, gets no field, and neither does a path parameter whose `{name}` is not in the
   path: nothing could fill it. Generation warns (`param-in`, `path-param-unused`). So does a
@@ -109,7 +120,9 @@ return NewChatResponseData200Stream(func(yield func(Chunk) bool) {
 - A response that declares headers gets a struct for them, `ListPetsResponse200Headers`, and a
   `WithTypedHeaders` method that adds them; the method carries the status when several responses
   declare headers. A response under `components.responses` gets one struct for every operation
-  that uses it, named after the component: `UnauthorizedHeaders`.
+  that uses it, named after the component: `UnauthorizedHeaders`. A header with `explode: true`
+  is tagged `header:"explode"` and one with JSON content `header:"json"`, so the runtime writes
+  and reads it that way.
 
 ```go
 func (s *Service) ListPets(ctx context.Context, opts *ListPetsServiceRequestOptions) (*ListPetsResponseData, error) {
@@ -655,11 +668,13 @@ The runtime package holds the codecs the generated HTTP code and clients use, st
 
 - Parameters: `DecodePath`, `DecodeQuery`, `DecodeHeader` and `DecodeCookie`, and the `Encode`
   functions the client writes them with, handle every style of the spec (`simple`, `label`,
-  `matrix`, `form`, `spaceDelimited`, `pipeDelimited`, `deepObject`), exploded or not, for values,
-  lists and objects, and parameters with JSON content. A value that does not decode gives
-  `ErrParamValue`. `DecodeQuery` reads the `Query` that `ParseQuery` makes of the raw query, so a
-  list is split at its commas before its items are unescaped: `tags=a,b%2Cc` is `a` and `b,c`. A
-  `+` in a query value is a space, and a value that does not unescape gives `ErrParamValue` too.
+  `matrix`, `form`, `spaceDelimited`, `pipeDelimited`, `deepObject`, `cookie`), exploded or not,
+  for values, lists and objects, and parameters with JSON content. A value that does not decode
+  gives `ErrParamValue`. `DecodeQuery` reads the `Query` that `ParseQuery` makes of the raw query,
+  so a list is split at its commas before its items are unescaped: `tags=a,b%2Cc` is `a` and
+  `b,c`. A `+` in a query value is a space, and a value that does not unescape gives
+  `ErrParamValue` too. A `form` cookie is percent-encoded the same way, with a `+` read as a plus;
+  a `cookie`-style one goes as it is.
 - Bodies: `DecodeJSON`, `DecodeForm` (bracketed keys nest: `address[city]=Berlin`,
   `items[0]=a`; one value for a struct or map is read as JSON, else as a string), `DecodeMultipart` (files as `runtime.File`, JSON parts into structs),
   `DecodeText`, `DecodeBytes`, `DecodeFile`. A type with `UnmarshalForm` reads a form itself. A required body that is empty gives `ErrBodyEmpty`;

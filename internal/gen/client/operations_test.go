@@ -39,6 +39,20 @@ func TestGroupView(t *testing.T) {
 			}},
 		},
 		{
+			name:  "A form cookie keeps them too",
+			param: &spec.Parameter{Name: "ids", In: spec.InCookie, Style: "form", AllowReserved: true, Schema: &spec.Schema{}},
+			want: GroupView{Field: "Cookies", Params: []ParamView{
+				{Encoder: "CookieParam", Value: "opts.Cookies.IDs", Name: `"ids"`, Style: "StyleForm", IsReserved: true},
+			}},
+		},
+		{
+			name:  "A cookie-style cookie is never escaped",
+			param: &spec.Parameter{Name: "ids", In: spec.InCookie, Style: "cookie", AllowReserved: true, Schema: &spec.Schema{}},
+			want: GroupView{Field: "Cookies", Params: []ParamView{
+				{Encoder: "CookieParam", Value: "opts.Cookies.IDs", Name: `"ids"`, Style: "StyleCookie"},
+			}},
+		},
+		{
 			name:  "A path parameter escapes them",
 			param: &spec.Parameter{Name: "ids", In: spec.InPath, Style: "simple", AllowReserved: true, Schema: &spec.Schema{}},
 			want: GroupView{Field: "PathParams", Params: []ParamView{

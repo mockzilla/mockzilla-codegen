@@ -273,6 +273,9 @@ func (b *builder) fillParams(d *Decl, params []*spec.Parameter) {
 			fd.def = b.paramDefault(p, s)
 		}
 		set := b.ext.ofParam(p, s)
+		if d.Part == PartResponses {
+			set.Tags = append(slices.Clip(set.Tags), headerTags(p)...)
+		}
 		b.applyExtensions(fd, set)
 		fd.wrap = b.wrapping(fd, set.Nullable, p.Origin, fmt.Sprintf("%s parameter %q", p.In, p.Name))
 
@@ -539,6 +542,17 @@ func (b *builder) fieldTags(jsonName string, isOmitEmpty bool, extra []extension
 		out = append(out, Tag{Key: key, Value: byKey[key]})
 	}
 	return out
+}
+
+// headerTags mark a typed response header that is JSON or exploded, for the runtime.
+func headerTags(p *spec.Parameter) []extension.Tag {
+	switch {
+	case p.Schema == nil && len(p.Contents) > 0 && runtime.IsJSON(p.Contents[0].Name):
+		return []extension.Tag{{Key: "header", Value: "json"}}
+	case p.Explode:
+		return []extension.Tag{{Key: "header", Value: "explode"}}
+	}
+	return nil
 }
 
 // byValue returns the declaration a field holds by value, or nil.

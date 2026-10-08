@@ -58,8 +58,19 @@ type SubmitJobResponse201Headers struct {
 }
 
 type SubmitJobResponse202Headers struct {
-	RetryAfter     *int `json:"Retry-After,omitempty"`
-	XQueuePosition *int `json:"X-Queue-Position,omitempty"`
+	RetryAfter     *int                                  `json:"Retry-After,omitempty"`
+	XQueuePosition *int                                  `json:"X-Queue-Position,omitempty"`
+	XQueue         *SubmitJobResponse202HeadersXQueue    `json:"X-Queue,omitempty" header:"explode"`
+	XEstimate      *SubmitJobResponse202HeadersXEstimate `json:"X-Estimate,omitempty" header:"json"`
+}
+
+type SubmitJobResponse202HeadersXQueue struct {
+	Position *int `json:"position,omitempty"`
+	Length   *int `json:"length,omitempty"`
+}
+
+type SubmitJobResponse202HeadersXEstimate struct {
+	Seconds *int `json:"seconds,omitempty"`
 }
 
 type GetJobLogTextResponse200 = string

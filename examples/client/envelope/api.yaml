@@ -22,6 +22,8 @@ paths:
           headers:
             Retry-After: {schema: {type: integer}}
             X-Queue-Position: {schema: {type: integer}}
+            X-Queue: {explode: true, schema: {type: object, properties: {position: {type: integer}, length: {type: integer}}}}
+            X-Estimate: {content: {application/json: {schema: {type: object, properties: {seconds: {type: integer}}}}}}
           content:
             application/json: {schema: {$ref: '#/components/schemas/Queued'}}
         "400":

@@ -156,18 +156,18 @@ func (p PathStylesPathParams) Validate() error {
 }
 
 type QueryStylesQuery struct {
-	Form   []int               `json:"form,omitzero"`
-	Csv    []string            `json:"csv,omitzero"`
-	Space  []string            `json:"space,omitzero"`
-	Pipe   []string            `json:"pipe,omitzero"`
-	Deep   *Point              `json:"deep,omitempty"`
-	Flat   *Point              `json:"flat,omitempty"`
-	JSON   *Point              `json:"json,omitempty"`
-	Filter *Filter             `json:"filter,omitempty"`
-	Where  *Filter             `json:"where,omitempty"`
-	ID     *QueryStylesQueryID `json:"id,omitempty"`
-	IDs    *string             `json:"ids,omitempty"`
-	Needed string              `json:"needed"`
+	Form    []int                    `json:"form,omitzero"`
+	Csv     []string                 `json:"csv,omitzero"`
+	Space   []string                 `json:"space,omitzero"`
+	Pipe    []string                 `json:"pipe,omitzero"`
+	Deep    *Point                   `json:"deep,omitempty"`
+	Flat    *Point                   `json:"flat,omitempty"`
+	JSON    *Point                   `json:"json,omitempty"`
+	Filter  *Filter                  `json:"filter,omitempty"`
+	Queries *QueryStylesQueryQueries `json:"queries,omitempty"`
+	ID      *QueryStylesQueryID      `json:"id,omitempty"`
+	IDs     *string                  `json:"ids,omitempty"`
+	Needed  string                   `json:"needed"`
 }
 
 // Validate checks the value against the constraints of the spec.
@@ -177,6 +177,11 @@ func (q QueryStylesQuery) Validate() error {
 		errs.Append("id", q.ID.Validate())
 	}
 	return errs.Err()
+}
+
+type QueryStylesQueryQueries struct {
+	Reference *string  `json:"reference,omitempty"`
+	Status    []string `json:"status,omitzero"`
 }
 
 type HeaderStylesHeaders struct {
@@ -196,8 +201,9 @@ func (h HeaderStylesHeaders) Validate() error {
 }
 
 type CookieStylesCookies struct {
-	Session *string `json:"session,omitempty"`
-	Flags   []int   `json:"flags,omitzero"`
+	Session *string  `json:"session,omitempty"`
+	Flags   []int    `json:"flags,omitzero"`
+	Prefs   []string `json:"prefs,omitzero"`
 }
 
 // PathStylesRequestOptions is what PathStyles sends.
@@ -423,7 +429,7 @@ func (c *Client) QueryStylesRequest(ctx context.Context, opts *QueryStylesReques
 		b.QueryParam(opts.Query.Flat, runtime.Param{Name: "flat", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.JSON, runtime.Param{Name: "json", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: true})
 		b.QueryParam(opts.Query.Filter, runtime.Param{Name: "filter", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false})
-		b.QueryParam(opts.Query.Where, runtime.Param{Name: "where", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
+		b.QueryParam(opts.Query.Queries, runtime.Param{Name: "queries", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.ID, runtime.Param{Name: "id", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.QueryParam(opts.Query.IDs, runtime.Param{Name: "ids", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false, IsReserved: true})
 		b.QueryParam(opts.Query.Needed, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false})
@@ -495,6 +501,7 @@ func (c *Client) CookieStylesRequest(ctx context.Context, opts *CookieStylesRequ
 	if opts.Cookies != nil {
 		b.CookieParam(opts.Cookies.Session, runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false})
 		b.CookieParam(opts.Cookies.Flags, runtime.Param{Name: "flags", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false})
+		b.CookieParam(opts.Cookies.Prefs, runtime.Param{Name: "prefs", Style: runtime.StyleCookie, IsExplode: false, IsRequired: false, IsJSON: false})
 	}
 	return c.newRequest(ctx, "CookieStyles", b, editors)
 }

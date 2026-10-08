@@ -42,6 +42,8 @@ func submitJob(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Retry-After", "30")
 		w.Header().Set("X-Queue-Position", "4")
+		w.Header().Set("X-Queue", "position=4,length=9")
+		w.Header().Set("X-Estimate", `{"seconds":30}`)
 		w.WriteHeader(http.StatusAccepted)
 		_, _ = io.WriteString(w, `{"id":"j2"}`)
 	}
@@ -92,7 +94,12 @@ func TestSubmitJobWithResponse(t *testing.T) {
 		{
 			name: "A job queued",
 			size: 100,
-			want: &SubmitJobResponse{Body: []byte(`{"id":"j2"}`), JSON202: &Queued{ID: "j2"}, Headers202: &SubmitJobResponse202Headers{RetryAfter: new(30), XQueuePosition: new(4)}},
+			want: &SubmitJobResponse{Body: []byte(`{"id":"j2"}`), JSON202: &Queued{ID: "j2"}, Headers202: &SubmitJobResponse202Headers{
+				RetryAfter:     new(30),
+				XQueuePosition: new(4),
+				XQueue:         &SubmitJobResponse202HeadersXQueue{Position: new(4), Length: new(9)},
+				XEstimate:      &SubmitJobResponse202HeadersXEstimate{Seconds: new(30)},
+			}},
 		},
 		{
 			name: "A job rejected is no error",

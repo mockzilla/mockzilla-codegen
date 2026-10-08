@@ -42,6 +42,7 @@ var libraryLine = regexp.MustCompile(`,? (at )?line \d+, col \d+`)
 const (
 	styleSimple = "simple"
 	styleForm   = "form"
+	styleCookie = "cookie"
 )
 
 // site is where an operation sits; path is a webhook name or callback expression for those.
@@ -355,7 +356,7 @@ func (c *converter) buildParameter(p *v3.Parameter, ptr string) *spec.Parameter 
 			out.Style = styleSimple
 		}
 	}
-	out.Explode = out.Style == styleForm
+	out.Explode = out.Style == styleForm || out.Style == styleCookie
 	if p.Explode != nil {
 		out.Explode = *p.Explode
 	}
