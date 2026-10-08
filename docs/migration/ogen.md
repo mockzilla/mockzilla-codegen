@@ -18,7 +18,8 @@ are built and tested.
 - The params of an operation sit in one options struct, with a field for each place they go:
   `PathParams`, `Query`, `Headers` and `Cookies`. The body is `Body` in the same struct, not a
   second argument.
-- JSON goes through `encoding/json`, not `jx`.
+- JSON goes through `encoding/json`, not `jx`. `WithJSON` on the client, and `WithJSONDecoder` and
+  `WithJSONEncoder` on the server, take another library such as sonic.
 - A `uuid`, `uri` or `ipv4` format is a `string` checked by `Validate`, unless
   `models.format-types` names a type for it.
 - There is no security handler and no OpenTelemetry. A middleware checks credentials, and a

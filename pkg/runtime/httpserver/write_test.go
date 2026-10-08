@@ -6,6 +6,8 @@
 package httpserver
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"iter"
@@ -88,10 +90,39 @@ func TestWrite(t *testing.T) {
 			t.Parallel()
 
 			w := httptest.NewRecorder()
-			require.NoError(t, Write(w, http.StatusCreated, tc.headers, tc.body))
+			require.NoError(t, Writer{}.Write(w, http.StatusCreated, tc.headers, tc.body))
 
 			assert.Equal(t, http.StatusCreated, w.Code)
 			assert.Equal(t, tc.wantContentType, w.Header().Get("Content-Type"))
+			assert.Equal(t, tc.wantBody, w.Body.String())
+		})
+	}
+}
+
+func TestWriterMarshal(t *testing.T) {
+	t.Parallel()
+
+	upper := func(v any) ([]byte, error) {
+		data, err := json.Marshal(v)
+		return bytes.ToUpper(data), err
+	}
+	tests := []struct {
+		name     string
+		headers  http.Header
+		body     any
+		wantBody string
+	}{
+		{name: "A JSON body", body: map[string]string{"a": "b"}, wantBody: `{"A":"B"}`},
+		{name: "Frames", headers: http.Header{"Content-Type": {"application/x-ndjson"}}, body: slices.Values([]map[string]string{{"a": "b"}}), wantBody: "{\"A\":\"B\"}\n"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			w := httptest.NewRecorder()
+			require.NoError(t, Writer{Marshal: upper}.Write(w, http.StatusOK, tc.headers, tc.body))
+
 			assert.Equal(t, tc.wantBody, w.Body.String())
 		})
 	}
@@ -101,15 +132,15 @@ func TestWriteErrors(t *testing.T) {
 	t.Parallel()
 
 	xml := http.Header{"Content-Type": {"application/xml"}}
-	require.Error(t, Write(httptest.NewRecorder(), 200, nil, func() {}))
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, nil, runtime.NewFileReader(iotest.ErrReader(io.ErrUnexpectedEOF), "", "", -1)), ErrResponseCut)
+	require.Error(t, Writer{}.Write(httptest.NewRecorder(), 200, nil, func() {}))
+	require.ErrorIs(t, Writer{}.Write(httptest.NewRecorder(), 200, nil, runtime.NewFileReader(iotest.ErrReader(io.ErrUnexpectedEOF), "", "", -1)), ErrResponseCut)
 	require.Error(t, writeFile(httptest.NewRecorder(), 200, runtime.NewFileFromMultipart(&multipart.FileHeader{Filename: "gone"})))
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, xml, struct{}{}), runtime.ErrContentType)
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}, 1), runtime.ErrBodyValue)
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"multipart/form-data"}}, 1), runtime.ErrBodyValue)
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"text/plain"}}, make(chan int)), runtime.ErrParamValue)
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"text/event-stream"}}, slices.Values([]func(){nil})), ErrResponseCut)
-	require.ErrorIs(t, Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"multipart/form-data"}}, struct {
+	require.ErrorIs(t, Writer{}.Write(httptest.NewRecorder(), 200, xml, struct{}{}), runtime.ErrContentType)
+	require.ErrorIs(t, Writer{}.Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"application/x-www-form-urlencoded"}}, 1), runtime.ErrBodyValue)
+	require.ErrorIs(t, Writer{}.Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"multipart/form-data"}}, 1), runtime.ErrBodyValue)
+	require.ErrorIs(t, Writer{}.Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"text/plain"}}, make(chan int)), runtime.ErrParamValue)
+	require.ErrorIs(t, Writer{}.Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"text/event-stream"}}, slices.Values([]func(){nil})), ErrResponseCut)
+	require.ErrorIs(t, Writer{}.Write(httptest.NewRecorder(), 200, http.Header{"Content-Type": {"multipart/form-data"}}, struct {
 		File runtime.File `json:"file"`
 	}{File: runtime.NewFileReader(iotest.ErrReader(io.ErrUnexpectedEOF), "a", "", -1)}), ErrResponseCut)
 }
@@ -118,7 +149,7 @@ func TestWriteMultipartResponse(t *testing.T) {
 	t.Parallel()
 
 	w := httptest.NewRecorder()
-	require.NoError(t, Write(w, http.StatusOK, http.Header{"Content-Type": {"multipart/form-data"}}, struct {
+	require.NoError(t, Writer{}.Write(w, http.StatusOK, http.Header{"Content-Type": {"multipart/form-data"}}, struct {
 		Title string `json:"title"`
 	}{Title: "Cat"}))
 
@@ -151,7 +182,7 @@ func TestWriteCut(t *testing.T) {
 			t.Parallel()
 
 			tc.w.ResponseRecorder = httptest.NewRecorder()
-			require.ErrorIs(t, Write(tc.w, http.StatusOK, tc.headers, tc.body), ErrResponseCut)
+			require.ErrorIs(t, Writer{}.Write(tc.w, http.StatusOK, tc.headers, tc.body), ErrResponseCut)
 		})
 	}
 }
@@ -160,7 +191,7 @@ func TestWriteFlushesEachFrame(t *testing.T) {
 	t.Parallel()
 
 	w := &brokenWriter{ResponseRecorder: httptest.NewRecorder()}
-	require.NoError(t, Write(w, http.StatusOK, http.Header{"Content-Type": {"application/jsonl"}}, slices.Values([]int{0, 1})))
+	require.NoError(t, Writer{}.Write(w, http.StatusOK, http.Header{"Content-Type": {"application/jsonl"}}, slices.Values([]int{0, 1})))
 
 	assert.Equal(t, 3, w.flushes)
 	assert.Equal(t, "0\n1\n", w.Body.String())

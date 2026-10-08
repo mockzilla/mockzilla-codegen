@@ -4,6 +4,7 @@ package orders
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"slices"
@@ -126,13 +127,25 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
+// WithJSON writes JSON bodies with marshal and reads them with unmarshal. A nil one panics.
+func WithJSON(marshal func(v any) ([]byte, error), unmarshal func(data []byte, v any) error) ClientOption {
+	if marshal == nil || unmarshal == nil {
+		panic("WithJSON: nil function")
+	}
+	return func(c *Client) {
+		c.marshal, c.unmarshal = marshal, unmarshal
+	}
+}
+
 // Client calls the API at a base URL.
 // A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
+	baseURL   *url.URL
+	doer      HTTPDoer
+	timeout   time.Duration
+	editors   []RequestEditor
+	marshal   func(v any) ([]byte, error)
+	unmarshal func(data []byte, v any) error
 }
 
 // NewClient returns a client of the API at baseURL.
@@ -142,7 +155,13 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 		return nil, err
 	}
 
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	c := &Client{
+		baseURL:   u,
+		doer:      &http.Client{},
+		timeout:   3 * time.Second,
+		marshal:   json.Marshal,
+		unmarshal: json.Unmarshal,
+	}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -163,7 +182,7 @@ func (c *Client) CreateOrder(ctx context.Context, opts *CreateOrderRequestOption
 	var out *models.Order
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -183,7 +202,7 @@ func (c *Client) CreateOrderWithResponse(ctx context.Context, opts *CreateOrderR
 	out := &CreateOrderResponse{HTTPResponse: res, Body: body}
 	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out.JSON201},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -197,7 +216,7 @@ func (c *Client) CreateOrderRequest(ctx context.Context, opts *CreateOrderReques
 	b := httpclient.NewRequestBuilder(http.MethodPost, "/orders")
 	switch {
 	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
+		b.JSONBody(opts.Body, "application/json", c.marshal)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
@@ -218,7 +237,7 @@ func (c *Client) GetOrder(ctx context.Context, opts *GetOrderRequestOptions, edi
 	var out *models.Order
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -239,7 +258,7 @@ func (c *Client) GetOrderWithResponse(ctx context.Context, opts *GetOrderRequest
 	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "404", MediaType: "application/json", Dst: &out.JSON404},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil

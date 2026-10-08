@@ -26,8 +26,14 @@ const mediaTypeEventStream = "text/event-stream"
 
 var lineBreaks = strings.NewReplacer("\r\n", "\n", "\r", "\n")
 
+// Writer writes response bodies by their media type. Marshal writes JSON bodies and frames,
+// json.Marshal when it is nil.
+type Writer struct {
+	Marshal func(v any) ([]byte, error)
+}
+
 // Write writes the headers, then body encoded for the media type of its Content-Type.
-func Write(w http.ResponseWriter, status int, headers http.Header, body any) error {
+func (wr Writer) Write(w http.ResponseWriter, status int, headers http.Header, body any) error {
 	for key, values := range headers {
 		w.Header()[key] = values
 	}
@@ -44,7 +50,7 @@ func Write(w http.ResponseWriter, status int, headers http.Header, body any) err
 
 	mediaType := runtime.ContentType(w.Header())
 	if runtime.IsJSON(mediaType) {
-		return writeJSON(w, status, body)
+		return wr.writeJSON(w, status, body)
 	}
 	if data, ok := rawBody(body); ok {
 		return writeBytes(w, status, data)
@@ -52,7 +58,7 @@ func Write(w http.ResponseWriter, status int, headers http.Header, body any) err
 	v := reflect.ValueOf(body)
 	switch {
 	case mediaType == "":
-		return writeJSON(w, status, body)
+		return wr.writeJSON(w, status, body)
 	case v.Kind() == reflect.Pointer && v.IsNil():
 		w.WriteHeader(status)
 		return nil
@@ -61,7 +67,7 @@ func Write(w http.ResponseWriter, status int, headers http.Header, body any) err
 	case mediaType == "multipart/form-data":
 		return writeMultipart(w, status, body)
 	case runtime.IsSequential(mediaType):
-		return writeFrames(w, status, mediaType, body)
+		return wr.writeFrames(w, status, mediaType, body)
 	case strings.HasPrefix(mediaType, "text/"):
 		return writeText(w, status, body)
 	}
@@ -69,8 +75,8 @@ func Write(w http.ResponseWriter, status int, headers http.Header, body any) err
 }
 
 // writeJSON writes body as JSON, with the content type application/json unless one is set.
-func writeJSON(w http.ResponseWriter, status int, body any) error {
-	data, err := json.Marshal(body)
+func (wr Writer) writeJSON(w http.ResponseWriter, status int, body any) error {
+	data, err := wr.marshal(body)
 	if err != nil {
 		return err
 	}
@@ -78,6 +84,49 @@ func writeJSON(w http.ResponseWriter, status int, body any) error {
 		w.Header().Set("Content-Type", "application/json")
 	}
 	return writeBytes(w, status, data)
+}
+
+func (wr Writer) writeFrames(w http.ResponseWriter, status int, mediaType string, body any) error {
+	rc := http.NewResponseController(w)
+	w.WriteHeader(status)
+	if err := flush(rc); err != nil {
+		return err
+	}
+
+	isEvents := mediaType == mediaTypeEventStream
+	for frame := range framesOf(body) {
+		data, ok := rawBody(frame)
+		if !ok {
+			var err error
+			if data, err = wr.marshal(frame); err != nil {
+				return cut(err)
+			}
+		}
+
+		var buf bytes.Buffer
+		if isEvents {
+			for line := range strings.SplitSeq(lineBreaks.Replace(string(data)), "\n") {
+				buf.WriteString("data: " + line + "\n")
+			}
+		} else {
+			buf.Write(data)
+		}
+		buf.WriteByte('\n')
+		if _, err := w.Write(buf.Bytes()); err != nil {
+			return cut(err)
+		}
+		if err := flush(rc); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (wr Writer) marshal(v any) ([]byte, error) {
+	if wr.Marshal == nil {
+		return json.Marshal(v)
+	}
+	return wr.Marshal(v)
 }
 
 // writeBytes writes data as it is, as application/octet-stream unless a content type is set.
@@ -145,42 +194,6 @@ func writeMultipart(w http.ResponseWriter, status int, body any) error {
 	w.Header().Set("Content-Type", mw.FormDataContentType())
 	w.WriteHeader(status)
 	return cut(runtime.WriteMultipart(mw, body, nil))
-}
-
-func writeFrames(w http.ResponseWriter, status int, mediaType string, body any) error {
-	rc := http.NewResponseController(w)
-	w.WriteHeader(status)
-	if err := flush(rc); err != nil {
-		return err
-	}
-
-	isEvents := mediaType == mediaTypeEventStream
-	for frame := range framesOf(body) {
-		data, ok := rawBody(frame)
-		if !ok {
-			var err error
-			if data, err = json.Marshal(frame); err != nil {
-				return cut(err)
-			}
-		}
-
-		var buf bytes.Buffer
-		if isEvents {
-			for line := range strings.SplitSeq(lineBreaks.Replace(string(data)), "\n") {
-				buf.WriteString("data: " + line + "\n")
-			}
-		} else {
-			buf.Write(data)
-		}
-		buf.WriteByte('\n')
-		if _, err := w.Write(buf.Bytes()); err != nil {
-			return cut(err)
-		}
-		if err := flush(rc); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func framesOf(body any) iter.Seq[any] {

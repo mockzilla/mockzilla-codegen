@@ -4,6 +4,7 @@ package nodescriptions
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"slices"
@@ -98,13 +99,25 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
+// WithJSON writes JSON bodies with marshal and reads them with unmarshal. A nil one panics.
+func WithJSON(marshal func(v any) ([]byte, error), unmarshal func(data []byte, v any) error) ClientOption {
+	if marshal == nil || unmarshal == nil {
+		panic("WithJSON: nil function")
+	}
+	return func(c *Client) {
+		c.marshal, c.unmarshal = marshal, unmarshal
+	}
+}
+
 // Client calls the API at a base URL.
 // A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
+	baseURL   *url.URL
+	doer      HTTPDoer
+	timeout   time.Duration
+	editors   []RequestEditor
+	marshal   func(v any) ([]byte, error)
+	unmarshal func(data []byte, v any) error
 }
 
 // NewClient returns a client of the API at baseURL.
@@ -114,7 +127,13 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 		return nil, err
 	}
 
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	c := &Client{
+		baseURL:   u,
+		doer:      &http.Client{},
+		timeout:   3 * time.Second,
+		marshal:   json.Marshal,
+		unmarshal: json.Unmarshal,
+	}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -135,7 +154,7 @@ func (c *Client) GetPet(ctx context.Context, opts *GetPetRequestOptions, editors
 	var out *Pet
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -165,7 +184,7 @@ func (c *Client) DeletePet(ctx context.Context, opts *DeletePetRequestOptions, e
 	if err != nil {
 		return err
 	}
-	return httpclient.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil, c.unmarshal)
 }
 
 // DeletePetRequest builds the request of DELETE /pets/{id}.

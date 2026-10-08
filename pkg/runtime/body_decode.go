@@ -78,9 +78,9 @@ func ContentTypeError(mediaType string) error {
 	return fmt.Errorf("%w: %s", ErrContentType, mediaType)
 }
 
-// DecodeJSON decodes a JSON body into dst, a pointer. An empty body is an error when the body is
-// required, and leaves dst as it is otherwise.
-func DecodeJSON(body io.Reader, dst any, isRequired bool) error {
+// DecodeJSON decodes a JSON body into dst, a pointer, with unmarshal. An empty body is an error
+// when the body is required, and leaves dst as it is otherwise.
+func DecodeJSON(body io.Reader, dst any, isRequired bool, unmarshal func(data []byte, v any) error) error {
 	data, err := io.ReadAll(body)
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func DecodeJSON(body io.Reader, dst any, isRequired bool) error {
 	if len(bytes.TrimSpace(data)) == 0 {
 		return empty(isRequired)
 	}
-	return json.Unmarshal(data, dst)
+	return unmarshal(data, dst)
 }
 
 // DecodeForm decodes an application/x-www-form-urlencoded body into dst, a pointer. Keys with

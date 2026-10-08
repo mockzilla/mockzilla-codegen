@@ -4,12 +4,12 @@
 			a.failBody(w, r, {{.OperationID}}, err)
 			{{.Return}}
 		}
-		if err = a.opts.JSONDecoder(body, {{.Target}}, {{.IsRequired}}); err != nil {
+		if err = {{.Runtime}}.DecodeJSON(body, {{.Target}}, {{.IsRequired}}, a.opts.JSONDecoder); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
 			{{.Return}}
 		}
 {{- else if .IsJSON}}
-		if err := a.opts.JSONDecoder(r.Body, {{.Target}}, {{.IsRequired}}); err != nil {
+		if err := {{.Runtime}}.DecodeJSON(r.Body, {{.Target}}, {{.IsRequired}}, a.opts.JSONDecoder); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
 			{{.Return}}
 		}

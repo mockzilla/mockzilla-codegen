@@ -29,6 +29,7 @@ type CoreView struct {
 	HTTP         string
 	Time         string
 	URL          string
+	JSON         string
 	HTTPClient   string
 	Timeout      string
 	HasStreams   bool
@@ -67,6 +68,7 @@ func coreView(g *Generator, s *gocode.Scope) *CoreView {
 		HTTP:         s.Import(gomodel.Import{Path: "net/http"}),
 		Time:         s.Import(gomodel.Import{Path: "time"}),
 		URL:          s.Import(gomodel.Import{Path: "net/url"}),
+		JSON:         s.Import(gomodel.Import{Path: "encoding/json"}),
 		HTTPClient:   s.Import(gomodel.Import{Path: gomodel.HTTPClientPath}),
 		HasStreams:   g.opts.HasStreams && slices.ContainsFunc(g.ops, hasStream),
 		HasEnvelopes: g.opts.HasEnvelopes,

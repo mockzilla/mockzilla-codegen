@@ -23,7 +23,7 @@ import (
 // serverNames are what the server parts declare next to the models.
 var serverNames = []string{
 	"NewRouter", "HTTPAdapter", "NewHTTPAdapter", "ServerOption", "ServerOptions", "NewServerOptions",
-	"WithRouter", "WithMiddleware", "WithErrorHandler", "WithJSONDecoder", "WithMultipartMaxMemory", "WithPresence",
+	"WithRouter", "WithMiddleware", "WithErrorHandler", "WithJSONDecoder", "WithJSONEncoder", "WithMultipartMaxMemory", "WithPresence",
 	"ErrorKind", "HandlerError", "ErrorHandler", "ErrorHandlerFunc", "DefaultErrorHandler",
 	"ErrorParse", "ErrorDecode", "ErrorValidation", "ErrorService", "ErrorResponse",
 }
@@ -176,7 +176,7 @@ func OptionsFrom(cfg *config.Config) Options {
 	}
 	if c := cfg.Client; c != nil {
 		name := cmp.Or(c.Name, "Client")
-		opts.Reserved = append(opts.Reserved, name, "New"+name, n.ClientOption(name), n.Interface(name), "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithTimeout", "WithRequestEditor")
+		opts.Reserved = append(opts.Reserved, name, "New"+name, n.ClientOption(name), n.Interface(name), "HTTPDoer", "RequestEditor", "WithHTTPClient", "WithTimeout", "WithRequestEditor", "WithJSON")
 		opts.OperationSuffixes = append(opts.OperationSuffixes, n.ClientRequestOptions(""))
 		opts.Methods.Client = []string{"Request"}
 		stream := []string{"Stream"}

@@ -4,8 +4,8 @@ package petstore
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"net/url"
 	"slices"
@@ -426,7 +426,8 @@ type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
 	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
+	JSONDecoder        func(data []byte, v any) error
+	JSONEncoder        func(v any) ([]byte, error)
 	MultipartMaxMemory int64
 }
 
@@ -437,7 +438,8 @@ type ServerOption func(*ServerOptions)
 func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	o := &ServerOptions{
 		ErrorHandler:       httpserver.DefaultErrorHandler{},
-		JSONDecoder:        runtime.DecodeJSON,
+		JSONDecoder:        json.Unmarshal,
+		JSONEncoder:        json.Marshal,
 		MultipartMaxMemory: 33554432,
 	}
 	for _, opt := range opts {
@@ -460,10 +462,17 @@ func WithErrorHandler(h httpserver.ErrorHandler) ServerOption {
 	}
 }
 
-// WithJSONDecoder sets what reads JSON bodies. isRequired says whether an empty body is an error.
-func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error) ServerOption {
+// WithJSONDecoder sets what reads JSON request bodies.
+func WithJSONDecoder(decode func(data []byte, v any) error) ServerOption {
 	return func(o *ServerOptions) {
 		o.JSONDecoder = decode
+	}
+}
+
+// WithJSONEncoder sets what writes JSON response bodies and stream frames.
+func WithJSONEncoder(encode func(v any) ([]byte, error)) ServerOption {
+	return func(o *ServerOptions) {
+		o.JSONEncoder = encode
 	}
 }
 
@@ -530,7 +539,7 @@ func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
 	opts := &CreatePetServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
-		if err := a.opts.JSONDecoder(r.Body, &opts.Body, true); err != nil {
+		if err := runtime.DecodeJSON(r.Body, &opts.Body, true, a.opts.JSONDecoder); err != nil {
 			a.failDecode(w, r, "CreatePet", err)
 			return
 		}
@@ -626,7 +635,7 @@ func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, r
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	err := httpserver.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	err := httpserver.Writer{Marshal: a.opts.JSONEncoder}.Write(w, res.StatusCode(), res.Header(), res.Payload())
 	switch {
 	case errors.Is(err, runtime.ErrContentType):
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorResponse, OperationID: id, Err: err})
@@ -842,13 +851,25 @@ func WithRequestEditor(fns ...RequestEditor) PetClientOption {
 	}
 }
 
+// WithJSON writes JSON bodies with marshal and reads them with unmarshal. A nil one panics.
+func WithJSON(marshal func(v any) ([]byte, error), unmarshal func(data []byte, v any) error) PetClientOption {
+	if marshal == nil || unmarshal == nil {
+		panic("WithJSON: nil function")
+	}
+	return func(c *PetClient) {
+		c.marshal, c.unmarshal = marshal, unmarshal
+	}
+}
+
 // PetClient calls the API at a base URL.
 // A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type PetClient struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
+	baseURL   *url.URL
+	doer      HTTPDoer
+	timeout   time.Duration
+	editors   []RequestEditor
+	marshal   func(v any) ([]byte, error)
+	unmarshal func(data []byte, v any) error
 }
 
 // NewPetClient returns a client of the API at baseURL.
@@ -858,7 +879,13 @@ func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
 		return nil, err
 	}
 
-	c := &PetClient{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	c := &PetClient{
+		baseURL:   u,
+		doer:      &http.Client{},
+		timeout:   3 * time.Second,
+		marshal:   json.Marshal,
+		unmarshal: json.Unmarshal,
+	}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -880,7 +907,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions, 
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(Error)},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -901,7 +928,7 @@ func (c *PetClient) ListPetsWithResponse(ctx context.Context, opts *ListPetsRequ
 	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -935,7 +962,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(Error)},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -957,7 +984,7 @@ func (c *PetClient) CreatePetWithResponse(ctx context.Context, opts *CreatePetRe
 		{Status: "201", MediaType: "application/json", Dst: &out.JSON201},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
 		{Status: "201", IsHeaders: true, Dst: &out.Headers201},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -971,7 +998,7 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *CreatePetRequest
 	b := httpclient.NewRequestBuilder(http.MethodPost, "/pets")
 	switch {
 	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
+		b.JSONBody(opts.Body, "application/json", c.marshal)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
@@ -993,7 +1020,7 @@ func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions, edit
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "404", MediaType: "application/json", Dst: new(Error)},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -1014,7 +1041,7 @@ func (c *PetClient) GetPetWithResponse(ctx context.Context, opts *GetPetRequestO
 	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "404", MediaType: "application/json", Dst: &out.JSON404},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -1042,7 +1069,7 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *DeletePetRequestOptions
 	if err != nil {
 		return err
 	}
-	return httpclient.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil, c.unmarshal)
 }
 
 // DeletePetWithResponse calls DELETE /pets/{id} and returns the whole response.

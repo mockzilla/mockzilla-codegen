@@ -9,7 +9,6 @@ package httpclient
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -74,11 +73,12 @@ func (e *APIError) Unwrap() error {
 
 // DecodeResponse fills the targets of a response: those of its status, else of its range, else of
 // default, taking the body target whose media type fits the response's best. A status nothing
-// documents, a media type no target takes and an empty body leave everything as it is.
-func DecodeResponse(res *http.Response, body []byte, targets []ResponseTarget) error {
+// documents, a media type no target takes and an empty body leave everything as it is. JSON is
+// read with unmarshal.
+func DecodeResponse(res *http.Response, body []byte, targets []ResponseTarget, unmarshal func(data []byte, v any) error) error {
 	m := match(res, targets)
 	if m.body != nil && len(body) > 0 {
-		if err := decodeBody(body, res.Header, m.body); err != nil {
+		if err := decodeBody(body, res.Header, m.body, unmarshal); err != nil {
 			return err
 		}
 	}
@@ -94,12 +94,12 @@ func DecodeResponse(res *http.Response, body []byte, targets []ResponseTarget) e
 // no error. A body in a media type no target of the status takes is an error. A status outside 2xx
 // is an *APIError, which carries the body decoded into the target of the status when that is an
 // error type.
-func DecodeSuccess(res *http.Response, body []byte, targets []ResponseTarget) error {
+func DecodeSuccess(res *http.Response, body []byte, targets []ResponseTarget, unmarshal func(data []byte, v any) error) error {
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		apiErr := &APIError{StatusCode: res.StatusCode, Header: res.Header, Body: body}
 		m := match(res, targets)
 		if m.body != nil && len(body) > 0 {
-			if typed, ok := m.body.Dst.(error); ok && decodeBody(body, res.Header, m.body) == nil {
+			if typed, ok := m.body.Dst.(error); ok && decodeBody(body, res.Header, m.body, unmarshal) == nil {
 				apiErr.Err = typed
 			}
 		}
@@ -114,7 +114,7 @@ func DecodeSuccess(res *http.Response, body []byte, targets []ResponseTarget) er
 	case len(body) == 0:
 		return nil
 	case m.body != nil:
-		return decodeBody(body, res.Header, m.body)
+		return decodeBody(body, res.Header, m.body, unmarshal)
 	case m.isUntaken:
 		return runtime.ContentTypeError(m.mediaType)
 	}
@@ -197,8 +197,9 @@ func mediaRank(documented, actual string) int {
 	return 0
 }
 
-// decodeBody reads body into the Dst of t, a pointer, by the type of Dst and the media type in header.
-func decodeBody(body []byte, header http.Header, t *ResponseTarget) error {
+// decodeBody reads body into the Dst of t, a pointer, by the type of Dst and the media type in
+// header, JSON with unmarshal.
+func decodeBody(body []byte, header http.Header, t *ResponseTarget, unmarshal func(data []byte, v any) error) error {
 	target := reflect.ValueOf(t.Dst)
 	if target.Kind() != reflect.Pointer || target.IsNil() {
 		return fmt.Errorf("%w: the target must be a pointer", runtime.ErrParamValue)
@@ -230,7 +231,7 @@ func decodeBody(body []byte, header http.Header, t *ResponseTarget) error {
 	case strings.HasPrefix(mediaType, "text/"):
 		return runtime.DecodeTextValue(bytes.NewReader(body), t.Dst, false)
 	}
-	return json.Unmarshal(body, t.Dst)
+	return unmarshal(body, t.Dst)
 }
 
 // untyped is body as a schema without a type holds it outside JSON: text under text/*, else bytes.

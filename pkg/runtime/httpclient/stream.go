@@ -46,12 +46,14 @@ type Event struct {
 // next frame into Current, and Err reports what stopped Next. The caller owns the response and
 // closes the stream. Sentinels are frames that end the stream instead of being decoded, such as
 // the [DONE] some APIs send last; MaxFrameSize is the most bytes one line of the body, or the
-// data of one event, may hold, 0 for no limit. Set both before the first Next. Canceling the
-// context of the request unblocks a pending Next, and Err then reports the context's error.
-// Close, called from another goroutine, unblocks it too, and Err then reports nil.
+// data of one event, may hold, 0 for no limit; Unmarshal reads a frame that is not []byte,
+// json.Unmarshal when it is nil. Set them before the first Next. Canceling the context of the
+// request unblocks a pending Next, and Err then reports the context's error. Close, called from
+// another goroutine, unblocks it too, and Err then reports nil.
 type Stream[T any] struct {
 	Sentinels    []string
 	MaxFrameSize int
+	Unmarshal    func(data []byte, v any) error
 
 	body     io.ReadCloser
 	frame    func(limit int) (Event, bool, error)
@@ -118,7 +120,7 @@ func (s *Stream[T]) Next() bool {
 		if _, isRaw := any(&current).(*[]byte); !isRaw && len(data) == 0 {
 			continue
 		}
-		if err = decodeFrame(event.Data, &current); err != nil {
+		if err = s.decode(event.Data, &current); err != nil {
 			s.stop(fmt.Errorf("%w: %w", ErrFrame, err))
 			return false
 		}
@@ -168,6 +170,18 @@ func (s *Stream[T]) All() iter.Seq2[T, error] {
 
 func (s *Stream[T]) stop(err error) {
 	s.isDone, s.err = true, err
+}
+
+// decode reads data into dst: as it is into bytes, and with Unmarshal into anything else.
+func (s *Stream[T]) decode(data []byte, dst any) error {
+	if raw, ok := dst.(*[]byte); ok {
+		*raw = bytes.Clone(data)
+		return nil
+	}
+	if s.Unmarshal == nil {
+		return json.Unmarshal(data, dst)
+	}
+	return s.Unmarshal(data, dst)
 }
 
 // streamBody is the body of a streamed response, whose request lives until the body is closed.
@@ -311,23 +325,26 @@ func SendStream(d Doer, req *http.Request, mediaType string, timeout time.Durati
 // OpenStream returns a stream over the frames of a response SendStream returned with its body.
 // A 2xx response without a body, such as 204, is a stream without frames; one in another media
 // type is ErrContentType. A status outside 2xx is an *APIError, as DecodeSuccess reports it with
-// targets.
-func OpenStream[T any](res *http.Response, body []byte, targets []ResponseTarget) (*Stream[T], error) {
+// targets. The stream and the error read JSON with unmarshal.
+func OpenStream[T any](res *http.Response, body []byte, targets []ResponseTarget, unmarshal func(data []byte, v any) error) (*Stream[T], error) {
 	isSuccess := res.StatusCode >= 200 && res.StatusCode <= 299
 	switch {
 	case IsStreaming(res), isSuccess && len(body) == 0:
-		return NewStream[T](res), nil
+		s := NewStream[T](res)
+		s.Unmarshal = unmarshal
+		return s, nil
 	case isSuccess:
 		return nil, runtime.ContentTypeError(runtime.ContentType(res.Header))
 	}
-	return nil, DecodeSuccess(res, body, targets)
+	return nil, DecodeSuccess(res, body, targets, unmarshal)
 }
 
 // DecodeStream is DecodeResponse for a response SendStream returned with its body. A streamed
 // response fills the typed headers of its status and comes back as a stream, closed when a header
-// does not decode. Any other response is decoded whole and gives no stream.
-func DecodeStream[T any](res *http.Response, body []byte, targets []ResponseTarget) (*Stream[T], error) {
-	err := DecodeResponse(res, body, targets)
+// does not decode. Any other response is decoded whole and gives no stream. JSON is read with
+// unmarshal.
+func DecodeStream[T any](res *http.Response, body []byte, targets []ResponseTarget, unmarshal func(data []byte, v any) error) (*Stream[T], error) {
+	err := DecodeResponse(res, body, targets, unmarshal)
 	switch {
 	case !IsStreaming(res):
 		return nil, err
@@ -335,7 +352,9 @@ func DecodeStream[T any](res *http.Response, body []byte, targets []ResponseTarg
 		_ = res.Body.Close()
 		return nil, err
 	}
-	return NewStream[T](res), nil
+	s := NewStream[T](res)
+	s.Unmarshal = unmarshal
+	return s, nil
 }
 
 // bodyOf is the body of res, or an empty one when res has none.
@@ -410,13 +429,4 @@ func parseRetry(value []byte) (time.Duration, bool) {
 		return 0, false
 	}
 	return time.Duration(ms) * time.Millisecond, true
-}
-
-// decodeFrame reads data into dst: as it is into bytes, and as JSON into anything else.
-func decodeFrame(data []byte, dst any) error {
-	if raw, ok := dst.(*[]byte); ok {
-		*raw = bytes.Clone(data)
-		return nil
-	}
-	return json.Unmarshal(data, dst)
 }

@@ -54,6 +54,7 @@ func TestCoreView(t *testing.T) {
 				HTTP:         "http",
 				Time:         "time",
 				URL:          "url",
+				JSON:         "json",
 				HTTPClient:   "httpclient",
 				Timeout:      tc.wantTimeout,
 				HasStreams:   tc.wantHasStreams,

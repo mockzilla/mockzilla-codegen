@@ -363,10 +363,32 @@ Options are set with `ServerOption` functions on the adapter and on the router a
 |---|---|
 | `WithMiddleware(mw...)` | `func(http.Handler) http.Handler` wrappers, outermost first |
 | `WithErrorHandler(h)` | what writes failed requests, `DefaultErrorHandler{}` by default |
-| `WithJSONDecoder(fn)` | what reads JSON bodies, `runtime.DecodeJSON` by default |
+| `WithJSONDecoder(fn)` | what reads JSON request bodies, `json.Unmarshal` by default |
+| `WithJSONEncoder(fn)` | what writes JSON response bodies and stream frames, `json.Marshal` by default |
 | `WithPresence(p)` | what checks the keys of request bodies and fills their defaults, see [request bodies](#request-bodies) |
 | `WithMultipartMaxMemory(n)` | memory for multipart forms, `server.multipart-max-memory` by default |
 | `WithRouter(r)` | the router the routes go on, one of the framework's |
+
+### JSON library
+
+`WithJSONDecoder` and `WithJSONEncoder` take the two functions of any library shaped like
+`encoding/json`:
+
+```go
+import "github.com/bytedance/sonic"
+
+router := NewRouter(svc,
+	WithJSONDecoder(sonic.Unmarshal),
+	WithJSONEncoder(sonic.Marshal),
+)
+```
+
+The adapter still reads the body and checks it first. An empty required body is a 400 before the
+decoder runs.
+
+These stay on `encoding/json`: parameters with JSON content, the bodies `DefaultErrorHandler`
+writes, the key checks of [request bodies](#request-bodies), and the `MarshalJSON` methods of
+generated types, which the library calls.
 
 ## Validation
 
@@ -1101,7 +1123,8 @@ goes as it is.
 
 ### Body codecs
 
-- `DecodeJSON`, `DecodeText`, `DecodeBytes` and `DecodeFile`.
+- `DecodeJSON` reads a body with the unmarshal function it is given. `DecodeText`, `DecodeBytes`
+  and `DecodeFile`.
 - `DecodeForm`: bracketed keys nest, `address[city]=Berlin`, `items[0]=a`. One value for a struct
   or map is read as JSON, else as a string. A property its `Encoding` gives a style is read as a
   query parameter of that style.
@@ -1119,8 +1142,9 @@ goes as it is.
 Five packages sit beside it:
 
 - `pkg/runtime/httpserver` holds what a generated server needs beside the codecs: `HandlerError`
-  and the error handlers, and `Write`, which sends a status, headers and a body. It writes JSON for
-  most values, text and bytes as they are, and streams a `File`.
+  and the error handlers, and `Writer`, whose `Write` sends a status, headers and a body. It writes
+  JSON for most values with its `Marshal`, `json.Marshal` when nil, text and bytes as they are,
+  and streams a `File`.
 - `pkg/runtime/httpclient` holds the requests and responses of a client, see
   [client](client.md#runtime).
 - `pkg/runtime/validation` holds the checks of `Validate` and the errors they return (see

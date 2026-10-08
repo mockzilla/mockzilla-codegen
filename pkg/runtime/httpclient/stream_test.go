@@ -7,6 +7,7 @@ package httpclient
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -444,7 +445,7 @@ func TestStreamStopUnblocksNext(t *testing.T) {
 			require.NoError(t, err)
 			res, body, err := SendStream(srv.Client(), req, mediaTypeEventStream, 0)
 			require.NoError(t, err)
-			s, err := OpenStream[chunk](res, body, nil)
+			s, err := OpenStream[chunk](res, body, nil, json.Unmarshal)
 			require.NoError(t, err)
 			t.Cleanup(func() { _ = s.Close() })
 
@@ -620,7 +621,7 @@ func TestOpenStream(t *testing.T) {
 			res, body, err := SendStream(d, req, "application/ndjson", 0)
 			require.NoError(t, err)
 
-			s, err := OpenStream[chunk](res, body, targets)
+			s, err := OpenStream[chunk](res, body, targets, json.Unmarshal)
 
 			if tc.wantErr != nil {
 				require.Error(t, err)
@@ -699,7 +700,7 @@ func TestDecodeStream(t *testing.T) {
 			s, err := DecodeStream[chunk](res, data, []ResponseTarget{
 				{Status: "200", MediaType: "application/json", Dst: &json200},
 				{Status: "200", IsHeaders: true, Dst: &headers},
-			})
+			}, json.Unmarshal)
 
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)

@@ -15,16 +15,16 @@ func (c *{{$.Client}}) {{.Name}}(ctx {{$.Context}}.Context, opts *{{.Options}}, 
 	var out {{.Result}}
 	if err = {{$.HTTPClient}}.DecodeSuccess(res, body, []{{$.HTTPClient}}.ResponseTarget{
 {{- template "client/targets.tmpl" .Targets}}
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return {{.Zero}}, err
 	}
 	return out, nil
 {{- else if .Targets}}
 	return {{$.HTTPClient}}.DecodeSuccess(res, body, []{{$.HTTPClient}}.ResponseTarget{
 {{- template "client/targets.tmpl" .Targets}}
-	})
+	}, c.unmarshal)
 {{- else}}
-	return {{$.HTTPClient}}.DecodeSuccess(res, body, nil)
+	return {{$.HTTPClient}}.DecodeSuccess(res, body, nil, c.unmarshal)
 {{- end}}
 }
 {{- if $.HasEnvelopes}}
@@ -44,7 +44,7 @@ func (c *{{$.Client}}) {{.Name}}WithResponse(ctx {{$.Context}}.Context, opts *{{
 {{- if .EnvelopeTargets}}
 	if err = {{$.HTTPClient}}.DecodeResponse(res, body, []{{$.HTTPClient}}.ResponseTarget{
 {{- template "client/targets.tmpl" .EnvelopeTargets}}
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 {{- end}}
@@ -66,9 +66,9 @@ func (c *{{$.Client}}) {{.Name}}Stream(ctx {{$.Context}}.Context, opts *{{.Optio
 {{- if .Stream.Targets}}
 	return {{$.HTTPClient}}.OpenStream[{{.Stream.Frame}}](res, body, []{{$.HTTPClient}}.ResponseTarget{
 {{- template "client/targets.tmpl" .Stream.Targets}}
-	})
+	}, c.unmarshal)
 {{- else}}
-	return {{$.HTTPClient}}.OpenStream[{{.Stream.Frame}}](res, body, nil)
+	return {{$.HTTPClient}}.OpenStream[{{.Stream.Frame}}](res, body, nil, c.unmarshal)
 {{- end}}
 }
 {{- if $.HasEnvelopes}}
@@ -88,13 +88,14 @@ func (c *{{$.Client}}) {{.Name}}StreamWithResponse(ctx {{$.Context}}.Context, op
 {{- if .EnvelopeTargets}}
 	out.{{.Stream.Field}}, err = {{$.HTTPClient}}.DecodeStream[{{.Stream.Frame}}](res, body, []{{$.HTTPClient}}.ResponseTarget{
 {{- template "client/targets.tmpl" .EnvelopeTargets}}
-	})
+	}, c.unmarshal)
 	if err != nil {
 		return out, err
 	}
 {{- else}}
 	if {{$.HTTPClient}}.IsStreaming(res) {
 		out.{{.Stream.Field}} = {{$.HTTPClient}}.NewStream[{{.Stream.Frame}}](res)
+		out.{{.Stream.Field}}.Unmarshal = c.unmarshal
 	}
 {{- end}}
 	return out, nil
@@ -125,7 +126,7 @@ func (c *{{$.Client}}) {{.Name}}Request(ctx {{$.Context}}.Context, opts *{{.Opti
 {{- range .Bodies}}
 	case {{.IsSet}}:
 {{- if .Encoder}}
-		b.{{.Encoder}}({{.Value}}{{with .MediaType}}, {{.}}{{end}}{{with .Encoding}}, {{.}}{{end}})
+		b.{{.Encoder}}({{.Value}}{{with .MediaType}}, {{.}}{{end}}{{with .Encoding}}, {{.}}{{end}}{{if .IsJSON}}, c.marshal{{end}})
 {{- else}}
 		return nil, {{$.Runtime}}.ContentTypeError({{.MediaType}})
 {{- end}}

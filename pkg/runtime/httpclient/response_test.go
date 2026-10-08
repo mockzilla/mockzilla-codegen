@@ -7,6 +7,7 @@ package httpclient
 
 import (
 	"bytes"
+	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"testing"
@@ -106,7 +107,7 @@ func TestDecodeResponse(t *testing.T) {
 			t.Parallel()
 
 			var got envelope
-			err := DecodeResponse(tc.res, []byte(tc.body), envelopeTargets(&got))
+			err := DecodeResponse(tc.res, []byte(tc.body), envelopeTargets(&got), json.Unmarshal)
 
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)
@@ -124,9 +125,9 @@ func TestDecodeFormResponse(t *testing.T) {
 	var got *rgb
 	targets := []ResponseTarget{{Status: "200", MediaType: "application/x-www-form-urlencoded", Dst: &got}}
 
-	require.NoError(t, DecodeResponse(response(200, "application/x-www-form-urlencoded", nil), []byte("R=1&G=2"), targets))
+	require.NoError(t, DecodeResponse(response(200, "application/x-www-form-urlencoded", nil), []byte("R=1&G=2"), targets, json.Unmarshal))
 	assert.Equal(t, &rgb{R: 1, G: 2}, got)
-	require.Error(t, DecodeResponse(response(200, "application/x-www-form-urlencoded", nil), []byte("R=%zz"), targets))
+	require.Error(t, DecodeResponse(response(200, "application/x-www-form-urlencoded", nil), []byte("R=%zz"), targets, json.Unmarshal))
 }
 
 func TestDecodeTextResponse(t *testing.T) {
@@ -148,7 +149,7 @@ func TestDecodeTextResponse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := DecodeSuccess(response(200, "text/plain", nil), []byte(tc.body), []ResponseTarget{{Status: "200", MediaType: tc.mediaType, Dst: tc.dst}})
+			err := DecodeSuccess(response(200, "text/plain", nil), []byte(tc.body), []ResponseTarget{{Status: "200", MediaType: tc.mediaType, Dst: tc.dst}}, json.Unmarshal)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, tc.dst)
@@ -168,15 +169,15 @@ func TestDecodeMultipartResponse(t *testing.T) {
 
 	for _, mediaType := range []string{"multipart/form-data", "multipart/*"} {
 		var got *rgb
-		require.NoError(t, DecodeSuccess(res, b.Bytes(), []ResponseTarget{{Status: "200", MediaType: mediaType, Dst: &got}}))
+		require.NoError(t, DecodeSuccess(res, b.Bytes(), []ResponseTarget{{Status: "200", MediaType: mediaType, Dst: &got}}, json.Unmarshal))
 		assert.Equal(t, &rgb{R: 1, G: 2}, got)
 	}
 
 	var held any
-	require.NoError(t, DecodeSuccess(res, b.Bytes(), []ResponseTarget{{Status: "200", MediaType: "multipart/*", Dst: &held}}))
+	require.NoError(t, DecodeSuccess(res, b.Bytes(), []ResponseTarget{{Status: "200", MediaType: "multipart/*", Dst: &held}}, json.Unmarshal))
 	assert.Equal(t, b.Bytes(), held)
 
-	err := DecodeSuccess(response(200, "multipart/form-data", nil), b.Bytes(), []ResponseTarget{{Status: "200", MediaType: "multipart/form-data", Dst: new(rgb)}})
+	err := DecodeSuccess(response(200, "multipart/form-data", nil), b.Bytes(), []ResponseTarget{{Status: "200", MediaType: "multipart/form-data", Dst: new(rgb)}}, json.Unmarshal)
 	require.ErrorIs(t, err, http.ErrMissingBoundary)
 }
 
@@ -249,7 +250,7 @@ func TestDecodeSuccess(t *testing.T) {
 				body = []byte(tc.body)
 			}
 
-			err := DecodeSuccess(tc.res, body, list)
+			err := DecodeSuccess(tc.res, body, list, json.Unmarshal)
 
 			switch {
 			case tc.wantAPI != nil:
@@ -320,7 +321,7 @@ func TestDecodeSuccessOfA2xx(t *testing.T) {
 			t.Parallel()
 
 			var got envelope
-			err := DecodeSuccess(response(tc.code, "application/json", nil), []byte(`{"R":1}`), tc.targets(&got))
+			err := DecodeSuccess(response(tc.code, "application/json", nil), []byte(`{"R":1}`), tc.targets(&got), json.Unmarshal)
 
 			assert.Equal(t, tc.want, got)
 			if !tc.wantAPI {
@@ -358,7 +359,7 @@ func TestDecodeUnderWildcard(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := DecodeSuccess(res, []byte(tc.body), []ResponseTarget{{Status: "200", MediaType: tc.mediaType, Dst: tc.dst}})
+			err := DecodeSuccess(res, []byte(tc.body), []ResponseTarget{{Status: "200", MediaType: tc.mediaType, Dst: tc.dst}}, json.Unmarshal)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, tc.dst)
@@ -384,7 +385,7 @@ func TestDecodeEdges(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.EqualError(t, DecodeResponse(res, []byte("{}"), []ResponseTarget{tc.target}), tc.wantErr)
+			require.EqualError(t, DecodeResponse(res, []byte("{}"), []ResponseTarget{tc.target}, json.Unmarshal), tc.wantErr)
 		})
 	}
 }

@@ -8,6 +8,7 @@ package httpclient
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -249,7 +250,7 @@ func TestRequestBuilder(t *testing.T) {
 				b.QueryParam("x", runtime.Param{Name: "q"})
 				b.HeaderParam("x", runtime.Param{Name: "X-H"})
 				b.CookieParam("x", runtime.Param{Name: "c"})
-				b.JSONBody(1, "application/json")
+				b.JSONBody(1, "application/json", json.Marshal)
 				b.FormBody(color, nil)
 				b.MultipartBody(color, nil)
 				b.FileBody(runtime.NewFile(nil, "a", ""), "")
@@ -325,14 +326,14 @@ func TestRequestBuilder(t *testing.T) {
 		},
 		{
 			name:       "A JSON body",
-			build:      func(b *RequestBuilder) { b.JSONBody(color, "application/vnd.color+json") },
+			build:      func(b *RequestBuilder) { b.JSONBody(color, "application/vnd.color+json", json.Marshal) },
 			wantHeader: http.Header{"Content-Type": {"application/vnd.color+json"}},
 			wantBody:   `{"R":100,"G":200,"B":150}`,
 			wantLength: 25,
 		},
 		{
 			name:        "A JSON body that cannot be written",
-			build:       func(b *RequestBuilder) { b.JSONBody(make(chan int), "application/json") },
+			build:       func(b *RequestBuilder) { b.JSONBody(make(chan int), "application/json", json.Marshal) },
 			wantErrText: "json: unsupported type: chan int",
 		},
 		{

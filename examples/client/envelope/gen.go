@@ -4,6 +4,7 @@ package envelope
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"slices"
@@ -217,13 +218,25 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
+// WithJSON writes JSON bodies with marshal and reads them with unmarshal. A nil one panics.
+func WithJSON(marshal func(v any) ([]byte, error), unmarshal func(data []byte, v any) error) ClientOption {
+	if marshal == nil || unmarshal == nil {
+		panic("WithJSON: nil function")
+	}
+	return func(c *Client) {
+		c.marshal, c.unmarshal = marshal, unmarshal
+	}
+}
+
 // Client calls the API at a base URL.
 // A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
+	baseURL   *url.URL
+	doer      HTTPDoer
+	timeout   time.Duration
+	editors   []RequestEditor
+	marshal   func(v any) ([]byte, error)
+	unmarshal func(data []byte, v any) error
 }
 
 // NewClient returns a client of the API at baseURL.
@@ -233,7 +246,13 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 		return nil, err
 	}
 
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	c := &Client{
+		baseURL:   u,
+		doer:      &http.Client{},
+		timeout:   3 * time.Second,
+		marshal:   json.Marshal,
+		unmarshal: json.Unmarshal,
+	}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -258,7 +277,7 @@ func (c *Client) SubmitJob(ctx context.Context, opts *SubmitJobRequestOptions, e
 		{Status: "201", MediaType: "application/json", Dst: &out},
 		{Status: "202"},
 		{Status: "400", MediaType: "application/problem+json", Dst: new(Problem)},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -282,7 +301,7 @@ func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobReque
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
 		{Status: "201", IsHeaders: true, Dst: &out.Headers201},
 		{Status: "202", IsHeaders: true, Dst: &out.Headers202},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -296,7 +315,7 @@ func (c *Client) SubmitJobRequest(ctx context.Context, opts *SubmitJobRequestOpt
 	b := httpclient.NewRequestBuilder(http.MethodPost, "/jobs")
 	switch {
 	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
+		b.JSONBody(opts.Body, "application/json", c.marshal)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
@@ -317,7 +336,7 @@ func (c *Client) GetJobLog(ctx context.Context, opts *GetJobLogRequestOptions, e
 	var out GetJobLogJSONResponse200
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -338,7 +357,7 @@ func (c *Client) GetJobLogWithResponse(ctx context.Context, opts *GetJobLogReque
 	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out.Text200},
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -372,7 +391,7 @@ func (c *Client) CancelJob(ctx context.Context, opts *CancelJobRequestOptions, e
 	return httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "4XX", MediaType: "application/problem+json", Dst: new(Problem)},
 		{Status: "410"},
-	})
+	}, c.unmarshal)
 }
 
 // CancelJobWithResponse calls DELETE /jobs/{id} and returns the whole response.
@@ -390,7 +409,7 @@ func (c *Client) CancelJobWithResponse(ctx context.Context, opts *CancelJobReque
 	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "4XX", MediaType: "application/problem+json", Dst: &out.ProblemJSON4XX},
 		{Status: "410"},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil

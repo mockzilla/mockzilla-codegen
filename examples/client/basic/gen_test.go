@@ -260,6 +260,28 @@ func TestOptions(t *testing.T) {
 	assert.Equal(t, "abc pets/1", <-seen, "the editors run in order")
 }
 
+func TestJSONOption(t *testing.T) {
+	t.Parallel()
+
+	var calls []string
+	marshal := func(v any) ([]byte, error) {
+		calls = append(calls, "marshal")
+		return json.Marshal(v)
+	}
+	unmarshal := func(data []byte, v any) error {
+		calls = append(calls, "unmarshal")
+		return json.Unmarshal(data, v)
+	}
+	c := newClient(t, WithJSON(marshal, unmarshal))
+
+	created, err := c.CreatePet(context.Background(), &CreatePetRequestOptions{Body: &Pet{ID: 1, Name: "Rex"}})
+
+	require.NoError(t, err)
+	assert.Equal(t, &Pet{ID: 1, Name: "Rex"}, created)
+	assert.Equal(t, []string{"marshal", "unmarshal"}, calls)
+	assert.PanicsWithValue(t, "WithJSON: nil function", func() { WithJSON(nil, unmarshal) })
+}
+
 func TestCallEditors(t *testing.T) {
 	t.Parallel()
 

@@ -86,9 +86,9 @@ func TestBodyView(t *testing.T) {
 		content gomodel.Content
 		want    BodyView
 	}{
-		{name: "JSON", content: gomodel.Content{MediaType: "application/vnd.pet+json", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/vnd.pet+json"`}},
-		{name: "JSON without a schema", content: gomodel.Content{MediaType: "application/json"}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/json"`}},
-		{name: "JSON with parameters goes under them", content: gomodel.Content{MediaType: "application/json; charset=utf-8", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/json; charset=utf-8"`}},
+		{name: "JSON", content: gomodel.Content{MediaType: "application/vnd.pet+json", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/vnd.pet+json"`, IsJSON: true}},
+		{name: "JSON without a schema", content: gomodel.Content{MediaType: "application/json"}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/json"`, IsJSON: true}},
+		{name: "JSON with parameters goes under them", content: gomodel.Content{MediaType: "application/json; charset=utf-8", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/json; charset=utf-8"`, IsJSON: true}},
 		{name: "A form", content: gomodel.Content{MediaType: "application/x-www-form-urlencoded", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FormBody", Value: "opts.Body", Encoding: "nil"}},
 		{name: "A form in another case", content: gomodel.Content{MediaType: "Application/X-WWW-Form-Urlencoded; charset=utf-8", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FormBody", Value: "opts.Body", Encoding: "nil"}},
 		{name: "Multipart into a struct", content: gomodel.Content{MediaType: "multipart/form-data", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "MultipartBody", Value: "opts.Body", Encoding: "nil"}},
@@ -101,7 +101,7 @@ func TestBodyView(t *testing.T) {
 		{name: "A defined string is converted", content: gomodel.Content{MediaType: "text/markdown", Type: note}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "TextBody", Value: "string(*opts.Body)", MediaType: `"text/markdown"`}},
 		{name: "Bytes without a schema", content: gomodel.Content{MediaType: "image/png"}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "BytesBody", Value: "opts.Body", MediaType: `"image/png"`}},
 		{name: "Defined bytes are converted", content: gomodel.Content{MediaType: "image/png", Type: blob}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "BytesBody", Value: "[]byte(opts.Body)", MediaType: `"image/png"`}},
-		{name: "A wildcard sends a struct as JSON", content: gomodel.Content{MediaType: "*/*", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/json"`}},
+		{name: "A wildcard sends a struct as JSON", content: gomodel.Content{MediaType: "*/*", Type: pet}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "JSONBody", Value: "opts.Body", MediaType: `"application/json"`, IsJSON: true}},
 		{name: "A wildcard sends text as text", content: gomodel.Content{MediaType: "text/*", Type: str}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "TextBody", Value: "*opts.Body", MediaType: `"text/plain"`}},
 		{name: "A wildcard sends bytes as bytes", content: gomodel.Content{MediaType: "*/*"}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "BytesBody", Value: "opts.Body", MediaType: `"application/octet-stream"`}},
 		{name: "A wildcard streams a file under its own type", content: gomodel.Content{MediaType: "*/*", Type: fileType}, want: BodyView{IsSet: "opts.Body != nil", Encoder: "FileBody", Value: "*opts.Body", MediaType: `""`}},
