@@ -41,7 +41,7 @@ func TestParts(t *testing.T) {
 		},
 		AdditionalProperties: &gomodel.Field{Type: gomodel.Map{Key: gomodel.Builtin{Name: "string"}, Elem: gomodel.DeclRef{Decl: status}}},
 	}}
-	payment.Union = &gomodel.Union{Variants: []*gomodel.Variant{{Name: "Pet", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: pet}}}}}
+	payment.Union = groupUnion(gomodel.Group{Variants: []*gomodel.Variant{{Name: "Pet", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: pet}}}}})
 	query := &gomodel.Decl{Name: "ListQuery", Part: gomodel.PartParams, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "Pets", Type: gomodel.Map{Key: gomodel.Builtin{Name: "string"}, Elem: gomodel.DeclRef{Decl: pet}}}},
 	}}

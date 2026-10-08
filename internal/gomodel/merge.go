@@ -50,11 +50,13 @@ type partWalk struct {
 }
 
 // merged is a flattened schema. Foreign children came from a type reached through a $ref: that
-// type names them. Refs are the $refs of the schema itself and its inline members.
+// type names them. Refs are the $refs of the schema itself and its inline members. Unions are
+// those of every part.
 type merged struct {
 	schema  *spec.Schema
 	foreign map[*spec.Schema]bool
 	refs    []*spec.Ref
+	unions  []*spec.Schema
 	joint   jointChecks
 	goType  *extension.Type
 }
@@ -66,6 +68,7 @@ type flattener struct {
 	inProgress map[*spec.Schema]bool
 	// isWrapper marks the $ref made around a foreign schema when it is merged with another.
 	isWrapper map[*spec.Schema]bool
+	results   map[*spec.Schema]*merged
 	ext       *extReader
 	diags     *diag.Collector
 }
@@ -81,6 +84,7 @@ func newFlattener(ext *extReader, diags *diag.Collector) *flattener {
 		memo:       map[*spec.Schema]*merged{},
 		inProgress: map[*spec.Schema]bool{},
 		isWrapper:  map[*spec.Schema]bool{},
+		results:    map[*spec.Schema]*merged{},
 		ext:        ext,
 		diags:      diags,
 	}
@@ -111,7 +115,7 @@ func (f *flattener) merged(s *spec.Schema) *merged {
 	f.collect(s, false, w)
 
 	m := &merged{schema: &spec.Schema{Origin: s.Origin, Extensions: s.Extensions}, foreign: map[*spec.Schema]bool{}}
-	f.memo[s] = m
+	f.memo[s], f.results[m.schema] = m, m
 	if f.ownType(s) == nil {
 		f.typeFrom(m, w.parts)
 	}
@@ -121,7 +125,16 @@ func (f *flattener) merged(s *spec.Schema) *merged {
 	for _, p := range m.schema.Properties {
 		p.Required = slices.Contains(m.schema.Required, p.Name)
 	}
+	keepFirstUnions(m.schema, m.unions)
 	return m
+}
+
+// unions are the oneOfs, anyOfs and ifs of a flattened schema; a value is all of them.
+func (f *flattener) unions(s *spec.Schema) []*spec.Schema {
+	if m, ok := f.results[s]; ok {
+		return m.unions
+	}
+	return ownUnions(s)
 }
 
 // collect puts a $ref target before the schema and allOf members after it.
@@ -192,7 +205,10 @@ func (f *flattener) typeFrom(m *merged, parts []mergePart) {
 	}
 	typed := parts[i]
 	m.goType = f.partType(typed)
-	for _, p := range parts[i+1:] {
+	for j, p := range parts {
+		if j == i {
+			continue
+		}
 		other := f.partType(p)
 		var msg string
 		switch {
@@ -273,16 +289,13 @@ func (f *flattener) merge(m *merged, p mergePart) {
 	if len(dst.PrefixItems) == 0 {
 		dst.PrefixItems = s.PrefixItems
 	}
-	if !isSole {
-		dst.OneOf = append(dst.OneOf, s.OneOf...)
-		dst.AnyOf = append(dst.AnyOf, s.AnyOf...)
-	}
-	if s.Then != nil && s.Else != nil && dst.Then == nil {
-		dst.If, dst.Then, dst.Else = s.If, s.Then, s.Else
+	if p.from != nil {
+		m.unions = append(m.unions, p.from.unions...)
+	} else {
+		m.unions = append(m.unions, ownUnions(s)...)
 	}
 
 	dst.Not = cmp.Or(dst.Not, s.Not)
-	dst.Discriminator = cmp.Or(dst.Discriminator, s.Discriminator)
 	f.mergeValues(dst, s)
 	dst.Default = cmp.Or(dst.Default, s.Default)
 	if len(dst.Examples) == 0 {
@@ -576,4 +589,36 @@ func branch(s *spec.Schema) *spec.Schema {
 		return nil
 	}
 	return cmp.Or(s.Then, s.Else)
+}
+
+// ownUnions are the oneOf, anyOf and if of s; the discriminator goes with the oneOf.
+func ownUnions(s *spec.Schema) []*spec.Schema {
+	var out []*spec.Schema
+	d, isSole := s.Discriminator, soleMember(s) != nil
+	if !isSole && len(s.OneOf) > 0 {
+		out = append(out, &spec.Schema{OneOf: s.OneOf, Discriminator: d, Origin: s.Origin})
+		d = nil
+	}
+	if !isSole && len(s.AnyOf) > 0 {
+		out = append(out, &spec.Schema{AnyOf: s.AnyOf, Discriminator: d, Origin: s.Origin})
+	}
+	if s.Then != nil && s.Else != nil {
+		out = append(out, &spec.Schema{If: s.If, Then: s.Then, Else: s.Else, Origin: s.Origin})
+	}
+	return out
+}
+
+// keepFirstUnions gives s the first oneOf, anyOf and if of unions, so it reads as a union.
+func keepFirstUnions(s *spec.Schema, unions []*spec.Schema) {
+	for _, u := range unions {
+		if s.OneOf == nil {
+			s.OneOf = u.OneOf
+		}
+		if s.AnyOf == nil {
+			s.AnyOf = u.AnyOf
+		}
+		if s.Then == nil && u.Then != nil {
+			s.If, s.Then, s.Else = u.If, u.Then, u.Else
+		}
+	}
 }

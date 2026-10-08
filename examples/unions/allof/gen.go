@@ -26,6 +26,22 @@ type Phone struct {
 	Number string `json:"number"`
 }
 
+type Daily struct {
+	Time string `json:"time"`
+}
+
+type Weekly struct {
+	Weekday int `json:"weekday"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (w Weekly) Validate() error {
+	var errs validation.Errors
+	errs.Append("weekday", validation.Minimum(w.Weekday, 1, false))
+	errs.Append("weekday", validation.Maximum(w.Weekday, 7, false))
+	return errs.Err()
+}
+
 // Contact is one of Email or Phone.
 type Contact struct {
 	ID      string     `json:"id"`
@@ -79,5 +95,76 @@ func (c *Contact) UnmarshalJSON(data []byte) error {
 func (c Contact) Validate() error {
 	var errs validation.Errors
 	errs.Append("", validation.ExactlyOne(c.Email != nil, c.Phone != nil))
+	return errs.Err()
+}
+
+// Reminder is one of Email or Phone, and one of Daily or Weekly.
+type Reminder struct {
+	Email  *Email  `json:"-"`
+	Phone  *Phone  `json:"-"`
+	Daily  *Daily  `json:"-"`
+	Weekly *Weekly `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged.
+func (r Reminder) MarshalJSON() ([]byte, error) {
+	return runtime.MarshalVariants(nil, r.union(), r.Email, r.Phone, r.Daily, r.Weekly)
+}
+
+// UnmarshalJSON sets the variants of each union data matches.
+func (r *Reminder) UnmarshalJSON(data []byte) error {
+	*r = Reminder{}
+	return runtime.UnmarshalUnion(data, r.union())
+}
+
+func (r *Reminder) union() runtime.Union {
+	return runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name:     "Email",
+				Kind:     runtime.KindObject,
+				Required: []string{"address"},
+				Known:    []string{"address"},
+				Into:     runtime.Into(&r.Email),
+			},
+			{
+				Name:     "Phone",
+				Kind:     runtime.KindObject,
+				Required: []string{"number"},
+				Known:    []string{"number"},
+				Into:     runtime.Into(&r.Phone),
+			},
+		},
+		Also: []runtime.Union{
+			{
+				Variants: []runtime.Variant{
+					{
+						Name:     "Daily",
+						Kind:     runtime.KindObject,
+						Required: []string{"time"},
+						Known:    []string{"time"},
+						Into:     runtime.Into(&r.Daily),
+					},
+					{
+						Name:     "Weekly",
+						Kind:     runtime.KindObject,
+						Required: []string{"weekday"},
+						Known:    []string{"weekday"},
+						Into:     runtime.Into(&r.Weekly),
+					},
+				},
+			},
+		},
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (r Reminder) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(r.Email != nil, r.Phone != nil))
+	errs.Append("", validation.ExactlyOne(r.Daily != nil, r.Weekly != nil))
+	if r.Weekly != nil {
+		errs.Append("", r.Weekly.Validate())
+	}
 	return errs.Err()
 }

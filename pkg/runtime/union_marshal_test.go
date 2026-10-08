@@ -56,10 +56,10 @@ func TestMarshalUnion(t *testing.T) {
 	}
 }
 
-func TestMarshalTagged(t *testing.T) {
+func TestMarshalVariants(t *testing.T) {
 	t.Parallel()
 
-	type tagged struct {
+	type withType struct {
 		Type string `json:"type"`
 		Name string `json:"name"`
 	}
@@ -77,6 +77,9 @@ func TestMarshalTagged(t *testing.T) {
 		{Name: "Cat", Values: []string{"cat"}},
 		{Name: "Other"},
 	}}
+	twice := Union{Variants: []Variant{{Name: "Cat"}}, Also: []Union{{Variants: []Variant{{Name: "Dog"}, {Name: "Fox"}}}}}
+	anyTwice := Union{Variants: []Variant{{Name: "Cat"}}, Also: []Union{{IsAnyOf: true, Variants: []Variant{{Name: "Dog"}, {Name: "Fox"}}}}}
+	withPets := Union{Variants: []Variant{{Name: "Text"}}, Also: []Union{pets}}
 
 	tests := []struct {
 		name     string
@@ -86,29 +89,34 @@ func TestMarshalTagged(t *testing.T) {
 		want     string
 		wantErr  string
 	}{
-		{name: "Nothing set is null", u: pets, variants: []any{(*tagged)(nil), (*tagged)(nil)}, want: `null`},
+		{name: "Nothing set is null", u: pets, variants: []any{(*withType)(nil), (*withType)(nil)}, want: `null`},
 		{name: "A missing value is filled", u: pets, variants: []any{&cat{Name: "a"}, (*dog)(nil)}, want: `{"name":"a","meow":false,"type":"cat"}`},
-		{name: "An empty value is filled in place", u: pets, variants: []any{&tagged{Name: "a"}, nil}, want: `{"type":"cat","name":"a"}`},
-		{name: "A value that picks the variant stays", u: pets, variants: []any{nil, &tagged{Type: "dog"}}, want: `{"type":"dog","name":""}`},
-		{name: "The shared properties carry the value", shared: tagged{Type: "dog"}, u: pets, variants: []any{nil, &dog{}}, want: `{"type":"dog","name":"","bark":false}`},
-		{name: "A value of another variant", u: pets, variants: []any{&tagged{Type: "dog"}, nil}, wantErr: `type: "dog" picks Dog, not Cat`},
-		{name: "An unknown value", u: pets, variants: []any{&tagged{Type: "nope"}, nil}, wantErr: `type: "nope" picks no variant`},
+		{name: "An empty value is filled in place", u: pets, variants: []any{&withType{Name: "a"}, nil}, want: `{"type":"cat","name":"a"}`},
+		{name: "A value that picks the variant stays", u: pets, variants: []any{nil, &withType{Type: "dog"}}, want: `{"type":"dog","name":""}`},
+		{name: "The shared properties carry the value", shared: withType{Type: "dog"}, u: pets, variants: []any{nil, &dog{}}, want: `{"type":"dog","name":"","bark":false}`},
+		{name: "A value of another variant", u: pets, variants: []any{&withType{Type: "dog"}, nil}, wantErr: `type: "dog" picks Dog, not Cat`},
+		{name: "An unknown value", u: pets, variants: []any{&withType{Type: "nope"}, nil}, wantErr: `type: "nope" picks no variant`},
 		{name: "Two values are not filled", u: kitties, variants: []any{&cat{}, nil}, wantErr: `type: an empty value picks Dog, not Cat`},
-		{name: "One of two values stays", u: kitties, variants: []any{&tagged{Type: "kitty"}, nil}, want: `{"type":"kitty","name":""}`},
+		{name: "One of two values stays", u: kitties, variants: []any{&withType{Type: "kitty"}, nil}, want: `{"type":"kitty","name":""}`},
 		{name: "An empty value needs a default", u: Union{Discriminator: "type", Variants: kitties.Variants[:1]}, variants: []any{&cat{}}, wantErr: `type: must be set, Cat takes cat or kitty`},
-		{name: "The default takes an empty value", u: kitties, variants: []any{nil, &tagged{}}, want: `{"type":"dog","name":""}`},
-		{name: "A variant without values takes any value", u: open, variants: []any{nil, &tagged{Type: "x"}}, want: `{"type":"x","name":""}`},
+		{name: "The default takes an empty value", u: kitties, variants: []any{nil, &withType{}}, want: `{"type":"dog","name":""}`},
+		{name: "A variant without values takes any value", u: open, variants: []any{nil, &withType{Type: "x"}}, want: `{"type":"x","name":""}`},
 		{name: "Two variants of a oneOf", u: pets, variants: []any{&cat{}, &dog{}}, wantErr: "at most one variant may be set, found 2"},
 		{name: "Two variants of an anyOf and an empty value", u: anyPets, variants: []any{&cat{}, &dog{}}, wantErr: `type: must be set, Cat takes cat`},
 		{name: "A value that is no object is written as it is", u: pets, variants: []any{new("x"), nil}, want: `"x"`},
 		{name: "A variant that fails to marshal", u: pets, variants: []any{func() {}, nil}, wantErr: "json: unsupported type: func()"},
+		{name: "A variant of each union is merged", u: twice, variants: []any{&cat{Name: "a"}, &dog{Bark: true}, nil}, want: `{"name":"","meow":false,"bark":true}`},
+		{name: "Two variants of a oneOf in Also", u: twice, variants: []any{&cat{}, &dog{}, &dog{}}, wantErr: "at most one variant may be set, found 2"},
+		{name: "Two variants of an anyOf in Also", u: anyTwice, variants: []any{nil, &dog{}, &cat{}}, want: `{"name":"","bark":false,"meow":false}`},
+		{name: "A union in Also fills its value", u: withPets, variants: []any{nil, &withType{Name: "a"}, nil}, want: `{"type":"cat","name":"a"}`},
+		{name: "A union in Also checks its value", u: withPets, variants: []any{nil, &withType{Type: "dog"}, nil}, wantErr: `type: "dog" picks Dog, not Cat`},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := MarshalTagged(tc.shared, tc.u, tc.variants...)
+			got, err := MarshalVariants(tc.shared, tc.u, tc.variants...)
 
 			if tc.wantErr != "" {
 				require.EqualError(t, err, tc.wantErr)

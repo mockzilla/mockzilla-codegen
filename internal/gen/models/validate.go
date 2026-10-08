@@ -47,13 +47,14 @@ type ValidateView struct {
 	Response   *MethodView
 }
 
-// MethodView is the body of one Validate method; Count, Discriminator, Variants are union checks.
+// MethodView is the body of one Validate method; all but Validation and Checks are union checks.
 type MethodView struct {
 	Validation    string
-	Count         string
+	Counts        []string
 	Discriminator string
 	Checks        []CheckView
-	Variants      []VariantCheckView
+	VariantChecks []CheckView
+	AnyValid      [][]VariantCheckView
 }
 
 // VariantCheckView is one variant of an anyOf; Check is nil when it checks nothing.
@@ -142,7 +143,7 @@ func validateView(d *gomodel.Decl, s *gocode.Scope) *ValidateView {
 func methodView(d *gomodel.Decl, s *gocode.Scope, side methodSide) MethodView {
 	v := d.Validation
 	r := receiver(d.Name)
-	isChecked := v.Count != "" || v.IsDiscriminated ||
+	isChecked := len(v.Counts) > 0 || v.IsDiscriminated ||
 		slices.ContainsFunc(v.Checks, func(c *gomodel.Check) bool { return c.Side != side.skip })
 	if !isChecked {
 		return MethodView{}
@@ -150,12 +151,12 @@ func methodView(d *gomodel.Decl, s *gocode.Scope, side methodSide) MethodView {
 
 	vd := s.Import(gomodel.Import{Path: gomodel.ValidationPath})
 	m := MethodView{Validation: vd}
-	if v.Count != "" {
-		args := make([]string, len(d.Union.Variants))
-		for i, vr := range d.Union.Variants {
+	for _, c := range v.Counts {
+		args := make([]string, len(c.Variants))
+		for i, vr := range c.Variants {
 			args[i] = gocode.NotNil(gocode.Selector(r, vr.Name))
 		}
-		m.Count = gocode.Call(gocode.Selector(vd, v.Count), args...)
+		m.Counts = append(m.Counts, gocode.Call(gocode.Selector(vd, c.Func), args...))
 	}
 
 	if v.IsDiscriminated {
@@ -163,7 +164,7 @@ func methodView(d *gomodel.Decl, s *gocode.Scope, side methodSide) MethodView {
 		m.Discriminator = gocode.Call(gocode.Selector(rt, "DiscriminatorError"), gocode.Call(gocode.Selector(r, "MarshalJSON")))
 	}
 
-	isAnyOf := d.Union != nil && d.Union.IsAnyOf
+	isAnyOfOnly := anyOfOnly(d)
 	byVariant := map[string]*CheckView{}
 	for _, c := range v.Checks {
 		if c.Side == side.skip {
@@ -173,20 +174,46 @@ func methodView(d *gomodel.Decl, s *gocode.Scope, side methodSide) MethodView {
 		if c.Field != "" {
 			at.value = gocode.Selector(r, c.Field)
 		}
-		if isAnyOf && c.IsVariant {
+		if c.IsVariant && isAnyOfOnly[c.Field] {
 			at.errs = "errs" + c.Field
-			byVariant[c.Field] = new(checkView(c, at, vd, side))
+			cv := checkView(c, at, vd, side)
+			byVariant[c.Field] = &cv
+			m.VariantChecks = append(m.VariantChecks, cv)
 			continue
 		}
 		m.Checks = append(m.Checks, checkView(c, at, vd, side))
 	}
 
-	if len(byVariant) > 0 {
-		for _, vr := range d.Union.Variants {
-			m.Variants = append(m.Variants, VariantCheckView{IsSet: gocode.NotNil(gocode.Selector(r, vr.Name)), Check: byVariant[vr.Name]})
+	if d.Union == nil {
+		return m
+	}
+	for _, g := range d.Union.Groups {
+		if !g.IsAnyOf || !slices.ContainsFunc(g.Variants, func(vr *gomodel.Variant) bool { return byVariant[vr.Name] != nil }) {
+			continue
 		}
+		list := make([]VariantCheckView, len(g.Variants))
+		for i, vr := range g.Variants {
+			list[i] = VariantCheckView{IsSet: gocode.NotNil(gocode.Selector(r, vr.Name)), Check: byVariant[vr.Name]}
+		}
+		m.AnyValid = append(m.AnyValid, list)
 	}
 	return m
+}
+
+// anyOfOnly marks the variants only anyOf groups list; a oneOf variant must pass its checks.
+func anyOfOnly(d *gomodel.Decl) map[string]bool {
+	out := map[string]bool{}
+	if d.Union == nil {
+		return out
+	}
+	for _, g := range d.Union.Groups {
+		for _, vr := range g.Variants {
+			if _, ok := out[vr.Name]; !ok || !g.IsAnyOf {
+				out[vr.Name] = g.IsAnyOf
+			}
+		}
+	}
+	return out
 }
 
 // checkView writes check c of the value at. Loop variables get the depth as a suffix below the

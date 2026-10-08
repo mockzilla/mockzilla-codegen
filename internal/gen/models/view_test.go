@@ -196,7 +196,7 @@ func TestViewRendersUnions(t *testing.T) {
 	str := gomodel.Builtin{Name: "string"}
 	at := gomodel.Qualified{Import: gomodel.Import{Path: "time"}, Name: "Time"}
 	cat := &gomodel.Decl{Name: "Cat", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}}
-	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, IsForm: true, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
+	pet := &gomodel.Decl{Name: "Pet", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, IsForm: true, Struct: &gomodel.Struct{}, Union: groupUnion(gomodel.Group{
 		Variants: []*gomodel.Variant{
 			{Name: "Cat", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: cat}}, Kinds: gomodel.JSONObject, Required: []string{"meow"}, Known: []string{"meow", "name"}},
 			{Name: "Float", FieldType: gomodel.Pointer{Elem: gomodel.Builtin{Name: "float64"}}, Kinds: gomodel.JSONInteger | gomodel.JSONNumber},
@@ -206,8 +206,8 @@ func TestViewRendersUnions(t *testing.T) {
 				{},
 			}},
 		},
-	}}
-	stamp := &gomodel.Decl{Name: "Stamp", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
+	})}
+	stamp := &gomodel.Decl{Name: "Stamp", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: groupUnion(gomodel.Group{
 		IsAnyOf:    true,
 		IsNullable: true,
 		Variants: []*gomodel.Variant{
@@ -215,32 +215,45 @@ func TestViewRendersUnions(t *testing.T) {
 			{Name: "Any", FieldType: gomodel.Builtin{Name: "any"}, Kinds: gomodel.JSONAny},
 			{Name: "Loop", FieldType: gomodel.Pointer{Elem: str}},
 		},
-	}}
-	id := &gomodel.Decl{Name: "ID", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
-		IsText: true,
+	})}
+	id := &gomodel.Decl{Name: "ID", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: groupUnion(gomodel.Group{
 		Variants: []*gomodel.Variant{
 			{Name: "Int", FieldType: gomodel.Pointer{Elem: gomodel.Builtin{Name: "int"}}, Kinds: gomodel.JSONInteger},
 			{Name: "String", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString},
 		},
-	}}
+	})}
+	id.Union.IsText = true
 	contact := &gomodel.Decl{Name: "Contact", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Doc: "A contact.", IsForm: true, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "ID", JSONName: "id", Type: str}},
-	}, Union: &gomodel.Union{
+	}, Union: groupUnion(gomodel.Group{
 		IsNullable:    true,
 		Discriminator: "kind",
 		Variants: []*gomodel.Variant{
 			{Name: "Email", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONObject, Values: []string{"email", "mail"}, Known: []string{}, IsClosed: true},
 			{Name: "Other", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONObject, IsDefault: true},
 		},
-	}}
+	})}
 	person := &gomodel.Decl{Name: "Person", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{
 		Fields: []*gomodel.Field{{Name: "Kind", JSONName: "kind", Type: str}},
-	}, Union: &gomodel.Union{
+	}, Union: groupUnion(gomodel.Group{
 		IsAnyOf:       true,
 		Discriminator: "kind",
 		Variants:      []*gomodel.Variant{{Name: "Name", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}},
+	})}
+	email := &gomodel.Variant{Name: "Email", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONObject, Required: []string{"address"}}
+	phone := &gomodel.Variant{Name: "Phone", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONObject, Required: []string{"number"}}
+	daily := &gomodel.Variant{Name: "Daily", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONObject, Values: []string{"day"}}
+	weekly := &gomodel.Variant{Name: "Weekly", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONObject, Values: []string{"week"}}
+	reminder := &gomodel.Decl{Name: "Reminder", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{
+		Fields: []*gomodel.Field{{Name: "ID", JSONName: "id", Type: str}},
+	}, Union: &gomodel.Union{
+		Variants: []*gomodel.Variant{email, phone, daily, weekly},
+		Groups: []*gomodel.Group{
+			{Variants: []*gomodel.Variant{email, phone}},
+			{IsAnyOf: true, Discriminator: "every", Variants: []*gomodel.Variant{daily, weekly}},
+		},
 	}}
-	g := New(&gomodel.Model{Decls: []*gomodel.Decl{cat, pet, stamp, id, contact, person}})
+	g := New(&gomodel.Model{Decls: []*gomodel.Decl{cat, pet, stamp, id, contact, person, reminder}})
 	checkRender(t, g, "unions")
 }
 
@@ -259,23 +272,53 @@ func TestUnionDoc(t *testing.T) {
 		many[i] = "LongVariantName" + strconv.Itoa(i)
 	}
 	tests := []struct {
-		name  string
-		union gomodel.Union
-		want  string
+		name   string
+		groups []gomodel.Group
+		want   string
 	}{
 		{name: "No variant", want: ""},
-		{name: "One variant", union: gomodel.Union{Variants: variants("Cat")}, want: "Pet is one of Cat."},
-		{name: "Two variants", union: gomodel.Union{Variants: variants("Cat", "Dog")}, want: "Pet is one of Cat or Dog."},
-		{name: "Three variants of an anyOf", union: gomodel.Union{IsAnyOf: true, Variants: variants("Cat", "Dog", "Fox")}, want: "Pet is any of Cat, Dog or Fox."},
-		{name: "Nullable", union: gomodel.Union{IsNullable: true, Variants: variants("Cat", "Dog")}, want: "Pet is one of Cat or Dog, or null."},
-		{name: "Names too long for one line", union: gomodel.Union{Variants: variants(many...)}, want: "Pet is one of 12 variants."},
+		{name: "One variant", groups: []gomodel.Group{{Variants: variants("Cat")}}, want: "Pet is one of Cat."},
+		{name: "Two variants", groups: []gomodel.Group{{Variants: variants("Cat", "Dog")}}, want: "Pet is one of Cat or Dog."},
+		{name: "Three variants of an anyOf", groups: []gomodel.Group{{IsAnyOf: true, Variants: variants("Cat", "Dog", "Fox")}}, want: "Pet is any of Cat, Dog or Fox."},
+		{name: "Nullable", groups: []gomodel.Group{{IsNullable: true, Variants: variants("Cat", "Dog")}}, want: "Pet is one of Cat or Dog, or null."},
+		{name: "Names too long for one line", groups: []gomodel.Group{{Variants: variants(many...)}}, want: "Pet is one of 12 variants."},
+		{
+			name:   "Two unions",
+			groups: []gomodel.Group{{Variants: variants("Cat", "Dog")}, {IsAnyOf: true, Variants: variants("Small", "Large")}},
+			want:   "Pet is one of Cat or Dog, and any of Small or Large.",
+		},
+		{
+			name:   "Two unions that are both nullable",
+			groups: []gomodel.Group{{IsNullable: true, Variants: variants("Cat")}, {IsNullable: true, Variants: variants("Small")}},
+			want:   "Pet is one of Cat, and one of Small, or null.",
+		},
+		{
+			name:   "Null only when every union takes it",
+			groups: []gomodel.Group{{IsNullable: true, Variants: variants("Cat")}, {Variants: variants("Small")}},
+			want:   "Pet is one of Cat, and one of Small.",
+		},
+		{
+			name:   "A union with no variant left is not named",
+			groups: []gomodel.Group{{Variants: variants("Cat", "Dog")}, {}},
+			want:   "Pet is one of Cat or Dog.",
+		},
+		{
+			name:   "Two unions too long for one line",
+			groups: []gomodel.Group{{Variants: variants(many[:6]...)}, {IsAnyOf: true, Variants: variants(many[6:]...)}},
+			want:   "Pet is one of 6 variants, and any of 6 variants.",
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, tc.want, unionDoc(&gomodel.Decl{Name: "Pet", Union: &tc.union}))
+			u := &gomodel.Union{}
+			for _, g := range tc.groups {
+				u.Variants = append(u.Variants, g.Variants...)
+				u.Groups = append(u.Groups, &g)
+			}
+			assert.Equal(t, tc.want, unionDoc(&gomodel.Decl{Name: "Pet", Union: u}))
 		})
 	}
 }
@@ -312,6 +355,11 @@ func TestViewRendersGetters(t *testing.T) {
 
 // checkRender renders every part of g into one file and compares it with testdata/<name>.golden.
 // UPDATE=1 writes the file instead.
+// groupUnion is a union of the one group g.
+func groupUnion(g gomodel.Group) *gomodel.Union {
+	return &gomodel.Union{Variants: g.Variants, Groups: []*gomodel.Group{&g}}
+}
+
 func checkRender(t *testing.T, g *Generator, name string) {
 	t.Helper()
 

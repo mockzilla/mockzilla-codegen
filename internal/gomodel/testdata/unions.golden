@@ -290,6 +290,78 @@ TwinOption1 struct models.types
 TwinOption2 struct models.types
   ID string json=id required
   B *string json=b omitempty
+TwoOneOfs union models.unions
+  | oneOf of Option1, Option2
+  | oneOf of Option3, Option4, Option5
+  | Option1 *TwoOneOfsOption1 kinds=object required=a known=a
+  | Option2 *TwoOneOfsOption2 kinds=object required=b known=b
+  | Option3 *TwoOneOfsOption3 kinds=object required=c known=c closed
+  | Option4 *TwoOneOfsOption4 kinds=object known=d
+  | Option5 *TwoOneOfsOption5 kinds=object known=e
+TwoOneOfsOption1 struct models.types
+  A string json=a required
+TwoOneOfsOption2 struct models.types
+  B int json=b required
+TwoOneOfsOption3 struct models.types
+  C string json=c required
+TwoOneOfsOption4 struct models.types
+  D *int json=d omitempty
+TwoOneOfsOption5 struct models.types
+  E *int json=e omitempty
+OneAndAny union models.unions
+  | oneOf discriminator=kind of Cat, Dog
+  | anyOf of Cat, Bird
+  | Cat *Cat kinds=object values=cat required=kind,meow known=kind,meow
+  | Dog *Dog kinds=object values=dog required=kind known=kind,bark closed
+  | Bird *Bird kinds=object known=wings
+OneAndIf union models.unions
+  | oneOf of Option1, Option2
+  | oneOf discriminator=kind of Then, Else
+  | Option1 *OneAndIfOption1 kinds=object required=a known=a
+  | Option2 *OneAndIfOption2 kinds=object required=b known=b
+  | Then *OneAndIfThen kinds=object values=x known=x
+  | Else *OneAndIfElse kinds=object default known=y
+OneAndIfOption1 struct models.types
+  A string json=a required
+OneAndIfOption2 struct models.types
+  B string json=b required
+OneAndIfThen struct models.types
+  X *string json=x omitempty
+OneAndIfElse struct models.types
+  Y *string json=y omitempty
+IfWithNull union models.unions
+  | oneOf of Option1, Option2
+  | oneOf nullable of Else
+  | Option1 *IfWithNullOption1 kinds=object required=a known=a
+  | Option2 *IfWithNullOption2 kinds=object required=b known=b
+  | Else *IfWithNullElse kinds=object known=y
+IfWithNullOption1 struct models.types
+  A string json=a required
+IfWithNullOption2 struct models.types
+  B string json=b required
+IfWithNullElse struct models.types
+  Y *string json=y omitempty
+TwoRefs union models.unions
+  ID string json=id required
+  | oneOf of Cat, Dog
+  | oneOf discriminator=kind of Bird, Cat
+  | Cat *Cat kinds=object values=cat required=kind,meow known=kind,meow
+  | Dog *Dog kinds=object required=kind known=kind,bark closed
+  | Bird *Bird kinds=object values=Bird known=wings
+HoldsTwo union models.unions
+  | oneOf
+  | TwoOneOfs *TwoOneOfs kinds=object
+  |   shape required=a,c known=a,c closed
+  |   shape required=a known=a,d
+  |   shape required=a known=a,e
+  |   shape required=b,c known=b,c closed
+  |   shape required=b known=b,d
+  |   shape required=b known=b,e
+  | TwoRefs *TwoRefs kinds=object
+  |   shape required=kind,meow,id known=kind,meow,wings,id
+  |   shape required=kind,meow,id known=kind,meow,id
+  |   shape required=kind,id known=kind,bark,wings,id closed
+  |   shape required=kind,meow,id known=kind,bark,meow,id closed
 ---
 info union-duplicate 63:11 /components/schemas/Duplicates/oneOf/1: member 2 has the same Go type (string) as variant String; they share its field
 info union-duplicate 65:11 /components/schemas/Duplicates/oneOf/3: member 4 has the same Go type (Cat) as variant Cat; they share its field
@@ -299,7 +371,10 @@ warning union-ambiguous 109:7 /components/schemas/IfThenElseByShape: variants Th
 warning union-self 139:11 /components/schemas/Self/oneOf/0: member 1 is the union itself; it is left out
 warning union-ambiguous 143:7 /components/schemas/NoIf: variants Then, Else of NoIf require no property, so {} matches each of them and fails to decode
 warning union-ambiguous 146:7 /components/schemas/IfWithoutConst: variants Then, Else of IfWithoutConst require no property, so {} matches each of them and fails to decode
+info union-duplicate 162:11 /components/schemas/Flyer/oneOf/1: member 4 has the same Go type (Cat) as variant Cat; they share its field
 warning union-ambiguous 191:7 /components/schemas/SameRequired: variants Option1, Option2 of SameRequired require the same properties (id), so an object with only those matches each of them and fails to decode
 warning union-ambiguous 208:7 /components/schemas/SumClash: variants Sum1, SumAgain of SumClash require the same properties (common, one), so an object with only those matches each of them and fails to decode
 warning union-ambiguous 216:7 /components/schemas/Outer: variants Flyer, Loose of Outer require no property, so {} matches each of them and fails to decode
 warning union-ambiguous 241:7 /components/schemas/Twin: variants Option1, Option2 of Twin require the same properties (id), so an object with only those matches each of them and fails to decode
+warning union-ambiguous 245:7 /components/schemas/TwoOneOfs: variants Option4, Option5 of TwoOneOfs require no property, so {} matches each of them and fails to decode
+info union-duplicate 258:11 /components/schemas/OneAndAny/anyOf/0: member 3 has the same Go type (Cat) as variant Cat; they share its field

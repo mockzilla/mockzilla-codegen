@@ -322,7 +322,7 @@ type Tagged struct {
 
 // MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (t Tagged) MarshalJSON() ([]byte, error) {
-	return runtime.MarshalTagged(nil, t.union(), t.Owner, t.Empty)
+	return runtime.MarshalVariants(nil, t.union(), t.Owner, t.Empty)
 }
 
 // UnmarshalJSON sets the variant data matches.
@@ -426,6 +426,95 @@ func (e Either) Validate() error {
 		validation.VariantErrors{IsSet: e.Number != nil},
 		validation.VariantErrors{IsSet: e.Code != nil, Errs: errsCode},
 		validation.VariantErrors{IsSet: e.Tags != nil, Errs: errsTags},
+	))
+	return errs.Err()
+}
+
+// Mixed is one of First or Shared, and any of Shared or Last, and any of Plain or Other.
+type Mixed struct {
+	First  *string  `json:"-"`
+	Shared *string  `json:"-"`
+	Last   *string  `json:"-"`
+	Plain  *float64 `json:"-"`
+	Other  *float64 `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged.
+func (m Mixed) MarshalJSON() ([]byte, error) {
+	return runtime.MarshalVariants(nil, m.union(), m.First, m.Shared, m.Shared, m.Last, m.Plain, m.Other)
+}
+
+// UnmarshalJSON sets the variants of each union data matches.
+func (m *Mixed) UnmarshalJSON(data []byte) error {
+	*m = Mixed{}
+	return runtime.UnmarshalUnion(data, m.union())
+}
+
+func (m *Mixed) union() runtime.Union {
+	return runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name: "First",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&m.First),
+			},
+			{
+				Name: "Shared",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&m.Shared),
+			},
+		},
+		Also: []runtime.Union{
+			{
+				IsAnyOf: true,
+				Variants: []runtime.Variant{
+					{
+						Name: "Shared",
+						Kind: runtime.KindString,
+						Into: runtime.Into(&m.Shared),
+					},
+					{
+						Name: "Last",
+						Kind: runtime.KindString,
+						Into: runtime.Into(&m.Last),
+					},
+				},
+			},
+			{
+				IsAnyOf: true,
+				Variants: []runtime.Variant{
+					{
+						Name: "Plain",
+						Kind: runtime.KindNumber,
+						Into: runtime.Into(&m.Plain),
+					},
+					{
+						Name: "Other",
+						Kind: runtime.KindNumber,
+						Into: runtime.Into(&m.Other),
+					},
+				},
+			},
+		},
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (m Mixed) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(m.First != nil, m.Shared != nil))
+	errs.Append("", validation.AtLeastOne(m.Shared != nil, m.Last != nil))
+	errs.Append("", validation.AtLeastOne(m.Plain != nil, m.Other != nil))
+	if m.Shared != nil {
+		errs.Append("", validation.MaxLength(*m.Shared, 5))
+	}
+	var errsLast validation.Errors
+	if m.Last != nil {
+		errsLast.Append("", validation.MinLength(*m.Last, 2))
+	}
+	errs.Append("", validation.AnyValid(
+		validation.VariantErrors{IsSet: m.Shared != nil},
+		validation.VariantErrors{IsSet: m.Last != nil, Errs: errsLast},
 	))
 	return errs.Err()
 }

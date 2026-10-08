@@ -10,15 +10,15 @@ type {{.Name}} struct {
 {{- end}}
 }
 {{- with .Union}}
-{{- if .Discriminator}}
+{{- if .IsDescribed}}
 
-// MarshalJSON writes {{if .IsAnyOf}}the variants that are set, with the discriminator value that picks them{{else}}the variant that is set, with the discriminator value that picks it{{end}}.
+// MarshalJSON writes {{if .IsGrouped}}the variants that are set, merged{{if .JSON}} with the shared properties{{end}}{{else if .IsAnyOf}}the variants that are set, with the discriminator value that picks them{{else}}the variant that is set, with the discriminator value that picks it{{end}}.
 func ({{.Receiver}} {{$.Name}}) MarshalJSON() ([]byte, error) {
 {{- if .JSON}}
 	type plain {{$.Name}}
-	return {{.Runtime}}.MarshalTagged(plain({{.Receiver}}), {{.Receiver}}.union(){{range .Variants}}, {{$.Union.Receiver}}.{{.Name}}{{end}})
+	return {{.Runtime}}.MarshalVariants(plain({{.Receiver}}), {{.Receiver}}.union(){{range .Args}}, {{$.Union.Receiver}}.{{.}}{{end}})
 {{- else}}
-	return {{.Runtime}}.MarshalTagged(nil, {{.Receiver}}.union(){{range .Variants}}, {{$.Union.Receiver}}.{{.Name}}{{end}})
+	return {{.Runtime}}.MarshalVariants(nil, {{.Receiver}}.union(){{range .Args}}, {{$.Union.Receiver}}.{{.}}{{end}})
 {{- end}}
 }
 {{- else}}
@@ -49,7 +49,7 @@ func ({{.Receiver}} *{{$.Name}}) UnmarshalJSON(data []byte) error {
 		return err
 	}
 {{- end}}
-	return {{.Runtime}}.UnmarshalUnion(data, {{if .HasUnion}}{{.Receiver}}.union(){{else}}{{template "models/variants.tmpl" .}}{{end}})
+	return {{.Runtime}}.UnmarshalUnion(data, {{if .HasUnion}}{{.Receiver}}.union(){{else}}{{template "models/variants.tmpl" .Literal}}{{end}})
 }
 {{- with .Form}}
 
@@ -67,7 +67,7 @@ func ({{$.Union.Receiver}} *{{$.Name}}) UnmarshalForm(form {{.}}) error {
 {{- if .HasUnion}}
 
 func ({{.Receiver}} *{{$.Name}}) union() {{.Runtime}}.Union {
-	return {{template "models/variants.tmpl" .}}
+	return {{template "models/variants.tmpl" .Literal}}
 }
 {{- end}}
 {{- if .IsText}}

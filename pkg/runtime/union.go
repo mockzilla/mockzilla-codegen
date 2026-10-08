@@ -52,12 +52,13 @@ type Shape struct {
 }
 
 // Union describes a union to UnmarshalUnion. Shared are the property names the union holds next
-// to its variants, which no variant counts as unknown.
+// to its variants, which no variant counts as unknown. Also are more unions the value is at once.
 type Union struct {
 	IsAnyOf       bool
 	Discriminator string
 	Shared        []string
 	Variants      []Variant
+	Also          []Union
 }
 
 // candidate is a variant that can take a value; for objects, score counts the required properties
@@ -115,7 +116,7 @@ func UnmarshalUnion(data []byte, u Union) error {
 			return err
 		}
 	}
-	return u.setVariants(obj, kind, "a JSON "+kind.String(), func(t Setter) error { return t.decode(data) })
+	return u.setAll(obj, kind, "a JSON "+kind.String(), func(t Setter) error { return t.decode(data) })
 }
 
 // UnmarshalUnionForm reads form into the shared fields, then into the variants it matches.
@@ -125,7 +126,7 @@ func UnmarshalUnionForm(form *multipart.Form, fields any, u Union) error {
 			return err
 		}
 	}
-	return u.setVariants(formMembers(form), KindObject, "a form", func(t Setter) error { return t.fill(form) })
+	return u.setAll(formMembers(form), KindObject, "a form", func(t Setter) error { return t.fill(form) })
 }
 
 // UnmarshalUnionText decodes raw with a union's UnmarshalJSON, as a number or boolean first.
@@ -140,6 +141,26 @@ func UnmarshalUnionText(raw []byte, decode func(data []byte) error) error {
 		return nil
 	}
 	return err
+}
+
+// groups are u and the unions in its Also, each with the shared names of u.
+func (u Union) groups() []Union {
+	out := []Union{u}
+	for _, g := range u.Also {
+		g.Shared = u.Shared
+		out = append(out, g)
+	}
+	return out
+}
+
+// setAll decodes into the variants of each group a value of kind matches.
+func (u Union) setAll(obj map[string]json.RawMessage, kind Kind, what string, decode func(Setter) error) error {
+	for _, g := range u.groups() {
+		if err := g.setVariants(obj, kind, what, decode); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // setVariants decodes into the variants a value of kind matches; what names the value in errors.

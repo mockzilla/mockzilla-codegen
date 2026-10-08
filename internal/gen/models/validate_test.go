@@ -83,34 +83,56 @@ func TestViewRendersValidation(t *testing.T) {
 			Items: &gomodel.Check{IsNested: true, Nested: pet},
 		}},
 	}}
-	choice := &gomodel.Decl{Name: "Choice", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
-		Variants: []*gomodel.Variant{
-			{Name: "Status", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: status}}, Kinds: gomodel.JSONString},
-			{Name: "Number", FieldType: gomodel.Pointer{Elem: num}, Kinds: gomodel.JSONNumber},
-		},
-	}, Validation: &gomodel.Validation{Count: "ExactlyOne", Checks: []*gomodel.Check{
+	statusVariant := &gomodel.Variant{Name: "Status", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: status}}, Kinds: gomodel.JSONString}
+	numberVariant := &gomodel.Variant{Name: "Number", FieldType: gomodel.Pointer{Elem: num}, Kinds: gomodel.JSONNumber}
+	choice := &gomodel.Decl{Name: "Choice", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: groupUnion(gomodel.Group{
+		Variants: []*gomodel.Variant{statusVariant, numberVariant},
+	}), Validation: &gomodel.Validation{Counts: []gomodel.Count{{Func: "ExactlyOne", Variants: []*gomodel.Variant{statusVariant, numberVariant}}}, Checks: []*gomodel.Check{
 		{Field: "Status", IsPointer: true, IsGuarded: true, IsNested: true, Nested: status},
 	}}, Error: &gomodel.ErrorMessage{Path: "detail"}}
-	tagged := &gomodel.Decl{Name: "Tagged", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
+	ownerVariant := &gomodel.Variant{Name: "Owner", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: owner}}, Kinds: gomodel.JSONObject, Values: []string{"owner"}}
+	emptyVariant := &gomodel.Variant{Name: "Empty", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: empty}}, Kinds: gomodel.JSONObject, Values: []string{"empty"}}
+	tagged := &gomodel.Decl{Name: "Tagged", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: groupUnion(gomodel.Group{
 		Discriminator: "kind",
-		Variants: []*gomodel.Variant{
-			{Name: "Owner", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: owner}}, Kinds: gomodel.JSONObject, Values: []string{"owner"}},
-			{Name: "Empty", FieldType: gomodel.Pointer{Elem: gomodel.DeclRef{Decl: empty}}, Kinds: gomodel.JSONObject, Values: []string{"empty"}},
-		},
-	}, Validation: &gomodel.Validation{Count: "ExactlyOne", IsDiscriminated: true}}
-	either := &gomodel.Decl{Name: "Either", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
-		IsAnyOf: true,
-		Variants: []*gomodel.Variant{
-			{Name: "Number", FieldType: gomodel.Pointer{Elem: num}, Kinds: gomodel.JSONNumber},
-			{Name: "Code", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString},
-			{Name: "Tags", FieldType: gomodel.Slice{Elem: str}, Kinds: gomodel.JSONArray},
-		},
-	}, Validation: &gomodel.Validation{Count: "AtLeastOne", Checks: []*gomodel.Check{
+		Variants:      []*gomodel.Variant{ownerVariant, emptyVariant},
+	}), Validation: &gomodel.Validation{Counts: []gomodel.Count{{Func: "ExactlyOne", Variants: []*gomodel.Variant{ownerVariant, emptyVariant}}}, IsDiscriminated: true}}
+	eitherVariants := []*gomodel.Variant{
+		{Name: "Number", FieldType: gomodel.Pointer{Elem: num}, Kinds: gomodel.JSONNumber},
+		{Name: "Code", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString},
+		{Name: "Tags", FieldType: gomodel.Slice{Elem: str}, Kinds: gomodel.JSONArray},
+	}
+	either := &gomodel.Decl{Name: "Either", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: groupUnion(gomodel.Group{
+		IsAnyOf:  true,
+		Variants: eitherVariants,
+	}), Validation: &gomodel.Validation{Counts: []gomodel.Count{{Func: "AtLeastOne", Variants: eitherVariants}}, Checks: []*gomodel.Check{
 		{Field: "Code", IsVariant: true, IsPointer: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMaxLength, Number: "5"}}},
 		{Field: "Tags", IsVariant: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMinItems, Number: "1"}}, Items: &gomodel.Check{
 			Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "1"}},
 		}},
 	}}}
+	first := &gomodel.Variant{Name: "First", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}
+	shared := &gomodel.Variant{Name: "Shared", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}
+	last := &gomodel.Variant{Name: "Last", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}
+	plain := &gomodel.Variant{Name: "Plain", FieldType: gomodel.Pointer{Elem: num}, Kinds: gomodel.JSONNumber}
+	other := &gomodel.Variant{Name: "Other", FieldType: gomodel.Pointer{Elem: num}, Kinds: gomodel.JSONNumber}
+	mixed := &gomodel.Decl{Name: "Mixed", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
+		Variants: []*gomodel.Variant{first, shared, last, plain, other},
+		Groups: []*gomodel.Group{
+			{Variants: []*gomodel.Variant{first, shared}},
+			{IsAnyOf: true, Variants: []*gomodel.Variant{shared, last}},
+			{IsAnyOf: true, Variants: []*gomodel.Variant{plain, other}},
+		},
+	}, Validation: &gomodel.Validation{
+		Counts: []gomodel.Count{
+			{Func: "ExactlyOne", Variants: []*gomodel.Variant{first, shared}},
+			{Func: "AtLeastOne", Variants: []*gomodel.Variant{shared, last}},
+			{Func: "AtLeastOne", Variants: []*gomodel.Variant{plain, other}},
+		},
+		Checks: []*gomodel.Check{
+			{Field: "Shared", IsVariant: true, IsPointer: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMaxLength, Number: "5"}}},
+			{Field: "Last", IsVariant: true, IsPointer: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "2"}}},
+		},
+	}}
 	quoted := spec.Value{Kind: spec.KindObject, Fields: []spec.Field{{Name: "a", Value: spec.Value{Kind: spec.KindString, Str: "x`y"}}}}
 	corner := &gomodel.Decl{Name: "Corner", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{}, Validation: &gomodel.Validation{Checks: []*gomodel.Check{
 		{Rules: []gomodel.Rule{{Kind: gomodel.RuleEnumJSON, Values: []spec.Value{{Kind: spec.KindArray, Items: []spec.Value{{Kind: spec.KindNumber, Num: "1"}}}, quoted}}}},
@@ -133,7 +155,7 @@ func TestViewRendersValidation(t *testing.T) {
 	}, Error: &gomodel.ErrorMessage{Path: "message", HasConstructor: true}}
 
 	g := New(&gomodel.Model{
-		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, either, corner, patch, problem},
+		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, either, mixed, corner, patch, problem},
 		Patterns: []*gomodel.Pattern{code},
 	})
 	checkRender(t, g, "validation")
