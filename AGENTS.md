@@ -24,7 +24,7 @@ Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33f/libop
 - `make test-integration-ci` runs what the Integration workflow runs, started by hand for now:
   `.github/ci-specs.txt` on every variant with chi, the specs `.github/ci-router-specs.txt` lists
   on every framework too. `BATCH=i/n` runs one of n batches, as the workflow's four jobs do.
-- Coverage gate exclusions live in `.covignore`.
+- The coverage gate is go-test-coverage; its threshold and exclusions live in `.testcoverage.yml`.
 
 ## Rules
 
@@ -56,4 +56,3 @@ Public packages live under `pkg/`, private ones under `internal/`. No Go files i
 | `internal/...` | provider, spec IR, transforms, naming, Go model, rendering, layout |
 | `examples/` | separate module: golden examples and tests of generated code |
 | `test/` | parse sweep, integration test, benchmarks (build tags) |
-| `scripts/covercheck` | per-package coverage gate |

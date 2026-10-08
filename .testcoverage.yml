@@ -1,0 +1,8 @@
+profile: coverage.out
+# The tool rounds to 0.1%, so a package of 2,000 statements passes with one missed; files are smaller.
+threshold:
+  file: 100
+  package: 100
+exclude:
+  paths:
+    - ^cmd/mockzilla-codegen/main\.go$

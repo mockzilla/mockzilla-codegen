@@ -1,3 +1,0 @@
-# Module-relative paths left out of the coverage gate. "dir/..." skips a whole tree.
-cmd/mockzilla-codegen/main.go
-scripts/covercheck/main.go

@@ -5,7 +5,8 @@ PKG ?= ./...
 RUN ?=
 CI_SPECS = $(shell grep -v '^\#' .github/ci-specs.txt)
 CI_ROUTER_SPECS = $(shell grep -v '^\#' .github/ci-router-specs.txt)
-MIN_COVERAGE ?= 100
+# go-test-coverage must not need a newer Go than the go directive in go.mod; bump the two together.
+COVERAGE_VERSION ?= v2.19.0
 # golangci-lint must be built with a Go at least as new as the go directive in go.mod; bump the two
 # together.
 GOLANGCI_VERSION ?= v2.14.0
@@ -34,8 +35,8 @@ cover: ## Write coverage.out and coverage.html
 	go tool cover -html=coverage.out -o coverage.html
 
 .PHONY: cover-check
-cover-check: cover ## Fail when a package is below MIN_COVERAGE (default 100)
-	go run ./scripts/covercheck -profile coverage.out -min $(MIN_COVERAGE) -ignore .covignore
+cover-check: cover ## Fail when a file or package is below 100% coverage; exclusions in .testcoverage.yml
+	go run github.com/vladopajic/go-test-coverage/v2@$(COVERAGE_VERSION) --config=.testcoverage.yml
 
 .PHONY: lint-tools
 lint-tools: ## Install golangci-lint GOLANGCI_VERSION into bin/ unless that version is there

@@ -147,8 +147,9 @@ Generated code follows this rule too, read in the output, not in the template:
 - **Complete assertions**: one `assert.Equal` on the whole value over field-by-field checks.
 - **Test file mirrors source**: `foo.go` is tested in `foo_test.go`. No orphan test files.
 - **Fixtures** for specs live in `testdata/` next to the test; keep each fixture minimal.
-- **Coverage**: every package passes the 100% gate (`make cover-check`). Exclusions go in
-  `.covignore` with a reason in the commit message, never by skipping tests.
+- **Coverage**: every file and package passes the 100% gate (`make cover-check`). Exclusions go in
+  `.testcoverage.yml` with a reason in the commit message, never in a `// coverage-ignore` comment
+  and never by skipping tests.
 
 ### 3. Variable naming
 
@@ -214,8 +215,8 @@ helper adds behavior: validation, defaults, an error return, type translation.
 ### 10. No logging or printing in library code
 
 Library packages never log and never print (`fmt.Print*`, `println`, `log.*`, `slog.*`). They return
-errors and diagnostics; the caller decides what to show. Only `pkg/cli`, to the writers it is
-given, and `scripts/` print. forbidigo enforces the print half.
+errors and diagnostics; the caller decides what to show. Only `pkg/cli` prints, to the writers it
+is given. forbidigo enforces the print half.
 
 ### 11. Package naming and location
 

@@ -91,7 +91,7 @@ linters:
       - examples
       - testdata
     rules:
-      - path: ^(cmd|scripts)/
+      - path: ^cmd/
         linters:
           - forbidigo
       - path: _test\.go
