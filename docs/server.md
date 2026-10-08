@@ -173,11 +173,12 @@ mux.HandleFunc("GET /pets", adapter.ListPets)
   text that is no JSON is a 400. A list of a multipart form is read from one part per item or
   from one part that holds the whole list as JSON. A part sent as a file, as browsers send a
   Blob, is read as the text of a property that holds no file.
-- Media types are matched without their parameters and in lower case. A range of one type, such
-  as `text/*`, takes the media types of that type the operation does not name, read as its
-  member: `text/*` as `text/plain`, `multipart/*` as `multipart/form-data`. `*/*`, or another key
-  with a `*` such as `application/*+json`, takes every media type left, as JSON unless its field
-  is a file, a string or bytes. A media type nothing takes is answered with 415.
+- Media types are matched without their parameters and in lower case. A key with a `*` takes
+  what the operation does not name: `application/*+json` any JSON media type, `application/json`
+  and every `+json` one; a range of one type, such as `text/*`, the media types of its type, read
+  as its member: `text/*` as `text/plain`, `multipart/*` as `multipart/form-data`. `*/*`, or
+  another key with a `*`, takes every media type left, as JSON unless its field is a file, a
+  string or bytes. A media type nothing takes is answered with 415.
 - A required body that is missing is a 400; a missing optional body leaves its field nil.
 - A service that returns an error type of the spec (see `models.error-mapping`), as a value, a
   pointer or wrapped, is answered with the status and the media type of the first response that

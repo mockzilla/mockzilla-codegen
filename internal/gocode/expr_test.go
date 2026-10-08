@@ -29,6 +29,7 @@ func TestExpressions(t *testing.T) {
 	assert.Equal(t, "true", And())
 	assert.Equal(t, "value, ok := p.Cat.Get(); ok", Get("p.Cat", "value", "ok"))
 	assert.Equal(t, `opts.Body != ""`, NotEmpty("opts.Body"))
+	assert.Equal(t, `kind == "a"`, Equal("kind", `"a"`))
 	assert.Equal(t, "&opts.Body", AddressOf("opts.Body"))
 	assert.Equal(t, "(w http.ResponseWriter, r *http.Request)", Signature([]string{Param("w", "http.ResponseWriter"), Param("r", Deref("http.Request"))}, ""))
 	assert.Equal(t, "(c echo.Context) error", Signature([]string{Param("c", "echo.Context")}, "error"))

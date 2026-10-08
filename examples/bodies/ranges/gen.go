@@ -20,6 +20,10 @@ import (
 // Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV1
 
+type Event struct {
+	Name string `json:"name"`
+}
+
 type Card struct {
 	Name  string        `json:"name"`
 	Photo *runtime.File `json:"photo,omitempty"`
@@ -37,6 +41,8 @@ type PutScoreResponse200 = int
 
 type AddCardResponse200 = string
 
+type AddEventResponse200 = string
+
 // ServiceInterface is what the generated handlers call. Implement it with the business logic.
 type ServiceInterface interface {
 	// AddAttachment handles POST /attachments.
@@ -45,6 +51,8 @@ type ServiceInterface interface {
 	PutScore(ctx context.Context, opts *PutScoreServiceRequestOptions) (*PutScoreResponseData, error)
 	// AddCard handles POST /cards.
 	AddCard(ctx context.Context, opts *AddCardServiceRequestOptions) (*AddCardResponseData, error)
+	// AddEvent handles POST /events.
+	AddEvent(ctx context.Context, opts *AddEventServiceRequestOptions) (*AddEventResponseData, error)
 }
 
 // AddAttachmentServiceRequestOptions is what AddAttachment receives.
@@ -223,6 +231,64 @@ func (r *AddCardResponseData) ContentType() string {
 	return r.contentType
 }
 
+// AddEventServiceRequestOptions is what AddEvent receives.
+type AddEventServiceRequestOptions struct {
+	// Body sent as application/*+json.
+	Body       *Event
+	RawRequest *http.Request
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *AddEventServiceRequestOptions) Validate() error {
+	return nil
+}
+
+// AddEventResponseData is what AddEvent returns.
+type AddEventResponseData struct {
+	Status  int
+	Headers http.Header
+	Body    any
+
+	contentType string
+}
+
+// NewAddEventResponseData returns the 200 response with its text/plain body.
+func NewAddEventResponseData(body *AddEventResponse200) *AddEventResponseData {
+	return &AddEventResponseData{Status: 200, Body: body, contentType: "text/plain"}
+}
+
+// WithStatus sets the status code.
+func (r *AddEventResponseData) WithStatus(code int) *AddEventResponseData {
+	r.Status = code
+	return r
+}
+
+// WithHeaders sets the headers.
+func (r *AddEventResponseData) WithHeaders(h http.Header) *AddEventResponseData {
+	r.Headers = h
+	return r
+}
+
+// StatusCode returns the status.
+func (r *AddEventResponseData) StatusCode() int {
+	return r.Status
+}
+
+// Header returns the headers.
+func (r *AddEventResponseData) Header() http.Header {
+	return r.Headers
+}
+
+// Payload returns the body.
+func (r *AddEventResponseData) Payload() any {
+	return r.Body
+}
+
+// ContentType returns the media type of the body, empty for the default of its Go type.
+func (r *AddEventResponseData) ContentType() string {
+	return r.contentType
+}
+
 // The error types the handlers use, as the runtime declares them.
 type (
 	ErrorKind           = httpserver.ErrorKind
@@ -316,30 +382,27 @@ func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
 func (a *HTTPAdapter) AddAttachment(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "AddAttachment"))
 	opts := &AddAttachmentServiceRequestOptions{RawRequest: r}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "":
+	switch contentType := runtime.ContentType(r.Header); {
+	case contentType == "":
 		a.failDecode(w, r, "AddAttachment", runtime.ErrBodyEmpty)
 		return
-	default:
-		switch runtime.MediaRange(contentType) {
-		case "text/*":
-			text, err := runtime.DecodeText(r.Body, true)
-			if err != nil {
-				a.failDecode(w, r, "AddAttachment", err)
-				return
-			}
-			opts.BodyText = runtime.Ptr(AddAttachmentTextRequestBody(text))
-		case "image/*":
-			file, err := runtime.DecodeFile(r, true)
-			if err != nil {
-				a.failDecode(w, r, "AddAttachment", err)
-				return
-			}
-			opts.BodyImage = runtime.Ptr(AddAttachmentImageRequestBody(file))
-		default:
-			a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "AddAttachment", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+	case runtime.MediaRange(contentType) == "text/*":
+		text, err := runtime.DecodeText(r.Body, true)
+		if err != nil {
+			a.failDecode(w, r, "AddAttachment", err)
 			return
 		}
+		opts.BodyText = runtime.Ptr(AddAttachmentTextRequestBody(text))
+	case runtime.MediaRange(contentType) == "image/*":
+		file, err := runtime.DecodeFile(r, true)
+		if err != nil {
+			a.failDecode(w, r, "AddAttachment", err)
+			return
+		}
+		opts.BodyImage = runtime.Ptr(AddAttachmentImageRequestBody(file))
+	default:
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "AddAttachment", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return
 	}
 
 	res, err := a.svc.AddAttachment(r.Context(), opts)
@@ -388,22 +451,19 @@ func (a *HTTPAdapter) PutScore(w http.ResponseWriter, r *http.Request) {
 func (a *HTTPAdapter) AddCard(w http.ResponseWriter, r *http.Request) {
 	r = r.WithContext(runtime.WithOperationID(r.Context(), "AddCard"))
 	opts := &AddCardServiceRequestOptions{RawRequest: r}
-	switch contentType := runtime.ContentType(r.Header); contentType {
-	case "":
+	switch contentType := runtime.ContentType(r.Header); {
+	case contentType == "":
 		a.failDecode(w, r, "AddCard", runtime.ErrBodyEmpty)
 		return
-	default:
-		switch runtime.MediaRange(contentType) {
-		case "multipart/*":
-			opts.Body = &Card{}
-			if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory, nil); err != nil {
-				a.failDecode(w, r, "AddCard", err)
-				return
-			}
-		default:
-			a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "AddCard", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+	case runtime.MediaRange(contentType) == "multipart/*":
+		opts.Body = &Card{}
+		if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory, nil); err != nil {
+			a.failDecode(w, r, "AddCard", err)
 			return
 		}
+	default:
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "AddCard", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return
 	}
 
 	res, err := a.svc.AddCard(r.Context(), opts)
@@ -416,6 +476,36 @@ func (a *HTTPAdapter) AddCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.write(w, r, "AddCard", res)
+}
+
+// AddEvent handles POST /events.
+func (a *HTTPAdapter) AddEvent(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(runtime.WithOperationID(r.Context(), "AddEvent"))
+	opts := &AddEventServiceRequestOptions{RawRequest: r}
+	switch contentType := runtime.ContentType(r.Header); {
+	case contentType == "":
+		a.failDecode(w, r, "AddEvent", runtime.ErrBodyEmpty)
+		return
+	case runtime.IsJSON(contentType):
+		if err := a.opts.JSONDecoder(r.Body, &opts.Body, true); err != nil {
+			a.failDecode(w, r, "AddEvent", err)
+			return
+		}
+	default:
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "AddEvent", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
+		return
+	}
+
+	res, err := a.svc.AddEvent(r.Context(), opts)
+	if err != nil {
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "AddEvent", Err: err})
+		return
+	}
+	if res == nil {
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "AddEvent", Err: httpserver.ErrNoResponse})
+		return
+	}
+	a.write(w, r, "AddEvent", res)
 }
 
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {
@@ -456,6 +546,7 @@ func NewRouter(svc ServiceInterface, opts ...ServerOption) chi.Router {
 		r.Post("/attachments", a.AddAttachment)
 		r.Put("/scores", a.PutScore)
 		r.Post("/cards", a.AddCard)
+		r.Post("/events", a.AddEvent)
 	}
 
 	router, _ := o.Router.(chi.Router)
@@ -507,6 +598,17 @@ func (o *AddCardRequestOptions) Validate() error {
 	return nil
 }
 
+// AddEventRequestOptions is what AddEvent sends.
+type AddEventRequestOptions struct {
+	// Body sent as application/*+json.
+	Body *Event
+}
+
+// Validate checks the parameters and the body against the constraints of the spec.
+func (o *AddEventRequestOptions) Validate() error {
+	return nil
+}
+
 // HTTPDoer sends a request, as *http.Client does.
 type HTTPDoer = httpclient.Doer
 
@@ -521,6 +623,8 @@ type ClientInterface interface {
 	PutScore(ctx context.Context, opts *PutScoreRequestOptions, editors ...RequestEditor) (*PutScoreResponse200, error)
 	// AddCard calls POST /cards.
 	AddCard(ctx context.Context, opts *AddCardRequestOptions, editors ...RequestEditor) (*AddCardResponse200, error)
+	// AddEvent calls POST /events.
+	AddEvent(ctx context.Context, opts *AddEventRequestOptions, editors ...RequestEditor) (*AddEventResponse200, error)
 }
 
 var _ ClientInterface = (*Client)(nil)
@@ -685,6 +789,41 @@ func (c *Client) AddCardRequest(ctx context.Context, opts *AddCardRequestOptions
 		return nil, runtime.ErrBodyEmpty
 	}
 	return c.newRequest(ctx, "AddCard", b, editors)
+}
+
+// AddEvent calls POST /events.
+func (c *Client) AddEvent(ctx context.Context, opts *AddEventRequestOptions, editors ...RequestEditor) (*AddEventResponse200, error) {
+	req, err := c.AddEventRequest(ctx, opts, editors...)
+	if err != nil {
+		return nil, err
+	}
+	res, body, err := httpclient.Send(c.doer, req, "text/plain", c.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	var out *AddEventResponse200
+	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
+		{Status: "200", MediaType: "text/plain", Dst: &out},
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AddEventRequest builds the request of POST /events.
+func (c *Client) AddEventRequest(ctx context.Context, opts *AddEventRequestOptions, editors ...RequestEditor) (*http.Request, error) {
+	if opts == nil {
+		opts = &AddEventRequestOptions{}
+	}
+	b := httpclient.NewRequestBuilder(http.MethodPost, "/events")
+	switch {
+	case opts.Body != nil:
+		b.JSONBody(opts.Body, "application/json")
+	default:
+		return nil, runtime.ErrBodyEmpty
+	}
+	return c.newRequest(ctx, "AddEvent", b, editors)
 }
 
 func (c *Client) newRequest(ctx context.Context, id string, b *httpclient.RequestBuilder, editors []RequestEditor) (*http.Request, error) {

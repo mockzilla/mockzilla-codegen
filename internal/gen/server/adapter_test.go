@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
@@ -44,6 +45,9 @@ func TestBodyView(t *testing.T) {
 	g, _ := New(m, allOptions())
 	view := func(v BodyView) BodyView {
 		v.Runtime, v.OperationID, v.IsRequired, v.Field, v.Target, v.Return = "runtime", `"Op"`, true, "Body", "&opts.Body", "return"
+		if v.Case == "" {
+			v.Case = v.MediaType
+		}
 		return v
 	}
 
@@ -108,17 +112,17 @@ func TestBodyView(t *testing.T) {
 		{
 			name:    "Text into any is its text",
 			content: gomodel.Content{MediaType: "text/*", Type: gomodel.Builtin{Name: "any"}},
-			want:    view(BodyView{Kind: "value", MediaType: `"text/*"`, IsValue: true}),
+			want:    view(BodyView{Kind: "value", MediaType: `"text/*"`, Case: `runtime.MediaRange(contentType) == "text/*"`, IsValue: true}),
 		},
 		{
 			name:    "The text range into a struct is taken in as it is",
 			content: gomodel.Content{MediaType: "text/*", Type: gomodel.DeclRef{Decl: pet}},
-			want:    view(BodyView{Kind: "none", MediaType: `"text/*"`}),
+			want:    view(BodyView{Kind: "none", MediaType: `"text/*"`, Case: `runtime.MediaRange(contentType) == "text/*"`}),
 		},
 		{
 			name:    "The multipart range fills a struct",
 			content: gomodel.Content{MediaType: "multipart/*", Type: gomodel.DeclRef{Decl: pet}},
-			want:    view(BodyView{Kind: "multipart", MediaType: `"multipart/*"`, IsMultipart: true, Type: "Pet", Encoding: "nil"}),
+			want:    view(BodyView{Kind: "multipart", MediaType: `"multipart/*"`, Case: `runtime.MediaRange(contentType) == "multipart/*"`, IsMultipart: true, Type: "Pet", Encoding: "nil"}),
 		},
 		{
 			name:    "Bytes into a defined byte slice",
@@ -136,6 +140,11 @@ func TestBodyView(t *testing.T) {
 			want:    view(BodyView{Kind: "none", MediaType: `"application/xml"`}),
 		},
 		{
+			name:    "Any JSON into a struct",
+			content: gomodel.Content{MediaType: "application/*+json", Type: gomodel.DeclRef{Decl: pet}},
+			want:    view(BodyView{Kind: "json", MediaType: `"application/*+json"`, Case: "runtime.IsJSON(contentType)", IsJSON: true}),
+		},
+		{
 			name:    "A wildcard into a struct is JSON",
 			content: gomodel.Content{MediaType: "*/*", Type: gomodel.DeclRef{Decl: pet}},
 			want:    view(BodyView{Kind: "json", MediaType: `"*/*"`, IsJSON: true}),
@@ -143,7 +152,7 @@ func TestBodyView(t *testing.T) {
 		{
 			name:    "A wildcard into a string is text",
 			content: gomodel.Content{MediaType: "text/*", Type: str},
-			want:    view(BodyView{Kind: "text", MediaType: `"text/*"`, IsText: true, Assign: "runtime.Ptr(text)"}),
+			want:    view(BodyView{Kind: "text", MediaType: `"text/*"`, Case: `runtime.MediaRange(contentType) == "text/*"`, IsText: true, Assign: "runtime.Ptr(text)"}),
 		},
 		{
 			name:    "A wildcard into a file streams",
@@ -181,6 +190,7 @@ func TestHandlerViewBodies(t *testing.T) {
 			{MediaType: "text/json", Type: gomodel.DeclRef{Decl: pet}},
 			{MediaType: "*/*", Type: gomodel.DeclRef{Decl: pet}},
 			{MediaType: "application/*+json", Type: gomodel.DeclRef{Decl: pet}},
+			{MediaType: "*/*+json", Type: gomodel.DeclRef{Decl: pet}},
 			{MediaType: "text/*"},
 			{MediaType: "Text/*"},
 			{MediaType: "image/*"},
@@ -195,12 +205,37 @@ func TestHandlerViewBodies(t *testing.T) {
 	fields := func(bodies []BodyView) []string {
 		out := make([]string, len(bodies))
 		for i, b := range bodies {
-			out[i] = b.MediaType + " " + b.Field
+			out[i] = b.Case + " " + b.Field
 		}
 		return out
 	}
 	assert.True(t, v.HasBody)
-	assert.Equal(t, []string{`"application/json" BodyJSON`, `"text/json" BodyTextJSON`}, fields(v.Bodies))
-	assert.Equal(t, []string{`"text/*" BodyText`, `"image/*" BodyImage`}, fields(v.Ranges))
+	assert.Empty(t, v.Tag)
+	assert.Equal(t, `contentType == ""`, v.Empty)
+	assert.Equal(t, []string{`contentType == "application/json" BodyJSON`, `contentType == "text/json" BodyTextJSON`}, fields(v.Bodies))
+	assert.Equal(t, []string{
+		"runtime.IsJSON(contentType) BodyApplicationJSON2",
+		`runtime.MediaRange(contentType) == "text/*" BodyText`,
+		`runtime.MediaRange(contentType) == "image/*" BodyImage`,
+	}, fields(v.Patterns))
 	assert.Equal(t, []string{`"*/*" BodyAny`}, fields(v.Wildcards))
+}
+
+func TestHandlerViewSwitchesOnTheMediaTypeWithoutPatterns(t *testing.T) {
+	t.Parallel()
+
+	op := &gomodel.Operation{
+		Name:   "PutNote",
+		Spec:   &spec.Operation{Method: "PUT", Path: "/note"},
+		Bodies: []gomodel.Content{{MediaType: "text/plain"}, {MediaType: "*/*"}},
+	}
+	m := &gomodel.Model{Operations: []*gomodel.Operation{op}}
+	g, _ := New(m, allOptions())
+
+	v := handlerView(g, op, fixture{m: m, g: g, cfg: scaffoldConfig}.scope(t, PartAdapter), newPresenceTable(nil, true, "runtime"))
+
+	assert.Equal(t, "contentType", v.Tag)
+	assert.Equal(t, `""`, v.Empty)
+	require.Len(t, v.Bodies, 1)
+	assert.Equal(t, `"text/plain"`, v.Bodies[0].Case)
 }

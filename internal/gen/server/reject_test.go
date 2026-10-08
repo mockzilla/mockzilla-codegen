@@ -79,6 +79,12 @@ func TestRejections(t *testing.T) {
 			want:      []rejection{{status: 400, decl: invalid, mediaType: "application/json"}, {status: 415, decl: problem, mediaType: "application/json"}},
 		},
 		{
+			name:      "Any JSON can be a 415",
+			bodies:    []gomodel.Content{{MediaType: "application/*+json", Type: gomodel.DeclRef{Decl: plain}}},
+			responses: []gomodel.Response{response("400", content("application/json", invalid)), response("4XX", content("application/json", problem))},
+			want:      []rejection{{status: 400, decl: invalid, mediaType: "application/json"}, {status: 415, decl: problem, mediaType: "application/json"}},
+		},
+		{
 			name:      "An error type under a range answers as JSON",
 			responses: []gomodel.Response{response("400", content("*/*", problem))},
 			want:      []rejection{{decl: problem, mediaType: "application/json"}},

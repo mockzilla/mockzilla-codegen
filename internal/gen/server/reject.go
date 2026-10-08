@@ -109,7 +109,7 @@ func rejections(op *gomodel.Operation) ([]rejection, []*gomodel.Decl) {
 	statuses := []int{http.StatusBadRequest}
 	isCatchAll := func(c gomodel.Content) bool {
 		mediaType := operation.BaseMediaType(c.MediaType)
-		return strings.Contains(mediaType, "*") && !isTypeRange(mediaType)
+		return strings.Contains(mediaType, "*") && !isTypeRange(mediaType) && !isJSONPattern(mediaType)
 	}
 	if len(op.Bodies) > 0 && !slices.ContainsFunc(op.Bodies, isCatchAll) {
 		statuses = append(statuses, http.StatusUnsupportedMediaType)

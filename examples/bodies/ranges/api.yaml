@@ -38,8 +38,25 @@ paths:
           description: the name and the type of the photo that came in
           content:
             text/plain: {schema: {type: string}}
+  /events:
+    post:
+      operationId: addEvent
+      requestBody:
+        required: true
+        content:
+          application/*+json: {schema: {$ref: '#/components/schemas/Event'}}
+      responses:
+        "200":
+          description: the name of the event and the media type it came in
+          content:
+            text/plain: {schema: {type: string}}
 components:
   schemas:
+    Event:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
     Card:
       type: object
       required: [name]

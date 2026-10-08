@@ -39,6 +39,10 @@ func (service) AddCard(_ context.Context, opts *AddCardServiceRequestOptions) (*
 	return NewAddCardResponseData(new(opts.Body.Name + " " + opts.Body.Photo.ContentType())), nil
 }
 
+func (service) AddEvent(_ context.Context, opts *AddEventServiceRequestOptions) (*AddEventResponseData, error) {
+	return NewAddEventResponseData(new(opts.Body.Name + " " + opts.RawRequest.Header.Get("Content-Type"))), nil
+}
+
 func newClient(t *testing.T) (*Client, string) {
 	t.Helper()
 
@@ -113,4 +117,16 @@ func TestAddCard(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, new("Ada image/png"), got)
+}
+
+func TestAddEvent(t *testing.T) {
+	t.Parallel()
+
+	c, base := newClient(t)
+	got, err := c.AddEvent(t.Context(), &AddEventRequestOptions{Body: &Event{Name: "launch"}})
+
+	require.NoError(t, err)
+	assert.Equal(t, new("launch application/json"), got)
+	assert.Equal(t, http.StatusOK, post(t, base+"/events", "application/vnd.event+json", `{"name":"launch"}`))
+	assert.Equal(t, http.StatusUnsupportedMediaType, post(t, base+"/events", "text/plain", "launch"))
 }

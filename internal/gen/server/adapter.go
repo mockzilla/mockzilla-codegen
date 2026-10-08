@@ -32,6 +32,9 @@ const (
 	bodyNone      = "none"
 )
 
+// contentTypeVar is the variable a handler holds the media type of the request body in.
+const contentTypeVar = "contentType"
+
 var (
 	stringType = gomodel.Builtin{Name: "string"}
 	bytesType  = gomodel.Slice{Elem: gomodel.Builtin{Name: "byte"}}
@@ -74,9 +77,11 @@ type AdapterView struct {
 }
 
 // HandlerView is one handler method. ID is the operation name as a string literal. Bodies are
-// the media types the handler tells apart, each once and never an empty one; Ranges are the
-// ranges of one type, such as text/*, that take the media types inside them; Wildcards holds the
-// body that takes any other media type, when the operation documents one such as */*.
+// the media types the handler tells apart, each once and never an empty one; Patterns are the
+// keys that take the media types they match, application/*+json any JSON and a range such as
+// text/* its type; Wildcards holds the body that takes any other media type, when the operation
+// documents one such as */*. Tag is what the body switch is on, contentType, or empty when
+// Patterns make it a switch of conditions; Empty is the case of a body without a media type.
 type HandlerView struct {
 	Name           string
 	ID             string
@@ -87,8 +92,10 @@ type HandlerView struct {
 	Groups         []GroupView
 	QueryString    *ParamView
 	HasBody        bool
+	Tag            string
+	Empty          string
 	Bodies         []BodyView
-	Ranges         []BodyView
+	Patterns       []BodyView
 	Wildcards      []BodyView
 	IsBodyRequired bool
 	Errors         []TypedErrorView
@@ -118,7 +125,7 @@ type ParamView struct {
 }
 
 // BodyView is one media type of the request body. MediaType is quoted, in lower case and without
-// parameters; OperationID is quoted; Target is the address of the options field; Type is the
+// parameters; Case is the case of the body switch that takes it; OperationID is quoted; Target is the address of the options field; Type is the
 // struct a multipart form fills; Assign is the expression that turns text, data or file, the
 // decoded body, into the field's type; Return is the statement that leaves the handler. Check is
 // what the body is checked against before it is decoded, nil when it is not. Encoding is nil or the
@@ -126,6 +133,7 @@ type ParamView struct {
 type BodyView struct {
 	Kind            string
 	MediaType       string
+	Case            string
 	Runtime         string
 	OperationID     string
 	IsJSON          bool
@@ -230,23 +238,45 @@ func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope, table *pr
 	v.IsBodyRequired = op.Spec.Body != nil && op.Spec.Body.Required
 	at := bodyAt{id: v.ID, isRequired: v.IsBodyRequired, ret: g.opts.Framework.Handler(s).Return, scope: s, table: table}
 	fields := operation.BodyFields(op.Bodies, g.opts.Namer)
+	var jsonPatterns, ranges []BodyView
 	seen := []string{""}
 	for i, c := range op.Bodies {
-		mediaType := operation.BaseMediaType(c.MediaType)
+		key := operation.BaseMediaType(c.MediaType)
+		if isJSONPattern(key) {
+			// Every JSON pattern takes the same media types, so the first one wins.
+			key = "+json"
+		}
 		switch {
-		case slices.Contains(seen, mediaType):
-		case isTypeRange(mediaType):
-			v.Ranges = append(v.Ranges, bodyView(c, fields[i], at))
-		case !strings.Contains(mediaType, "*"):
+		case slices.Contains(seen, key):
+		case key == "+json":
+			jsonPatterns = append(jsonPatterns, bodyView(c, fields[i], at))
+		case isTypeRange(key):
+			ranges = append(ranges, bodyView(c, fields[i], at))
+		case !strings.Contains(key, "*"):
 			v.Bodies = append(v.Bodies, bodyView(c, fields[i], at))
 		case len(v.Wildcards) == 0:
 			v.Wildcards = append(v.Wildcards, bodyView(c, fields[i], at))
 		}
-		seen = append(seen, mediaType)
+		seen = append(seen, key)
 	}
+	v.Patterns = slices.Concat(jsonPatterns, ranges)
+	switchOn(&v)
 	v.HasBody = len(op.Bodies) > 0
 	v.Errors = typedErrors(op, s)
 	return v
+}
+
+// switchOn sets what the body switch is on: contentType, or conditions when there are patterns.
+func switchOn(v *HandlerView) {
+	v.Tag, v.Empty = contentTypeVar, gocode.Quote("")
+	if len(v.Patterns) == 0 {
+		return
+	}
+
+	v.Tag, v.Empty = "", gocode.Equal(contentTypeVar, v.Empty)
+	for i := range v.Bodies {
+		v.Bodies[i].Case = gocode.Equal(contentTypeVar, v.Bodies[i].Case)
+	}
 }
 
 // groupView decodes each parameter of a location into its field of the group's struct.
@@ -303,6 +333,7 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 		Target:      gocode.AddressOf(gocode.Selector("opts", field)),
 		Return:      at.ret,
 	}
+	v.Case = bodyCase(operation.BaseMediaType(c.MediaType), v.Runtime)
 	t := operation.BodyType(c)
 	base := gomodel.Elem(t)
 	_, isPointer := t.(gomodel.Pointer)
@@ -365,6 +396,22 @@ func bodyKind(c gomodel.Content) string {
 		return bodyValue
 	}
 	return bodyNone
+}
+
+// bodyCase is the case of the body switch that takes a media type: a pattern's condition, else the media type quoted.
+func bodyCase(mediaType, runtimePkg string) string {
+	switch {
+	case isJSONPattern(mediaType):
+		return gocode.Call(gocode.Selector(runtimePkg, "IsJSON"), contentTypeVar)
+	case isTypeRange(mediaType):
+		return gocode.Equal(gocode.Call(gocode.Selector(runtimePkg, "MediaRange"), contentTypeVar), gocode.Quote(mediaType))
+	}
+	return gocode.Quote(mediaType)
+}
+
+// isJSONPattern reports a key such as application/*+json, which takes any JSON media type.
+func isJSONPattern(mediaType string) bool {
+	return strings.Contains(mediaType, "*") && runtime.IsJSON(mediaType)
 }
 
 // isTypeRange reports a media range of one type, such as text/*, which takes the subtypes of its type.

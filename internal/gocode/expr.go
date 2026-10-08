@@ -124,6 +124,11 @@ func And(conds ...string) string {
 	return strings.Join(conds, " && ")
 }
 
+// Equal writes x == y.
+func Equal(x, y string) string {
+	return x + " == " + y
+}
+
 // IsNil writes x == nil.
 func IsNil(x string) string {
 	return x + " == nil"
