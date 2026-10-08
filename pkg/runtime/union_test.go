@@ -248,6 +248,33 @@ func TestUnmarshalUnion(t *testing.T) {
 			},
 			want: holder{Cat: &cat{Name: "a"}},
 		},
+		{
+			name: "A literal value picks by JSON value",
+			data: `{"type":1.0,"name":"a"}`,
+			edit: func(u *Union) {
+				petsOnly(u)
+				u.IsLiteral, u.Variants[0].Values = true, []string{"1"}
+			},
+			want: holder{Cat: &cat{Name: "a"}},
+		},
+		{
+			name: "A string is no literal",
+			data: `{"type":"1","name":"a"}`,
+			edit: func(u *Union) {
+				petsOnly(u)
+				u.IsLiteral, u.Variants[0].Values, u.Variants[1].IsDefault = true, []string{"1"}, true
+			},
+			want: holder{Dog: &dog{Name: "a"}},
+		},
+		{
+			name: "A variant takes a value without the property",
+			data: `{"name":"a","bark":true}`,
+			edit: func(u *Union) {
+				petsOnly(u)
+				u.Variants[0].IsAbsent, u.Variants[1].IsDefault = true, true
+			},
+			want: holder{Cat: &cat{Name: "a"}},
+		},
 		{name: "Any of sets every match", data: `{"name":"a"}`, edit: func(u *Union) { noRequired(u); u.IsAnyOf = true }, want: holder{Cat: &cat{Name: "a"}, Dog: &dog{Name: "a"}}},
 		{name: "Any of sets every match that decodes", data: `{"meow":true,"bark":"x"}`, edit: func(u *Union) { u.IsAnyOf = true }, want: holder{Cat: &cat{Meow: true}}},
 		{name: "Any of where no match decodes", data: `{"meow":1,"bark":1}`, edit: func(u *Union) { u.IsAnyOf = true }, wantErr: ErrNoVariant},
@@ -617,6 +644,16 @@ func TestUnmarshalUnionFormPicks(t *testing.T) {
 			want:   holder{Cat: &cat{Name: "Kit", Meow: true}, Dog: &dog{Name: "Kit"}},
 		},
 		{
+			name: "A form text reads as a literal",
+			u: func(h *holder) Union {
+				u := pets(h)
+				u.IsLiteral, u.Variants[0].Values, u.Variants[1].IsDefault = true, []string{"1"}, true
+				return u
+			},
+			values: url.Values{"type": {"1"}, "name": {"Kit"}},
+			want:   holder{Cat: &cat{Name: "Kit"}},
+		},
+		{
 			name:    "A form no object variant takes",
 			u:       (*holder).union,
 			values:  url.Values{"meow": {"loud"}},
@@ -660,12 +697,14 @@ func TestFormMembers(t *testing.T) {
 	t.Parallel()
 
 	form := &multipart.Form{
-		Value: url.Values{"type": {"dog"}, "a[b]": {"1"}, "a": {"x"}, "empty": {}, "": {"x"}, "doc": {"text"}},
+		Value: url.Values{"type": {"dog"}, "a[b]": {"1"}, "a": {"x"}, "empty": {}, "": {"x"}, "doc": {"text"}, "n": {"1.5"}, "on": {"true"}},
 		File:  map[string][]*multipart.FileHeader{"doc": {{}}, "image": {{}}},
 	}
 
 	assert.Equal(t, map[string]json.RawMessage{
 		"type":  json.RawMessage(`"dog"`),
+		"n":     json.RawMessage(`1.5`),
+		"on":    json.RawMessage(`true`),
 		"a":     json.RawMessage(`"x"`),
 		"empty": json.RawMessage(`{}`),
 		"doc":   json.RawMessage(`"text"`),

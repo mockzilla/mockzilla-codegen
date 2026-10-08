@@ -28,6 +28,7 @@ type unionMember struct {
 	suffix    string
 	values    []string
 	isDefault bool
+	isAbsent  bool
 }
 
 // unionSchema is how a union schema reads. The members of a type list are made from its types
@@ -43,6 +44,7 @@ type unionSchema struct {
 type unionGroup struct {
 	isAnyOf       bool
 	isNullable    bool
+	isLiteral     bool
 	discriminator string
 	ignored       string
 	origin        spec.Origin
@@ -162,7 +164,7 @@ func (r *unionReader) discriminate(u *unionSchema, g int, f *spec.Schema, d *spe
 }
 
 // predicate reads an if that tests one property against a const or single-value enum: then takes
-// that value, else any other. It names the branches first.
+// that value, and no value unless the if requires one, else any other. It names the branches first.
 func (r *unionReader) predicate(u *unionSchema, g, at int, cond *spec.Schema) {
 	var then, otherwise *unionMember
 	for i := range u.members {
@@ -183,11 +185,16 @@ func (r *unionReader) predicate(u *unionSchema, g, at int, cond *spec.Schema) {
 		return
 	}
 	p := f.Properties[0]
-	if values := r.constValues(p.Schema); len(values) > 0 {
-		u.groups[g].discriminator = p.Name
-		then.values = values
-		otherwise.isDefault = true
+	v, ok := r.constValue(p.Schema)
+	if !ok || v.Kind == spec.KindArray || v.Kind == spec.KindObject {
+		return
 	}
+
+	u.groups[g].discriminator = p.Name
+	u.groups[g].isLiteral = v.Kind != spec.KindString
+	then.values = []string{valueText(v)}
+	then.isAbsent = !slices.Contains(f.Required, p.Name)
+	otherwise.isDefault = true
 }
 
 // typeList makes one member per type. Each keeps the keywords that apply to its type.
@@ -240,21 +247,23 @@ func (r *unionReader) property(s *spec.Schema, prop string) *spec.Property {
 // propertyValues are the values the property prop of s allows alone.
 func (r *unionReader) propertyValues(s *spec.Schema, prop string) []string {
 	if p := r.property(s, prop); p != nil {
-		return r.constValues(p.Schema)
+		if v, ok := r.constValue(p.Schema); ok {
+			return []string{valueText(v)}
+		}
 	}
 	return nil
 }
 
-// constValues is the const of s, or the value of an enum with one value.
-func (r *unionReader) constValues(s *spec.Schema) []string {
+// constValue is the const of s, or the value of an enum with one value; null is none.
+func (r *unionReader) constValue(s *spec.Schema) (spec.Value, bool) {
 	f := r.flat.flatten(target(s))
 	switch {
 	case f.Const != nil && f.Const.Kind != spec.KindNull:
-		return []string{valueText(*f.Const)}
+		return *f.Const, true
 	case len(f.Enum) == 1 && f.Enum[0].Kind != spec.KindNull:
-		return []string{valueText(f.Enum[0])}
+		return f.Enum[0], true
 	}
-	return nil
+	return spec.Value{}, false
 }
 
 // settleUnions gives each variant the type of its field and the JSON it takes, once every

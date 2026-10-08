@@ -465,9 +465,13 @@ list is one field.
 ### if, then, else
 
 With both branches, `then` and `else` are the variants, named after their `$ref` type, else `Then`
-and `Else`. When `if` tests one property against a `const` or a single-value `enum`, that value
-picks `then` and any other picks `else`; otherwise the branches are matched by shape. With one
-branch, its properties join the type as optional fields.
+and `Else`. When `if` tests one property against a `const` or a single-value `enum` of a string,
+number or boolean, that value picks `then` and any other picks `else`; otherwise the branches are
+matched by shape. As in JSON Schema, an object without the property picks `then`, unless the `if`
+lists it in `required`. So a value with `else` set needs the property, or `Validate` and
+`MarshalJSON` report it. A number or boolean is read and written as JSON: `true` does not match
+`"true"`, and `3` matches `3.0`. A value with `then` set and no property is written with the
+tested value. With one branch, its properties join the type as optional fields.
 
 ## Enums
 

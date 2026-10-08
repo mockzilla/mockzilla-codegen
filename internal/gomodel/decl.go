@@ -240,6 +240,7 @@ type Union struct {
 type Group struct {
 	IsAnyOf       bool
 	IsNullable    bool
+	IsLiteral     bool
 	Discriminator string
 	Variants      []*Variant
 	Members       []Member
@@ -260,6 +261,7 @@ type Variant struct {
 	FieldType Type
 	Values    []string
 	IsDefault bool
+	IsAbsent  bool
 	Kinds     JSONKind
 	Required  []string
 	Known     []string
