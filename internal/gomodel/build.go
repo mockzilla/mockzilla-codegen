@@ -170,6 +170,15 @@ func (b *builder) fillUnion(d *Decl, f *spec.Schema) {
 	u := &Union{isTypeList: us.isTypeList}
 	for _, g := range us.groups {
 		u.Groups = append(u.Groups, &Group{IsAnyOf: g.isAnyOf, IsNullable: g.isNullable, Discriminator: g.discriminator})
+		if g.ignored != "" {
+			b.diags.Append(diag.Diagnostic{
+				Severity: diag.Warning,
+				Code:     diag.CodeKeywordUnsupported,
+				Pointer:  g.origin.Pointer + "/discriminator",
+				Origin:   origin(g.origin),
+				Message:  fmt.Sprintf("the discriminator of %s is ignored: its property %q is not a string; variants are matched by shape and checks", d.Name, g.ignored),
+			})
+		}
 	}
 	st := &Struct{}
 	if !us.isTypeList {
@@ -210,9 +219,32 @@ func (b *builder) fillUnion(d *Decl, f *spec.Schema) {
 			g.Members = append(g.Members, mb)
 		}
 	}
+
+	if !us.isTypeList {
+		st.Fields = append(st.Fields, b.discriminatorFields(d, f, us, u)...)
+	}
 	d.Struct, d.Union = st, u
 	resolveFields(d, b.opts.Namer, b.methods(d), b.diags)
 	resolveVariants(d, b.methods(d), b.diags)
+}
+
+// discriminatorFields keep the values that pick a variant lacking the discriminator property.
+func (b *builder) discriminatorFields(d *Decl, f *spec.Schema, us *unionSchema, u *Union) []*Field {
+	var props []*spec.Property
+	var names []string
+	for i, g := range u.Groups {
+		name := g.Discriminator
+		isHeld := func(s *spec.Schema) bool { return b.unions.property(s, name) != nil }
+		isLost := func(v *Variant) bool { return len(v.Values) > 1 && !slices.ContainsFunc(v.schemas, isHeld) }
+		if name == "" || slices.Contains(names, name) || isHeld(f) || !slices.ContainsFunc(g.Variants, isLost) {
+			continue
+		}
+		names = append(names, name)
+		at := us.groups[i].origin
+		at.Pointer += "/discriminator"
+		props = append(props, &spec.Property{Name: name, Schema: &spec.Schema{Types: spec.TypeString, Origin: at}})
+	}
+	return b.fields(d, &spec.Schema{Properties: props})
 }
 
 // variant is the variant of u that member m of group g sets: the one of its Go type t, else a new one.

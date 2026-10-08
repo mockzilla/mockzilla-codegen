@@ -55,6 +55,60 @@ func (l Lookup) Validate() error {
 	return errs.Err()
 }
 
+type StageOption1 string
+
+const (
+	StageOption1Draft StageOption1 = "draft"
+)
+
+// StageOption1Values returns the values of StageOption1.
+func StageOption1Values() []StageOption1 {
+	return []StageOption1{
+		StageOption1Draft,
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (s StageOption1) Validate() error {
+	return validation.Enum(s, StageOption1Draft)
+}
+
+type StageOption2 string
+
+const (
+	StageOption2Review StageOption2 = "review"
+)
+
+// StageOption2Values returns the values of StageOption2.
+func StageOption2Values() []StageOption2 {
+	return []StageOption2{
+		StageOption2Review,
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (s StageOption2) Validate() error {
+	return validation.Enum(s, StageOption2Review)
+}
+
+type StageOption3 string
+
+const (
+	StageOption3Live StageOption3 = "live"
+)
+
+// StageOption3Values returns the values of StageOption3.
+func StageOption3Values() []StageOption3 {
+	return []StageOption3{
+		StageOption3Live,
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (s StageOption3) Validate() error {
+	return validation.Enum(s, StageOption3Live)
+}
+
 // Pet is one of Cat or Dog.
 type Pet struct {
 	Cat *Cat `json:"-"`
@@ -405,5 +459,77 @@ func (s Slug) Validate() error {
 		validation.VariantErrors{IsSet: s.String != nil, Errs: errsString},
 		validation.VariantErrors{IsSet: s.String != nil, Errs: errsString2},
 	))
+	return errs.Err()
+}
+
+// Stage is one of Option1, Option2 or Option3.
+type Stage struct {
+	Option1 *StageOption1 `json:"-"`
+	Option2 *StageOption2 `json:"-"`
+	Option3 *StageOption3 `json:"-"`
+}
+
+// MarshalJSON writes the variant that is set.
+func (s Stage) MarshalJSON() ([]byte, error) {
+	var set []any
+	if s.Option1 != nil {
+		set = append(set, s.Option1)
+	}
+	if s.Option2 != nil {
+		set = append(set, s.Option2)
+	}
+	if s.Option3 != nil {
+		set = append(set, s.Option3)
+	}
+	return runtime.MarshalOneOf(nil, set...)
+}
+
+// UnmarshalJSON sets the variant data matches.
+func (s *Stage) UnmarshalJSON(data []byte) error {
+	*s = Stage{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name: "Option1",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&s.Option1),
+			},
+			{
+				Name: "Option2",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&s.Option2),
+			},
+			{
+				Name: "Option3",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&s.Option3),
+			},
+		},
+	})
+}
+
+// MarshalText writes the variant that is set as text.
+func (s Stage) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(s.MarshalJSON())
+}
+
+// UnmarshalText sets the variant text matches.
+func (s *Stage) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, s.UnmarshalJSON)
+}
+
+// Validate checks the value against the constraints of the spec.
+func (s Stage) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(s.Option1 != nil, s.Option2 != nil, s.Option3 != nil))
+	if s.Option1 != nil {
+		errs.Append("", s.Option1.Validate())
+	}
+	if s.Option2 != nil {
+		errs.Append("", s.Option2.Validate())
+	}
+	if s.Option3 != nil {
+		errs.Append("", s.Option3.Validate())
+	}
 	return errs.Err()
 }

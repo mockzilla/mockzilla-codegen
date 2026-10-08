@@ -124,6 +124,14 @@ func TestSchemaPinsDiscriminatedVariants(t *testing.T) {
 			want:   `{"oneOf":[{"anyOf":[` + pinnedCat + `,{"type":"null"}]},` + pinnedDog + `],` + defs + `}`,
 		},
 		{
+			name: "A discriminator whose property is no string pins nothing",
+			schema: &spec.Schema{Discriminator: &spec.Discriminator{Property: "on", Mapping: []spec.Mapping{{Value: "true", Ref: cat}}}, OneOf: []*spec.Schema{
+				{Ref: cat},
+				{AllOf: []*spec.Schema{{Properties: []*spec.Property{{Name: "on", Schema: &spec.Schema{Enum: []spec.Value{{Kind: spec.KindBool}}}}}}}},
+			}},
+			want: `{"oneOf":[{"$ref":"#/$defs/Cat"},{"allOf":[{"properties":{"on":{"enum":[false]}}}]}],"$defs":{"Cat":{"type":"object","properties":{"kind":{"type":"string"},"indoor":{"type":"string"}}}}}`,
+		},
+		{
 			name:   "A discriminator without oneOf changes nothing",
 			schema: &spec.Schema{AnyOf: []*spec.Schema{{Ref: cat}}, Discriminator: &spec.Discriminator{Property: "kind", Mapping: mapping}},
 			want:   `{"anyOf":[{"$ref":"#/$defs/Cat"}],"$defs":{"Cat":{"type":"object","properties":{"kind":{"type":"string"},"indoor":{"type":"string"}}}}}`,

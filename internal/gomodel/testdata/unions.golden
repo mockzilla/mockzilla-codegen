@@ -362,6 +362,34 @@ HoldsTwo union models.unions
   |   shape required=kind,meow,id known=kind,meow,id
   |   shape required=kind,id known=kind,bark,wings,id closed
   |   shape required=kind,meow,id known=kind,bark,meow,id closed
+Web struct models.types
+  Host *string json=host omitempty
+Shell struct models.types
+  Key *string json=key omitempty
+Server union models.unions
+  ServerType *string json=server_type omitempty
+  | oneOf discriminator=server_type
+  | Web *Web kinds=object values=nginx,apache known=host
+  | Shell *Shell kinds=object values=shell known=key
+SharedServerType union models.unions
+  ServerType *string json=server_type omitempty
+  | anyOf discriminator=server_type
+  | Web *Web kinds=object values=nginx,apache known=host
+  | Shell *Shell kinds=object values=Shell known=key
+Secure struct models.types
+  IsSecure *SecureIsSecure json=is_secure omitempty
+  Host *string json=host omitempty
+SecureIsSecure enum bool models.enums
+  SecureIsSecureTrue true
+Plain struct models.types
+  IsSecure *PlainIsSecure json=is_secure omitempty
+  Port *int json=port omitempty
+PlainIsSecure enum bool models.enums
+  PlainIsSecureFalse false
+Connection union models.unions
+  | oneOf
+  | Secure *Secure kinds=object known=is_secure,host
+  | Plain *Plain kinds=object known=is_secure,port
 ---
 info union-duplicate 63:11 /components/schemas/Duplicates/oneOf/1: member 2 has the same Go type (string) as variant String; they share its field
 info union-duplicate 65:11 /components/schemas/Duplicates/oneOf/3: member 4 has the same Go type (Cat) as variant Cat; they share its field
@@ -378,3 +406,5 @@ warning union-ambiguous 216:7 /components/schemas/Outer: variants Flyer, Loose o
 warning union-ambiguous 241:7 /components/schemas/Twin: variants Option1, Option2 of Twin require the same properties (id), so an object with only those matches each of them and fails to decode
 warning union-ambiguous 245:7 /components/schemas/TwoOneOfs: variants Option4, Option5 of TwoOneOfs require no property, so {} matches each of them and fails to decode
 info union-duplicate 258:11 /components/schemas/OneAndAny/anyOf/0: member 3 has the same Go type (Cat) as variant Cat; they share its field
+warning keyword-unsupported 321:7 /components/schemas/Connection/discriminator: the discriminator of Connection is ignored: its property "is_secure" is not a string; variants are matched by shape and checks
+warning union-ambiguous 321:7 /components/schemas/Connection: variants Secure, Plain of Connection require no property, so {} matches each of them and fails to decode

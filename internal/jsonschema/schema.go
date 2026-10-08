@@ -156,7 +156,7 @@ func (b *Builder) composition(o *Object, s *spec.Schema, hidden []string) {
 // alone matches next to the others, so the list is anyOf then, unless s has an anyOf of its own.
 func (b *Builder) oneOf(o *Object, s *spec.Schema) {
 	d := s.Discriminator
-	if d == nil || len(s.OneOf) == 0 {
+	if d == nil || len(s.OneOf) == 0 || isNoStringProperty(s, d.Property) {
 		b.setList(o, "oneOf", s.OneOf)
 		return
 	}

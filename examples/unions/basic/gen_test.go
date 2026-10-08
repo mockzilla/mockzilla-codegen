@@ -239,3 +239,37 @@ func TestOwnerJSON(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"pet":{"meow":true},"pets":[{"bark":true},{"meow":false}],"tags":{"a":"x","b":2}}`, string(out))
 }
+
+func TestStageJSON(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		data    string
+		want    Stage
+		wantErr string
+	}{
+		{name: "The enum that holds the value", data: `"review"`, want: Stage{Option2: new(StageOption2Review)}},
+		{name: "No enum holds it", data: `"gone"`, want: Stage{Option1: new(StageOption1("gone"))}, wantErr: "must be one of draft"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got Stage
+			require.NoError(t, json.Unmarshal([]byte(tc.data), &got))
+			assert.Equal(t, tc.want, got)
+
+			err := got.Validate()
+			if tc.wantErr != "" {
+				require.EqualError(t, err, tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			out, err := json.Marshal(got)
+			require.NoError(t, err)
+			assert.JSONEq(t, tc.data, string(out))
+		})
+	}
+}
