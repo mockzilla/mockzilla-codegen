@@ -27,7 +27,7 @@ specs and takes a while; run one spec, or `make test-integration-ci` for the set
 - Output is deterministic: the same spec and config give the same bytes on every run.
 - Templates hold no logic beyond `range` and `if` on precomputed fields.
 - Golden files change only through `UPDATE=1` runs, never by hand.
-- Every line of new code is covered by a test. Exceptions go in `.covignore`.
+- Every line of new code is covered by a test. Exceptions go in `.testcoverage.yml`.
 
 ## Adding a router
 
