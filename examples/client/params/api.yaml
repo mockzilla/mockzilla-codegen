@@ -30,6 +30,7 @@ paths:
           in: query
           schema: {type: object, properties: {reference: {type: string}, status: {type: array, items: {type: string}}}}
         - {name: id, in: query, schema: {oneOf: [{type: integer}, {type: string}]}}
+        - {name: created, in: query, style: deepObject, schema: {anyOf: [{$ref: '#/components/schemas/Range'}, {type: integer}]}}
         - {name: ids, in: query, allowReserved: true, schema: {type: string}}
         - {name: needed, in: query, required: true, schema: {type: string}}
       responses:
@@ -92,6 +93,11 @@ paths:
             application/json: {schema: {$ref: '#/components/schemas/Echo'}}
 components:
   schemas:
+    Range:
+      type: object
+      properties:
+        gte: {type: integer}
+        lt: {type: integer}
     Point:
       type: object
       properties:

@@ -167,6 +167,22 @@ var Params = []Request{
 		WantBody: `{"query":{"id":"a7","needed":"yes","limit":20}}`,
 	},
 	{
+		Name:     "A deepObject union takes an object under brackets",
+		Path:     "/query?created[gte]=1&created[lt]=2&needed=yes",
+		WantBody: `{"query":{"created":{"gte":1,"lt":2},"needed":"yes","limit":20}}`,
+	},
+	{
+		Name:     "A deepObject union takes one value under its name",
+		Path:     "/query?created=5&needed=yes",
+		WantBody: `{"query":{"created":5,"needed":"yes","limit":20}}`,
+	},
+	{
+		Name:       "A deepObject parameter that comes as one value and with brackets",
+		Path:       "/query?created=5&created[gte]=1&needed=yes",
+		WantStatus: 400,
+		WantBody:   `{"error":"invalid query parameter \"created\": invalid parameter value: created comes both as one value and with brackets"}`,
+	},
+	{
 		Name:     "Query parameters left out stay nil or take their default",
 		Path:     "/query?needed=yes",
 		WantBody: `{"query":{"needed":"yes","limit":20}}`,

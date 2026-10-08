@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"time"
@@ -19,6 +20,11 @@ import (
 
 // Fails to compile when the runtime does not match the generator that wrote this file.
 const _ = runtime.SupportsGeneratorV1
+
+type Range struct {
+	Gte *int `json:"gte,omitempty"`
+	Lt  *int `json:"lt,omitempty"`
+}
 
 type Point struct {
 	X *int `json:"x,omitempty"`
@@ -78,6 +84,62 @@ func (q *QueryStylesQueryID) UnmarshalText(text []byte) error {
 func (q QueryStylesQueryID) Validate() error {
 	var errs validation.Errors
 	errs.Append("", validation.ExactlyOne(q.Int != nil, q.String != nil))
+	return errs.Err()
+}
+
+// QueryStylesQueryCreated is any of Range or Int.
+type QueryStylesQueryCreated struct {
+	Range *Range `json:"-"`
+	Int   *int   `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged.
+func (q QueryStylesQueryCreated) MarshalJSON() ([]byte, error) {
+	var set []any
+	if q.Range != nil {
+		set = append(set, q.Range)
+	}
+	if q.Int != nil {
+		set = append(set, q.Int)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets every variant data matches.
+func (q *QueryStylesQueryCreated) UnmarshalJSON(data []byte) error {
+	*q = QueryStylesQueryCreated{}
+	return runtime.UnmarshalUnion(data, q.union())
+}
+
+// UnmarshalForm sets every variant the form matches.
+func (q *QueryStylesQueryCreated) UnmarshalForm(form *multipart.Form) error {
+	*q = QueryStylesQueryCreated{}
+	return runtime.UnmarshalUnionForm(form, nil, q.union())
+}
+
+func (q *QueryStylesQueryCreated) union() runtime.Union {
+	return runtime.Union{
+		IsAnyOf: true,
+		Variants: []runtime.Variant{
+			{
+				Name:  "Range",
+				Kind:  runtime.KindObject,
+				Known: []string{"gte", "lt"},
+				Into:  runtime.Into(&q.Range),
+			},
+			{
+				Name: "Int",
+				Kind: runtime.KindInteger,
+				Into: runtime.Into(&q.Int),
+			},
+		},
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (q QueryStylesQueryCreated) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.AtLeastOne(q.Range != nil, q.Int != nil))
 	return errs.Err()
 }
 
@@ -153,16 +215,17 @@ func (p PathStylesPathParams) Validate() error {
 }
 
 type QueryStylesQuery struct {
-	Form   []int               `json:"form,omitzero"`
-	Csv    []string            `json:"csv,omitzero"`
-	Space  []string            `json:"space,omitzero"`
-	Pipe   []string            `json:"pipe,omitzero"`
-	Deep   *Point              `json:"deep,omitempty"`
-	Flat   *Point              `json:"flat,omitempty"`
-	JSON   *Point              `json:"json,omitempty"`
-	ID     *QueryStylesQueryID `json:"id,omitempty"`
-	Needed string              `json:"needed"`
-	Limit  *int                `json:"limit,omitempty"`
+	Form    []int                    `json:"form,omitzero"`
+	Csv     []string                 `json:"csv,omitzero"`
+	Space   []string                 `json:"space,omitzero"`
+	Pipe    []string                 `json:"pipe,omitzero"`
+	Deep    *Point                   `json:"deep,omitempty"`
+	Flat    *Point                   `json:"flat,omitempty"`
+	JSON    *Point                   `json:"json,omitempty"`
+	ID      *QueryStylesQueryID      `json:"id,omitempty"`
+	Created *QueryStylesQueryCreated `json:"created,omitempty"`
+	Needed  string                   `json:"needed"`
+	Limit   *int                     `json:"limit,omitempty"`
 }
 
 // GetLimit returns Limit, or 20 when it is nil.
@@ -178,6 +241,9 @@ func (q QueryStylesQuery) Validate() error {
 	var errs validation.Errors
 	if q.ID != nil {
 		errs.Append("id", q.ID.Validate())
+	}
+	if q.Created != nil {
+		errs.Append("created", q.Created.Validate())
 	}
 	return errs.Err()
 }
@@ -679,6 +745,10 @@ func (a *HTTPAdapter) QueryStyles(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "id", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.ID); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "id", ParamLocation: "query", Err: err})
+		return
+	}
+	if err := runtime.DecodeQuery(query, runtime.Param{Name: "created", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Created); err != nil {
+		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "created", ParamLocation: "query", Err: err})
 		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.Query.Needed); err != nil {

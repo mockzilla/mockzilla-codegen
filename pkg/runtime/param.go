@@ -380,7 +380,11 @@ func decodeQuery(q Query, p Param, dst any, read func(string) (string, error)) e
 		if fields, err = nested(q, p.Name, read); err != nil {
 			return err
 		}
-		if fields != nil {
+		_, isBare := q[p.Name]
+		switch {
+		case fields != nil && isBare:
+			return fmt.Errorf("%w: %s comes both as one value and with brackets", ErrParamValue, p.Name)
+		case fields != nil:
 			return setParam(target, listsOf(fields))
 		}
 		return bareValues(target, q, p, read)

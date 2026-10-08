@@ -102,13 +102,17 @@ OpenAPI defines `deepObject` for an object of scalars only. Lists, nesting and s
 [the bracket form](client.md#deepobject-past-an-object) of the client. The server also reads `[]`
 and a repeated bare name: `expand[]=a`, `expand=a&expand=b`.
 
+A union reads keys with brackets as an object member and a bare name as one value: `created[gte]=1`
+and `created=1` both work. A `deepObject` parameter that comes both ways, `created=1&created[gte]=1`,
+is a 400.
+
 ### Parameters without a field
 
 Some parameters cannot be read, so they get no field. Generation warns about each one.
 
 | Parameter | Warning |
 |---|---|
-| a query, header or cookie parameter whose union has an object or array variant, or a list or map of such unions. No style writes it as text. | `param-unsupported` |
+| a query, header or cookie parameter whose union has an object or array variant, or a list or map of such unions. No style but `deepObject` writes it. | `param-unsupported` |
 | a parameter or response header in a style the OpenAPI style table does not define for its location or value. See below. | `param-unsupported` |
 | a form-style cookie that holds a list or object with `explode: true`. OpenAPI says it writes the wrong delimiter for cookies. `style: cookie` writes it. | `param-unsupported` |
 | nesting the table above does not list | `param-unsupported` |

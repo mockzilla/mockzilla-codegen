@@ -32,6 +32,7 @@ paths:
           style: deepObject
           schema: {type: object, properties: {size: {type: object, properties: {grid: {type: array, items: {type: array, items: {type: integer}}}}}}}
         - {name: anything, in: query, style: deepObject, schema: {}}
+        - {name: deepUnion, in: query, style: deepObject, schema: {anyOf: [{$ref: '#/components/schemas/Point'}, {type: integer}]}}
         - name: queries
           in: query
           schema: {type: object, properties: {reference: {type: string}, status: {type: array, items: {type: string}}}}

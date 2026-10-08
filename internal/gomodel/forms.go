@@ -3,16 +3,19 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Which declarations a form body holds that read a form themselves.
+// Which declarations a form body or a deepObject parameter holds that read a form themselves.
 
 package gomodel
 
 import "slices"
 
-// markForms sets IsForm on what a form body of a request or a response holds, at any depth.
+// markForms sets IsForm on what a form body or a deepObject parameter holds, at any depth.
 func markForms(ops []*Operation) {
 	seen := map[*Decl]bool{}
 	for _, op := range ops {
+		for _, g := range op.Params {
+			markDeep(g, seen)
+		}
 		contents := slices.Clone(op.Bodies)
 		for _, r := range op.Responses {
 			contents = append(contents, r.Contents...)
@@ -22,6 +25,15 @@ func markForms(ops []*Operation) {
 			case "application/x-www-form-urlencoded", "multipart/form-data":
 				markForm(c.Type, seen)
 			}
+		}
+	}
+}
+
+// markDeep marks what the deepObject parameters of g hold: their bracketed keys read like a form's.
+func markDeep(g ParamGroup, seen map[*Decl]bool) {
+	for i, f := range g.Decl.Struct.Fields {
+		if g.Params[i].Style == styleDeep {
+			markForm(f.Type, seen)
 		}
 	}
 }

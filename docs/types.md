@@ -115,7 +115,8 @@ type Device struct {
   a union takes any JSON for it.
 - A parameter or header of such a type needs one that implements `encoding.TextMarshaler` and
   `encoding.TextUnmarshaler`.
-- A union parameter with such a member gets no field, with a warning.
+- A union parameter with such a member gets no field, with a warning, unless its style is
+  `deepObject`.
 
 ## Pointers
 
@@ -489,7 +490,8 @@ A union of strings, numbers and booleans with no shared properties also gets `Ma
 - Text that reads as a JSON number or boolean is tried as one first, then as a string.
 - A union with nothing set has no text: sending it is an error.
 - A query, header or cookie parameter whose union has an object or array variant gets no field,
-  with a warning. So does a list or map of such unions.
+  with a warning. So does a list or map of such unions. A `deepObject` query parameter is the
+  exception: it is written with brackets, `created[gte]=1` or `created=1`.
 
 #### Forms
 

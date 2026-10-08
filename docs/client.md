@@ -254,6 +254,7 @@ bracket form most form APIs read, Stripe's among them: a bracket per level, an i
 | `[{price: p1}]` | `items[0][price]=p1` |
 | `{a: {b: [1]}}` | `filter[a][b][0]=1` |
 | `https://x.test`, one value | `url=https%3A%2F%2Fx.test` |
+| a union, `{gte: 1}` or `1` | `created[gte]=1` or `created=1` |
 
 Brackets are shown as they read. On the wire they are `%5B` and `%5D`.
 

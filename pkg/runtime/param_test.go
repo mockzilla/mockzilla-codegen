@@ -426,6 +426,9 @@ func TestDecodeParamEdges(t *testing.T) {
 		{name: "A deep object list under its bare name that does not unescape", decode: func(dst any) error {
 			return DecodeQuery(Query{"color": {"%zz"}}, explode(StyleDeepObject, true), dst)
 		}, dst: new([]string), wantErr: ErrParamValue},
+		{name: "A deep object under its bare name and with brackets", decode: func(dst any) error {
+			return DecodeQuery(Query{"color": {"1"}, "color[R]": {"2"}}, explode(StyleDeepObject, true), dst)
+		}, dst: new(rgb), wantErr: ErrParamValue},
 		{name: "An exploded object value that does not unescape", decode: func(dst any) error {
 			return DecodeQuery(Query{"R": {"%zz"}}, explode(StyleForm, true), dst)
 		}, dst: new(rgb), wantErr: ErrParamValue},

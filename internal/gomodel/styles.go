@@ -45,7 +45,7 @@ func (c *collector) paramIssue(p *spec.Parameter) string {
 	if p.Schema == nil {
 		return ""
 	}
-	if p.In != spec.InPath && c.isUnionLost(p.Schema, map[*spec.Schema]bool{}) {
+	if p.In != spec.InPath && p.Style != styleDeep && c.isUnionLost(p.Schema, map[*spec.Schema]bool{}) {
 		return "is or holds a union of more than scalars"
 	}
 	return c.shapeIssue(p)
