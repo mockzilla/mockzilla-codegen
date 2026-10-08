@@ -247,9 +247,11 @@ type Dog struct {
   properties, items, variants or another type, that is not generated, with a warning.
 - An `allOf` that includes itself is an error; the loop is left out.
 - The description comes from the schema and its inline members, never from a referenced type.
-- An `allOf` of one `$ref` plus members that only add a description or flags is that `$ref`: no new
-  type is made. `allOf: [{$ref: Pet}, {description: The owner's pet}]` is a `Pet`, and
-  `nullable: true` in such a member makes the field nullable.
+- An `allOf` of one `$ref` plus members that only add a description, a default or flags is that
+  `$ref`: no new type is made. `allOf: [{$ref: Pet}, {description: The owner's pet}]` is a `Pet`.
+  `nullable: true` in such a member makes the field nullable, and a `default` gives it a getter.
+- A member that lists `required` makes a new type: `allOf: [{$ref: Pet}, {required: [name]}]` is a
+  struct whose `name` is required.
 
 ## Unions
 

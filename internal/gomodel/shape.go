@@ -59,7 +59,7 @@ func isUnion(s *spec.Schema) bool {
 // hasShape reports keywords that change the Go type. allOf and a union's sole member are left to
 // the caller.
 func hasShape(s *spec.Schema) bool {
-	return len(s.Properties) > 0 || s.AdditionalProperties.Mode != spec.AdditionalUnset || s.Items != nil ||
+	return len(s.Properties) > 0 || len(s.Required) > 0 || s.AdditionalProperties.Mode != spec.AdditionalUnset || s.Items != nil ||
 		len(s.PrefixItems) > 0 || len(s.Enum) > 0 || isUnion(s) || s.Then != nil || s.Else != nil || hasGoType(s)
 }
 

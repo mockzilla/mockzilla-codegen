@@ -9,6 +9,8 @@ paths:
         - {name: limit, in: query, schema: {type: integer, default: 20}}
         - {name: page, in: query, required: true, schema: {type: integer, default: 1}}
         - {name: sort, in: query, schema: {$ref: '#/components/schemas/Order'}}
+        - {name: by, in: query, schema: {allOf: [{$ref: '#/components/schemas/Field'}, {default: date}]}}
+        - {name: then, in: query, schema: {$ref: '#/components/schemas/ByDate'}}
         - {name: tags, in: query, schema: {type: array, items: {type: string}, default: [new, sale]}}
         - {name: since, in: query, schema: {type: string, format: date, default: "2026-01-01"}}
         - {name: X-Rate, in: header, schema: {type: number, format: float, default: 1.5}}
@@ -27,6 +29,13 @@ components:
       default: name
     Order:
       $ref: '#/components/schemas/Sort'
+    Field:
+      type: string
+      enum: [name, date]
+    ByDate:
+      allOf:
+        - $ref: '#/components/schemas/Field'
+        - default: date
     Sorts:
       type: array
       items: {$ref: '#/components/schemas/Sort'}
@@ -46,6 +55,10 @@ components:
         notes: {type: array, items: {type: [string, "null"]}, default: [a]}
         anything: {default: 1}
         tiny: {type: integer, format: int8, default: -128}
+        field:
+          allOf:
+            - $ref: '#/components/schemas/Field'
+            - {default: name, description: Sorted by.}
     Owner:
       type: object
       properties:

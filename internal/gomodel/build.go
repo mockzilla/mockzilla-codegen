@@ -8,7 +8,6 @@
 package gomodel
 
 import (
-	"cmp"
 	"fmt"
 	"maps"
 	"slices"
@@ -294,7 +293,7 @@ func (b *builder) paramDefault(p *spec.Parameter, s *spec.Schema) *spec.Value {
 	if s == nil {
 		return nil
 	}
-	d := cmp.Or(s.Default, b.flat.flatten(target(s)).Default)
+	d := b.defaultOf(s)
 	if d == nil {
 		return nil
 	}
@@ -313,7 +312,7 @@ func (b *builder) paramDefault(p *spec.Parameter, s *spec.Schema) *spec.Value {
 
 // propertyDefault is the default of f when it is not there, nil when it has none that fits.
 func (b *builder) propertyDefault(d *Decl, f *Field) *spec.Value {
-	def := cmp.Or(f.schema.Default, b.flat.flatten(target(f.schema)).Default)
+	def := b.defaultOf(f.schema)
 	if def == nil {
 		return nil
 	}
@@ -327,6 +326,16 @@ func (b *builder) propertyDefault(d *Decl, f *Field) *spec.Value {
 		})
 		return nil
 	}
+	return def
+}
+
+// defaultOf is the first default on s, its doc-only allOf members or the schemas its refs lead to.
+func (b *builder) defaultOf(s *spec.Schema) *spec.Value {
+	var def *spec.Value
+	b.inChain(s, func(x *spec.Schema) bool {
+		def = x.Default
+		return def != nil
+	})
 	return def
 }
 

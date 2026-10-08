@@ -22,6 +22,14 @@ Puppy struct models.types
 Conflict alias string models.types
 Numbers alias int64 models.types
 NullableRef alias Animal models.types doc="Just an animal"
+Addressed struct models.types
+  Name string json=name required
+  Address AnimalAddress json=address required
+Located struct models.types
+  Name string json=name required
+  Address *LocatedAddress json=address omitempty
+LocatedAddress struct models.types
+  Geo AnimalAddressGeo json=geo required
 Loop1 struct models.types
   Two *string json=two omitempty
   One *string json=one omitempty
@@ -90,10 +98,10 @@ TypedProps struct models.types
   Nested map[string]any json=nested omitempty
 ---
 warning allof-conflict 37:7 /components/schemas/Conflict: allOf members disagree on the type (string, integer); keeping string
-error allof-cycle 52:7 /components/schemas/Loop2: allOf includes itself through /components/schemas/Loop1; the loop is left out
-warning alias-cycle 104:13 /components/schemas/ChainA: types refer to each other in a loop (ChainA = ChainB = ChainA); ChainA becomes any
-error allof-cycle 107:7 /components/schemas/WithChain: allOf includes itself through /components/schemas/ChainA; the loop is left out
-warning allof-conflict 137:7 /components/schemas/TypedMixed: allOf member /components/schemas/Ext sets x-go-type time.Duration; keeping it, what /components/schemas/Animal adds is not generated
-warning allof-conflict 141:7 /components/schemas/TypedTwice: allOf members set x-go-type time.Duration and time.Time; keeping time.Duration
-warning allof-conflict 149:7 /components/schemas/TypedThrough: allOf member /components/schemas/Typed sets x-go-type time.Duration; keeping it, what /components/schemas/TypedThrough/allOf/1 adds is not generated
-warning allof-conflict 164:11 /components/schemas/TypedProps/properties/nested: allOf member /components/schemas/TypedProps/properties/nested/allOf/0 sets x-go-type map[string]any; keeping it, what /components/schemas/TypedProps/properties/nested/allOf/1 adds is not generated
+error allof-cycle 61:7 /components/schemas/Loop2: allOf includes itself through /components/schemas/Loop1; the loop is left out
+warning alias-cycle 113:13 /components/schemas/ChainA: types refer to each other in a loop (ChainA = ChainB = ChainA); ChainA becomes any
+error allof-cycle 116:7 /components/schemas/WithChain: allOf includes itself through /components/schemas/ChainA; the loop is left out
+warning allof-conflict 146:7 /components/schemas/TypedMixed: allOf member /components/schemas/Ext sets x-go-type time.Duration; keeping it, what /components/schemas/Animal adds is not generated
+warning allof-conflict 150:7 /components/schemas/TypedTwice: allOf members set x-go-type time.Duration and time.Time; keeping time.Duration
+warning allof-conflict 158:7 /components/schemas/TypedThrough: allOf member /components/schemas/Typed sets x-go-type time.Duration; keeping it, what /components/schemas/TypedThrough/allOf/1 adds is not generated
+warning allof-conflict 173:11 /components/schemas/TypedProps/properties/nested: allOf member /components/schemas/TypedProps/properties/nested/allOf/0 sets x-go-type map[string]any; keeping it, what /components/schemas/TypedProps/properties/nested/allOf/1 adds is not generated
