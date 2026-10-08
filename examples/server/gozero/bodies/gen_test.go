@@ -8,7 +8,7 @@ package bodies
 import (
 	"bytes"
 	"context"
-	"io"
+	"encoding/json"
 	"net/http/httptest"
 	"slices"
 	"strings"
@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/mockzilla/mockzilla-codegen/examples/server/internal/servertest"
-	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // mirror answers with what it received.
@@ -97,22 +96,36 @@ func TestMultipart(t *testing.T) {
 	servertest.Multipart(t, NewRouter(mirror{}))
 }
 
-func TestJSONDecoderOption(t *testing.T) {
+func TestJSONOptions(t *testing.T) {
 	t.Parallel()
 
-	strict := func(body io.Reader, dst any, isRequired bool) error {
-		data, err := io.ReadAll(body)
-		if err != nil {
-			return err
-		}
-		return runtime.DecodeJSON(bytes.NewReader(bytes.ToUpper(data)), dst, isRequired)
+	upper := func(data []byte, v any) error {
+		return json.Unmarshal(bytes.ToUpper(data), v)
 	}
-	req := httptest.NewRequest("POST", "/json", strings.NewReader(`{"text":"hi"}`))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
+	indent := func(v any) ([]byte, error) {
+		return json.MarshalIndent(v, "", " ")
+	}
+	tests := []struct {
+		name     string
+		opt      ServerOption
+		wantBody string
+	}{
+		{name: "A decoder reads the request", opt: WithJSONDecoder(upper), wantBody: `{"text":"HI"}`},
+		{name: "An encoder writes the response", opt: WithJSONEncoder(indent), wantBody: "{\n \"text\": \"hi\"\n}"},
+	}
 
-	NewRouter(mirror{}, WithJSONDecoder(strict)).ServeHTTP(rec, req)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	assert.Equal(t, 200, rec.Code)
-	assert.Equal(t, `{"text":"HI"}`, rec.Body.String())
+			req := httptest.NewRequest("POST", "/json", strings.NewReader(`{"text":"hi"}`))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+
+			NewRouter(mirror{}, tc.opt).ServeHTTP(rec, req)
+
+			assert.Equal(t, 200, rec.Code)
+			assert.Equal(t, tc.wantBody, rec.Body.String())
+		})
+	}
 }

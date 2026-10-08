@@ -60,13 +60,25 @@ func WithRequestEditor(fns ...RequestEditor) {{.Option}} {
 	}
 }
 
+// WithJSON writes JSON bodies with marshal and reads them with unmarshal. A nil one panics.
+func WithJSON(marshal func(v any) ([]byte, error), unmarshal func(data []byte, v any) error) {{.Option}} {
+	if marshal == nil || unmarshal == nil {
+		panic("WithJSON: nil function")
+	}
+	return func(c *{{.Name}}) {
+		c.marshal, c.unmarshal = marshal, unmarshal
+	}
+}
+
 // {{.Name}} calls the API at a base URL.
 // A response outside 2xx, or a 2xx the spec does not list, is a *{{.HTTPClient}}.APIError.
 type {{.Name}} struct {
-	baseURL *{{.URL}}.URL
-	doer    HTTPDoer
-	timeout {{.Time}}.Duration
-	editors []RequestEditor
+	baseURL   *{{.URL}}.URL
+	doer      HTTPDoer
+	timeout   {{.Time}}.Duration
+	editors   []RequestEditor
+	marshal   func(v any) ([]byte, error)
+	unmarshal func(data []byte, v any) error
 }
 
 // New{{.Name}} returns a client of the API at baseURL.
@@ -76,7 +88,15 @@ func New{{.Name}}(baseURL string, opts ...{{.Option}}) (*{{.Name}}, error) {
 		return nil, err
 	}
 
-	c := &{{.Name}}{baseURL: u, doer: &{{.HTTP}}.Client{}{{with .Timeout}}, timeout: {{.}}{{end}}}
+	c := &{{.Name}}{
+		baseURL:   u,
+		doer:      &{{.HTTP}}.Client{},
+{{- with .Timeout}}
+		timeout:   {{.}},
+{{- end}}
+		marshal:   {{.JSON}}.Marshal,
+		unmarshal: {{.JSON}}.Unmarshal,
+	}
 	for _, opt := range opts {
 		opt(c)
 	}

@@ -4,8 +4,8 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -498,7 +498,8 @@ type ServerOptions struct {
 	Router             any
 	Middleware         []func(http.Handler) http.Handler
 	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(body io.Reader, dst any, isRequired bool) error
+	JSONDecoder        func(data []byte, v any) error
+	JSONEncoder        func(v any) ([]byte, error)
 	MultipartMaxMemory int64
 }
 
@@ -509,7 +510,8 @@ type ServerOption func(*ServerOptions)
 func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	o := &ServerOptions{
 		ErrorHandler:       httpserver.DefaultErrorHandler{},
-		JSONDecoder:        runtime.DecodeJSON,
+		JSONDecoder:        json.Unmarshal,
+		JSONEncoder:        json.Marshal,
 		MultipartMaxMemory: 33554432,
 	}
 	for _, opt := range opts {
@@ -532,10 +534,17 @@ func WithErrorHandler(h httpserver.ErrorHandler) ServerOption {
 	}
 }
 
-// WithJSONDecoder sets what reads JSON bodies. isRequired says whether an empty body is an error.
-func WithJSONDecoder(decode func(body io.Reader, dst any, isRequired bool) error) ServerOption {
+// WithJSONDecoder sets what reads JSON request bodies.
+func WithJSONDecoder(decode func(data []byte, v any) error) ServerOption {
 	return func(o *ServerOptions) {
 		o.JSONDecoder = decode
+	}
+}
+
+// WithJSONEncoder sets what writes JSON response bodies and stream frames.
+func WithJSONEncoder(encode func(v any) ([]byte, error)) ServerOption {
+	return func(o *ServerOptions) {
+		o.JSONEncoder = encode
 	}
 }
 
@@ -680,7 +689,7 @@ func (a *HTTPAdapter) write(w http.ResponseWriter, r *http.Request, id string, r
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	err := httpserver.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	err := httpserver.Writer{Marshal: a.opts.JSONEncoder}.Write(w, res.StatusCode(), res.Header(), res.Payload())
 	switch {
 	case errors.Is(err, runtime.ErrContentType):
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorResponse, OperationID: id, Err: err})
@@ -820,13 +829,25 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
+// WithJSON writes JSON bodies with marshal and reads them with unmarshal. A nil one panics.
+func WithJSON(marshal func(v any) ([]byte, error), unmarshal func(data []byte, v any) error) ClientOption {
+	if marshal == nil || unmarshal == nil {
+		panic("WithJSON: nil function")
+	}
+	return func(c *Client) {
+		c.marshal, c.unmarshal = marshal, unmarshal
+	}
+}
+
 // Client calls the API at a base URL.
 // A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
+	baseURL   *url.URL
+	doer      HTTPDoer
+	timeout   time.Duration
+	editors   []RequestEditor
+	marshal   func(v any) ([]byte, error)
+	unmarshal func(data []byte, v any) error
 }
 
 // NewClient returns a client of the API at baseURL.
@@ -836,7 +857,13 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 		return nil, err
 	}
 
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	c := &Client{
+		baseURL:   u,
+		doer:      &http.Client{},
+		timeout:   3 * time.Second,
+		marshal:   json.Marshal,
+		unmarshal: json.Unmarshal,
+	}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -858,7 +885,7 @@ func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions, edi
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(Fault)},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -893,7 +920,7 @@ func (c *Client) PostMultipart(ctx context.Context, opts *PostMultipartRequestOp
 	var out *Shape
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -928,7 +955,7 @@ func (c *Client) PostAttachment(ctx context.Context, opts *PostAttachmentRequest
 	var out *PostAttachmentResponse200
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil

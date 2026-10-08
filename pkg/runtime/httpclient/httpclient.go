@@ -140,12 +140,12 @@ func (b *RequestBuilder) CookieParam(v any, p runtime.Param) {
 	b.cookies = append(b.cookies, cookies...)
 }
 
-// JSONBody sends v as JSON under mediaType.
-func (b *RequestBuilder) JSONBody(v any, mediaType string) {
+// JSONBody sends v as JSON under mediaType, written by marshal.
+func (b *RequestBuilder) JSONBody(v any, mediaType string, marshal func(v any) ([]byte, error)) {
 	if b.err != nil {
 		return
 	}
-	data, err := json.Marshal(v)
+	data, err := marshal(v)
 	b.setBody(data, mediaType, err)
 }
 

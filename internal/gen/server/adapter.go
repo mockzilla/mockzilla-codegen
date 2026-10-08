@@ -65,7 +65,7 @@ type AdapterView struct {
 	HTTPServer          string
 	Validation          string
 	HTTP                string
-	IO                  string
+	JSON                string
 	Errors              string
 	MaxMemory           int64
 	IsRequestValidated  bool
@@ -188,7 +188,7 @@ func adapterView(g *Generator, s *gocode.Scope) *AdapterView {
 		Runtime:             s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
 		HTTPServer:          s.Import(gomodel.Import{Path: gomodel.HTTPServerPath}),
 		HTTP:                s.Import(gomodel.Import{Path: "net/http"}),
-		IO:                  s.Import(gomodel.Import{Path: "io"}),
+		JSON:                s.Import(gomodel.Import{Path: "encoding/json"}),
 		Errors:              s.Import(gomodel.Import{Path: "errors"}),
 		MaxMemory:           g.opts.MultipartMaxMemory,
 		IsRequestValidated:  g.opts.ValidateRequest,

@@ -278,7 +278,7 @@ func TestViewWithoutOperations(t *testing.T) {
 
 	core := string(f.render(t, PartCore))
 	assert.Contains(t, core, "func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error)")
-	assert.Contains(t, core, "c := &PetClient{baseURL: u, doer: &http.Client{}}\n")
+	assert.Contains(t, core, "c := &PetClient{\n\t\tbaseURL:   u,\n\t\tdoer:      &http.Client{},\n\t\tmarshal:   json.Marshal,\n\t\tunmarshal: json.Unmarshal,\n\t}\n")
 	assert.Contains(t, core, "// WithTimeout sets how long a call may take, 0 for no limit.\nfunc WithTimeout(d time.Duration) PetClientOption {\n")
 	assert.Contains(t, core, "\ntype PetClientInterface interface {\n}\n\nvar _ PetClientInterface = (*PetClient)(nil)\n")
 	assert.Equal(t, "package types\n", string(f.render(t, PartOptions)))

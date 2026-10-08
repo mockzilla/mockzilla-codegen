@@ -194,7 +194,7 @@ func TestDecodeJSON(t *testing.T) {
 			t.Parallel()
 
 			var got address
-			err := DecodeJSON(tc.body, &got, tc.isRequired)
+			err := DecodeJSON(tc.body, &got, tc.isRequired, json.Unmarshal)
 
 			if tc.wantErr != nil {
 				require.Error(t, err)

@@ -133,14 +133,16 @@ type ParamView struct {
 
 // BodyView is one body field: the expression that says it is set, the builder method that sends
 // it with the expression of its value, and the quoted media type the method takes, empty for one
-// that needs none. Encoding is the runtime.Encoding a form or multipart body is sent with. An
-// empty Encoder is a body the client cannot send, whose media type it reports.
+// that needs none. Encoding is the runtime.Encoding a form or multipart body is sent with; IsJSON
+// marks a JSON body, sent with the client's marshal function. An empty Encoder is a body the
+// client cannot send, whose media type it reports.
 type BodyView struct {
 	IsSet     string
 	Encoder   string
 	Value     string
 	MediaType string
 	Encoding  string
+	IsJSON    bool
 }
 
 // TargetView is one httpclient.ResponseTarget: the status and media type, and the address of what
@@ -289,6 +291,8 @@ func bodyView(c gomodel.Content, field string, s *gocode.Scope) BodyView {
 	base := gomodel.Elem(t)
 
 	switch v.Encoder {
+	case encodeJSON:
+		v.IsJSON = true
 	case encodeForm, encodeMultipart:
 		v.MediaType, v.Encoding = "", operation.Encoding(c, s.Import(gomodel.Import{Path: gomodel.RuntimePath}))
 	case encodeFile:

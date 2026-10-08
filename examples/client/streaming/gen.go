@@ -4,6 +4,7 @@ package streaming
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"slices"
@@ -241,13 +242,25 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
+// WithJSON writes JSON bodies with marshal and reads them with unmarshal. A nil one panics.
+func WithJSON(marshal func(v any) ([]byte, error), unmarshal func(data []byte, v any) error) ClientOption {
+	if marshal == nil || unmarshal == nil {
+		panic("WithJSON: nil function")
+	}
+	return func(c *Client) {
+		c.marshal, c.unmarshal = marshal, unmarshal
+	}
+}
+
 // Client calls the API at a base URL.
 // A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
+	baseURL   *url.URL
+	doer      HTTPDoer
+	timeout   time.Duration
+	editors   []RequestEditor
+	marshal   func(v any) ([]byte, error)
+	unmarshal func(data []byte, v any) error
 }
 
 // NewClient returns a client of the API at baseURL.
@@ -257,7 +270,13 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 		return nil, err
 	}
 
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	c := &Client{
+		baseURL:   u,
+		doer:      &http.Client{},
+		timeout:   3 * time.Second,
+		marshal:   json.Marshal,
+		unmarshal: json.Unmarshal,
+	}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -281,7 +300,7 @@ func (c *Client) Chat(ctx context.Context, opts *ChatRequestOptions, editors ...
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "400", MediaType: "application/problem+json", Dst: new(Problem)},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -304,7 +323,7 @@ func (c *Client) ChatWithResponse(ctx context.Context, opts *ChatRequestOptions,
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
 		{Status: "200", IsHeaders: true, Dst: &out.Headers200},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -322,7 +341,7 @@ func (c *Client) ChatStream(ctx context.Context, opts *ChatRequestOptions, edito
 	}
 	return httpclient.OpenStream[Chunk](res, body, []httpclient.ResponseTarget{
 		{Status: "400", MediaType: "application/problem+json", Dst: new(Problem)},
-	})
+	}, c.unmarshal)
 }
 
 // ChatStreamWithResponse calls POST /chat and returns the whole response, with its stream.
@@ -342,7 +361,7 @@ func (c *Client) ChatStreamWithResponse(ctx context.Context, opts *ChatRequestOp
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "400", MediaType: "application/problem+json", Dst: &out.ProblemJSON400},
 		{Status: "200", IsHeaders: true, Dst: &out.Headers200},
-	})
+	}, c.unmarshal)
 	if err != nil {
 		return out, err
 	}
@@ -357,7 +376,7 @@ func (c *Client) ChatRequest(ctx context.Context, opts *ChatRequestOptions, edit
 	b := httpclient.NewRequestBuilder(http.MethodPost, "/chat")
 	switch {
 	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
+		b.JSONBody(opts.Body, "application/json", c.marshal)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
@@ -375,7 +394,7 @@ func (c *Client) ListEvents(ctx context.Context, opts *ListEventsRequestOptions,
 	if err != nil {
 		return err
 	}
-	return httpclient.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil, c.unmarshal)
 }
 
 // ListEventsWithResponse calls GET /events and returns the whole response.
@@ -403,7 +422,7 @@ func (c *Client) ListEventsStream(ctx context.Context, opts *ListEventsRequestOp
 	if err != nil {
 		return nil, err
 	}
-	return httpclient.OpenStream[ListEventsResponseItem](res, body, nil)
+	return httpclient.OpenStream[ListEventsResponseItem](res, body, nil, c.unmarshal)
 }
 
 // ListEventsStreamWithResponse calls GET /events and returns the whole response, with its stream.
@@ -420,6 +439,7 @@ func (c *Client) ListEventsStreamWithResponse(ctx context.Context, opts *ListEve
 	out := &ListEventsResponse{HTTPResponse: res, Body: body}
 	if httpclient.IsStreaming(res) {
 		out.Stream200 = httpclient.NewStream[ListEventsResponseItem](res)
+		out.Stream200.Unmarshal = c.unmarshal
 	}
 	return out, nil
 }
@@ -449,7 +469,7 @@ func (c *Client) TailLog(ctx context.Context, opts *TailLogRequestOptions, edito
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out},
 		{Status: "404", MediaType: "application/problem+json", Dst: new(Problem)},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -470,7 +490,7 @@ func (c *Client) TailLogWithResponse(ctx context.Context, opts *TailLogRequestOp
 	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 		{Status: "404", MediaType: "application/problem+json", Dst: &out.ProblemJSON404},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -488,7 +508,7 @@ func (c *Client) TailLogStream(ctx context.Context, opts *TailLogRequestOptions,
 	}
 	return httpclient.OpenStream[[]byte](res, body, []httpclient.ResponseTarget{
 		{Status: "404", MediaType: "application/problem+json", Dst: new(Problem)},
-	})
+	}, c.unmarshal)
 }
 
 // TailLogStreamWithResponse calls GET /logs/{job} and returns the whole response, with its stream.
@@ -506,7 +526,7 @@ func (c *Client) TailLogStreamWithResponse(ctx context.Context, opts *TailLogReq
 	out.Stream200, err = httpclient.DecodeStream[[]byte](res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
 		{Status: "404", MediaType: "application/problem+json", Dst: &out.ProblemJSON404},
-	})
+	}, c.unmarshal)
 	if err != nil {
 		return out, err
 	}

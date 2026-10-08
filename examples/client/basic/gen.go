@@ -4,6 +4,7 @@ package basic
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"slices"
@@ -141,13 +142,25 @@ func WithRequestEditor(fns ...RequestEditor) PetClientOption {
 	}
 }
 
+// WithJSON writes JSON bodies with marshal and reads them with unmarshal. A nil one panics.
+func WithJSON(marshal func(v any) ([]byte, error), unmarshal func(data []byte, v any) error) PetClientOption {
+	if marshal == nil || unmarshal == nil {
+		panic("WithJSON: nil function")
+	}
+	return func(c *PetClient) {
+		c.marshal, c.unmarshal = marshal, unmarshal
+	}
+}
+
 // PetClient calls the API at a base URL.
 // A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type PetClient struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
+	baseURL   *url.URL
+	doer      HTTPDoer
+	timeout   time.Duration
+	editors   []RequestEditor
+	marshal   func(v any) ([]byte, error)
+	unmarshal func(data []byte, v any) error
 }
 
 // NewPetClient returns a client of the API at baseURL.
@@ -157,7 +170,13 @@ func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error) {
 		return nil, err
 	}
 
-	c := &PetClient{baseURL: u, doer: &http.Client{}, timeout: 5 * time.Second}
+	c := &PetClient{
+		baseURL:   u,
+		doer:      &http.Client{},
+		timeout:   5 * time.Second,
+		marshal:   json.Marshal,
+		unmarshal: json.Unmarshal,
+	}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -178,7 +197,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *ListPetsRequestOptions, 
 	var out ListPetsResponse200
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -210,7 +229,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *CreatePetRequestOptions
 	var out *Pet
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "201", MediaType: "application/json", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -224,7 +243,7 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *CreatePetRequest
 	b := httpclient.NewRequestBuilder(http.MethodPost, "/pets")
 	switch {
 	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
+		b.JSONBody(opts.Body, "application/json", c.marshal)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
@@ -245,7 +264,7 @@ func (c *PetClient) GetPet(ctx context.Context, opts *GetPetRequestOptions, edit
 	var out *Pet
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -273,7 +292,7 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *DeletePetRequestOptions
 	if err != nil {
 		return err
 	}
-	return httpclient.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil, c.unmarshal)
 }
 
 // DeletePetRequest builds the request of DELETE /pets/{id}.
@@ -302,7 +321,7 @@ func (c *PetClient) Ping(ctx context.Context, opts *PingRequestOptions, editors 
 	var out *PingResponse200
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil

@@ -27,7 +27,7 @@ func (c *PetClient) ListPets(ctx context.Context, opts *types.ListPetsRequestOpt
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -51,7 +51,7 @@ func (c *PetClient) ListPetsWithResponse(ctx context.Context, opts *types.ListPe
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
 		{Status: "200", IsHeaders: true, Dst: &out.Headers200},
 		{Status: "default", IsHeaders: true, Dst: &out.HeadersDefault},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -97,7 +97,7 @@ func (c *PetClient) CreatePet(ctx context.Context, opts *types.CreatePetRequestO
 		{Status: "4XX", MediaType: "application/problem+json", Dst: new(types.Problem)},
 		{Status: "5XX", MediaType: "application/problem+json", Dst: new(types.Problem)},
 		{Status: "409"},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -122,7 +122,7 @@ func (c *PetClient) CreatePetWithResponse(ctx context.Context, opts *types.Creat
 		{Status: "4XX", MediaType: "application/problem+json", Dst: &out.ProblemJSON4XX},
 		{Status: "5XX", MediaType: "application/problem+json", Dst: &out.ProblemJSON5XX},
 		{Status: "201", IsHeaders: true, Dst: &out.Headers201},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -136,7 +136,7 @@ func (c *PetClient) CreatePetRequest(ctx context.Context, opts *types.CreatePetR
 	b := httpclient.NewRequestBuilder(http.MethodPost, "/pets")
 	switch {
 	case opts.BodyJSON != nil:
-		b.JSONBody(opts.BodyJSON, "application/json")
+		b.JSONBody(opts.BodyJSON, "application/json", c.marshal)
 	case opts.BodyForm != nil:
 		b.FormBody(opts.BodyForm, nil)
 	case opts.BodyMultipart != nil:
@@ -171,7 +171,7 @@ func (c *PetClient) DeletePet(ctx context.Context, opts *types.DeletePetRequestO
 	}
 	return httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "404", MediaType: "application/json", Dst: new(types.Problem)},
-	})
+	}, c.unmarshal)
 }
 
 // DeletePetWithResponse calls DELETE /pets/{id} and returns the whole response.
@@ -188,7 +188,7 @@ func (c *PetClient) DeletePetWithResponse(ctx context.Context, opts *types.Delet
 	out := &types.DeletePetResponse{HTTPResponse: res, Body: body}
 	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "404", MediaType: "application/json", Dst: &out.JSON404},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -206,7 +206,7 @@ func (c *PetClient) DeletePetRequest(ctx context.Context, opts *types.DeletePetR
 	b.QueryString(opts.Filter, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false})
 	switch {
 	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
+		b.JSONBody(opts.Body, "application/json", c.marshal)
 	}
 	return c.newRequest(ctx, "DeletePet", b, editors)
 }
@@ -225,7 +225,7 @@ func (c *PetClient) Ping(ctx context.Context, opts *types.PingRequestOptions, ed
 	var out string
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return "", err
 	}
 	return out, nil
@@ -248,7 +248,7 @@ func (c *PetClient) PingWithResponse(ctx context.Context, opts *types.PingReques
 		{Status: "200", MediaType: "text/xml", Dst: &out.XML200},
 		{Status: "200", MediaType: "image/*", Dst: &out.Image200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -263,7 +263,7 @@ func (c *PetClient) PingRequest(ctx context.Context, opts *types.PingRequestOpti
 	b.QueryString(opts.BodyQueryString, runtime.Param{Name: "body", IsRequired: true, IsJSON: true})
 	switch {
 	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
+		b.JSONBody(opts.Body, "application/json", c.marshal)
 	}
 	return c.newRequest(ctx, "Ping", b, editors)
 }
@@ -278,7 +278,7 @@ func (c *PetClient) Query(ctx context.Context, opts *types.QueryRequestOptions, 
 	if err != nil {
 		return err
 	}
-	return httpclient.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil, c.unmarshal)
 }
 
 // QueryWithResponse calls QUERY /pets/query and returns the whole response.
@@ -324,7 +324,7 @@ func (c *PetClient) Chat(ctx context.Context, opts *types.ChatRequestOptions, ed
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -346,7 +346,7 @@ func (c *PetClient) ChatWithResponse(ctx context.Context, opts *types.ChatReques
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -364,7 +364,7 @@ func (c *PetClient) ChatStream(ctx context.Context, opts *types.ChatRequestOptio
 	}
 	return httpclient.OpenStream[types.ChatResponseItem](res, body, []httpclient.ResponseTarget{
 		{Status: "default", MediaType: "application/json", Dst: new(types.Problem)},
-	})
+	}, c.unmarshal)
 }
 
 // ChatStreamWithResponse calls POST /chat and returns the whole response, with its stream.
@@ -383,7 +383,7 @@ func (c *PetClient) ChatStreamWithResponse(ctx context.Context, opts *types.Chat
 		{Status: "200", MediaType: "application/json", Dst: &out.JSON200},
 		{Status: "200", MediaType: "text/event-stream", Dst: &out.EventStream200},
 		{Status: "default", MediaType: "application/json", Dst: &out.JSONDefault},
-	})
+	}, c.unmarshal)
 	if err != nil {
 		return out, err
 	}
@@ -398,7 +398,7 @@ func (c *PetClient) ChatRequest(ctx context.Context, opts *types.ChatRequestOpti
 	b := httpclient.NewRequestBuilder(http.MethodPost, "/chat")
 	switch {
 	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
+		b.JSONBody(opts.Body, "application/json", c.marshal)
 	default:
 		return nil, runtime.ErrBodyEmpty
 	}
@@ -419,7 +419,7 @@ func (c *PetClient) Tail(ctx context.Context, opts *types.TailRequestOptions, ed
 	var out *string
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -439,7 +439,7 @@ func (c *PetClient) TailWithResponse(ctx context.Context, opts *types.TailReques
 	out := &types.TailResponse{HTTPResponse: res, Body: body}
 	if err = httpclient.DecodeResponse(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return out, err
 	}
 	return out, nil
@@ -455,7 +455,7 @@ func (c *PetClient) TailStream(ctx context.Context, opts *types.TailRequestOptio
 	if err != nil {
 		return nil, err
 	}
-	return httpclient.OpenStream[[]byte](res, body, nil)
+	return httpclient.OpenStream[[]byte](res, body, nil, c.unmarshal)
 }
 
 // TailStreamWithResponse calls GET /tail and returns the whole response, with its stream.
@@ -472,7 +472,7 @@ func (c *PetClient) TailStreamWithResponse(ctx context.Context, opts *types.Tail
 	out := &types.TailResponse{HTTPResponse: res, Body: body}
 	out.Stream200, err = httpclient.DecodeStream[[]byte](res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-ndjson", Dst: &out.Ndjson200},
-	})
+	}, c.unmarshal)
 	if err != nil {
 		return out, err
 	}

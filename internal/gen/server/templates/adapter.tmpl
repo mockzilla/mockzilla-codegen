@@ -23,7 +23,8 @@ type ServerOptions struct {
 	Router             any
 	Middleware         []func({{.HTTP}}.Handler) {{.HTTP}}.Handler
 	ErrorHandler       {{.HTTPServer}}.ErrorHandler
-	JSONDecoder        func(body {{.IO}}.Reader, dst any, isRequired bool) error
+	JSONDecoder        func(data []byte, v any) error
+	JSONEncoder        func(v any) ([]byte, error)
 	MultipartMaxMemory int64
 {{- if .Presence}}
 	Presence           {{.Runtime}}.PresenceChecker
@@ -37,7 +38,8 @@ type ServerOption func(*ServerOptions)
 func NewServerOptions(opts ...ServerOption) *ServerOptions {
 	o := &ServerOptions{
 		ErrorHandler:       {{.HTTPServer}}.DefaultErrorHandler{},
-		JSONDecoder:        {{.Runtime}}.DecodeJSON,
+		JSONDecoder:        {{.JSON}}.Unmarshal,
+		JSONEncoder:        {{.JSON}}.Marshal,
 		MultipartMaxMemory: {{.MaxMemory}},
 {{- if .Presence}}
 		Presence:           bodyPresence,
@@ -63,10 +65,17 @@ func WithErrorHandler(h {{.HTTPServer}}.ErrorHandler) ServerOption {
 	}
 }
 
-// WithJSONDecoder sets what reads JSON bodies. isRequired says whether an empty body is an error.
-func WithJSONDecoder(decode func(body {{.IO}}.Reader, dst any, isRequired bool) error) ServerOption {
+// WithJSONDecoder sets what reads JSON request bodies.
+func WithJSONDecoder(decode func(data []byte, v any) error) ServerOption {
 	return func(o *ServerOptions) {
 		o.JSONDecoder = decode
+	}
+}
+
+// WithJSONEncoder sets what writes JSON response bodies and stream frames.
+func WithJSONEncoder(encode func(v any) ([]byte, error)) ServerOption {
+	return func(o *ServerOptions) {
+		o.JSONEncoder = encode
 	}
 }
 
@@ -220,7 +229,7 @@ func (a *HTTPAdapter) write(w {{.HTTP}}.ResponseWriter, r *{{.HTTP}}.Request, id
 	if res.ContentType() != "" {
 		w.Header().Set("Content-Type", res.ContentType())
 	}
-	err := {{.HTTPServer}}.Write(w, res.StatusCode(), res.Header(), res.Payload())
+	err := {{.HTTPServer}}.Writer{Marshal: a.opts.JSONEncoder}.Write(w, res.StatusCode(), res.Header(), res.Payload())
 	switch {
 	case {{.Errors}}.Is(err, {{.Runtime}}.ErrContentType):
 		a.fail(w, r, &{{.HTTPServer}}.HandlerError{Kind: {{.HTTPServer}}.ErrorResponse, OperationID: id, Err: err})

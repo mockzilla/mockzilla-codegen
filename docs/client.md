@@ -23,6 +23,7 @@ func NewPetClient(baseURL string, opts ...PetClientOption) (*PetClient, error)
 func WithHTTPClient(d HTTPDoer) PetClientOption
 func WithTimeout(d time.Duration) PetClientOption
 func WithRequestEditor(fns ...RequestEditor) PetClientOption
+func WithJSON(marshal func(v any) ([]byte, error), unmarshal func(data []byte, v any) error) PetClientOption
 ```
 
 ### Base URL
@@ -60,6 +61,24 @@ Request editors run on every request before it is sent, in the order they were a
 that returns an error stops the request. Editors are the place for credentials.
 
 A method takes editors of its own too, see [Methods](#methods).
+
+### JSON library
+
+The client writes and reads JSON with `encoding/json`. `WithJSON` swaps in another library that
+has the same two functions:
+
+```go
+import "github.com/bytedance/sonic"
+
+c, err := NewPetClient(baseURL, WithJSON(sonic.Marshal, sonic.Unmarshal))
+```
+
+| Uses the library | Stays on `encoding/json` |
+|---|---|
+| JSON request bodies | parameters with JSON content |
+| JSON response bodies and stream frames | the `MarshalJSON` methods of generated types, which the library calls |
+
+A nil function panics at once, as a nil `HTTPDoer` does.
 
 ### Operation ID
 
@@ -552,6 +571,7 @@ return stream.Err()
 | `Close()` | may be called from another goroutine to end a pending `Next`, which then returns false |
 | `Sentinels` | frames that end the stream instead of being decoded, see below |
 | `MaxFrameSize` | the size limit of one frame, see below |
+| `Unmarshal` | what decodes a frame, the client's [JSON library](#json-library) in `<Op>Stream` and `json.Unmarshal` when nil |
 
 #### Err
 

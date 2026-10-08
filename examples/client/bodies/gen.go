@@ -4,6 +4,7 @@ package bodies
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"slices"
@@ -233,13 +234,25 @@ func WithRequestEditor(fns ...RequestEditor) ClientOption {
 	}
 }
 
+// WithJSON writes JSON bodies with marshal and reads them with unmarshal. A nil one panics.
+func WithJSON(marshal func(v any) ([]byte, error), unmarshal func(data []byte, v any) error) ClientOption {
+	if marshal == nil || unmarshal == nil {
+		panic("WithJSON: nil function")
+	}
+	return func(c *Client) {
+		c.marshal, c.unmarshal = marshal, unmarshal
+	}
+}
+
 // Client calls the API at a base URL.
 // A response outside 2xx, or a 2xx the spec does not list, is a *httpclient.APIError.
 type Client struct {
-	baseURL *url.URL
-	doer    HTTPDoer
-	timeout time.Duration
-	editors []RequestEditor
+	baseURL   *url.URL
+	doer      HTTPDoer
+	timeout   time.Duration
+	editors   []RequestEditor
+	marshal   func(v any) ([]byte, error)
+	unmarshal func(data []byte, v any) error
 }
 
 // NewClient returns a client of the API at baseURL.
@@ -249,7 +262,13 @@ func NewClient(baseURL string, opts ...ClientOption) (*Client, error) {
 		return nil, err
 	}
 
-	c := &Client{baseURL: u, doer: &http.Client{}, timeout: 3 * time.Second}
+	c := &Client{
+		baseURL:   u,
+		doer:      &http.Client{},
+		timeout:   3 * time.Second,
+		marshal:   json.Marshal,
+		unmarshal: json.Unmarshal,
+	}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -270,7 +289,7 @@ func (c *Client) PostJSON(ctx context.Context, opts *PostJSONRequestOptions, edi
 	var out *Note
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -284,7 +303,7 @@ func (c *Client) PostJSONRequest(ctx context.Context, opts *PostJSONRequestOptio
 	b := httpclient.NewRequestBuilder(http.MethodPost, "/json")
 	switch {
 	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json")
+		b.JSONBody(opts.Body, "application/json", c.marshal)
 	}
 	return c.newRequest(ctx, "PostJSON", b, editors)
 }
@@ -303,7 +322,7 @@ func (c *Client) GetForm(ctx context.Context, opts *GetFormRequestOptions, edito
 	var out *Note
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/x-www-form-urlencoded", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -332,7 +351,7 @@ func (c *Client) PostForm(ctx context.Context, opts *PostFormRequestOptions, edi
 	var out *Note
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -367,7 +386,7 @@ func (c *Client) PostCharset(ctx context.Context, opts *PostCharsetRequestOption
 	var out *Note
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json; charset=utf-8", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -381,7 +400,7 @@ func (c *Client) PostCharsetRequest(ctx context.Context, opts *PostCharsetReques
 	b := httpclient.NewRequestBuilder(http.MethodPost, "/charset")
 	switch {
 	case opts.Body != nil:
-		b.JSONBody(opts.Body, "application/json; charset=utf-8")
+		b.JSONBody(opts.Body, "application/json; charset=utf-8", c.marshal)
 	}
 	return c.newRequest(ctx, "PostCharset", b, editors)
 }
@@ -400,7 +419,7 @@ func (c *Client) Upload(ctx context.Context, opts *UploadRequestOptions, editors
 	var out UploadResponse200
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "application/json", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -435,7 +454,7 @@ func (c *Client) PostText(ctx context.Context, opts *PostTextRequestOptions, edi
 	var out *PostTextResponse200
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -470,7 +489,7 @@ func (c *Client) PutFile(ctx context.Context, opts *PutFileRequestOptions, edito
 	var out *PutFileResponse200
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "image/png", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -501,7 +520,7 @@ func (c *Client) PutXML(ctx context.Context, opts *PutXMLRequestOptions, editors
 	if err != nil {
 		return err
 	}
-	return httpclient.DecodeSuccess(res, body, nil)
+	return httpclient.DecodeSuccess(res, body, nil, c.unmarshal)
 }
 
 // PutXMLRequest builds the request of PUT /xml.
@@ -531,7 +550,7 @@ func (c *Client) PostAny(ctx context.Context, opts *PostAnyRequestOptions, edito
 	var out *PostAnyResponse200
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "text/plain", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -568,7 +587,7 @@ func (c *Client) GetAnyText(ctx context.Context, opts *GetAnyTextRequestOptions,
 	var out *GetAnyTextResponse200
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "*/*", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -597,7 +616,7 @@ func (c *Client) GetAnyBytes(ctx context.Context, opts *GetAnyBytesRequestOption
 	var out []byte
 	if err = httpclient.DecodeSuccess(res, body, []httpclient.ResponseTarget{
 		{Status: "200", MediaType: "*/*", Dst: &out},
-	}); err != nil {
+	}, c.unmarshal); err != nil {
 		return nil, err
 	}
 	return out, nil
