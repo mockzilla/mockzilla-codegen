@@ -90,7 +90,8 @@ func (c *PetClient) ListPetsRequest(ctx context.Context, opts *ListPetsRequestOp
   `*httpclient.APIError` with the raw body and no error type: `default` never covers a 2xx.
 - A response outside 2xx is a `*httpclient.APIError` with the status, the headers and the raw body.
   When the spec documents an error type for the status (see `models.error-mapping`), the body is
-  decoded into it and `errors.As` finds it through the `APIError`:
+  decoded into it and `errors.As` finds it through the `APIError`. A status documented without
+  one gets none, even when its range or `default` has one:
 
   ```go
   pet, err := c.GetPet(ctx, &GetPetRequestOptions{PathParams: &GetPetPathParams{ID: 7}})
@@ -237,8 +238,9 @@ func (c *Client) SubmitJobWithResponse(ctx context.Context, opts *SubmitJobReque
   side uses too, filled from the response headers.
 - The response fills the fields of its status, else of its range (`2XX`), else of `default`,
   and among them the body field whose media type fits the response's best: the same one, then
-  JSON for any JSON, then a wildcard. A status outside 2xx is no error; only a request that
-  cannot be built or sent, or a body that does not decode, is.
+  JSON for any JSON, then a wildcard. A documented status fills only its own fields, so a `410`
+  without a body fills nothing, even next to a `4XX` with one. A status outside 2xx is no error;
+  only a request that cannot be built or sent, or a body that does not decode, is.
 
 ## Streaming
 

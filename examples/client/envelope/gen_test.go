@@ -63,12 +63,29 @@ func getJobLog(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// cancelJob cancels job j2, answers 410 with a body for the done job j1, and 404 for any other.
+func cancelJob(w http.ResponseWriter, r *http.Request) {
+	switch r.PathValue("id") {
+	case "j2":
+		w.WriteHeader(http.StatusNoContent)
+	case "j1":
+		w.Header().Set("Content-Type", "application/problem+json")
+		w.WriteHeader(http.StatusGone)
+		_, _ = io.WriteString(w, `{"detail":"job j1 is done"}`)
+	default:
+		w.Header().Set("Content-Type", "application/problem+json")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = io.WriteString(w, `{"detail":"no such job"}`)
+	}
+}
+
 func newClient(t *testing.T) *Client {
 	t.Helper()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /jobs", submitJob)
 	mux.HandleFunc("GET /jobs/{id}/log", getJobLog)
+	mux.HandleFunc("DELETE /jobs/{id}", cancelJob)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	c, err := NewClient(srv.URL)
@@ -210,6 +227,52 @@ func TestGetJobLogPlain(t *testing.T) {
 	var apiErr *httpclient.APIError
 	require.ErrorAs(t, err, &apiErr)
 	assert.Equal(t, http.StatusNotFound, apiErr.StatusCode)
+}
+
+func TestCancelJobWithResponse(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	c := newClient(t)
+	tests := []struct {
+		name string
+		id   string
+		want *CancelJobResponse
+	}{
+		{name: "Cancelled", id: "j2", want: &CancelJobResponse{Body: []byte{}}},
+		{name: "A 410 documents no body, so its range does not read it", id: "j1", want: &CancelJobResponse{Body: []byte(`{"detail":"job j1 is done"}`)}},
+		{name: "A 404 is read by its range", id: "j9", want: &CancelJobResponse{Body: []byte(`{"detail":"no such job"}`), ProblemJSON4XX: &Problem{Detail: "no such job"}}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			res, err := c.CancelJobWithResponse(ctx, &CancelJobRequestOptions{PathParams: &CancelJobPathParams{ID: tc.id}})
+
+			require.NoError(t, err)
+			res.HTTPResponse = nil
+			assert.Equal(t, tc.want, res)
+		})
+	}
+}
+
+func TestCancelJobPlain(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	c := newClient(t)
+
+	err := c.CancelJob(ctx, &CancelJobRequestOptions{PathParams: &CancelJobPathParams{ID: "j1"}})
+	var apiErr *httpclient.APIError
+	require.ErrorAs(t, err, &apiErr)
+	assert.Equal(t, http.StatusGone, apiErr.StatusCode)
+	assert.NoError(t, apiErr.Err, "a 410 has no error type")
+
+	err = c.CancelJob(ctx, &CancelJobRequestOptions{PathParams: &CancelJobPathParams{ID: "j9"}})
+	var problem *Problem
+	require.ErrorAs(t, err, &problem)
+	assert.Equal(t, "no such job", problem.Detail)
 }
 
 func TestInterfaceListsBothStyles(t *testing.T) {

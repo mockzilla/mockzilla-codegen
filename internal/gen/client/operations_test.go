@@ -239,6 +239,76 @@ func TestAccept(t *testing.T) {
 	}
 }
 
+func TestBareTargets(t *testing.T) {
+	t.Parallel()
+
+	problem := TargetView{Status: "4XX", MediaType: "application/json", Dst: "new(Problem)"}
+	tests := []struct {
+		name      string
+		responses []gomodel.Response
+		targets   []TargetView
+		want      []TargetView
+	}{
+		{
+			name:      "A status without a target next to its range",
+			responses: []gomodel.Response{{Status: "410"}, {Status: "4XX"}},
+			targets:   []TargetView{problem},
+			want:      []TargetView{{Status: "410"}},
+		},
+		{
+			name:      "A status a target names",
+			responses: []gomodel.Response{{Status: "404"}, {Status: "4XX"}},
+			targets:   []TargetView{{Status: "404", MediaType: "application/json", Dst: "new(NotFound)"}, problem},
+		},
+		{
+			name:      "No wider target",
+			responses: []gomodel.Response{{Status: "410"}, {Status: "500"}},
+			targets:   []TargetView{{Status: "500", MediaType: "application/json", Dst: "new(Problem)"}},
+		},
+		{
+			name:      "Default takes codes and ranges",
+			responses: []gomodel.Response{{Status: "204"}, {Status: "4XX"}, {Status: "default"}},
+			targets:   []TargetView{{Status: "default", MediaType: "application/json", Dst: "&out.JSONDefault"}},
+			want:      []TargetView{{Status: "204"}, {Status: "4XX"}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, bareTargets(tc.responses, tc.targets))
+		})
+	}
+}
+
+func TestIsWider(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name, wide, narrow string
+		want               bool
+	}{
+		{name: "Default takes a code", wide: "default", narrow: "404", want: true},
+		{name: "Default takes a range", wide: "default", narrow: "4XX", want: true},
+		{name: "Default does not take itself", wide: "Default", narrow: "default"},
+		{name: "A range takes its codes", wide: "4XX", narrow: "404", want: true},
+		{name: "A lower-case range takes its codes", wide: "4xx", narrow: "410", want: true},
+		{name: "A range does not take another hundred", wide: "4XX", narrow: "500"},
+		{name: "A range does not take itself", wide: "4XX", narrow: "4XX"},
+		{name: "A code takes nothing", wide: "404", narrow: "404"},
+		{name: "A range does not take default", wide: "5XX", narrow: "default"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, isWider(tc.wide, tc.narrow))
+		})
+	}
+}
+
 func TestMethodExpr(t *testing.T) {
 	t.Parallel()
 

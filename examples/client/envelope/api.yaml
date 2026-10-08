@@ -43,6 +43,18 @@ paths:
             text/plain: {schema: {type: string}}
             application/json: {schema: {type: array, items: {type: string}}}
         "404": {description: no such job}
+  /jobs/{id}:
+    delete:
+      operationId: cancelJob
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "204": {description: cancelled}
+        "410": {description: the job is done already}
+        "4XX":
+          description: rejected
+          content:
+            application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}
 components:
   schemas:
     Job:
