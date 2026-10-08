@@ -44,7 +44,7 @@ type Animal struct {
 
 // MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (a Animal) MarshalJSON() ([]byte, error) {
-	return runtime.MarshalTagged(nil, a.union(), a.Cat, a.Dog)
+	return runtime.MarshalVariants(nil, a.union(), a.Cat, a.Dog)
 }
 
 // UnmarshalJSON sets the variant data matches.

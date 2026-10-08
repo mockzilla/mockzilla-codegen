@@ -36,7 +36,7 @@ type Shipping struct {
 // MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (s Shipping) MarshalJSON() ([]byte, error) {
 	type plain Shipping
-	return runtime.MarshalTagged(plain(s), s.union(), s.Then, s.Else)
+	return runtime.MarshalVariants(plain(s), s.union(), s.Then, s.Else)
 }
 
 // UnmarshalJSON sets the variant data matches, and the shared properties.

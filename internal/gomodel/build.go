@@ -163,16 +163,20 @@ func (b *builder) fillStruct(d *Decl, f *spec.Schema) {
 }
 
 // fillUnion makes one variant per member, next to the properties every member shares. Members of
-// the same Go type share one variant.
+// the same Go type share one variant, in any group.
 func (b *builder) fillUnion(d *Decl, f *spec.Schema) {
 	us := b.unions.read(f)
-	u := &Union{IsAnyOf: us.isAnyOf, IsNullable: us.isNullable, Discriminator: us.discriminator, isTypeList: us.isTypeList}
+	u := &Union{isTypeList: us.isTypeList}
+	for _, g := range us.groups {
+		u.Groups = append(u.Groups, &Group{IsAnyOf: g.isAnyOf, IsNullable: g.isNullable, Discriminator: g.discriminator})
+	}
 	st := &Struct{}
 	if !us.isTypeList {
 		st.Fields = b.fields(d, f)
 	}
 
 	for _, m := range us.members {
+		g := u.Groups[m.group]
 		t := b.typeOf(m.schema)
 		if t == (DeclRef{Decl: d}) {
 			b.diags.Append(diag.Diagnostic{
@@ -188,6 +192,9 @@ func (b *builder) fillUnion(d *Decl, f *spec.Schema) {
 			v := u.Variants[i]
 			v.Values = append(v.Values, m.values...)
 			v.IsDefault = v.IsDefault || m.isDefault
+			if !slices.Contains(g.Variants, v) {
+				g.Variants = append(g.Variants, v)
+			}
 			b.diags.Append(diag.Diagnostic{
 				Severity: diag.Info,
 				Code:     diag.CodeUnionDuplicate,
@@ -202,7 +209,9 @@ func (b *builder) fillUnion(d *Decl, f *spec.Schema) {
 		if _, isInline := b.decls[m.schema]; isInline {
 			name = b.opts.Namer.Exported(m.suffix)
 		}
-		u.Variants = append(u.Variants, &Variant{Name: name, Type: t, Values: m.values, IsDefault: m.isDefault, Origin: origin(m.schema.Origin), schema: m.schema})
+		v := &Variant{Name: name, Type: t, Values: m.values, IsDefault: m.isDefault, Origin: origin(m.schema.Origin), schema: m.schema}
+		u.Variants = append(u.Variants, v)
+		g.Variants = append(g.Variants, v)
 	}
 	d.Struct, d.Union = st, u
 	resolveFields(d, b.opts.Namer, b.methods(d), b.diags)

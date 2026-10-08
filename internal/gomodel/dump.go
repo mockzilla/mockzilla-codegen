@@ -90,8 +90,8 @@ func dumpDecl(b *strings.Builder, d *Decl) {
 	}
 	if v := d.Validation; v != nil {
 		b.WriteString("  ? validate")
-		if v.Count != "" {
-			b.WriteString(" count=" + v.Count)
+		for _, c := range v.Counts {
+			b.WriteString(" count=" + c.Func)
 		}
 		if v.IsDiscriminated {
 			b.WriteString(" discriminated")
@@ -200,22 +200,31 @@ func ruleText(r Rule) string {
 }
 
 func dumpUnion(b *strings.Builder, u *Union) {
-	b.WriteString("  |")
-	for _, flag := range []struct {
-		isSet bool
-		word  string
-	}{
-		{!u.IsAnyOf, "oneOf"},
-		{u.IsAnyOf, "anyOf"},
-		{u.IsNullable, "nullable"},
-		{u.IsText, "text"},
-		{u.Discriminator != "", "discriminator=" + u.Discriminator},
-	} {
-		if flag.isSet {
-			b.WriteString(" " + flag.word)
+	for i, g := range u.Groups {
+		b.WriteString("  |")
+		for _, flag := range []struct {
+			isSet bool
+			word  string
+		}{
+			{!g.IsAnyOf, "oneOf"},
+			{g.IsAnyOf, "anyOf"},
+			{g.IsNullable, "nullable"},
+			{i == 0 && u.IsText, "text"},
+			{g.Discriminator != "", "discriminator=" + g.Discriminator},
+		} {
+			if flag.isSet {
+				b.WriteString(" " + flag.word)
+			}
 		}
+		if len(u.Groups) > 1 {
+			names := make([]string, len(g.Variants))
+			for j, v := range g.Variants {
+				names[j] = v.Name
+			}
+			b.WriteString(" of " + strings.Join(names, ", "))
+		}
+		b.WriteString("\n")
 	}
-	b.WriteString("\n")
 
 	for _, v := range u.Variants {
 		b.WriteString("  | " + v.Name + " " + typeText(v.FieldType) + " kinds=" + kindsText(v.Kinds))

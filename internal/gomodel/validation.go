@@ -86,7 +86,14 @@ func (v *validator) validation(d *Decl) *Validation {
 			c.Field, c.IsVariant = vr.Name, true
 			checks = appendCheck(checks, c)
 		}
-		return &Validation{Count: unionCount(d.Union), IsDiscriminated: d.Union.Discriminator != "", Checks: checks}
+		out := &Validation{Checks: checks}
+		for _, g := range d.Union.Groups {
+			if fn := unionCount(g); fn != "" {
+				out.Counts = append(out.Counts, Count{Func: fn, Variants: g.Variants})
+			}
+			out.IsDiscriminated = out.IsDiscriminated || g.Discriminator != ""
+		}
+		return out
 	default:
 		return &Validation{Checks: appendCheck(nil, v.check(d, d.schema, d.Target, d.Name))}
 	}
@@ -340,7 +347,7 @@ func keepChecked(decls []*Decl) {
 
 func isChecked(d *Decl, checked map[*Decl]bool) bool {
 	isLive := func(c *Check) bool { return !isEmpty(dropUnchecked(c, checked)) }
-	return d.Enum != nil && len(d.Enum.Values) > 0 || d.Validation.Count != "" || d.Validation.IsDiscriminated ||
+	return d.Enum != nil && len(d.Enum.Values) > 0 || len(d.Validation.Counts) > 0 || d.Validation.IsDiscriminated ||
 		slices.ContainsFunc(d.Validation.Checks, isLive)
 }
 
@@ -376,14 +383,14 @@ func differs(c *Check) bool {
 	return c != nil && (c.Side != SideBoth || c.Nested != nil && c.Nested.Validation.HasResponse || differs(c.Items) || differs(c.Values))
 }
 
-// unionCount is the runtime check of how many variants a union has set.
-func unionCount(u *Union) string {
+// unionCount is the runtime check of how many variants a union group has set.
+func unionCount(g *Group) string {
 	switch {
-	case u.IsAnyOf && u.IsNullable:
+	case g.IsAnyOf && g.IsNullable:
 		return ""
-	case u.IsAnyOf:
+	case g.IsAnyOf:
 		return "AtLeastOne"
-	case u.IsNullable:
+	case g.IsNullable:
 		return "AtMostOne"
 	}
 	return "ExactlyOne"

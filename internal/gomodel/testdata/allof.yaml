@@ -158,6 +158,11 @@ components:
       allOf:
         - $ref: '#/components/schemas/Typed'
         - properties: {extra: {type: string}}
+    TypedLast:
+      allOf:
+        - required: [user]
+          properties: {user: {type: string}}
+        - $ref: '#/components/schemas/Ext'
     TypedRoot:
       x-go-type: time.Duration
       allOf:

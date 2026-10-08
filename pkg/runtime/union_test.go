@@ -38,6 +38,18 @@ type holder struct {
 	List  []int
 }
 
+func (h *holder) union() Union {
+	return Union{Variants: []Variant{
+		{Name: "Cat", Kind: KindObject, Values: []string{"cat"}, Required: []string{"meow"}, Known: []string{"type", "name", "meow"}, Into: Into(&h.Cat)},
+		{Name: "Dog", Kind: KindObject, Values: []string{"dog"}, Required: []string{"bark"}, Known: []string{"type", "name", "bark"}, Into: Into(&h.Dog)},
+		{Name: "When", Kind: KindString, Into: Into(&h.When)},
+		{Name: "Text", Kind: KindString, Into: Into(&h.Text)},
+		{Name: "Float", Kind: KindInteger | KindNumber, Into: Into(&h.Float)},
+		{Name: "Int", Kind: KindInteger, Into: Into(&h.Int)},
+		{Name: "List", Kind: KindArray, Into: Into(&h.List)},
+	}}
+}
+
 // scalars stands in for a generated union of scalars; isNoText leaves out its string variant.
 type scalars struct {
 	Int  *int
@@ -45,6 +57,19 @@ type scalars struct {
 	Text *string
 
 	isNoText bool
+}
+
+func (s *scalars) UnmarshalJSON(data []byte) error {
+	*s = scalars{isNoText: s.isNoText}
+	u := Union{Variants: []Variant{
+		{Name: "Int", Kind: KindInteger, Into: Into(&s.Int)},
+		{Name: "Bool", Kind: KindBool, Into: Into(&s.Bool)},
+		{Name: "Text", Kind: KindString, Into: Into(&s.Text)},
+	}}
+	if s.isNoText {
+		u.Variants = u.Variants[:2]
+	}
+	return UnmarshalUnion(data, u)
 }
 
 type photo struct {
@@ -81,36 +106,11 @@ func (p *post) UnmarshalForm(form *multipart.Form) error {
 	}})
 }
 
-func (h *holder) union() Union {
-	return Union{Variants: []Variant{
-		{Name: "Cat", Kind: KindObject, Values: []string{"cat"}, Required: []string{"meow"}, Known: []string{"type", "name", "meow"}, Into: Into(&h.Cat)},
-		{Name: "Dog", Kind: KindObject, Values: []string{"dog"}, Required: []string{"bark"}, Known: []string{"type", "name", "bark"}, Into: Into(&h.Dog)},
-		{Name: "When", Kind: KindString, Into: Into(&h.When)},
-		{Name: "Text", Kind: KindString, Into: Into(&h.Text)},
-		{Name: "Float", Kind: KindInteger | KindNumber, Into: Into(&h.Float)},
-		{Name: "Int", Kind: KindInteger, Into: Into(&h.Int)},
-		{Name: "List", Kind: KindArray, Into: Into(&h.List)},
-	}}
-}
-
-func (s *scalars) UnmarshalJSON(data []byte) error {
-	*s = scalars{isNoText: s.isNoText}
-	u := Union{Variants: []Variant{
-		{Name: "Int", Kind: KindInteger, Into: Into(&s.Int)},
-		{Name: "Bool", Kind: KindBool, Into: Into(&s.Bool)},
-		{Name: "Text", Kind: KindString, Into: Into(&s.Text)},
-	}}
-	if s.isNoText {
-		u.Variants = u.Variants[:2]
-	}
-	return UnmarshalUnion(data, u)
-}
-
 func TestUnmarshalUnion(t *testing.T) {
 	t.Parallel()
 
 	when := time.Date(2026, time.September, 30, 0, 0, 0, 0, time.UTC)
-	text, float, integer := "hi", 1.5, 3
+	hi, float, integer := "hi", 1.5, 3
 	noRequired := func(u *Union) {
 		u.Variants[0].Required, u.Variants[1].Required = nil, nil
 	}
@@ -170,7 +170,7 @@ func TestUnmarshalUnion(t *testing.T) {
 			want: holder{Cat: &cat{Name: "a", Meow: true}},
 		},
 		{name: "String that decodes into the first string variant", data: `"2026-09-30T00:00:00Z"`, want: holder{When: &when}},
-		{name: "String that fails the first variant", data: `"hi"`, want: holder{Text: &text}},
+		{name: "String that fails the first variant", data: `"hi"`, want: holder{Text: &hi}},
 		{name: "Integer prefers the integer variant", data: `3`, want: holder{Int: &integer}},
 		{name: "Fraction takes the float variant", data: ` 1.5 `, want: holder{Float: &float}},
 		{name: "Null sets nothing", data: `null`},
@@ -217,6 +217,35 @@ func TestUnmarshalUnion(t *testing.T) {
 		},
 		{name: "Any of over strings", data: `"2026-09-30T00:00:00Z"`, edit: func(u *Union) { u.IsAnyOf = true }, want: holder{When: &when, Text: new("2026-09-30T00:00:00Z")}},
 		{name: "Any of without candidates", data: `true`, edit: func(u *Union) { u.IsAnyOf = true }, wantErr: ErrNoVariant},
+		{
+			name: "Each union in Also sets a variant too",
+			data: `{"name":"a","meow":true,"bark":true}`,
+			edit: func(u *Union) {
+				u.Also = []Union{{Variants: u.Variants[1:2]}}
+				u.Variants = u.Variants[:1]
+			},
+			want: holder{Cat: &cat{Name: "a", Meow: true}, Dog: &dog{Name: "a", Bark: true}},
+		},
+		{
+			name: "A union in Also that nothing matches",
+			data: `{"name":"a","meow":true}`,
+			edit: func(u *Union) {
+				u.Also = []Union{{Variants: u.Variants[1:2]}}
+				u.Variants = u.Variants[:1]
+			},
+			wantErr:    ErrNoVariant,
+			wantErrMsg: "no union variant matches for a JSON object: Dog needs bark",
+		},
+		{
+			name: "A union in Also takes the shared keys",
+			data: `{"id":1,"meow":true,"bark":true}`,
+			edit: func(u *Union) {
+				closed := u.Variants[1]
+				closed.IsClosed = true
+				u.Shared, u.Variants, u.Also = []string{"id", "meow"}, u.Variants[:1], []Union{{Variants: []Variant{closed}}}
+			},
+			want: holder{Cat: &cat{Meow: true}, Dog: &dog{Bark: true}},
+		},
 	}
 
 	for _, tc := range tests {
@@ -395,9 +424,9 @@ func TestUnmarshalUnionForm(t *testing.T) {
 	t.Parallel()
 
 	r := multipartRequest(t, func(w *multipart.Writer) {
-		part, err := w.CreateFormFile("image", "a.png")
+		fw, err := w.CreateFormFile("image", "a.png")
 		require.NoError(t, err)
-		_, err = part.Write([]byte("PNG"))
+		_, err = fw.Write([]byte("PNG"))
 		require.NoError(t, err)
 		require.NoError(t, w.WriteField("caption", "sun"))
 		require.NoError(t, w.WriteField("tags", "a"))

@@ -114,14 +114,20 @@ type Decl struct {
 	isParams  bool
 }
 
-// Validation is what the Validate methods of a declaration check. Count is the runtime check of
-// how many union variants are set, empty for none. HasResponse adds ValidateResponse, whose checks
-// differ from those of Validate.
+// Validation is what the Validate methods of a declaration check. Counts check how many variants
+// each union group has set. HasResponse adds ValidateResponse, whose checks differ from those of
+// Validate.
 type Validation struct {
-	Count           string
+	Counts          []Count
 	IsDiscriminated bool
 	Checks          []*Check
 	HasResponse     bool
+}
+
+// Count is the runtime check of how many of Variants are set: ExactlyOne, AtMostOne, AtLeastOne.
+type Count struct {
+	Func     string
+	Variants []*Variant
 }
 
 // Check is what Validate checks of one value. Field is the Go field it lives in, empty for the value
@@ -216,17 +222,22 @@ type Struct struct {
 	IsClosed             bool
 }
 
-// Union holds one field per variant. Exactly one is set for oneOf, one or more for anyOf; with
-// IsNullable nothing set is null. Discriminator is the property whose value picks a variant.
-// IsText is a union of scalars with no shared properties, which a parameter writes as text.
+// Union holds one field per variant. Groups are the unions a value is at once. IsText is a union
+// of scalars with no shared properties, which a parameter writes as text.
 type Union struct {
-	IsAnyOf       bool
-	IsNullable    bool
-	IsText        bool
-	Discriminator string
-	Variants      []*Variant
+	IsText   bool
+	Variants []*Variant
+	Groups   []*Group
 
 	isTypeList bool
+}
+
+// Group is one union: one variant set for oneOf, one or more for anyOf, or none if nullable.
+type Group struct {
+	IsAnyOf       bool
+	IsNullable    bool
+	Discriminator string
+	Variants      []*Variant
 }
 
 // Variant is one member of a union. FieldType is a pointer to Type unless Type can be nil. The

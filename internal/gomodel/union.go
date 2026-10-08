@@ -19,10 +19,11 @@ import (
 )
 
 // unionMember is a member of a union schema that is not null. Index is its place in the spec
-// list; suffix names its declaration when it is inline: its title, else its first discriminator
-// value, else Option and its place.
+// lists; suffix names its declaration when it is inline: its title, else its first discriminator
+// value, else Option and its place. Group is the union that lists it.
 type unionMember struct {
 	schema    *spec.Schema
+	group     int
 	index     int
 	suffix    string
 	values    []string
@@ -30,13 +31,19 @@ type unionMember struct {
 }
 
 // unionSchema is how a union schema reads. The members of a type list are made from its types
-// and hold its properties; other unions share their properties across members.
+// and hold its properties; other unions share their properties across members. It has a group per
+// oneOf, anyOf or if.
 type unionSchema struct {
+	isTypeList bool
+	groups     []unionGroup
+	members    []unionMember
+}
+
+// unionGroup is one union of a union schema.
+type unionGroup struct {
 	isAnyOf       bool
 	isNullable    bool
-	isTypeList    bool
 	discriminator string
-	members       []unionMember
 }
 
 // unionReader reads each union schema once, so the collector and the builder see the same
@@ -61,24 +68,35 @@ func (r *unionReader) read(f *spec.Schema) *unionSchema {
 	if u, ok := r.memo[f]; ok {
 		return u
 	}
-	u := &unionSchema{isNullable: f.Nullable}
+	u := &unionSchema{}
 	r.memo[f] = u
 
-	switch {
-	case len(nonNull(f.OneOf))+len(nonNull(f.AnyOf)) > 1:
-		list := f.OneOf
-		if len(list) == 0 {
-			list, u.isAnyOf = f.AnyOf, true
-		}
-		r.add(u, list)
-		r.discriminate(u, f.Discriminator)
-	case f.Then != nil && f.Else != nil:
-		r.add(u, []*spec.Schema{f.Then, f.Else})
-		u.members[0].suffix, u.members[1].suffix = "Then", "Else"
-		r.predicate(u, f.If)
-	default:
+	list := r.flat.unions(f)
+	if len(list) == 0 {
 		u.isTypeList = true
+		u.groups = []unionGroup{{isNullable: f.Nullable}}
 		r.typeList(u, f)
+	}
+
+	at := 0
+	for _, s := range list {
+		g := len(u.groups)
+		u.groups = append(u.groups, unionGroup{isNullable: f.Nullable})
+		switch {
+		case s.Then != nil:
+			r.add(u, g, at, []*spec.Schema{s.Then, s.Else})
+			r.predicate(u, g, at, s.If)
+			at += 2
+		case s.OneOf != nil:
+			r.add(u, g, at, s.OneOf)
+			r.discriminate(u, g, s.Discriminator)
+			at += len(s.OneOf)
+		default:
+			u.groups[g].isAnyOf = true
+			r.add(u, g, at, s.AnyOf)
+			r.discriminate(u, g, s.Discriminator)
+			at += len(s.AnyOf)
+		}
 	}
 
 	for i := range u.members {
@@ -95,26 +113,30 @@ func (r *unionReader) read(f *spec.Schema) *unionSchema {
 	return u
 }
 
-func (r *unionReader) add(u *unionSchema, list []*spec.Schema) {
+// add lists the members of group g, at its place in the spec lists of all groups.
+func (r *unionReader) add(u *unionSchema, g, at int, list []*spec.Schema) {
 	for i, s := range list {
 		if isNull(s) {
-			u.isNullable = true
+			u.groups[g].isNullable = true
 			continue
 		}
-		u.members = append(u.members, unionMember{schema: s, index: i})
+		u.members = append(u.members, unionMember{schema: s, group: g, index: at + i})
 	}
 }
 
-// discriminate gives each member its discriminator values: those the mapping lists for it, else
-// the const or single-value enum of its discriminator property, else its component name.
-func (r *unionReader) discriminate(u *unionSchema, d *spec.Discriminator) {
+// discriminate gives each member of group g its discriminator values: those the mapping lists for
+// it, else the const or single-value enum of its discriminator property, else its component name.
+func (r *unionReader) discriminate(u *unionSchema, g int, d *spec.Discriminator) {
 	if d == nil {
 		return
 	}
 
-	u.discriminator = d.Property
+	u.groups[g].discriminator = d.Property
 	for i := range u.members {
 		m := &u.members[i]
+		if m.group != g {
+			continue
+		}
 		ref := refOf(m.schema)
 		for _, mp := range d.Mapping {
 			if ref != nil && mp.Ref != nil && mp.Ref.Target == ref.Target {
@@ -132,20 +154,31 @@ func (r *unionReader) discriminate(u *unionSchema, d *spec.Discriminator) {
 }
 
 // predicate reads an if that tests one property against a const or single-value enum: then takes
-// that value, else any other.
-func (r *unionReader) predicate(u *unionSchema, cond *spec.Schema) {
-	if cond == nil {
+// that value, else any other. It names the branches first.
+func (r *unionReader) predicate(u *unionSchema, g, at int, cond *spec.Schema) {
+	var then, otherwise *unionMember
+	for i := range u.members {
+		switch m := &u.members[i]; {
+		case m.group != g:
+		case m.index == at:
+			m.suffix, then = "Then", m
+		default:
+			m.suffix, otherwise = "Else", m
+		}
+	}
+	if cond == nil || then == nil || otherwise == nil {
 		return
 	}
+
 	f := r.flat.flatten(target(cond))
 	if len(f.Properties) != 1 {
 		return
 	}
 	p := f.Properties[0]
 	if values := r.constValues(p.Schema); len(values) > 0 {
-		u.discriminator = p.Name
-		u.members[0].values = values
-		u.members[1].isDefault = true
+		u.groups[g].discriminator = p.Name
+		then.values = values
+		otherwise.isDefault = true
 	}
 }
 
@@ -221,43 +254,49 @@ func settleUnions(decls []*Decl) {
 // ambiguousUnions warns about oneOf variants that can be objects requiring the same properties.
 func ambiguousUnions(decls []*Decl, diags *diag.Collector) {
 	for _, d := range decls {
-		u := d.Union
-		if u == nil || u.IsAnyOf || u.Discriminator != "" {
+		if d.Union == nil {
 			continue
 		}
-
-		var keys []string
-		byRequired := map[string][]string{}
-		for _, v := range u.Variants {
-			shapes := v.Shapes
-			if len(shapes) == 0 && v.Kinds == JSONObject {
-				shapes = []Shape{{Required: v.Required}}
-			}
-			var own []string
-			for _, sh := range shapes {
-				key := strings.Join(slices.Sorted(slices.Values(sh.Required)), ", ")
-				if slices.Contains(own, key) {
-					continue
-				}
-				own = append(own, key)
-				if _, ok := byRequired[key]; !ok {
-					keys = append(keys, key)
-				}
-				byRequired[key] = append(byRequired[key], v.Name)
+		for _, g := range d.Union.Groups {
+			if !g.IsAnyOf && g.Discriminator == "" {
+				ambiguousGroup(d, g, diags)
 			}
 		}
+	}
+}
 
-		for _, key := range keys {
-			names := byRequired[key]
-			if len(names) < 2 {
+func ambiguousGroup(d *Decl, g *Group, diags *diag.Collector) {
+	var keys []string
+	byRequired := map[string][]string{}
+	for _, v := range g.Variants {
+		shapes := v.Shapes
+		if len(shapes) == 0 && v.Kinds == JSONObject {
+			shapes = []Shape{{Required: v.Required}}
+		}
+		var own []string
+		for _, sh := range shapes {
+			key := strings.Join(slices.Sorted(slices.Values(sh.Required)), ", ")
+			if slices.Contains(own, key) {
 				continue
 			}
-			msg := fmt.Sprintf("variants %s of %s require the same properties (%s), so an object with only those matches each of them and fails to decode", strings.Join(names, ", "), d.Name, key)
-			if key == "" {
-				msg = fmt.Sprintf("variants %s of %s require no property, so {} matches each of them and fails to decode", strings.Join(names, ", "), d.Name)
+			own = append(own, key)
+			if _, ok := byRequired[key]; !ok {
+				keys = append(keys, key)
 			}
-			diags.Append(diag.Diagnostic{Severity: diag.Warning, Code: diag.CodeUnionAmbiguous, Pointer: d.ID, Origin: d.Origin, Message: msg})
+			byRequired[key] = append(byRequired[key], v.Name)
 		}
+	}
+
+	for _, key := range keys {
+		names := byRequired[key]
+		if len(names) < 2 {
+			continue
+		}
+		msg := fmt.Sprintf("variants %s of %s require the same properties (%s), so an object with only those matches each of them and fails to decode", strings.Join(names, ", "), d.Name, key)
+		if key == "" {
+			msg = fmt.Sprintf("variants %s of %s require no property, so {} matches each of them and fails to decode", strings.Join(names, ", "), d.Name)
+		}
+		diags.Append(diag.Diagnostic{Severity: diag.Warning, Code: diag.CodeUnionAmbiguous, Pointer: d.ID, Origin: d.Origin, Message: msg})
 	}
 }
 
@@ -309,9 +348,13 @@ func declKinds(d *Decl, seen map[*Decl]bool) JSONKind {
 
 	switch {
 	case d.Union != nil:
-		var k JSONKind
-		for _, v := range d.Union.Variants {
-			k |= jsonKinds(v.Type, seen)
+		k := JSONAny
+		for _, g := range d.Union.Groups {
+			var own JSONKind
+			for _, v := range g.Variants {
+				own |= jsonKinds(v.Type, seen)
+			}
+			k &= own
 		}
 		return k
 	case d.Enum != nil:
@@ -363,7 +406,7 @@ func structShape(st *Struct) Shape {
 	return sh
 }
 
-// unionShapes are the objects d can be, each with d's shared properties.
+// unionShapes are the objects d can be: one variant of each group, with d's shared properties.
 func unionShapes(d *Decl, seen map[*Decl]bool) []Shape {
 	if seen[d] {
 		return nil
@@ -372,18 +415,29 @@ func unionShapes(d *Decl, seen map[*Decl]bool) []Shape {
 	defer delete(seen, d)
 
 	shared := structShape(d.Struct)
-	if p := d.Union.Discriminator; p != "" && !slices.Contains(shared.Known, p) {
-		shared.Known = append(shared.Known, p)
-	}
-	var out []Shape
-	for _, v := range d.Union.Variants {
-		for _, sh := range objectShapes(v.Type, seen) {
-			sh.Required = appendNew(sh.Required, shared.Required)
-			if sh.Known != nil {
-				sh.Known = appendNew(sh.Known, shared.Known)
-			}
-			out = append(out, sh)
+	var combined []Shape
+	for i, g := range d.Union.Groups {
+		if p := g.Discriminator; p != "" && !slices.Contains(shared.Known, p) {
+			shared.Known = append(shared.Known, p)
 		}
+		var shapes []Shape
+		for _, v := range g.Variants {
+			shapes = append(shapes, objectShapes(v.Type, seen)...)
+		}
+		if i == 0 {
+			combined = shapes
+			continue
+		}
+		combined = joinShapes(combined, shapes)
+	}
+
+	out := make([]Shape, len(combined))
+	for i, sh := range combined {
+		sh.Required = appendNew(sh.Required, shared.Required)
+		if sh.Known != nil {
+			sh.Known = appendNew(sh.Known, shared.Known)
+		}
+		out[i] = sh
 	}
 	return out
 }
@@ -400,6 +454,21 @@ func objectShapes(t Type, seen map[*Decl]bool) []Shape {
 		return []Shape{{}}
 	}
 	return nil
+}
+
+// joinShapes are the objects that are one of a and one of b; a key either knows is known.
+func joinShapes(a, b []Shape) []Shape {
+	out := make([]Shape, 0, len(a)*len(b))
+	for _, x := range a {
+		for _, y := range b {
+			sh := Shape{Required: appendNew(x.Required, y.Required), IsClosed: x.IsClosed || y.IsClosed}
+			if x.Known != nil && y.Known != nil {
+				sh.Known = appendNew(x.Known, y.Known)
+			}
+			out = append(out, sh)
+		}
+	}
+	return out
 }
 
 func appendNew(list, more []string) []string {

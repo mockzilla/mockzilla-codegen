@@ -73,7 +73,7 @@ type Payment struct {
 
 // MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (p Payment) MarshalJSON() ([]byte, error) {
-	return runtime.MarshalTagged(nil, p.union(), p.Card, p.Bank, p.Wallet)
+	return runtime.MarshalVariants(nil, p.union(), p.Card, p.Bank, p.Wallet)
 }
 
 // UnmarshalJSON sets the variant data matches.
@@ -134,7 +134,7 @@ type Tolerant struct {
 
 // MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (t Tolerant) MarshalJSON() ([]byte, error) {
-	return runtime.MarshalTagged(nil, t.union(), t.Card, t.Unknown)
+	return runtime.MarshalVariants(nil, t.union(), t.Card, t.Unknown)
 }
 
 // UnmarshalJSON sets the variant data matches.
@@ -184,7 +184,7 @@ type Inline struct {
 
 // MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (i Inline) MarshalJSON() ([]byte, error) {
-	return runtime.MarshalTagged(nil, i.union(), i.Circle, i.Square)
+	return runtime.MarshalVariants(nil, i.union(), i.Circle, i.Square)
 }
 
 // UnmarshalJSON sets the variant data matches.

@@ -25,3 +25,21 @@ components:
         - oneOf:
             - $ref: '#/components/schemas/Email'
             - $ref: '#/components/schemas/Phone'
+    Daily:
+      type: object
+      required: [time]
+      properties:
+        time: {type: string}
+    Weekly:
+      type: object
+      required: [weekday]
+      properties:
+        weekday: {type: integer, minimum: 1, maximum: 7}
+    Reminder:
+      allOf:
+        - oneOf:
+            - $ref: '#/components/schemas/Email'
+            - $ref: '#/components/schemas/Phone'
+        - oneOf:
+            - $ref: '#/components/schemas/Daily'
+            - $ref: '#/components/schemas/Weekly'

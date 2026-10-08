@@ -19,31 +19,46 @@ import (
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime/validation"
 )
 
-// MarshalTagged is MarshalOneOf, or MarshalUnion for anyOf, that fills or checks the discriminator.
-func MarshalTagged(shared any, u Union, variants ...any) ([]byte, error) {
+// MarshalVariants is MarshalOneOf or MarshalUnion per union of u, filling or checking discriminators.
+func MarshalVariants(shared any, u Union, variants ...any) ([]byte, error) {
+	groups := u.groups()
 	var set []any
-	var picked []int
-	isSet := make([]bool, len(variants))
-	for i, v := range variants {
-		if !isNil(v) {
-			set = append(set, v)
-			picked = append(picked, i)
-			isSet[i] = true
+	picked := make([][]int, len(groups))
+	at := 0
+	for i, g := range groups {
+		isSet := make([]bool, len(g.Variants))
+		for j := range g.Variants {
+			if v := variants[at+j]; !isNil(v) {
+				set = append(set, v)
+				picked[i] = append(picked[i], j)
+				isSet[j] = true
+			}
 		}
-	}
-	if !u.IsAnyOf {
+		at += len(g.Variants)
+		if g.IsAnyOf {
+			continue
+		}
 		if err := validation.AtMostOne(isSet...); err != nil {
 			return nil, err
 		}
 	}
+
 	data, err := MarshalUnion(shared, set...)
-	if err != nil || len(picked) == 0 || jsonKind(data) != KindObject {
+	if err != nil || jsonKind(data) != KindObject {
 		return data, err
 	}
-	return u.tag(data, picked)
+	for i, g := range groups {
+		if g.Discriminator == "" || len(picked[i]) == 0 {
+			continue
+		}
+		if data, err = g.tag(data, picked[i]); err != nil {
+			return nil, err
+		}
+	}
+	return data, nil
 }
 
-// DiscriminatorError is the discriminator error of a MarshalTagged result, nil for any other.
+// DiscriminatorError is the discriminator error of a MarshalVariants result, nil for any other.
 func DiscriminatorError(_ []byte, err error) error {
 	var wrapped *json.MarshalerError
 	var e validation.Error

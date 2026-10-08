@@ -1,4 +1,4 @@
-{{.Runtime}}.Union{
+{{.Type}}{
 {{- if .IsAnyOf}}
 		IsAnyOf: true,
 {{- end}}
@@ -53,4 +53,11 @@
 			},
 {{- end}}
 		},
+{{- with .Also}}
+		Also: []{{$.Runtime}}.Union{
+{{- range .}}
+			{{template "models/variants.tmpl" .}},
+{{- end}}
+		},
+{{- end}}
 	}

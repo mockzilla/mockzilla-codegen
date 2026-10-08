@@ -82,22 +82,36 @@ type ConstView struct {
 }
 
 // UnionView is what a union's variant fields and methods need. Runtime and JSON are the names
-// the packages are imported under, JSON only when shared fields are decoded. Discriminator and
-// Shared are quoted. IsText adds MarshalText and UnmarshalText; Form, the form type, UnmarshalForm.
-// Which is what decoding sets in doc lines, Marshal the runtime func that writes the variants.
+// the packages are imported under, JSON only when shared fields are decoded. IsText adds
+// MarshalText and UnmarshalText; Form, the form type, UnmarshalForm. Which is what decoding sets
+// in doc lines, Marshal the runtime func that writes the variants. IsDescribed uses Args instead.
 type UnionView struct {
-	Receiver      string
+	Receiver    string
+	Runtime     string
+	JSON        string
+	Form        string
+	Which       string
+	Marshal     string
+	IsAnyOf     bool
+	IsGrouped   bool
+	IsDescribed bool
+	IsText      bool
+	HasUnion    bool
+	Variants    []VariantView
+	Args        []string
+	Literal     LiteralView
+}
+
+// LiteralView is a runtime.Union literal; Type is empty in Also, Discriminator and Shared quoted.
+type LiteralView struct {
+	Type          string
 	Runtime       string
-	JSON          string
-	Form          string
-	Which         string
-	Marshal       string
+	Receiver      string
 	IsAnyOf       bool
-	IsText        bool
-	HasUnion      bool
 	Discriminator string
 	Shared        []string
 	Variants      []VariantView
+	Also          []LiteralView
 }
 
 // VariantView is one variant field and what decoding needs to know of it. Kinds are runtime.Kind
@@ -214,53 +228,87 @@ func structView(d *gomodel.Decl, s *gocode.Scope) ([]FieldView, *AdditionalView)
 func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
 	u := d.Union
 	v := &UnionView{
-		Receiver: receiver(d.Name),
-		Runtime:  s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
-		Form:     formType(d, s),
-		Which:    "the variant",
-		Marshal:  "MarshalOneOf",
-		IsAnyOf:  u.IsAnyOf,
-		IsText:   u.IsText,
-		HasUnion: u.Discriminator != "" || d.IsForm,
-		Variants: make([]VariantView, len(u.Variants)),
+		Receiver:  receiver(d.Name),
+		Runtime:   s.Import(gomodel.Import{Path: gomodel.RuntimePath}),
+		Form:      formType(d, s),
+		Which:     "the variant",
+		Marshal:   "MarshalOneOf",
+		IsAnyOf:   u.Groups[0].IsAnyOf,
+		IsGrouped: len(u.Groups) > 1,
+		IsText:    u.IsText,
+		Variants:  make([]VariantView, len(u.Variants)),
 	}
-	if u.IsAnyOf {
+	switch {
+	case v.IsGrouped:
+		v.Which = "the variants of each union"
+	case v.IsAnyOf:
 		v.Which, v.Marshal = "every variant", "MarshalUnion"
 	}
 	if len(d.Struct.Fields) > 0 {
 		v.JSON = s.Import(gomodel.Import{Path: "encoding/json"})
 	}
-	for _, f := range d.Struct.Fields {
-		v.Shared = append(v.Shared, gocode.Quote(f.JSONName))
-	}
-	if u.Discriminator != "" {
-		v.Discriminator = gocode.Quote(u.Discriminator)
-		if !slices.ContainsFunc(d.Struct.Fields, func(f *gomodel.Field) bool { return f.JSONName == u.Discriminator }) {
-			v.Shared = append(v.Shared, v.Discriminator)
-		}
-	}
 
+	var shared []string
+	for _, f := range d.Struct.Fields {
+		shared = append(shared, gocode.Quote(f.JSONName))
+	}
+	var isDiscriminated bool
+	for _, g := range u.Groups {
+		if g.Discriminator == "" {
+			continue
+		}
+		isDiscriminated = true
+		if q := gocode.Quote(g.Discriminator); !slices.Contains(shared, q) {
+			shared = append(shared, q)
+		}
+	}
+	v.IsDescribed = isDiscriminated || v.IsGrouped
+	v.HasUnion = v.IsDescribed || d.IsForm
+
+	byName := map[string]VariantView{}
 	for i, vr := range u.Variants {
-		v.Variants[i] = VariantView{
-			Name:      vr.Name,
-			Type:      s.Expr(vr.FieldType),
-			Kinds:     kinds(vr.Kinds),
-			Values:    quoteAll(vr.Values),
-			IsDefault: vr.IsDefault,
-			Required:  quoteAll(vr.Required),
-			Known:     quoteAll(vr.Known),
-			HasKnown:  vr.Known != nil,
-			IsClosed:  vr.IsClosed,
+		v.Variants[i] = variantView(vr, s)
+		byName[vr.Name] = v.Variants[i]
+	}
+	for i, g := range u.Groups {
+		lit := LiteralView{Runtime: v.Runtime, Receiver: v.Receiver, IsAnyOf: g.IsAnyOf}
+		if g.Discriminator != "" {
+			lit.Discriminator = gocode.Quote(g.Discriminator)
 		}
-		for _, sh := range vr.Shapes {
-			v.Variants[i].Shapes = append(v.Variants[i].Shapes, ShapeView{
-				Required: quoteAll(sh.Required),
-				Known:    quoteAll(sh.Known),
-				HasKnown: sh.Known != nil,
-				IsClosed: sh.IsClosed,
-				IsEmpty:  len(sh.Required) == 0 && sh.Known == nil && !sh.IsClosed,
-			})
+		for _, vr := range g.Variants {
+			lit.Variants = append(lit.Variants, byName[vr.Name])
+			v.Args = append(v.Args, vr.Name)
 		}
+		if i == 0 {
+			lit.Type, lit.Shared = gocode.Selector(v.Runtime, "Union"), shared
+			v.Literal = lit
+			continue
+		}
+		v.Literal.Also = append(v.Literal.Also, lit)
+	}
+	return v
+}
+
+func variantView(vr *gomodel.Variant, s *gocode.Scope) VariantView {
+	v := VariantView{
+		Name:      vr.Name,
+		Type:      s.Expr(vr.FieldType),
+		Kinds:     kinds(vr.Kinds),
+		Values:    quoteAll(vr.Values),
+		IsDefault: vr.IsDefault,
+		Required:  quoteAll(vr.Required),
+		Known:     quoteAll(vr.Known),
+		HasKnown:  vr.Known != nil,
+		IsClosed:  vr.IsClosed,
+	}
+	for _, sh := range vr.Shapes {
+		v.Shapes = append(v.Shapes, ShapeView{
+			Required: quoteAll(sh.Required),
+			Known:    quoteAll(sh.Known),
+			HasKnown: sh.Known != nil,
+			IsClosed: sh.IsClosed,
+			IsEmpty:  len(sh.Required) == 0 && sh.Known == nil && !sh.IsClosed,
+		})
 	}
 	return v
 }
@@ -272,26 +320,35 @@ func unionDoc(d *gomodel.Decl) string {
 		return ""
 	}
 
-	kind, null := " is one of ", ""
-	if u.IsAnyOf {
-		kind = " is any of "
-	}
-	if u.IsNullable {
-		null = ", or null"
-	}
-	names := make([]string, len(u.Variants))
-	for i, vr := range u.Variants {
-		names[i] = vr.Name
-	}
-	last := len(names) - 1
-	list := names[last]
-	if last > 0 {
-		list = strings.Join(names[:last], ", ") + " or " + list
+	null := ", or null"
+	var named, counted []string
+	for _, g := range u.Groups {
+		if !g.IsNullable {
+			null = ""
+		}
+		if len(g.Variants) == 0 {
+			continue
+		}
+		kind := "one of "
+		if g.IsAnyOf {
+			kind = "any of "
+		}
+		names := make([]string, len(g.Variants))
+		for i, vr := range g.Variants {
+			names[i] = vr.Name
+		}
+		last := len(names) - 1
+		list := names[last]
+		if last > 0 {
+			list = strings.Join(names[:last], ", ") + " or " + list
+		}
+		named = append(named, kind+list)
+		counted = append(counted, kind+strconv.Itoa(len(names))+" variants")
 	}
 
-	line := d.Name + kind + list + null + "."
+	line := d.Name + " is " + strings.Join(named, ", and ") + null + "."
 	if utf8.RuneCountInString("// "+line) > gocode.CommentWidth {
-		line = d.Name + kind + strconv.Itoa(len(names)) + " variants" + null + "."
+		line = d.Name + " is " + strings.Join(counted, ", and ") + null + "."
 	}
 	return line
 }

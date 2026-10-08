@@ -243,8 +243,9 @@ type Dog struct {
 - `enum` and `const` keep the values every member allows. `enum: [car, bike]` in one member and
   `const: car` in another give an enum of `car` alone; two enums keep the values both list. With no
   value in common, the first enum stays, with a warning (`allof-conflict`).
-- A member with `x-go-type` makes the type an alias of that type. When another member adds
-  properties, items, variants or another type, that is not generated, with a warning.
+- A member with `x-go-type` makes the type an alias of that type. When any other member, before
+  or after it, adds properties, items, variants or another type, that is not generated, with a
+  warning.
 - An `allOf` that includes itself is an error; the loop is left out.
 - The description comes from the schema and its inline members, never from a referenced type.
 - An `allOf` of one `$ref` plus members that only add a description, a default or flags is that
@@ -382,6 +383,39 @@ type Contact struct {
 
 A type that extends a parent through `allOf`, where the parent lists it in its `oneOf` or `anyOf`,
 is one of the parent's variants: it gets the parent's properties, not its union.
+
+### Several unions
+
+A value can be several unions at once: an `allOf` of two `oneOf`s, a `oneOf` next to an `anyOf`,
+or a `oneOf` next to an `if` with both branches. The variants of all of them are fields of one
+struct, numbered on from one union to the next.
+
+```yaml
+Reminder:
+  allOf:
+    - oneOf:
+        - $ref: '#/components/schemas/Email'
+        - $ref: '#/components/schemas/Phone'
+    - oneOf:
+        - $ref: '#/components/schemas/Daily'
+        - $ref: '#/components/schemas/Weekly'
+```
+
+```go
+// Reminder is one of Email or Phone, and one of Daily or Weekly.
+type Reminder struct {
+	Email  *Email  `json:"-"`
+	Phone  *Phone  `json:"-"`
+	Daily  *Daily  `json:"-"`
+	Weekly *Weekly `json:"-"`
+}
+```
+
+Each union keeps its own kind, discriminator and checks. `UnmarshalJSON` reads every union from
+the same JSON: `{"address":"a@b.c","time":"09:00"}` sets `Email` and `Daily`, and
+`{"address":"a@b.c"}` fails with `Daily needs time, Weekly needs weekday`. `MarshalJSON` merges
+the set variants. `Validate` counts the variants of each union on its own. A type that two unions
+list is one field.
 
 ### if, then, else
 

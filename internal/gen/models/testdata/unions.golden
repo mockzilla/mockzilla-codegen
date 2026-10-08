@@ -183,7 +183,7 @@ type Contact struct {
 // MarshalJSON writes the variant that is set, with the discriminator value that picks it.
 func (c Contact) MarshalJSON() ([]byte, error) {
 	type plain Contact
-	return runtime.MarshalTagged(plain(c), c.union(), c.Email, c.Other)
+	return runtime.MarshalVariants(plain(c), c.union(), c.Email, c.Other)
 }
 
 // UnmarshalJSON sets the variant data matches, and the shared properties.
@@ -235,7 +235,7 @@ type Person struct {
 // MarshalJSON writes the variants that are set, with the discriminator value that picks them.
 func (p Person) MarshalJSON() ([]byte, error) {
 	type plain Person
-	return runtime.MarshalTagged(plain(p), p.union(), p.Name)
+	return runtime.MarshalVariants(plain(p), p.union(), p.Name)
 }
 
 // UnmarshalJSON sets every variant data matches, and the shared properties.
@@ -258,6 +258,71 @@ func (p *Person) union() runtime.Union {
 				Name: "Name",
 				Kind: runtime.KindString,
 				Into: runtime.Into(&p.Name),
+			},
+		},
+	}
+}
+
+// Reminder is one of Email or Phone, and any of Daily or Weekly.
+type Reminder struct {
+	ID     string  `json:"id"`
+	Email  *string `json:"-"`
+	Phone  *string `json:"-"`
+	Daily  *string `json:"-"`
+	Weekly *string `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged with the shared properties.
+func (r Reminder) MarshalJSON() ([]byte, error) {
+	type plain Reminder
+	return runtime.MarshalVariants(plain(r), r.union(), r.Email, r.Phone, r.Daily, r.Weekly)
+}
+
+// UnmarshalJSON sets the variants of each union data matches, and the shared properties.
+func (r *Reminder) UnmarshalJSON(data []byte) error {
+	*r = Reminder{}
+	type plain Reminder
+	if err := json.Unmarshal(data, (*plain)(r)); err != nil {
+		return err
+	}
+	return runtime.UnmarshalUnion(data, r.union())
+}
+
+func (r *Reminder) union() runtime.Union {
+	return runtime.Union{
+		Shared: []string{"id", "every"},
+		Variants: []runtime.Variant{
+			{
+				Name:     "Email",
+				Kind:     runtime.KindObject,
+				Required: []string{"address"},
+				Into:     runtime.Into(&r.Email),
+			},
+			{
+				Name:     "Phone",
+				Kind:     runtime.KindObject,
+				Required: []string{"number"},
+				Into:     runtime.Into(&r.Phone),
+			},
+		},
+		Also: []runtime.Union{
+			{
+				IsAnyOf:       true,
+				Discriminator: "every",
+				Variants: []runtime.Variant{
+					{
+						Name:   "Daily",
+						Kind:   runtime.KindObject,
+						Values: []string{"day"},
+						Into:   runtime.Into(&r.Daily),
+					},
+					{
+						Name:   "Weekly",
+						Kind:   runtime.KindObject,
+						Values: []string{"week"},
+						Into:   runtime.Into(&r.Weekly),
+					},
+				},
 			},
 		},
 	}

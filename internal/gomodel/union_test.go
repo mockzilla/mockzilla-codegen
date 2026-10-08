@@ -6,6 +6,7 @@
 package gomodel
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,7 +29,12 @@ func TestJSONKinds(t *testing.T) {
 	status := &Decl{Name: "Status", Kind: KindEnum, Enum: &Enum{Base: str}}
 	id := &Decl{Name: "ID", Kind: KindAlias, Target: Builtin{Name: "int64"}}
 	loop := &Decl{Name: "Loop", Kind: KindUnion, Struct: &Struct{}}
-	loop.Union = &Union{Variants: []*Variant{{Type: DeclRef{Decl: loop}}, {Type: Builtin{Name: "bool"}}}}
+	loops := []*Variant{{Type: DeclRef{Decl: loop}}, {Type: Builtin{Name: "bool"}}}
+	loop.Union = &Union{Variants: loops, Groups: []*Group{{Variants: loops}}}
+	both := &Decl{Name: "Both", Kind: KindUnion, Struct: &Struct{}}
+	numbers := []*Variant{{Type: Builtin{Name: "float64"}}, {Type: str}}
+	ints := []*Variant{{Type: Builtin{Name: "int64"}}, {Type: Builtin{Name: "bool"}}}
+	both.Union = &Union{Variants: slices.Concat(numbers, ints), Groups: []*Group{{Variants: numbers}, {Variants: ints}}}
 
 	tests := []struct {
 		name string
@@ -51,6 +57,7 @@ func TestJSONKinds(t *testing.T) {
 		{name: "Enum", typ: DeclRef{Decl: status}, want: JSONString},
 		{name: "Alias", typ: DeclRef{Decl: id}, want: JSONInteger},
 		{name: "Union that holds itself", typ: DeclRef{Decl: loop}, want: JSONBool},
+		{name: "Two unions take what both take", typ: DeclRef{Decl: both}, want: JSONInteger},
 		{name: "No type", want: JSONAny},
 	}
 
