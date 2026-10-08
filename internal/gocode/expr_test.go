@@ -25,6 +25,8 @@ func TestExpressions(t *testing.T) {
 	assert.Equal(t, "p.Cat != nil", NotNil("p.Cat"))
 	assert.Equal(t, "p == nil", IsNil("p"))
 	assert.Equal(t, "p == nil || p.Cat == nil", Or(IsNil("p"), IsNil("p.Cat")))
+	assert.Equal(t, "p.A != nil && p.B != nil", And(NotNil("p.A"), NotNil("p.B")))
+	assert.Equal(t, "true", And())
 	assert.Equal(t, "value, ok := p.Cat.Get(); ok", Get("p.Cat", "value", "ok"))
 	assert.Equal(t, `opts.Body != ""`, NotEmpty("opts.Body"))
 	assert.Equal(t, "&opts.Body", AddressOf("opts.Body"))

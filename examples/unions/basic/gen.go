@@ -43,6 +43,18 @@ func (o Owner) Validate() error {
 	return errs.Err()
 }
 
+type Lookup struct {
+	ID    *int    `json:"id,omitempty"`
+	Email *string `json:"email,omitempty"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (l Lookup) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOneOf("id or email", l.ID != nil, l.Email != nil))
+	return errs.Err()
+}
+
 // Pet is one of Cat or Dog.
 type Pet struct {
 	Cat *Cat `json:"-"`
@@ -336,5 +348,62 @@ func (o *OwnerTagsValue) UnmarshalText(text []byte) error {
 func (o OwnerTagsValue) Validate() error {
 	var errs validation.Errors
 	errs.Append("", validation.ExactlyOne(o.String != nil, o.Int != nil))
+	return errs.Err()
+}
+
+// Slug is one of String.
+type Slug struct {
+	String *string `json:"-"`
+}
+
+// MarshalJSON writes the variant that is set.
+func (s Slug) MarshalJSON() ([]byte, error) {
+	var set []any
+	if s.String != nil {
+		set = append(set, s.String)
+	}
+	return runtime.MarshalOneOf(nil, set...)
+}
+
+// UnmarshalJSON sets the variant data matches.
+func (s *Slug) UnmarshalJSON(data []byte) error {
+	*s = Slug{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name: "String",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&s.String),
+			},
+		},
+	})
+}
+
+// MarshalText writes the variant that is set as text.
+func (s Slug) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(s.MarshalJSON())
+}
+
+// UnmarshalText sets the variant text matches.
+func (s *Slug) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, s.UnmarshalJSON)
+}
+
+// Validate checks the value against the constraints of the spec.
+func (s Slug) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(s.String != nil))
+	var errsString validation.Errors
+	if s.String != nil {
+		errsString.Append("", validation.Format(*s.String, "uuid"))
+	}
+	var errsString2 validation.Errors
+	if s.String != nil {
+		errsString2.Append("", validation.MaxLength(*s.String, 8))
+	}
+	errs.Append("", validation.OneValid(
+		validation.VariantErrors{IsSet: s.String != nil, Errs: errsString},
+		validation.VariantErrors{IsSet: s.String != nil, Errs: errsString2},
+	))
 	return errs.Err()
 }

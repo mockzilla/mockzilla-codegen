@@ -52,7 +52,7 @@ func classify(s *spec.Schema) shape {
 // isUnion reports a oneOf or anyOf with more than one member that is not null, if with both then
 // and else, or a 3.1 type list with several types.
 func isUnion(s *spec.Schema) bool {
-	return len(nonNull(s.OneOf))+len(nonNull(s.AnyOf)) > 1 || s.Then != nil && s.Else != nil ||
+	return len(unionMembers(s.OneOf))+len(unionMembers(s.AnyOf)) > 1 || s.Then != nil && s.Else != nil ||
 		bits.OnesCount8(uint8(s.Types&^spec.TypeNull)) > 1
 }
 
@@ -60,7 +60,8 @@ func isUnion(s *spec.Schema) bool {
 // the caller.
 func hasShape(s *spec.Schema) bool {
 	return len(s.Properties) > 0 || len(s.Required) > 0 || s.AdditionalProperties.Mode != spec.AdditionalUnset || s.Items != nil ||
-		len(s.PrefixItems) > 0 || len(s.Enum) > 0 || isUnion(s) || s.Then != nil || s.Else != nil || hasGoType(s)
+		len(s.PrefixItems) > 0 || len(s.Enum) > 0 || isUnion(s) || s.Then != nil || s.Else != nil || hasGoType(s) ||
+		isRequiredOnlyList(s.OneOf) || isRequiredOnlyList(s.AnyOf)
 }
 
 func hasGoType(s *spec.Schema) bool {
@@ -79,11 +80,34 @@ func members(s *spec.Schema) []*spec.Schema {
 // soleMember returns the one member of a oneOf or anyOf that is not null, as in
 // oneOf: [$ref, {type: null}]. The schema is then that member, nullable.
 func soleMember(s *spec.Schema) *spec.Schema {
-	list := slices.Concat(nonNull(s.OneOf), nonNull(s.AnyOf))
+	list := slices.Concat(unionMembers(s.OneOf), unionMembers(s.AnyOf))
 	if len(list) != 1 {
 		return nil
 	}
 	return list[0]
+}
+
+// unionMembers are the members of a oneOf or anyOf that are variants: not null, not required only.
+func unionMembers(list []*spec.Schema) []*spec.Schema {
+	if isRequiredOnlyList(list) {
+		return nil
+	}
+	return nonNull(list)
+}
+
+// isRequiredOnlyList reports a oneOf or anyOf of several members that only list required properties.
+func isRequiredOnlyList(list []*spec.Schema) bool {
+	return len(list) > 1 && !slices.ContainsFunc(list, func(s *spec.Schema) bool { return !isRequiredOnly(s) })
+}
+
+// isRequiredOnly reports a schema with required and nothing else but docs and type object.
+func isRequiredOnly(s *spec.Schema) bool {
+	rest := *s
+	rest.Required = nil
+	if rest.Types == spec.TypeObject {
+		rest.Types = 0
+	}
+	return len(s.Required) > 0 && isBare(&rest)
 }
 
 func nonNull(list []*spec.Schema) []*spec.Schema {

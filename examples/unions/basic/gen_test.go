@@ -117,6 +117,67 @@ func TestPetValidate(t *testing.T) {
 	}
 }
 
+func TestSlugValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		data    string
+		wantErr string
+	}{
+		{name: "A uuid", data: `"0b9e5d4e-8f3a-4c7e-9a51-2f6d8c1b7e30"`},
+		{name: "A short string", data: `"my-slug"`},
+		{name: "Neither", data: `"not-a-uuid"`, wantErr: "must be a valid uuid; must be at most 8 characters long"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got Slug
+			require.NoError(t, json.Unmarshal([]byte(tc.data), &got))
+			err := got.Validate()
+
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.EqualError(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestLookupValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		data    string
+		wantErr string
+	}{
+		{name: "An id", data: `{"id":1}`},
+		{name: "An email", data: `{"email":"a@b.c"}`},
+		{name: "Neither", data: `{}`, wantErr: "exactly one of id or email must be set, found 0"},
+		{name: "Both", data: `{"id":1,"email":"a@b.c"}`, wantErr: "exactly one of id or email must be set, found 2"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got Lookup
+			require.NoError(t, json.Unmarshal([]byte(tc.data), &got))
+			err := got.Validate()
+
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.EqualError(t, err, tc.wantErr)
+		})
+	}
+}
+
 func TestValueJSON(t *testing.T) {
 	t.Parallel()
 

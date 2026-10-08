@@ -3,6 +3,7 @@
 package anyof
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
@@ -19,6 +20,22 @@ type Named struct {
 type Aged struct {
 	Age int `json:"age"`
 }
+
+type Contact struct {
+	Email *string `json:"email,omitempty"`
+	Phone *string `json:"phone,omitempty"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c Contact) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.AtLeastOneOf("email or phone", c.Email != nil, c.Phone != nil))
+	return errs.Err()
+}
+
+var (
+	patternHandleString = regexp.MustCompile(`^[a-z0-9_-]+$`)
+)
 
 // Person is any of Named or Aged.
 type Person struct {
@@ -176,6 +193,64 @@ func (c Code) Validate() error {
 	errs.Append("", validation.AnyValid(
 		validation.VariantErrors{IsSet: c.Time != nil},
 		validation.VariantErrors{IsSet: c.String != nil, Errs: errsString},
+	))
+	return errs.Err()
+}
+
+// Handle is any of String.
+type Handle struct {
+	String *string `json:"-"`
+}
+
+// MarshalJSON writes the variants that are set, merged.
+func (h Handle) MarshalJSON() ([]byte, error) {
+	var set []any
+	if h.String != nil {
+		set = append(set, h.String)
+	}
+	return runtime.MarshalUnion(nil, set...)
+}
+
+// UnmarshalJSON sets every variant data matches.
+func (h *Handle) UnmarshalJSON(data []byte) error {
+	*h = Handle{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		IsAnyOf: true,
+		Variants: []runtime.Variant{
+			{
+				Name: "String",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&h.String),
+			},
+		},
+	})
+}
+
+// MarshalText writes the variant that is set as text.
+func (h Handle) MarshalText() ([]byte, error) {
+	return runtime.MarshalUnionText(h.MarshalJSON())
+}
+
+// UnmarshalText sets every variant text matches.
+func (h *Handle) UnmarshalText(text []byte) error {
+	return runtime.UnmarshalUnionText(text, h.UnmarshalJSON)
+}
+
+// Validate checks the value against the constraints of the spec.
+func (h Handle) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.AtLeastOne(h.String != nil))
+	var errsString validation.Errors
+	if h.String != nil {
+		errsString.Append("", validation.Format(*h.String, "uuid"))
+	}
+	var errsString2 validation.Errors
+	if h.String != nil {
+		errsString2.Append("", validation.Pattern(*h.String, patternHandleString, `^[a-z0-9_-]+$`))
+	}
+	errs.Append("", validation.AnyValid(
+		validation.VariantErrors{IsSet: h.String != nil, Errs: errsString},
+		validation.VariantErrors{IsSet: h.String != nil, Errs: errsString2},
 	))
 	return errs.Err()
 }

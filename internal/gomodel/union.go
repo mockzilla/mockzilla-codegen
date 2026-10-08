@@ -523,6 +523,17 @@ func target(s *spec.Schema) *spec.Schema {
 	return s
 }
 
+// isSameMember reports union members that check the same, or that a variant cannot check at all.
+func isSameMember(a, b *spec.Schema) bool {
+	return a == b || isBareRef(a) && isBareRef(b) && a.Ref.Target == b.Ref.Target || isRequiredOnly(a) && isRequiredOnly(b)
+}
+
+func isBareRef(s *spec.Schema) bool {
+	rest := *s
+	rest.Ref = nil
+	return s.Ref != nil && isBare(&rest)
+}
+
 // enumOfType keeps the enum values of one JSON type.
 func enumOfType(values []spec.Value, set spec.TypeSet) []spec.Value {
 	var out []spec.Value

@@ -54,10 +54,16 @@ type MethodView struct {
 	Discriminator string
 	Checks        []CheckView
 	VariantChecks []CheckView
-	AnyValid      [][]VariantCheckView
+	Choices       []ChoiceView
 }
 
-// VariantCheckView is one variant of an anyOf; Check is nil when it checks nothing.
+// ChoiceView is the call that checks how many of Members pass: AnyValid or OneValid.
+type ChoiceView struct {
+	Func    string
+	Members []VariantCheckView
+}
+
+// VariantCheckView is one union member; Check is nil when it checks nothing.
 type VariantCheckView struct {
 	IsSet string
 	Check *CheckView
@@ -122,6 +128,12 @@ type checkAt struct {
 	errs  string
 }
 
+// memberKey names a union member by its variant and its place among the variant's members.
+type memberKey struct {
+	variant string
+	index   int
+}
+
 func validateView(d *gomodel.Decl, s *gocode.Scope) *ValidateView {
 	v := d.Validation
 	out := &ValidateView{Receiver: receiver(d.Name)}
@@ -152,11 +164,7 @@ func methodView(d *gomodel.Decl, s *gocode.Scope, side methodSide) MethodView {
 	vd := s.Import(gomodel.Import{Path: gomodel.ValidationPath})
 	m := MethodView{Validation: vd}
 	for _, c := range v.Counts {
-		args := make([]string, len(c.Variants))
-		for i, vr := range c.Variants {
-			args[i] = gocode.NotNil(gocode.Selector(r, vr.Name))
-		}
-		m.Counts = append(m.Counts, gocode.Call(gocode.Selector(vd, c.Func), args...))
+		m.Counts = append(m.Counts, countCall(c, r, vd))
 	}
 
 	if v.IsDiscriminated {
@@ -164,8 +172,9 @@ func methodView(d *gomodel.Decl, s *gocode.Scope, side methodSide) MethodView {
 		m.Discriminator = gocode.Call(gocode.Selector(rt, "DiscriminatorError"), gocode.Call(gocode.Selector(r, "MarshalJSON")))
 	}
 
-	isAnyOfOnly := anyOfOnly(d)
-	byVariant := map[string]*CheckView{}
+	isAlone := aloneMembers(d)
+	byMember := map[memberKey]*CheckView{}
+	used := map[string]bool{}
 	for _, c := range v.Checks {
 		if c.Side == side.skip {
 			continue
@@ -174,10 +183,10 @@ func methodView(d *gomodel.Decl, s *gocode.Scope, side methodSide) MethodView {
 		if c.Field != "" {
 			at.value = gocode.Selector(r, c.Field)
 		}
-		if c.IsVariant && isAnyOfOnly[c.Field] {
-			at.errs = "errs" + c.Field
+		if key := (memberKey{variant: c.Field, index: c.Member}); c.IsVariant && !isAlone[key] {
+			at.errs = freeName(used, "errs"+c.Field)
 			cv := checkView(c, at, vd, side)
-			byVariant[c.Field] = &cv
+			byMember[key] = &cv
 			m.VariantChecks = append(m.VariantChecks, cv)
 			continue
 		}
@@ -188,32 +197,108 @@ func methodView(d *gomodel.Decl, s *gocode.Scope, side methodSide) MethodView {
 		return m
 	}
 	for _, g := range d.Union.Groups {
-		if !g.IsAnyOf || !slices.ContainsFunc(g.Variants, func(vr *gomodel.Variant) bool { return byVariant[vr.Name] != nil }) {
-			continue
-		}
-		list := make([]VariantCheckView, len(g.Variants))
-		for i, vr := range g.Variants {
-			list[i] = VariantCheckView{IsSet: gocode.NotNil(gocode.Selector(r, vr.Name)), Check: byVariant[vr.Name]}
-		}
-		m.AnyValid = append(m.AnyValid, list)
+		m.Choices = append(m.Choices, choices(g, r, vd, byMember)...)
 	}
 	return m
 }
 
-// anyOfOnly marks the variants only anyOf groups list; a oneOf variant must pass its checks.
-func anyOfOnly(d *gomodel.Decl) map[string]bool {
-	out := map[string]bool{}
+// countCall is the call of Count c on the receiver r.
+func countCall(c gomodel.Count, r, vd string) string {
+	if c.Names == "" {
+		args := make([]string, len(c.Variants))
+		for i, vr := range c.Variants {
+			args[i] = gocode.NotNil(gocode.Selector(r, vr.Name))
+		}
+		return gocode.Call(gocode.Selector(vd, c.Func), args...)
+	}
+
+	args := []string{gocode.Quote(c.Names)}
+	for _, fields := range c.Fields {
+		conds := make([]string, len(fields))
+		for i, f := range fields {
+			value := gocode.Selector(r, f.Name)
+			conds[i] = gocode.NotNil(value)
+			if _, isWrapped := f.Type.(gomodel.Nullable); isWrapped {
+				conds[i] = gocode.Call(gocode.Selector(value, "IsSet"))
+			}
+		}
+		args = append(args, gocode.And(conds...))
+	}
+	return gocode.Call(gocode.Selector(vd, c.Func), args...)
+}
+
+// aloneMembers are the members a oneOf lists alone for their variant, which must pass their checks.
+func aloneMembers(d *gomodel.Decl) map[memberKey]bool {
+	out := map[memberKey]bool{}
 	if d.Union == nil {
 		return out
 	}
 	for _, g := range d.Union.Groups {
+		if g.IsAnyOf {
+			continue
+		}
 		for _, vr := range g.Variants {
-			if _, ok := out[vr.Name]; !ok || !g.IsAnyOf {
-				out[vr.Name] = g.IsAnyOf
+			if own := membersOf(g, vr); len(own) == 1 {
+				out[memberKey{variant: vr.Name, index: own[0].Index}] = true
 			}
 		}
 	}
 	return out
+}
+
+// choices are the AnyValid of an anyOf, or the OneValid of each variant a oneOf lists more than once.
+func choices(g *gomodel.Group, r, vd string, byMember map[memberKey]*CheckView) []ChoiceView {
+	member := func(mb gomodel.Member) VariantCheckView {
+		check := byMember[memberKey{variant: mb.Variant.Name, index: mb.Index}]
+		return VariantCheckView{IsSet: gocode.NotNil(gocode.Selector(r, mb.Variant.Name)), Check: check}
+	}
+
+	if g.IsAnyOf {
+		isChecked := func(mb gomodel.Member) bool { return member(mb).Check != nil }
+		if !slices.ContainsFunc(g.Members, isChecked) {
+			return nil
+		}
+		list := make([]VariantCheckView, len(g.Members))
+		for i, mb := range g.Members {
+			list[i] = member(mb)
+		}
+		return []ChoiceView{{Func: gocode.Selector(vd, "AnyValid"), Members: list}}
+	}
+
+	var out []ChoiceView
+	for _, vr := range g.Variants {
+		own := membersOf(g, vr)
+		if len(own) < 2 {
+			continue
+		}
+		list := make([]VariantCheckView, len(own))
+		for i, mb := range own {
+			list[i] = member(mb)
+		}
+		out = append(out, ChoiceView{Func: gocode.Selector(vd, "OneValid"), Members: list})
+	}
+	return out
+}
+
+// membersOf are the members of g that set vr.
+func membersOf(g *gomodel.Group, vr *gomodel.Variant) []gomodel.Member {
+	var out []gomodel.Member
+	for _, mb := range g.Members {
+		if mb.Variant == vr {
+			out = append(out, mb)
+		}
+	}
+	return out
+}
+
+// freeName is base, or base and the first number from 2 that is not used yet; it marks it used.
+func freeName(used map[string]bool, base string) string {
+	name := base
+	for n := 2; used[name]; n++ {
+		name = base + strconv.Itoa(n)
+	}
+	used[name] = true
+	return name
 }
 
 // checkView writes check c of the value at. Loop variables get the depth as a suffix below the

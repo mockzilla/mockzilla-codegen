@@ -71,6 +71,7 @@ func (b *builder) build(list []*pending, ops []*Operation, headers map[*spec.Res
 	}
 	breakAliasCycles(decls, b.diags)
 	b.settleFields(decls)
+	b.requiredCounts(decls)
 	settleUnions(decls)
 	ambiguousUnions(decls, b.diags)
 
@@ -188,34 +189,59 @@ func (b *builder) fillUnion(d *Decl, f *spec.Schema) {
 			})
 			continue
 		}
-		if i := slices.IndexFunc(u.Variants, func(v *Variant) bool { return v.Type == t }); i >= 0 {
-			v := u.Variants[i]
-			v.Values = append(v.Values, m.values...)
-			v.IsDefault = v.IsDefault || m.isDefault
-			if !slices.Contains(g.Variants, v) {
-				g.Variants = append(g.Variants, v)
-			}
+		if !us.isTypeList && isRequiredOnly(m.schema) {
 			b.diags.Append(diag.Diagnostic{
-				Severity: diag.Info,
-				Code:     diag.CodeUnionDuplicate,
+				Severity: diag.Warning,
+				Code:     diag.CodeKeywordUnsupported,
 				Pointer:  m.schema.Origin.Pointer,
 				Origin:   origin(m.schema.Origin),
-				Message:  fmt.Sprintf("member %d has the same Go type (%s) as variant %s; they share its field", m.index+1, typeText(t), v.Name),
+				Message:  fmt.Sprintf("member %d only lists required properties; next to members with a type or null it is not checked", m.index+1),
 			})
-			continue
 		}
 
-		name := typeName(t, b.opts.Namer)
-		if _, isInline := b.decls[m.schema]; isInline {
-			name = b.opts.Namer.Exported(m.suffix)
+		v := b.variant(u, g, m, t)
+		at := slices.IndexFunc(v.schemas, func(s *spec.Schema) bool { return isSameMember(s, m.schema) })
+		if at < 0 {
+			at = len(v.schemas)
+			v.schemas = append(v.schemas, m.schema)
 		}
-		v := &Variant{Name: name, Type: t, Values: m.values, IsDefault: m.isDefault, Origin: origin(m.schema.Origin), schema: m.schema}
-		u.Variants = append(u.Variants, v)
-		g.Variants = append(g.Variants, v)
+
+		if mb := (Member{Variant: v, Index: at}); !slices.Contains(g.Members, mb) {
+			g.Members = append(g.Members, mb)
+		}
 	}
 	d.Struct, d.Union = st, u
 	resolveFields(d, b.opts.Namer, b.methods(d), b.diags)
 	resolveVariants(d, b.methods(d), b.diags)
+}
+
+// variant is the variant of u that member m of group g sets: the one of its Go type t, else a new one.
+func (b *builder) variant(u *Union, g *Group, m unionMember, t Type) *Variant {
+	if i := slices.IndexFunc(u.Variants, func(v *Variant) bool { return v.Type == t }); i >= 0 {
+		v := u.Variants[i]
+		v.Values = append(v.Values, m.values...)
+		v.IsDefault = v.IsDefault || m.isDefault
+		if !slices.Contains(g.Variants, v) {
+			g.Variants = append(g.Variants, v)
+		}
+		b.diags.Append(diag.Diagnostic{
+			Severity: diag.Info,
+			Code:     diag.CodeUnionDuplicate,
+			Pointer:  m.schema.Origin.Pointer,
+			Origin:   origin(m.schema.Origin),
+			Message:  fmt.Sprintf("member %d has the same Go type (%s) as variant %s; they share its field", m.index+1, typeText(t), v.Name),
+		})
+		return v
+	}
+
+	name := typeName(t, b.opts.Namer)
+	if _, isInline := b.decls[m.schema]; isInline {
+		name = b.opts.Namer.Exported(m.suffix)
+	}
+	v := &Variant{Name: name, Type: t, Values: m.values, IsDefault: m.isDefault, Origin: origin(m.schema.Origin)}
+	u.Variants = append(u.Variants, v)
+	g.Variants = append(g.Variants, v)
+	return v
 }
 
 // methods are the methods generated on d, which its fields cannot be named after.

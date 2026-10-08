@@ -8,6 +8,8 @@ package models
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/mockzilla/mockzilla-codegen/internal/gomodel"
 	"github.com/mockzilla/mockzilla-codegen/internal/spec"
 )
@@ -104,11 +106,33 @@ func TestViewRendersValidation(t *testing.T) {
 	either := &gomodel.Decl{Name: "Either", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: groupUnion(gomodel.Group{
 		IsAnyOf:  true,
 		Variants: eitherVariants,
+		Members: []gomodel.Member{
+			{Variant: eitherVariants[0]}, {Variant: eitherVariants[1]}, {Variant: eitherVariants[1], Index: 1}, {Variant: eitherVariants[2]},
+		},
 	}), Validation: &gomodel.Validation{Counts: []gomodel.Count{{Func: "AtLeastOne", Variants: eitherVariants}}, Checks: []*gomodel.Check{
 		{Field: "Code", IsVariant: true, IsPointer: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMaxLength, Number: "5"}}},
+		{Field: "Code", IsVariant: true, Member: 1, IsPointer: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleFormat, Format: "uuid"}}},
 		{Field: "Tags", IsVariant: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMinItems, Number: "1"}}, Items: &gomodel.Check{
 			Rules: []gomodel.Rule{{Kind: gomodel.RuleMinLength, Number: "1"}},
 		}},
+	}}}
+	text := &gomodel.Variant{Name: "String", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}
+	whole := &gomodel.Variant{Name: "Int64", FieldType: gomodel.Pointer{Elem: gomodel.Builtin{Name: "int64"}}, Kinds: gomodel.JSONInteger}
+	slug := &gomodel.Decl{Name: "Slug", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: groupUnion(gomodel.Group{
+		Variants: []*gomodel.Variant{text, whole},
+		Members:  []gomodel.Member{{Variant: text}, {Variant: text, Index: 1}, {Variant: whole}},
+	}), Validation: &gomodel.Validation{Counts: []gomodel.Count{{Func: "ExactlyOne", Variants: []*gomodel.Variant{text, whole}}}, Checks: []*gomodel.Check{
+		{Field: "String", IsVariant: true, IsPointer: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleFormat, Format: "uuid"}}},
+		{Field: "String", IsVariant: true, Member: 1, IsPointer: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMaxLength, Number: "8"}}},
+		{Field: "Int64", IsVariant: true, IsPointer: true, IsGuarded: true, Rules: []gomodel.Rule{{Kind: gomodel.RuleMinimum, Number: "1"}}},
+	}}}
+	email := &gomodel.Field{Name: "Email", JSONName: "email", Type: gomodel.Pointer{Elem: str}, OmitEmpty: true}
+	phone := &gomodel.Field{Name: "Phone", JSONName: "phone", Type: gomodel.Nullable{Elem: str}, OmitEmpty: true, OmitZero: true}
+	contact := &gomodel.Decl{Name: "Contact", Part: gomodel.PartTypes, Kind: gomodel.KindStruct, Struct: &gomodel.Struct{Fields: []*gomodel.Field{
+		{Name: "Name", JSONName: "name", Type: str, Required: true}, email, phone,
+	}}, Validation: &gomodel.Validation{Counts: []gomodel.Count{
+		{Func: "ExactlyOneOf", Names: "email or phone", Fields: [][]*gomodel.Field{{email}, {phone}}},
+		{Func: "AtLeastOneOf", Names: "name or (email and phone)", Fields: [][]*gomodel.Field{nil, {email, phone}}},
 	}}}
 	first := &gomodel.Variant{Name: "First", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}
 	shared := &gomodel.Variant{Name: "Shared", FieldType: gomodel.Pointer{Elem: str}, Kinds: gomodel.JSONString}
@@ -118,9 +142,9 @@ func TestViewRendersValidation(t *testing.T) {
 	mixed := &gomodel.Decl{Name: "Mixed", Part: gomodel.PartUnions, Kind: gomodel.KindUnion, Struct: &gomodel.Struct{}, Union: &gomodel.Union{
 		Variants: []*gomodel.Variant{first, shared, last, plain, other},
 		Groups: []*gomodel.Group{
-			{Variants: []*gomodel.Variant{first, shared}},
-			{IsAnyOf: true, Variants: []*gomodel.Variant{shared, last}},
-			{IsAnyOf: true, Variants: []*gomodel.Variant{plain, other}},
+			withMembers(gomodel.Group{Variants: []*gomodel.Variant{first, shared}}),
+			withMembers(gomodel.Group{IsAnyOf: true, Variants: []*gomodel.Variant{shared, last}}),
+			withMembers(gomodel.Group{IsAnyOf: true, Variants: []*gomodel.Variant{plain, other}}),
 		},
 	}, Validation: &gomodel.Validation{
 		Counts: []gomodel.Count{
@@ -155,10 +179,18 @@ func TestViewRendersValidation(t *testing.T) {
 	}, Error: &gomodel.ErrorMessage{Path: "message", HasConstructor: true}}
 
 	g := New(&gomodel.Model{
-		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, either, mixed, corner, patch, problem},
+		Decls:    []*gomodel.Decl{owner, status, empty, pet, pets, choice, tagged, either, slug, mixed, contact, corner, patch, problem},
 		Patterns: []*gomodel.Pattern{code},
 	})
 	checkRender(t, g, "validation")
+}
+
+func TestFreeName(t *testing.T) {
+	t.Parallel()
+
+	used := map[string]bool{}
+	got := []string{freeName(used, "errsString"), freeName(used, "errsString"), freeName(used, "errsString2"), freeName(used, "errsString")}
+	assert.Equal(t, []string{"errsString", "errsString2", "errsString22", "errsString3"}, got)
 }
 
 func TestRuleFuncs(t *testing.T) {

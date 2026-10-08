@@ -98,6 +98,20 @@ SomeChoice union models.unions
   | String *string kinds=string
   | Int *int kinds=integer
   ? validate count=AtLeastOne
+Handle union models.unions
+  | anyOf text members=String#1,String#2
+  | String *string kinds=string
+  ? validate count=AtLeastOne
+  ? String path= variant pointer guarded format(uuid)
+  ? String path= member=2 variant pointer guarded pattern(patternHandleString)
+Slug union models.unions
+  | oneOf text members=String#1,String#2,Int#1
+  | String *string kinds=string
+  | Int *int kinds=integer
+  ? validate count=ExactlyOne
+  ? String path= variant pointer guarded format(uuid)
+  ? String path= member=2 variant pointer guarded maxLength(8)
+  ? Int path= variant pointer guarded minimum(1)
 NullableChoice union models.unions
   | oneOf nullable text
   | String *string kinds=string
@@ -282,13 +296,16 @@ Shelf struct models.types
 pattern patternPetName models.types "^[A-Z]" "^[A-Z]"
 pattern patternPetTagsItem models.types "^[a-z]+$" "^[a-z]+$"
 pattern patternPetAccent models.types "^\\u00e9" "^\\xE9"
+pattern patternHandleString models.unions "^[a-z0-9_-]+$" "^[a-z0-9_-]+$"
 pattern patternStrictCode models.types "^a" "^a"
 pattern patternStrictCode2 models.types "z$" "z$"
 pattern patternStrictWrapped models.types "b" "b"
 pattern patternMergedKey models.types "b$" "b$"
 ---
 warning pattern-unsupported 45:16 /components/schemas/Pet/properties/ahead: pattern "^(?=a)" is not RE2 (error parsing regexp: invalid or unsupported Perl syntax: `(?=`); it is not used
-warning keyword-unsupported 160:22 /components/schemas/Fixed/propertyNames: propertyNames is not checked: Fixed keeps no keys besides its properties
-warning allof-conflict 176:16 /components/schemas/Car/allOf/properties/level: allOf members allow no value in common; keeping the enum 1, 2, 3
-warning allof-conflict 177:15 /components/schemas/Car/allOf/properties/mode: allOf members set const "a" and "b"; keeping "a"
-warning allof-conflict 178:15 /components/schemas/Car/allOf/properties/mark: allOf members allow no value in common; keeping the enum "y", "z"
+info union-duplicate 83:11 /components/schemas/Handle/anyOf/1: member 2 has the same Go type (string) as variant String; they share its field
+info union-duplicate 87:11 /components/schemas/Slug/oneOf/1: member 2 has the same Go type (string) as variant String; they share its field
+warning keyword-unsupported 169:22 /components/schemas/Fixed/propertyNames: propertyNames is not checked: Fixed keeps no keys besides its properties
+warning allof-conflict 185:16 /components/schemas/Car/allOf/properties/level: allOf members allow no value in common; keeping the enum 1, 2, 3
+warning allof-conflict 186:15 /components/schemas/Car/allOf/properties/mode: allOf members set const "a" and "b"; keeping "a"
+warning allof-conflict 187:15 /components/schemas/Car/allOf/properties/mark: allOf members allow no value in common; keeping the enum "y", "z"

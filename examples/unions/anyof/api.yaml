@@ -26,3 +26,15 @@ components:
       anyOf:
         - {type: string, format: date-time}
         - {type: string, maxLength: 5}
+    Handle:
+      anyOf:
+        - {type: string, format: uuid}
+        - {type: string, pattern: '^[a-z0-9_-]+$'}
+    Contact:
+      type: object
+      anyOf:
+        - required: [email]
+        - required: [phone]
+      properties:
+        email: {type: string}
+        phone: {type: string}

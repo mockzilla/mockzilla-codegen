@@ -116,6 +116,14 @@ func Or(conds ...string) string {
 	return strings.Join(conds, " || ")
 }
 
+// And writes the conditions joined by &&, or true when there are none.
+func And(conds ...string) string {
+	if len(conds) == 0 {
+		return "true"
+	}
+	return strings.Join(conds, " && ")
+}
+
 // IsNil writes x == nil.
 func IsNil(x string) string {
 	return x + " == nil"

@@ -92,6 +92,9 @@ func dumpDecl(b *strings.Builder, d *Decl) {
 		b.WriteString("  ? validate")
 		for _, c := range v.Counts {
 			b.WriteString(" count=" + c.Func)
+			if c.Names != "" {
+				b.WriteString("(" + c.Names + ")")
+			}
 		}
 		if v.IsDiscriminated {
 			b.WriteString(" discriminated")
@@ -134,6 +137,9 @@ func dumpDecl(b *strings.Builder, d *Decl) {
 
 func dumpCheck(b *strings.Builder, c *Check, indent string) {
 	b.WriteString(indent + cmp.Or(c.Field, "-") + " path=" + c.Path + sideWords[c.Side])
+	if c.Member > 0 {
+		b.WriteString(" member=" + strconv.Itoa(c.Member+1))
+	}
 	for _, flag := range []struct {
 		isSet bool
 		word  string
@@ -222,6 +228,13 @@ func dumpUnion(b *strings.Builder, u *Union) {
 				names[j] = v.Name
 			}
 			b.WriteString(" of " + strings.Join(names, ", "))
+		}
+		if len(g.Members) > len(g.Variants) {
+			names := make([]string, len(g.Members))
+			for j, m := range g.Members {
+				names[j] = m.Variant.Name + "#" + strconv.Itoa(m.Index+1)
+			}
+			b.WriteString(" members=" + strings.Join(names, ","))
 		}
 		b.WriteString("\n")
 	}
