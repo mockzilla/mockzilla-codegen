@@ -30,7 +30,7 @@ Module `github.com/mockzilla/mockzilla-codegen`. Built on github.com/pb33f/libop
 
 - Public repo: never name private repositories, internal services, accounts or deployment details in
   code, comments, docs, examples, commit messages or PR text.
-- Run the code-style gate in `.claude/skills/code-style/SKILL.md` before declaring work done and
+- Run the code-style gate in `.agents/skills/code-style/SKILL.md` before declaring work done and
   before opening a PR.
 - Every `.go` file starts with the MIT license header (copyright line, SPDX tag, and the MIT
   condition that the notice stays in every copy), then a blank line. Copy it from any existing file;
