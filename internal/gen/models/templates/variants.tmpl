@@ -5,6 +5,9 @@
 {{- with .Discriminator}}
 		Discriminator: {{.}},
 {{- end}}
+{{- if .IsLiteral}}
+		IsLiteral: true,
+{{- end}}
 {{- with .Shared}}
 		Shared: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },
 {{- end}}
@@ -18,6 +21,9 @@
 {{- end}}
 {{- if .IsDefault}}
 				IsDefault: true,
+{{- end}}
+{{- if .IsAbsent}}
+				IsAbsent: true,
 {{- end}}
 {{- with .Required}}
 				Required: []string{ {{- range $i, $v := .}}{{if $i}}, {{end}}{{$v}}{{end -}} },

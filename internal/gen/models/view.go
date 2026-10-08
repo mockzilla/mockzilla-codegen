@@ -108,6 +108,7 @@ type LiteralView struct {
 	Runtime       string
 	Receiver      string
 	IsAnyOf       bool
+	IsLiteral     bool
 	Discriminator string
 	Shared        []string
 	Variants      []VariantView
@@ -122,6 +123,7 @@ type VariantView struct {
 	Kinds     []string
 	Values    []string
 	IsDefault bool
+	IsAbsent  bool
 	Required  []string
 	Known     []string
 	HasKnown  bool
@@ -271,7 +273,7 @@ func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
 		byName[vr.Name] = v.Variants[i]
 	}
 	for i, g := range u.Groups {
-		lit := LiteralView{Runtime: v.Runtime, Receiver: v.Receiver, IsAnyOf: g.IsAnyOf}
+		lit := LiteralView{Runtime: v.Runtime, Receiver: v.Receiver, IsAnyOf: g.IsAnyOf, IsLiteral: g.IsLiteral}
 		if g.Discriminator != "" {
 			lit.Discriminator = gocode.Quote(g.Discriminator)
 		}
@@ -296,6 +298,7 @@ func variantView(vr *gomodel.Variant, s *gocode.Scope) VariantView {
 		Kinds:     kinds(vr.Kinds),
 		Values:    quoteAll(vr.Values),
 		IsDefault: vr.IsDefault,
+		IsAbsent:  vr.IsAbsent,
 		Required:  quoteAll(vr.Required),
 		Known:     quoteAll(vr.Known),
 		HasKnown:  vr.Known != nil,

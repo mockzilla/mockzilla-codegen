@@ -217,6 +217,7 @@ func dumpUnion(b *strings.Builder, u *Union) {
 			{g.IsNullable, "nullable"},
 			{i == 0 && u.IsText, "text"},
 			{g.Discriminator != "", "discriminator=" + g.Discriminator},
+			{g.IsLiteral, "literal"},
 		} {
 			if flag.isSet {
 				b.WriteString(" " + flag.word)
@@ -246,6 +247,9 @@ func dumpUnion(b *strings.Builder, u *Union) {
 		}
 		if v.IsDefault {
 			b.WriteString(" default")
+		}
+		if v.IsAbsent {
+			b.WriteString(" absent")
 		}
 		dumpShape(b, Shape{Required: v.Required, Known: v.Known, IsClosed: v.IsClosed})
 		b.WriteString("\n")

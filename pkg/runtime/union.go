@@ -25,12 +25,14 @@ import (
 
 // Variant describes one member of a union to UnmarshalUnion: the JSON kinds it takes, the
 // discriminator values that pick it, and for objects its property names (Known nil takes any key).
+// IsDefault picks it for a value no variant lists, IsAbsent for an object without the property.
 // A member that is itself a union lists the objects it can be in Shapes and ranks by the best one.
 type Variant struct {
 	Name      string
 	Kind      Kind
 	Values    []string
 	IsDefault bool
+	IsAbsent  bool
 	Required  []string
 	Known     []string
 	IsClosed  bool
@@ -59,9 +61,11 @@ type Shape struct {
 
 // Union describes a union to UnmarshalUnion. Shared are the property names the union holds next
 // to its variants, which no variant counts as unknown. Also are more unions the value is at once.
+// IsLiteral says the discriminator values are JSON booleans or numbers, not strings.
 type Union struct {
 	IsAnyOf       bool
 	Discriminator string
+	IsLiteral     bool
 	Shared        []string
 	Variants      []Variant
 	Also          []Union
@@ -217,8 +221,8 @@ func (u Union) tag(data []byte, set []int) ([]byte, error) {
 	first := u.Variants[set[0]]
 	if value == "" && len(set) == 1 && len(first.Values) == 1 {
 		value = first.Values[0]
-		obj[u.Discriminator], _ = json.Marshal(value)
-		tag, _ := json.Marshal(map[string]string{u.Discriminator: value})
+		obj[u.Discriminator] = u.encode(value)
+		tag, _ := json.Marshal(map[string]json.RawMessage{u.Discriminator: obj[u.Discriminator]})
 		data, _ = mergeObjects(data, tag) // both are objects
 	}
 
@@ -244,6 +248,15 @@ func (u Union) tag(data []byte, set []int) ([]byte, error) {
 	return nil, validation.Error{Field: u.Discriminator, Message: msg, Rule: validation.RuleDiscriminator}
 }
 
+// encode is the JSON of a discriminator value.
+func (u Union) encode(value string) json.RawMessage {
+	if u.IsLiteral {
+		return json.RawMessage(value)
+	}
+	data, _ := json.Marshal(value)
+	return data
+}
+
 func (u Union) names(set []int) string {
 	names := make([]string, len(set))
 	for i, v := range set {
@@ -262,7 +275,7 @@ func (u Union) discriminate(obj map[string]json.RawMessage) (int, []int, error) 
 	var all, open []int
 	var allowed []string
 	for i, v := range u.Variants {
-		if hasValue && slices.Contains(v.Values, value) {
+		if hasValue && u.lists(v, raw) || !hasValue && v.IsAbsent {
 			return i, nil, nil
 		}
 		if v.IsDefault {
@@ -284,6 +297,14 @@ func (u Union) discriminate(obj map[string]json.RawMessage) (int, []int, error) 
 		return -1, open, nil
 	}
 	return -1, nil, fmt.Errorf("%w %q, want one of %s", ErrUnknownDiscriminator, value, strings.Join(allowed, ", "))
+}
+
+// lists reports v picked by the discriminator value raw: by its text, or as an equal literal.
+func (u Union) lists(v Variant, raw json.RawMessage) bool {
+	if !u.IsLiteral {
+		return slices.Contains(v.Values, discriminatorValue(raw))
+	}
+	return slices.ContainsFunc(v.Values, func(value string) bool { return isSameLiteral(value, raw) })
 }
 
 // candidates are the variants a value of kind matches, best first.
@@ -448,6 +469,15 @@ func discriminatorValue(raw json.RawMessage) string {
 	return string(bytes.TrimSpace(raw))
 }
 
+// isSameLiteral reports raw a boolean or number equal to value; 3 equals 3.0.
+func isSameLiteral(value string, raw json.RawMessage) bool {
+	if jsonKind(raw)&(KindBool|KindInteger|KindNumber) == 0 {
+		return false
+	}
+	var want, got any
+	return json.Unmarshal([]byte(value), &want) == nil && json.Unmarshal(raw, &got) == nil && want == got
+}
+
 // isLiteral reports raw written as a JSON number or boolean, with no space around it.
 func isLiteral(raw []byte) bool {
 	switch jsonKind(raw) {
@@ -458,7 +488,7 @@ func isLiteral(raw []byte) bool {
 	return false
 }
 
-// formMembers are the names of form as object members, each text as a JSON string.
+// formMembers are the names of form as object members, each text as a JSON string or literal.
 func formMembers(form *multipart.Form) map[string]json.RawMessage {
 	out := map[string]json.RawMessage{}
 	for key := range form.File {
@@ -467,6 +497,8 @@ func formMembers(form *multipart.Form) map[string]json.RawMessage {
 	for key, values := range form.Value {
 		name := formName(key)
 		switch {
+		case name == key && len(values) > 0 && isLiteral([]byte(values[0])):
+			out[name] = json.RawMessage(values[0])
 		case name == key && len(values) > 0:
 			out[name], _ = json.Marshal(values[0])
 		case out[name] == nil:

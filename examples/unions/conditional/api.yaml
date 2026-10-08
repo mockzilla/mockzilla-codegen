@@ -30,3 +30,32 @@ components:
         required: [reason]
         properties:
           reason: {type: string}
+    Endpoint:
+      description: Then applies when secure is true or left out, else when it is false.
+      type: object
+      properties:
+        secure: {type: boolean}
+      if:
+        properties:
+          secure: {const: true}
+      then:
+        properties:
+          cert: {type: string}
+      else:
+        properties:
+          port: {type: integer}
+    Retry:
+      description: Then applies when attempts is 3; the if requires attempts, so without it else applies.
+      type: object
+      properties:
+        attempts: {type: integer}
+      if:
+        required: [attempts]
+        properties:
+          attempts: {const: 3}
+      then:
+        properties:
+          backoff: {type: string}
+      else:
+        properties:
+          delay: {type: integer}

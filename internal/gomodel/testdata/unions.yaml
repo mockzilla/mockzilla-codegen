@@ -326,3 +326,13 @@ components:
         mapping:
           "true": '#/components/schemas/Secure'
           "false": '#/components/schemas/Plain'
+    IfLiteral:
+      type: object
+      properties: {secure: {type: boolean}}
+      if: {required: [secure], properties: {secure: {const: true}}}
+      then: {type: object, properties: {cert: {type: string}}}
+      else: {type: object, properties: {port: {type: integer}}}
+    IfObjectConst:
+      if: {properties: {at: {const: {x: 1}}}}
+      then: {type: object, properties: {a: {type: string}}}
+      else: {type: object, properties: {b: {type: string}}}

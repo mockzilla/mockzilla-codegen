@@ -87,7 +87,7 @@ TypeListObject struct models.types
 IfThenElse union models.unions
   Kind *string json=kind omitempty
   | oneOf discriminator=kind
-  | Then *IfThenElseThen kinds=object values=a known=a
+  | Then *IfThenElseThen kinds=object values=a absent known=a
   | Fish *Fish kinds=object default known=kind,fins
 IfThenElseThen struct models.types
   A *string json=a omitempty
@@ -157,7 +157,7 @@ IfThenElseAllOf union models.unions
   Kind *string json=kind omitempty
   Fins *int json=fins omitempty
   | oneOf discriminator=kind
-  | Then *IfThenElseAllOfThen kinds=object values=a known=a
+  | Then *IfThenElseAllOfThen kinds=object values=a absent known=a
   | Else *IfThenElseAllOfElse kinds=object default known=b
 IfThenElseAllOfThen struct models.types
   A *string json=a omitempty
@@ -319,7 +319,7 @@ OneAndIf union models.unions
   | oneOf discriminator=kind of Then, Else
   | Option1 *OneAndIfOption1 kinds=object required=a known=a
   | Option2 *OneAndIfOption2 kinds=object required=b known=b
-  | Then *OneAndIfThen kinds=object values=x known=x
+  | Then *OneAndIfThen kinds=object values=x absent known=x
   | Else *OneAndIfElse kinds=object default known=y
 OneAndIfOption1 struct models.types
   A string json=a required
@@ -390,6 +390,23 @@ Connection union models.unions
   | oneOf
   | Secure *Secure kinds=object known=is_secure,host
   | Plain *Plain kinds=object known=is_secure,port
+IfLiteral union models.unions
+  Secure *bool json=secure omitempty
+  | oneOf discriminator=secure literal
+  | Then *IfLiteralThen kinds=object values=true known=cert
+  | Else *IfLiteralElse kinds=object default known=port
+IfLiteralThen struct models.types
+  Cert *string json=cert omitempty
+IfLiteralElse struct models.types
+  Port *int json=port omitempty
+IfObjectConst union models.unions
+  | oneOf
+  | Then *IfObjectConstThen kinds=object known=a
+  | Else *IfObjectConstElse kinds=object known=b
+IfObjectConstThen struct models.types
+  A *string json=a omitempty
+IfObjectConstElse struct models.types
+  B *string json=b omitempty
 ---
 info union-duplicate 63:11 /components/schemas/Duplicates/oneOf/1: member 2 has the same Go type (string) as variant String; they share its field
 info union-duplicate 65:11 /components/schemas/Duplicates/oneOf/3: member 4 has the same Go type (Cat) as variant Cat; they share its field
@@ -408,3 +425,4 @@ warning union-ambiguous 245:7 /components/schemas/TwoOneOfs: variants Option4, O
 info union-duplicate 258:11 /components/schemas/OneAndAny/anyOf/0: member 3 has the same Go type (Cat) as variant Cat; they share its field
 warning keyword-unsupported 321:7 /components/schemas/Connection/discriminator: the discriminator of Connection is ignored: its property "is_secure" is not a string; variants are matched by shape and checks
 warning union-ambiguous 321:7 /components/schemas/Connection: variants Secure, Plain of Connection require no property, so {} matches each of them and fails to decode
+warning union-ambiguous 336:7 /components/schemas/IfObjectConst: variants Then, Else of IfObjectConst require no property, so {} matches each of them and fails to decode

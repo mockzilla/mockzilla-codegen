@@ -80,6 +80,10 @@ func TestMarshalVariants(t *testing.T) {
 	twice := Union{Variants: []Variant{{Name: "Cat"}}, Also: []Union{{Variants: []Variant{{Name: "Dog"}, {Name: "Fox"}}}}}
 	anyTwice := Union{Variants: []Variant{{Name: "Cat"}}, Also: []Union{{IsAnyOf: true, Variants: []Variant{{Name: "Dog"}, {Name: "Fox"}}}}}
 	withPets := Union{Variants: []Variant{{Name: "Text"}}, Also: []Union{pets}}
+	literal := Union{Discriminator: "type", IsLiteral: true, Variants: []Variant{
+		{Name: "Cat", Values: []string{"true"}, IsAbsent: true},
+		{Name: "Dog", IsDefault: true},
+	}}
 
 	tests := []struct {
 		name     string
@@ -110,6 +114,8 @@ func TestMarshalVariants(t *testing.T) {
 		{name: "Two variants of an anyOf in Also", u: anyTwice, variants: []any{nil, &dog{}, &cat{}}, want: `{"name":"","bark":false,"meow":false}`},
 		{name: "A union in Also fills its value", u: withPets, variants: []any{nil, &withType{Name: "a"}, nil}, want: `{"type":"cat","name":"a"}`},
 		{name: "A union in Also checks its value", u: withPets, variants: []any{nil, &withType{Type: "dog"}, nil}, wantErr: `type: "dog" picks Dog, not Cat`},
+		{name: "A literal value is filled as JSON", u: literal, variants: []any{&cat{Name: "a"}, nil}, want: `{"name":"a","meow":false,"type":true}`},
+		{name: "No value picks the variant that takes it", u: literal, variants: []any{nil, &dog{}}, wantErr: `type: an empty value picks Cat, not Dog`},
 	}
 
 	for _, tc := range tests {

@@ -26,6 +26,22 @@ type Discount struct {
 	Reason  *string `json:"reason,omitempty"`
 }
 
+type EndpointThen struct {
+	Cert *string `json:"cert,omitempty"`
+}
+
+type EndpointElse struct {
+	Port *int `json:"port,omitempty"`
+}
+
+type RetryThen struct {
+	Backoff *string `json:"backoff,omitempty"`
+}
+
+type RetryElse struct {
+	Delay *int `json:"delay,omitempty"`
+}
+
 // Then applies when kind is post, else for anything else.
 type Shipping struct {
 	Kind string        `json:"kind"`
@@ -55,11 +71,12 @@ func (s *Shipping) union() runtime.Union {
 		Shared:        []string{"kind"},
 		Variants: []runtime.Variant{
 			{
-				Name:   "Then",
-				Kind:   runtime.KindObject,
-				Values: []string{"post"},
-				Known:  []string{"address"},
-				Into:   runtime.Into(&s.Then),
+				Name:     "Then",
+				Kind:     runtime.KindObject,
+				Values:   []string{"post"},
+				IsAbsent: true,
+				Known:    []string{"address"},
+				Into:     runtime.Into(&s.Then),
 			},
 			{
 				Name:      "Else",
@@ -77,5 +94,116 @@ func (s Shipping) Validate() error {
 	var errs validation.Errors
 	errs.Append("", validation.ExactlyOne(s.Then != nil, s.Else != nil))
 	errs.Append("", runtime.DiscriminatorError(s.MarshalJSON()))
+	return errs.Err()
+}
+
+// Then applies when secure is true or left out, else when it is false.
+type Endpoint struct {
+	Secure *bool         `json:"secure,omitempty"`
+	Then   *EndpointThen `json:"-"`
+	Else   *EndpointElse `json:"-"`
+}
+
+// MarshalJSON writes the variant that is set, with the discriminator value that picks it.
+func (e Endpoint) MarshalJSON() ([]byte, error) {
+	type plain Endpoint
+	return runtime.MarshalVariants(plain(e), e.union(), e.Then, e.Else)
+}
+
+// UnmarshalJSON sets the variant data matches, and the shared properties.
+func (e *Endpoint) UnmarshalJSON(data []byte) error {
+	*e = Endpoint{}
+	type plain Endpoint
+	if err := json.Unmarshal(data, (*plain)(e)); err != nil {
+		return err
+	}
+	return runtime.UnmarshalUnion(data, e.union())
+}
+
+func (e *Endpoint) union() runtime.Union {
+	return runtime.Union{
+		Discriminator: "secure",
+		IsLiteral:     true,
+		Shared:        []string{"secure"},
+		Variants: []runtime.Variant{
+			{
+				Name:     "Then",
+				Kind:     runtime.KindObject,
+				Values:   []string{"true"},
+				IsAbsent: true,
+				Known:    []string{"cert"},
+				Into:     runtime.Into(&e.Then),
+			},
+			{
+				Name:      "Else",
+				Kind:      runtime.KindObject,
+				IsDefault: true,
+				Known:     []string{"port"},
+				Into:      runtime.Into(&e.Else),
+			},
+		},
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (e Endpoint) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(e.Then != nil, e.Else != nil))
+	errs.Append("", runtime.DiscriminatorError(e.MarshalJSON()))
+	return errs.Err()
+}
+
+// Then applies when attempts is 3; the if requires attempts, so without it else applies.
+type Retry struct {
+	Attempts *int       `json:"attempts,omitempty"`
+	Then     *RetryThen `json:"-"`
+	Else     *RetryElse `json:"-"`
+}
+
+// MarshalJSON writes the variant that is set, with the discriminator value that picks it.
+func (r Retry) MarshalJSON() ([]byte, error) {
+	type plain Retry
+	return runtime.MarshalVariants(plain(r), r.union(), r.Then, r.Else)
+}
+
+// UnmarshalJSON sets the variant data matches, and the shared properties.
+func (r *Retry) UnmarshalJSON(data []byte) error {
+	*r = Retry{}
+	type plain Retry
+	if err := json.Unmarshal(data, (*plain)(r)); err != nil {
+		return err
+	}
+	return runtime.UnmarshalUnion(data, r.union())
+}
+
+func (r *Retry) union() runtime.Union {
+	return runtime.Union{
+		Discriminator: "attempts",
+		IsLiteral:     true,
+		Shared:        []string{"attempts"},
+		Variants: []runtime.Variant{
+			{
+				Name:   "Then",
+				Kind:   runtime.KindObject,
+				Values: []string{"3"},
+				Known:  []string{"backoff"},
+				Into:   runtime.Into(&r.Then),
+			},
+			{
+				Name:      "Else",
+				Kind:      runtime.KindObject,
+				IsDefault: true,
+				Known:     []string{"delay"},
+				Into:      runtime.Into(&r.Else),
+			},
+		},
+	}
+}
+
+// Validate checks the value against the constraints of the spec.
+func (r Retry) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(r.Then != nil, r.Else != nil))
+	errs.Append("", runtime.DiscriminatorError(r.MarshalJSON()))
 	return errs.Err()
 }

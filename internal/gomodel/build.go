@@ -169,7 +169,7 @@ func (b *builder) fillUnion(d *Decl, f *spec.Schema) {
 	us := b.unions.read(f)
 	u := &Union{isTypeList: us.isTypeList}
 	for _, g := range us.groups {
-		u.Groups = append(u.Groups, &Group{IsAnyOf: g.isAnyOf, IsNullable: g.isNullable, Discriminator: g.discriminator})
+		u.Groups = append(u.Groups, &Group{IsAnyOf: g.isAnyOf, IsNullable: g.isNullable, IsLiteral: g.isLiteral, Discriminator: g.discriminator})
 		if g.ignored != "" {
 			b.diags.Append(diag.Diagnostic{
 				Severity: diag.Warning,
@@ -253,6 +253,7 @@ func (b *builder) variant(u *Union, g *Group, m unionMember, t Type) *Variant {
 		v := u.Variants[i]
 		v.Values = append(v.Values, m.values...)
 		v.IsDefault = v.IsDefault || m.isDefault
+		v.IsAbsent = v.IsAbsent || m.isAbsent
 		if !slices.Contains(g.Variants, v) {
 			g.Variants = append(g.Variants, v)
 		}
@@ -270,7 +271,7 @@ func (b *builder) variant(u *Union, g *Group, m unionMember, t Type) *Variant {
 	if _, isInline := b.decls[m.schema]; isInline {
 		name = b.opts.Namer.Exported(m.suffix)
 	}
-	v := &Variant{Name: name, Type: t, Values: m.values, IsDefault: m.isDefault, Origin: origin(m.schema.Origin)}
+	v := &Variant{Name: name, Type: t, Values: m.values, IsDefault: m.isDefault, IsAbsent: m.isAbsent, Origin: origin(m.schema.Origin)}
 	u.Variants = append(u.Variants, v)
 	g.Variants = append(g.Variants, v)
 	return v
