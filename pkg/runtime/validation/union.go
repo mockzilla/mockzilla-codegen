@@ -9,7 +9,7 @@ package validation
 
 import "strconv"
 
-// VariantErrors are the failed checks of one variant of an anyOf union, and whether it is set.
+// VariantErrors are the failed checks of one union member, and whether its variant is set.
 type VariantErrors struct {
 	IsSet bool
 	Errs  Errors
@@ -36,6 +36,22 @@ func AtLeastOne(set ...bool) error {
 	return nil
 }
 
+// ExactlyOneOf is the check of a oneOf of required lists: the value has exactly one of them.
+func ExactlyOneOf(members string, has ...bool) error {
+	if n := count(has); n != 1 {
+		return Error{Message: "exactly one of " + members + " must be set, found " + strconv.Itoa(n), Rule: RuleOneOf}
+	}
+	return nil
+}
+
+// AtLeastOneOf is the check of an anyOf of required lists: the value has one or more of them.
+func AtLeastOneOf(members string, has ...bool) error {
+	if count(has) == 0 {
+		return Error{Message: "at least one of " + members + " must be set", Rule: RuleAnyOf}
+	}
+	return nil
+}
+
 // AnyValid is the check of an anyOf union: nil when a set variant passes, else all their errors.
 func AnyValid(variants ...VariantErrors) error {
 	var errs Errors
@@ -47,6 +63,29 @@ func AnyValid(variants ...VariantErrors) error {
 		default:
 			errs = append(errs, v.Errs...)
 		}
+	}
+	return errs.Err()
+}
+
+// OneValid is the check of oneOf members that share a variant: nil when exactly one passes.
+func OneValid(members ...VariantErrors) error {
+	var errs Errors
+	n := 0
+	for _, m := range members {
+		switch {
+		case !m.IsSet:
+		case len(m.Errs) == 0:
+			n++
+		default:
+			errs = append(errs, m.Errs...)
+		}
+	}
+
+	switch {
+	case n == 1:
+		return nil
+	case n > 1:
+		return Error{Message: "exactly one variant must match, found " + strconv.Itoa(n), Rule: RuleOneOf}
 	}
 	return errs.Err()
 }

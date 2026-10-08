@@ -357,7 +357,17 @@ func TestViewRendersGetters(t *testing.T) {
 // UPDATE=1 writes the file instead.
 // groupUnion is a union of the one group g.
 func groupUnion(g gomodel.Group) *gomodel.Union {
-	return &gomodel.Union{Variants: g.Variants, Groups: []*gomodel.Group{&g}}
+	return &gomodel.Union{Variants: g.Variants, Groups: []*gomodel.Group{withMembers(g)}}
+}
+
+// withMembers makes each variant of g its own member, unless g lists its members.
+func withMembers(g gomodel.Group) *gomodel.Group {
+	if g.Members == nil {
+		for _, v := range g.Variants {
+			g.Members = append(g.Members, gomodel.Member{Variant: v})
+		}
+	}
+	return &g
 }
 
 func checkRender(t *testing.T, g *Generator, name string) {

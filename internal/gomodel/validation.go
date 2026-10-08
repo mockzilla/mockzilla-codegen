@@ -78,13 +78,15 @@ func (v *validator) validation(d *Decl) *Validation {
 	case KindEnum:
 		return &Validation{}
 	case KindStruct:
-		return &Validation{Checks: slices.Concat(v.ownChecks(d), v.structChecks(d))}
+		return &Validation{Counts: d.requires, Checks: slices.Concat(v.ownChecks(d), v.structChecks(d))}
 	case KindUnion:
 		checks := slices.Concat(v.ownChecks(d), v.structChecks(d))
 		for _, vr := range d.Union.Variants {
-			c := v.check(d, vr.schema, vr.FieldType, d.Name+vr.Name)
-			c.Field, c.IsVariant = vr.Name, true
-			checks = appendCheck(checks, c)
+			for i, s := range vr.schemas {
+				c := v.check(d, s, vr.FieldType, d.Name+vr.Name)
+				c.Field, c.IsVariant, c.Member = vr.Name, true, i
+				checks = appendCheck(checks, c)
+			}
 		}
 		out := &Validation{Checks: checks}
 		for _, g := range d.Union.Groups {
@@ -93,6 +95,7 @@ func (v *validator) validation(d *Decl) *Validation {
 			}
 			out.IsDiscriminated = out.IsDiscriminated || g.Discriminator != ""
 		}
+		out.Counts = append(out.Counts, d.requires...)
 		return out
 	default:
 		return &Validation{Checks: appendCheck(nil, v.check(d, d.schema, d.Target, d.Name))}

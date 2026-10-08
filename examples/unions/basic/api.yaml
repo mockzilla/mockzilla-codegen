@@ -41,3 +41,15 @@ components:
           type: object
           additionalProperties: {oneOf: [{type: string}, {type: integer}]}
         best: {oneOf: [{$ref: '#/components/schemas/Dog'}, {type: 'null'}]}
+    Slug:
+      oneOf:
+        - {type: string, format: uuid}
+        - {type: string, maxLength: 8}
+    Lookup:
+      type: object
+      oneOf:
+        - required: [id]
+        - required: [email]
+      properties:
+        id: {type: integer}
+        email: {type: string}

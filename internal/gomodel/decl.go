@@ -112,6 +112,7 @@ type Decl struct {
 	schema    *spec.Schema
 	enumNames []string
 	isParams  bool
+	requires  []Count
 }
 
 // Validation is what the Validate methods of a declaration check. Counts check how many variants
@@ -124,21 +125,24 @@ type Validation struct {
 	HasResponse     bool
 }
 
-// Count is the runtime check of how many of Variants are set: ExactlyOne, AtMostOne, AtLeastOne.
+// Count is the runtime check of how many Variants are set, or how many lists of Fields are all set.
 type Count struct {
 	Func     string
 	Variants []*Variant
+	Fields   [][]*Field
+	Names    string
 }
 
 // Check is what Validate checks of one value. Field is the Go field it lives in, empty for the value
 // itself, and Path its JSON name in error paths. IsGuarded skips the checks of a nil value, which is
 // absent; IsRequired reports it. Nested is the declaration whose Validate is called, nil with
 // IsNested for runtime.Email. IsWrapped marks a Nullable; IsNullRejected reports it set to null.
-// IsVariant marks the check of a union variant.
+// IsVariant marks the check of a union variant, Member which of its members it checks.
 type Check struct {
 	Field          string
 	Path           string
 	IsVariant      bool
+	Member         int
 	IsPointer      bool
 	IsWrapped      bool
 	IsGuarded      bool
@@ -238,11 +242,18 @@ type Group struct {
 	IsNullable    bool
 	Discriminator string
 	Variants      []*Variant
+	Members       []Member
+}
+
+// Member is one member of a group: the variant it sets, and which of the variant's schemas it is.
+type Member struct {
+	Variant *Variant
+	Index   int
 }
 
 // Variant is one member of a union. FieldType is a pointer to Type unless Type can be nil. The
 // other fields tell decoding which JSON picks it; Known is nil when any key fits. Shapes are the
-// objects a variant that is itself a union can be, at any depth.
+// objects a variant that is itself a union can be, at any depth. Members of one Go type share it.
 type Variant struct {
 	Name      string
 	Type      Type
@@ -256,7 +267,7 @@ type Variant struct {
 	Shapes    []Shape
 	Origin    diag.Origin
 
-	schema *spec.Schema
+	schemas []*spec.Schema
 }
 
 // Shape is one object a union variant can be.

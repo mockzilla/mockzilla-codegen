@@ -64,3 +64,53 @@ func TestAnyValid(t *testing.T) {
 		})
 	}
 }
+
+func TestOneValid(t *testing.T) {
+	t.Parallel()
+
+	short := Errors{{Message: "must be at most 5 characters long", Rule: RuleMaxLength}}
+	early := Errors{{Message: "must be at least 2026", Rule: RuleMinimum}}
+	both := slices.Concat(short, early)
+	tests := []struct {
+		name    string
+		members []VariantErrors
+		want    error
+	}{
+		{name: "Nothing set", members: []VariantErrors{{Errs: short}, {Errs: early}}},
+		{name: "One member passes", members: []VariantErrors{{IsSet: true, Errs: short}, {IsSet: true}}},
+		{name: "Two members pass", members: []VariantErrors{{IsSet: true}, {IsSet: true}}, want: Error{Message: "exactly one variant must match, found 2", Rule: RuleOneOf}},
+		{name: "Every member fails", members: []VariantErrors{{IsSet: true, Errs: short}, {IsSet: true, Errs: early}}, want: &both},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, OneValid(tc.members...))
+		})
+	}
+}
+
+func TestRequiredOf(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		check func(members string, has ...bool) error
+		has   []bool
+		want  error
+	}{
+		{name: "Exactly one with one", check: ExactlyOneOf, has: []bool{true, false}},
+		{name: "Exactly one with two", check: ExactlyOneOf, has: []bool{true, true}, want: Error{Message: "exactly one of a or b must be set, found 2", Rule: RuleOneOf}},
+		{name: "At least one with two", check: AtLeastOneOf, has: []bool{true, true}},
+		{name: "At least one with none", check: AtLeastOneOf, has: []bool{false, false}, want: Error{Message: "at least one of a or b must be set", Rule: RuleAnyOf}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, tc.check("a or b", tc.has...))
+		})
+	}
+}

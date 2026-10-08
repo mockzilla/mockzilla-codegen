@@ -129,3 +129,28 @@ func TestTarget(t *testing.T) {
 	assert.Same(t, a, target(a))
 	assert.Same(t, dangling, target(dangling))
 }
+
+func TestIsSameMember(t *testing.T) {
+	t.Parallel()
+
+	cat, dog := &spec.Schema{Types: spec.TypeObject}, &spec.Schema{Types: spec.TypeObject}
+	str := &spec.Schema{Types: spec.TypeString}
+	tests := []struct {
+		name string
+		a, b *spec.Schema
+		want bool
+	}{
+		{name: "One schema", a: str, b: str, want: true},
+		{name: "Two refs to one target", a: &spec.Schema{Ref: &spec.Ref{Target: cat}}, b: &spec.Schema{Ref: &spec.Ref{Target: cat}, Description: "d"}, want: true},
+		{name: "Refs to two targets", a: &spec.Schema{Ref: &spec.Ref{Target: cat}}, b: &spec.Schema{Ref: &spec.Ref{Target: dog}}},
+		{name: "A ref with a limit next to it", a: &spec.Schema{Ref: &spec.Ref{Target: cat}}, b: &spec.Schema{Ref: &spec.Ref{Target: cat}, Limits: spec.Limits{MaxProperties: new(int64(1))}}},
+		{name: "Two required lists", a: &spec.Schema{Required: []string{"a"}}, b: &spec.Schema{Required: []string{"b"}}, want: true},
+		{name: "Two inline strings", a: str, b: &spec.Schema{Types: spec.TypeString}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, isSameMember(tt.a, tt.b))
+		})
+	}
+}

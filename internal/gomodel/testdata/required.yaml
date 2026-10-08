@@ -1,0 +1,93 @@
+openapi: 3.1.0
+info: {title: required, version: "1"}
+paths: {}
+components:
+  schemas:
+    Orange:
+      type: object
+      oneOf:
+        - required: [attrA0]
+        - required: [attrA1]
+      properties:
+        attrA0: {type: string}
+        attrA1: {type: string}
+    Apple:
+      type: object
+      anyOf:
+        - {type: object, required: [attrA0], description: Has attrA0}
+        - required: [attrA1]
+      properties:
+        attrA0: {type: string}
+        attrA1: {type: [string, 'null']}
+    Pair:
+      type: object
+      required: [c]
+      oneOf:
+        - required: [a, c]
+        - required: [b]
+      properties:
+        a: {type: array, items: {type: string}}
+        b: {type: integer}
+        c: {type: string}
+    OneID:
+      oneOf:
+        - required: [id]
+        - required: [uuid]
+    Thing:
+      allOf:
+        - $ref: '#/components/schemas/OneID'
+        - properties:
+            id: {type: integer}
+            uuid: {type: string, format: uuid}
+    Missing:
+      type: object
+      oneOf:
+        - required: [a]
+        - required: [z]
+      properties:
+        a: {type: string}
+    Bare:
+      type: object
+      oneOf:
+        - required: [a]
+        - required: [b]
+      properties:
+        a: {type: string, x-go-type-skip-optional-pointer: true}
+        b: {type: string}
+    Cat:
+      type: object
+      required: [meow]
+      properties:
+        meow: {type: boolean}
+    Dog:
+      type: object
+      required: [bark]
+      properties:
+        bark: {type: boolean}
+    Pet:
+      oneOf:
+        - required: [name]
+        - required: [nick]
+      anyOf:
+        - $ref: '#/components/schemas/Cat'
+        - $ref: '#/components/schemas/Dog'
+      properties:
+        name: {type: string}
+        nick: {type: string}
+    Partly:
+      oneOf:
+        - required: [a]
+        - {type: string}
+      properties:
+        a: {type: string}
+    WithNull:
+      oneOf:
+        - required: [a]
+        - required: [b]
+        - {type: 'null'}
+      properties:
+        a: {type: string}
+        b: {type: string}
+    Listed:
+      type: [object, string]
+      required: [a]

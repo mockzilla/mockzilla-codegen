@@ -1,0 +1,59 @@
+Orange struct models.types
+  AttrA0 *string json=attrA0 omitempty
+  AttrA1 *string json=attrA1 omitempty
+  ? validate count=ExactlyOneOf(attrA0 or attrA1)
+Apple struct models.types
+  AttrA0 *string json=attrA0 omitempty
+  AttrA1 *string json=attrA1 nullable omitempty
+  ? validate count=AtLeastOneOf(attrA0 or attrA1)
+Pair struct models.types
+  A []string json=a omitempty omitzero
+  B *int json=b omitempty
+  C string json=c required
+  ? validate count=ExactlyOneOf((a and c) or b)
+OneID alias any models.types
+Thing struct models.types
+  ID *int json=id omitempty
+  UUID *string json=uuid omitempty
+  ? validate count=ExactlyOneOf(id or uuid)
+  ? UUID path=uuid pointer guarded format(uuid)
+Missing struct models.types
+  A *string json=a omitempty
+Bare struct models.types
+  A string json=a omitempty
+  B *string json=b omitempty
+Cat struct models.types
+  Meow bool json=meow required
+Dog struct models.types
+  Bark bool json=bark required
+Pet union models.unions
+  Name *string json=name omitempty
+  Nick *string json=nick omitempty
+  | anyOf
+  | Cat *Cat kinds=object required=meow known=meow
+  | Dog *Dog kinds=object required=bark known=bark
+  ? validate count=AtLeastOne count=ExactlyOneOf(name or nick)
+Partly union models.unions
+  A *string json=a omitempty
+  | oneOf
+  | Any any kinds=any
+  | String *string kinds=string
+  ? validate count=ExactlyOne
+WithNull union models.unions
+  A *string json=a omitempty
+  B *string json=b omitempty
+  | oneOf nullable
+  | Any any kinds=any
+  ? validate count=AtMostOne
+Listed union models.unions
+  | oneOf
+  | String *string kinds=string
+  | AnyMap map[string]any kinds=object
+  ? validate count=ExactlyOne
+---
+warning keyword-unsupported 43:7 /components/schemas/Missing/oneOf: the oneOf of Missing is not checked: it has no property "z"
+warning keyword-unsupported 50:7 /components/schemas/Bare/oneOf: the oneOf of Bare is not checked: property "a" has no pointer, so whether it is set is unknown
+warning keyword-unsupported 79:11 /components/schemas/Partly/oneOf/0: member 1 only lists required properties; next to members with a type or null it is not checked
+warning keyword-unsupported 85:11 /components/schemas/WithNull/oneOf/0: member 1 only lists required properties; next to members with a type or null it is not checked
+warning keyword-unsupported 86:11 /components/schemas/WithNull/oneOf/1: member 2 only lists required properties; next to members with a type or null it is not checked
+info union-duplicate 86:11 /components/schemas/WithNull/oneOf/1: member 2 has the same Go type (any) as variant Any; they share its field

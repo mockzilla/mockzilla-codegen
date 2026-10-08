@@ -51,14 +51,15 @@ type partWalk struct {
 
 // merged is a flattened schema. Foreign children came from a type reached through a $ref: that
 // type names them. Refs are the $refs of the schema itself and its inline members. Unions are
-// those of every part.
+// those of every part, and so are requirements.
 type merged struct {
-	schema  *spec.Schema
-	foreign map[*spec.Schema]bool
-	refs    []*spec.Ref
-	unions  []*spec.Schema
-	joint   jointChecks
-	goType  *extension.Type
+	schema       *spec.Schema
+	foreign      map[*spec.Schema]bool
+	refs         []*spec.Ref
+	unions       []*spec.Schema
+	requirements []*spec.Schema
+	joint        jointChecks
+	goType       *extension.Type
 }
 
 // flattener merges allOf members into one schema. The spec IR is never changed: merged schemas
@@ -135,6 +136,14 @@ func (f *flattener) unions(s *spec.Schema) []*spec.Schema {
 		return m.unions
 	}
 	return ownUnions(s)
+}
+
+// requirements are the oneOfs and anyOfs of a flattened schema whose members only list required.
+func (f *flattener) requirements(s *spec.Schema) []*spec.Schema {
+	if m, ok := f.results[s]; ok {
+		return m.requirements
+	}
+	return ownRequirements(s)
 }
 
 // collect puts a $ref target before the schema and allOf members after it.
@@ -291,8 +300,10 @@ func (f *flattener) merge(m *merged, p mergePart) {
 	}
 	if p.from != nil {
 		m.unions = append(m.unions, p.from.unions...)
+		m.requirements = append(m.requirements, p.from.requirements...)
 	} else {
 		m.unions = append(m.unions, ownUnions(s)...)
+		m.requirements = append(m.requirements, ownRequirements(s)...)
 	}
 
 	dst.Not = cmp.Or(dst.Not, s.Not)
@@ -595,15 +606,27 @@ func branch(s *spec.Schema) *spec.Schema {
 func ownUnions(s *spec.Schema) []*spec.Schema {
 	var out []*spec.Schema
 	d, isSole := s.Discriminator, soleMember(s) != nil
-	if !isSole && len(s.OneOf) > 0 {
+	if !isSole && len(s.OneOf) > 0 && !isRequiredOnlyList(s.OneOf) {
 		out = append(out, &spec.Schema{OneOf: s.OneOf, Discriminator: d, Origin: s.Origin})
 		d = nil
 	}
-	if !isSole && len(s.AnyOf) > 0 {
+	if !isSole && len(s.AnyOf) > 0 && !isRequiredOnlyList(s.AnyOf) {
 		out = append(out, &spec.Schema{AnyOf: s.AnyOf, Discriminator: d, Origin: s.Origin})
 	}
 	if s.Then != nil && s.Else != nil {
 		out = append(out, &spec.Schema{If: s.If, Then: s.Then, Else: s.Else, Origin: s.Origin})
+	}
+	return out
+}
+
+// ownRequirements are the oneOf and anyOf of s whose members only list required properties.
+func ownRequirements(s *spec.Schema) []*spec.Schema {
+	var out []*spec.Schema
+	if isRequiredOnlyList(s.OneOf) {
+		out = append(out, &spec.Schema{OneOf: s.OneOf, Origin: s.Origin})
+	}
+	if isRequiredOnlyList(s.AnyOf) {
+		out = append(out, &spec.Schema{AnyOf: s.AnyOf, Origin: s.Origin})
 	}
 	return out
 }

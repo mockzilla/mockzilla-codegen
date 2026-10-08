@@ -28,6 +28,7 @@ func TestClassify(t *testing.T) {
 		{name: "anyOf", schema: spec.Schema{AnyOf: []*spec.Schema{{}, {Types: spec.TypeString}}}, want: shapeUnion},
 		{name: "oneOf of one member is no union", schema: spec.Schema{OneOf: []*spec.Schema{{Types: spec.TypeString}}}, want: shapeAny},
 		{name: "oneOf of a member and null is no union", schema: spec.Schema{OneOf: []*spec.Schema{{}, {Types: spec.TypeNull}}}, want: shapeAny},
+		{name: "oneOf of required lists is no union", schema: spec.Schema{Properties: prop, OneOf: []*spec.Schema{{Required: []string{"a"}}, {Required: []string{"b"}}}}, want: shapeStruct},
 		{name: "if with then and else", schema: spec.Schema{Then: &spec.Schema{}, Else: &spec.Schema{}}, want: shapeUnion},
 		{name: "Type list", schema: spec.Schema{Types: spec.TypeString | spec.TypeInteger}, want: shapeUnion},
 		{name: "Nullable string is no union", schema: spec.Schema{Types: spec.TypeString | spec.TypeNull}, want: shapePrimitive},
@@ -78,6 +79,7 @@ func TestRefOf(t *testing.T) {
 		{name: "anyOf of a ref and a null enum", schema: spec.Schema{AnyOf: []*spec.Schema{{Enum: []spec.Value{nullVal()}}, {Ref: ref}}}, want: ref},
 		{name: "oneOf of a ref and a null const", schema: spec.Schema{OneOf: []*spec.Schema{{Ref: ref}, {Const: new(nullVal())}}}, want: ref},
 		{name: "Ref next to a oneOf of one member", schema: spec.Schema{Ref: ref, OneOf: []*spec.Schema{{Ref: ref}}}},
+		{name: "Ref next to a oneOf of required lists", schema: spec.Schema{Ref: ref, OneOf: []*spec.Schema{{Required: []string{"a"}}, {Required: []string{"b"}}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -110,6 +112,51 @@ func TestIsDocOnly(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			assert.Equal(t, tt.want, isDocOnly(&tt.schema))
+		})
+	}
+}
+
+func TestIsRequiredOnly(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		schema spec.Schema
+		want   bool
+	}{
+		{name: "Required", schema: spec.Schema{Required: []string{"a"}}, want: true},
+		{name: "Required, docs and type object", schema: spec.Schema{Required: []string{"a"}, Description: "d", Types: spec.TypeObject}, want: true},
+		{name: "Nothing", schema: spec.Schema{}},
+		{name: "Required and properties", schema: spec.Schema{Required: []string{"a"}, Properties: []*spec.Property{{Name: "a"}}}},
+		{name: "Required and a limit", schema: spec.Schema{Required: []string{"a"}, Limits: spec.Limits{MinProperties: new(int64(1))}}},
+		{name: "Required and type string", schema: spec.Schema{Required: []string{"a"}, Types: spec.TypeString}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, isRequiredOnly(&tt.schema))
+		})
+	}
+}
+
+func TestIsRequiredOnlyList(t *testing.T) {
+	t.Parallel()
+
+	a, b := &spec.Schema{Required: []string{"a"}}, &spec.Schema{Required: []string{"b"}}
+	tests := []struct {
+		name string
+		list []*spec.Schema
+		want bool
+	}{
+		{name: "Two required lists", list: []*spec.Schema{a, b}, want: true},
+		{name: "One required list", list: []*spec.Schema{a}},
+		{name: "A required list and null", list: []*spec.Schema{a, b, {Types: spec.TypeNull}}},
+		{name: "A required list and a type", list: []*spec.Schema{a, {Types: spec.TypeString}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, isRequiredOnlyList(tt.list))
 		})
 	}
 }

@@ -90,6 +90,64 @@ func TestCodeValidate(t *testing.T) {
 	}
 }
 
+func TestHandleValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		data    string
+		wantErr string
+	}{
+		{name: "A uuid", data: `"0b9e5d4e-8f3a-4c7e-9a51-2f6d8c1b7e30"`},
+		{name: "A slug the first member rejects", data: `"my-slug"`},
+		{name: "Neither", data: `"My Slug"`, wantErr: "must be a valid uuid; must match ^[a-z0-9_-]+$"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got Handle
+			require.NoError(t, json.Unmarshal([]byte(tc.data), &got))
+			err := got.Validate()
+
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.EqualError(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestContactValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		contact Contact
+		wantErr string
+	}{
+		{name: "An email", contact: Contact{Email: new("a@b.c")}},
+		{name: "Both", contact: Contact{Email: new("a@b.c"), Phone: new("1")}},
+		{name: "Neither", wantErr: "at least one of email or phone must be set"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tc.contact.Validate()
+
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.EqualError(t, err, tc.wantErr)
+		})
+	}
+}
+
 func TestStampJSON(t *testing.T) {
 	t.Parallel()
 

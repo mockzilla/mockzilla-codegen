@@ -172,6 +172,20 @@ func (p Pets) ValidateResponse() error {
 	return errs.Err()
 }
 
+type Contact struct {
+	Name  string                   `json:"name"`
+	Email *string                  `json:"email,omitempty"`
+	Phone runtime.Nullable[string] `json:"phone,omitzero"`
+}
+
+// Validate checks the value against the constraints of the spec.
+func (c Contact) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOneOf("email or phone", c.Email != nil, c.Phone.IsSet()))
+	errs.Append("", validation.AtLeastOneOf("name or (email and phone)", true, c.Email != nil && c.Phone.IsSet()))
+	return errs.Err()
+}
+
 type Corner struct{}
 
 // Validate checks the value against the constraints of the spec.
@@ -415,6 +429,10 @@ func (e Either) Validate() error {
 	if e.Code != nil {
 		errsCode.Append("", validation.MaxLength(*e.Code, 5))
 	}
+	var errsCode2 validation.Errors
+	if e.Code != nil {
+		errsCode2.Append("", validation.Format(*e.Code, "uuid"))
+	}
 	var errsTags validation.Errors
 	if e.Tags != nil {
 		errsTags.Append("", validation.MinItems(e.Tags, 1))
@@ -425,7 +443,67 @@ func (e Either) Validate() error {
 	errs.Append("", validation.AnyValid(
 		validation.VariantErrors{IsSet: e.Number != nil},
 		validation.VariantErrors{IsSet: e.Code != nil, Errs: errsCode},
+		validation.VariantErrors{IsSet: e.Code != nil, Errs: errsCode2},
 		validation.VariantErrors{IsSet: e.Tags != nil, Errs: errsTags},
+	))
+	return errs.Err()
+}
+
+// Slug is one of String or Int64.
+type Slug struct {
+	String *string `json:"-"`
+	Int64  *int64  `json:"-"`
+}
+
+// MarshalJSON writes the variant that is set.
+func (s Slug) MarshalJSON() ([]byte, error) {
+	var set []any
+	if s.String != nil {
+		set = append(set, s.String)
+	}
+	if s.Int64 != nil {
+		set = append(set, s.Int64)
+	}
+	return runtime.MarshalOneOf(nil, set...)
+}
+
+// UnmarshalJSON sets the variant data matches.
+func (s *Slug) UnmarshalJSON(data []byte) error {
+	*s = Slug{}
+	return runtime.UnmarshalUnion(data, runtime.Union{
+		Variants: []runtime.Variant{
+			{
+				Name: "String",
+				Kind: runtime.KindString,
+				Into: runtime.Into(&s.String),
+			},
+			{
+				Name: "Int64",
+				Kind: runtime.KindInteger,
+				Into: runtime.Into(&s.Int64),
+			},
+		},
+	})
+}
+
+// Validate checks the value against the constraints of the spec.
+func (s Slug) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOne(s.String != nil, s.Int64 != nil))
+	if s.Int64 != nil {
+		errs.Append("", validation.Minimum(*s.Int64, 1, false))
+	}
+	var errsString validation.Errors
+	if s.String != nil {
+		errsString.Append("", validation.Format(*s.String, "uuid"))
+	}
+	var errsString2 validation.Errors
+	if s.String != nil {
+		errsString2.Append("", validation.MaxLength(*s.String, 8))
+	}
+	errs.Append("", validation.OneValid(
+		validation.VariantErrors{IsSet: s.String != nil, Errs: errsString},
+		validation.VariantErrors{IsSet: s.String != nil, Errs: errsString2},
 	))
 	return errs.Err()
 }

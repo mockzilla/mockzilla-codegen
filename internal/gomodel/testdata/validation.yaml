@@ -77,6 +77,15 @@ components:
       anyOf: [{type: string}, {type: integer}, {type: 'null'}]
     SomeChoice:
       anyOf: [{type: string}, {type: integer}]
+    Handle:
+      anyOf:
+        - {type: string, format: uuid}
+        - {type: string, pattern: '^[a-z0-9_-]+$'}
+    Slug:
+      oneOf:
+        - {type: string, format: uuid}
+        - {type: string, maxLength: 8}
+        - {type: integer, minimum: 1}
     NullableChoice:
       oneOf: [{type: string}, {type: integer}, {type: 'null'}]
     Inner:

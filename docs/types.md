@@ -290,8 +290,11 @@ Variant fields:
 
 - A `null` member makes the union nullable and gets no field.
 - One member plus `null` is no union: `oneOf: [{$ref: Pet}, {type: 'null'}]` is a nullable `Pet`.
-- Members with the same Go type share one field, with an info diagnostic.
+- Members with the same Go type share one field, with an info diagnostic. Each keeps its own
+  checks, see `Validate` below.
 - A member that is the union itself is left out, with a warning.
+- A `oneOf` or `anyOf` whose members only list `required` is no union. The struct checks which of
+  those lists it has, see [Required lists](#required-lists).
 
 ### oneOf and anyOf
 
@@ -358,6 +361,39 @@ properties that a form holds gets `UnmarshalForm` too, which keeps the other nam
 passes when one set variant passes its checks, and reports the failed checks of every set variant
 otherwise: `"2026-09-30T00:00:00Z"` sets both variants of `anyOf: [{format: date-time},
 {maxLength: 5}]`, and passes. With a discriminator it also checks the value, as above.
+
+Members that share a field are checked one by one. `anyOf: [{format: uuid}, {pattern:
+'^[a-z-]+$'}]` passes with a uuid or with `my-slug`. In a `oneOf`, exactly one of them must pass:
+a value that passes both fails with `exactly one variant must match, found 2`.
+
+### Required lists
+
+A `oneOf` or `anyOf` whose members only list `required` checks which properties are set. It adds
+no variant. `Validate` counts the members whose properties are all set:
+
+```yaml
+Lookup:
+  type: object
+  oneOf:
+    - required: [id]
+    - required: [email]
+  properties:
+    id: {type: integer}
+    email: {type: string}
+```
+
+```go
+func (l Lookup) Validate() error {
+	var errs validation.Errors
+	errs.Append("", validation.ExactlyOneOf("id or email", l.ID != nil, l.Email != nil))
+	return errs.Err()
+}
+```
+
+An `anyOf` uses `AtLeastOneOf`. A required property that cannot be nil counts as set. The check is
+left out, with a warning, when a listed name is no property of the struct, or names a field with no
+pointer. A member that only lists `required` next to members with a type or `null` is not checked
+either, with a warning.
 
 ### Shared properties
 

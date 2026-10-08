@@ -31,7 +31,7 @@ Primitives union models.unions
   | Bytes []byte kinds=string
   | StringMap map[string]string kinds=object
 Duplicates union models.unions
-  | oneOf
+  | oneOf members=String#1,String#2,Cat#1
   | String *string kinds=string
   | Cat *Cat kinds=object required=kind,meow known=kind,meow
 Inline union models.unions
