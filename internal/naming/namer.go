@@ -241,22 +241,35 @@ func (n *Namer) camel(part string) string {
 	return b.String()
 }
 
-// caseWord keeps initialisms canonical, also with a plural "s" or trailing digits: IDs, HTTP2.
+// caseWord keeps initialisms canonical, also after leading digits: IDs, HTTP2, 3DS.
 func (n *Namer) caseWord(w string) string {
 	lw := strings.ToLower(w)
-	if c, ok := n.initialisms[lw]; ok {
+	if c, ok := n.initialism(lw); ok {
 		return c
+	}
+
+	rest := strings.TrimLeft(lw, "0123456789")
+	if c, ok := n.initialism(rest); ok {
+		return lw[:len(lw)-len(rest)] + c
+	}
+	return strings.ToUpper(lw[:1]) + lw[1:]
+}
+
+// initialism writes lw canonical when it is one, also with a plural "s" or trailing digits.
+func (n *Namer) initialism(lw string) (string, bool) {
+	if c, ok := n.initialisms[lw]; ok {
+		return c, true
 	}
 
 	letters := strings.TrimRight(lw, "0123456789")
 	digits := lw[len(letters):]
 	if c, ok := n.initialisms[letters]; ok {
-		return c + digits
+		return c + digits, true
 	}
 	if base, ok := strings.CutSuffix(letters, "s"); ok {
 		if c, found := n.initialisms[base]; found {
-			return c + "s" + digits
+			return c + "s" + digits, true
 		}
 	}
-	return strings.ToUpper(lw[:1]) + lw[1:]
+	return "", false
 }
