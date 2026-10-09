@@ -14,23 +14,54 @@
 
 Go models, HTTP servers, clients and MCP tools from OpenAPI 3.0, 3.1 and 3.2 specs.
 
-The goal is a generator that fits your project. The config says where every file goes. Any block of
-the built-in templates can be replaced. The output reads like Go a person wrote.
-
 ## Why this one
 
-- An integration test generates, builds and runs the code of 2,200+ real-world specs.
-- You place every file: one file, many files, or a package per part
-  ([output files](docs/config.md#output-files)).
-- Pointers only where a value can be missing, `allOf` merged into one struct, one shape for every
-  union ([types](docs/types.md)).
-- Validation is plain Go code, no reflection ([validation](docs/validation.md)).
-- Each documented error response can be a Go error type ([error types](docs/errors.md)).
-- One spec gives a server for any of 14 routers, a client that streams, and MCP tools for AI
-  assistants ([server](docs/server.md), [client](docs/client.md), [MCP](docs/mcp.md)).
+Every generator works on the petstore. This one works on yours. The specs of Stripe, GitHub, OpenAI
+and Adyen generate, build and run, and so do 2,200+ other real-world specs.
 
-Coming from another generator? The [migration guides](docs/migration.md) say what changes and show
-the code before and after.
+### Specs
+
+- OpenAPI 3.1 and 3.2, next to 3.0.
+- `oneOf` and `anyOf`, with or without a discriminator, nested in each other. In a body, a
+  parameter, a header or a form field.
+- `allOf` merged into one struct, its limits combined to the strictest.
+- Every inline object gets a named type, however deep. No anonymous structs.
+- `$ref` into other files, and overlays.
+- A part that cannot be generated gets a warning and is left out. The rest is written.
+
+### Parameters and bodies
+
+- Parameters in every style OpenAPI defines, `deepObject` and the 3.2 `cookie` style included.
+- Defaults filled in for parameters the request leaves out.
+- JSON, form and multipart bodies, nested objects included. Binary bodies stream.
+
+### Idiomatic Go
+
+- Fields in the order of the spec. Name clashes resolved for you.
+- A pointer only where a value can be missing, never on a slice or map.
+- `runtime.Nullable[T]` tells `null` from absent, so a PATCH can clear a value or leave it as it
+  is. Turn it on for the whole spec or for one field.
+- Validation in plain Go: required fields, patterns, limits, `multipleOf`, `uniqueItems`. The
+  server can check every request and response with it.
+- An error response the spec documents is a Go error, on the server and on the client.
+- One file, many files, or a package per part. Any block of the templates can be replaced.
+
+### No heavy dependencies
+
+- Generated code imports the standard library, your router, and a runtime package that uses only
+  the standard library.
+- No YAML parser, logger or third-party JSON library ends up in your binary. Plug one in if you
+  want it.
+
+### Server and client
+
+- 14 routers, `net/http`'s `ServeMux` among them. Your service stays the same on each.
+- Hooks for OpenTelemetry on server and client: middleware around each operation, and the HTTP
+  client you pass in. Both see the operation name ([observability](docs/observability.md)).
+- MCP tools over the client, so an AI assistant can call your API.
+
+Coming from another generator? The [migration guides](docs/migration.md) map every flag, config key
+and extension.
 
 ## Quick start
 
