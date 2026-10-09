@@ -72,6 +72,8 @@ func TestWrite(t *testing.T) {
 		{name: "File", body: runtime.NewFile([]byte("data"), "a.bin", "image/png"), wantContentType: "image/png", wantBody: "data"},
 		{name: "File pointer", body: runtime.Ptr(runtime.NewFileReader(strings.NewReader("data"), "a", "", -1)), wantContentType: "", wantBody: "data"},
 		{name: "A string under JSON", headers: http.Header{"Content-Type": {"application/json"}}, body: runtime.Ptr("hi"), wantContentType: "application/json", wantBody: `"hi"`},
+		{name: "A file under JSON", headers: http.Header{"Content-Type": {"application/json"}}, body: runtime.Ptr(runtime.NewFile([]byte("hi"), "", "")), wantContentType: "application/json", wantBody: `"aGk="`},
+		{name: "A nil file", headers: http.Header{"Content-Type": {"image/png"}}, body: (*runtime.File)(nil), wantContentType: "image/png"},
 		{name: "JSON with parameters", headers: http.Header{"Content-Type": {"application/json; charset=utf-8"}}, body: map[string]int{"a": 1}, wantContentType: "application/json; charset=utf-8", wantBody: `{"a":1}`},
 		{name: "A defined string as it is", headers: http.Header{"Content-Type": {"text/plain"}}, body: runtime.Ptr(note("hi")), wantContentType: "text/plain", wantBody: "hi"},
 		{name: "A nil pointer without JSON", headers: http.Header{"Content-Type": {"application/xml"}}, body: (*struct{})(nil), wantContentType: "application/xml"},

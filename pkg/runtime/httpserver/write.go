@@ -38,19 +38,25 @@ func (wr Writer) Write(w http.ResponseWriter, status int, headers http.Header, b
 		w.Header()[key] = values
 	}
 
-	switch b := body.(type) {
-	case nil:
+	if body == nil {
 		w.WriteHeader(status)
 		return nil
-	case runtime.File:
-		return writeFile(w, status, b)
-	case *runtime.File:
-		return writeFile(w, status, *b)
 	}
 
 	mediaType := runtime.ContentType(w.Header())
 	if runtime.IsJSON(mediaType) {
 		return wr.writeJSON(w, status, body)
+	}
+
+	switch b := body.(type) {
+	case runtime.File:
+		return writeFile(w, status, b)
+	case *runtime.File:
+		if b == nil {
+			w.WriteHeader(status)
+			return nil
+		}
+		return writeFile(w, status, *b)
 	}
 	if data, ok := rawBody(body); ok {
 		return writeBytes(w, status, data)
