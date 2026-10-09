@@ -807,12 +807,13 @@ const (
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -836,6 +837,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -869,8 +877,9 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
+	svc        ServiceInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -882,301 +891,344 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // GetName handles GET /v1/{name}.
 func (a *HTTPAdapter) GetName(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetName"))
+	a.operations.Serve(c.Response(), c.Request(), "GetName", func(w http.ResponseWriter, r *http.Request) {
+		a.serveGetName(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetName(c echo.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &GetNameServiceRequestOptions{RawRequest: r}
 	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.PathParams = &GetNamePathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("name")), runtime.Param{Name: "name", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Name); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetName", ParamName: "name", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 	opts.Query = &GetNameQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "tag", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Tag); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetName", ParamName: "tag", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.GetName(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetName", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetName", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetName", res)
-	return nil
 }
 
 // DeleteName handles DELETE /v1/{name}.
 func (a *HTTPAdapter) DeleteName(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "DeleteName"))
+	a.operations.Serve(c.Response(), c.Request(), "DeleteName", func(w http.ResponseWriter, r *http.Request) {
+		a.serveDeleteName(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveDeleteName(c echo.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &DeleteNameServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeleteNamePathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("name")), runtime.Param{Name: "name", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Name); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "DeleteName", ParamName: "name", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/x-www-form-urlencoded":
 		if err := runtime.DecodeForm(r.Body, &opts.Body, false, nil); err != nil {
 			a.failDecode(w, r, "DeleteName", err)
-			return nil
+			return
 		}
 	case "":
 	default:
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "DeleteName", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return nil
+		return
 	}
 
 	res, err := a.svc.DeleteName(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "DeleteName", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "DeleteName", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "DeleteName", res)
-	return nil
 }
 
 // TraceName handles TRACE /v1/{name}.
 func (a *HTTPAdapter) TraceName(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "TraceName"))
+	a.operations.Serve(c.Response(), c.Request(), "TraceName", func(w http.ResponseWriter, r *http.Request) {
+		a.serveTraceName(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveTraceName(c echo.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &TraceNameServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &TraceNamePathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("name")), runtime.Param{Name: "name", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Name); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "TraceName", ParamName: "name", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.TraceName(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "TraceName", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "TraceName", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "TraceName", res)
-	return nil
 }
 
 // GetNameSlash handles GET /v1/{name}/.
 func (a *HTTPAdapter) GetNameSlash(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetNameSlash"))
+	a.operations.Serve(c.Response(), c.Request(), "GetNameSlash", func(w http.ResponseWriter, r *http.Request) {
+		a.serveGetNameSlash(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetNameSlash(c echo.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &GetNameSlashServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetNameSlashPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("name")), runtime.Param{Name: "name", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Name); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetNameSlash", ParamName: "name", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.GetNameSlash(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetNameSlash", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetNameSlash", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetNameSlash", res)
-	return nil
 }
 
 // GetPolicy handles GET /v1/{name}:getIamPolicy.
 func (a *HTTPAdapter) GetPolicy(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetPolicy"))
+	a.operations.Serve(c.Response(), c.Request(), "GetPolicy", func(w http.ResponseWriter, r *http.Request) {
+		a.serveGetPolicy(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetPolicy(c echo.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &GetPolicyServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetPolicyPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("name")), runtime.Param{Name: "name", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Name); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetPolicy", ParamName: "name", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.GetPolicy(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetPolicy", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetPolicy", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetPolicy", res)
-	return nil
 }
 
 // GetChildren handles GET /v1/{id}/children.
 func (a *HTTPAdapter) GetChildren(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetChildren"))
+	a.operations.Serve(c.Response(), c.Request(), "GetChildren", func(w http.ResponseWriter, r *http.Request) {
+		a.serveGetChildren(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetChildren(c echo.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &GetChildrenServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetChildrenPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetChildren", ParamName: "id", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.GetChildren(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetChildren", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetChildren", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetChildren", res)
-	return nil
 }
 
 // PutBatch handles PUT /v1/:batch.
 func (a *HTTPAdapter) PutBatch(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PutBatch"))
+	a.operations.Serve(c.Response(), c.Request(), "PutBatch", a.servePutBatch)
+	return nil
+}
+
+func (a *HTTPAdapter) servePutBatch(w http.ResponseWriter, r *http.Request) {
 	opts := &PutBatchServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.PutBatch(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutBatch", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutBatch", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "PutBatch", res)
-	return nil
 }
 
 // GetGeo handles GET /geo/{lat:lng}.
 func (a *HTTPAdapter) GetGeo(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetGeo"))
+	a.operations.Serve(c.Response(), c.Request(), "GetGeo", func(w http.ResponseWriter, r *http.Request) {
+		a.serveGetGeo(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetGeo(c echo.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &GetGeoServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetGeoPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("lat:lng")), runtime.Param{Name: "lat:lng", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.LatLng); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetGeo", ParamName: "lat:lng", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.GetGeo(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetGeo", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetGeo", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetGeo", res)
-	return nil
 }
 
 // GetFile handles GET /files/{name}.{ext}.
 func (a *HTTPAdapter) GetFile(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetFile"))
+	a.operations.Serve(c.Response(), c.Request(), "GetFile", func(w http.ResponseWriter, r *http.Request) {
+		a.serveGetFile(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetFile(c echo.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &GetFileServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetFilePathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("name")), runtime.Param{Name: "name", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Name); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetFile", ParamName: "name", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("ext")), runtime.Param{Name: "ext", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Ext); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetFile", ParamName: "ext", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.GetFile(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetFile", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetFile", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetFile", res)
-	return nil
 }
 
 // GetProduct handles GET /products({id}).
 func (a *HTTPAdapter) GetProduct(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetProduct"))
+	a.operations.Serve(c.Response(), c.Request(), "GetProduct", func(w http.ResponseWriter, r *http.Request) {
+		a.serveGetProduct(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetProduct(c echo.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &GetProductServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetProductPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetProduct", ParamName: "id", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.GetProduct(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetProduct", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetProduct", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetProduct", res)
-	return nil
 }
 
 // GetMetadata handles GET /$metadata.
 func (a *HTTPAdapter) GetMetadata(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetMetadata"))
+	a.operations.Serve(c.Response(), c.Request(), "GetMetadata", a.serveGetMetadata)
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetMetadata(w http.ResponseWriter, r *http.Request) {
 	opts := &GetMetadataServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetMetadata(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetMetadata", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetMetadata", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetMetadata", res)
-	return nil
 }
 
 // GetColon handles GET /a:b.
 func (a *HTTPAdapter) GetColon(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetColon"))
+	a.operations.Serve(c.Response(), c.Request(), "GetColon", a.serveGetColon)
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetColon(w http.ResponseWriter, r *http.Request) {
 	opts := &GetColonServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetColon(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetColon", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetColon", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetColon", res)
-	return nil
 }
 
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {

@@ -110,7 +110,7 @@ func TestHandler(t *testing.T) {
 	f := &layout.File{Path: "/work/gen.go", Package: "api"}
 	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
 
-	assert.Equal(t, framework.Handler{Signature: "(w http.ResponseWriter, r *http.Request)", Return: "return"}, Framework{}.Handler(s))
+	assert.Equal(t, framework.Handler{Signature: "(w http.ResponseWriter, r *http.Request)", Writer: "w", Request: "r", ServeSignature: "(w http.ResponseWriter, r *http.Request)"}, Framework{}.Handler(s))
 }
 
 func TestPathParam(t *testing.T) {

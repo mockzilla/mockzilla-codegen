@@ -604,12 +604,13 @@ const (
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -633,6 +634,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -666,8 +674,9 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
+	svc        ServiceInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -679,195 +688,208 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // PathStyles handles GET /path/{simple}/{label}/{matrix}/{list}.
 func (a *HTTPAdapter) PathStyles(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PathStyles"))
+	a.operations.Serve(c.Response(), c.Request(), "PathStyles", func(w http.ResponseWriter, r *http.Request) {
+		a.servePathStyles(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) servePathStyles(c echo.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &PathStylesServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PathStylesPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("simple")), runtime.Param{Name: "simple", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Simple); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "PathStyles", ParamName: "simple", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("label")), runtime.Param{Name: "label", Style: runtime.StyleLabel, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Label); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "PathStyles", ParamName: "label", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("matrix")), runtime.Param{Name: "matrix", Style: runtime.StyleMatrix, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Matrix); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "PathStyles", ParamName: "matrix", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, c.Param("list")), runtime.Param{Name: "list", Style: runtime.StyleSimple, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.PathParams.List); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "PathStyles", ParamName: "list", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.PathStyles(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PathStyles", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PathStyles", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "PathStyles", res)
-	return nil
 }
 
 // QueryStyles handles GET /query.
 func (a *HTTPAdapter) QueryStyles(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "QueryStyles"))
+	a.operations.Serve(c.Response(), c.Request(), "QueryStyles", a.serveQueryStyles)
+	return nil
+}
+
+func (a *HTTPAdapter) serveQueryStyles(w http.ResponseWriter, r *http.Request) {
 	opts := &QueryStylesServiceRequestOptions{RawRequest: r}
 	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.Query = &QueryStylesQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "form", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Form); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "form", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "csv", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Csv); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "csv", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "space", Style: runtime.StyleSpaceDelimited, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Space); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "space", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "pipe", Style: runtime.StylePipeDelimited, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Pipe); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "pipe", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "deep", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Deep); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "deep", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "flat", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Flat); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "flat", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "json", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: true}, &opts.Query.JSON); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "json", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "id", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.ID); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "id", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "created", Style: runtime.StyleDeepObject, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Query.Created); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "created", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "needed", Style: runtime.StyleForm, IsExplode: true, IsRequired: true, IsJSON: false}, &opts.Query.Needed); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "needed", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false, Default: "20"}, &opts.Query.Limit); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "QueryStyles", ParamName: "limit", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.QueryStyles(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "QueryStyles", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "QueryStyles", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "QueryStyles", res)
-	return nil
 }
 
 // HeaderStyles handles GET /header.
 func (a *HTTPAdapter) HeaderStyles(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "HeaderStyles"))
+	a.operations.Serve(c.Response(), c.Request(), "HeaderStyles", a.serveHeaderStyles)
+	return nil
+}
+
+func (a *HTTPAdapter) serveHeaderStyles(w http.ResponseWriter, r *http.Request) {
 	opts := &HeaderStylesServiceRequestOptions{RawRequest: r}
 	opts.Headers = &HeaderStylesHeaders{}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Tags", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XTags); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-Tags", ParamLocation: "header", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Point", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XPoint); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-Point", ParamLocation: "header", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-When", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XWhen); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-When", ParamLocation: "header", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Limit", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XLimit); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "HeaderStyles", ParamName: "X-Limit", ParamLocation: "header", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.HeaderStyles(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "HeaderStyles", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "HeaderStyles", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "HeaderStyles", res)
-	return nil
 }
 
 // CookieStyles handles GET /cookie.
 func (a *HTTPAdapter) CookieStyles(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "CookieStyles"))
+	a.operations.Serve(c.Response(), c.Request(), "CookieStyles", a.serveCookieStyles)
+	return nil
+}
+
+func (a *HTTPAdapter) serveCookieStyles(w http.ResponseWriter, r *http.Request) {
 	opts := &CookieStylesServiceRequestOptions{RawRequest: r}
 	opts.Cookies = &CookieStylesCookies{}
 	if err := runtime.DecodeCookie(r.Cookies(), runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Cookies.Session); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "CookieStyles", ParamName: "session", ParamLocation: "cookie", Err: err})
-		return nil
+		return
 	}
 	if err := runtime.DecodeCookie(r.Cookies(), runtime.Param{Name: "flags", Style: runtime.StyleForm, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Cookies.Flags); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "CookieStyles", ParamName: "flags", ParamLocation: "cookie", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.CookieStyles(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CookieStyles", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CookieStyles", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "CookieStyles", res)
-	return nil
 }
 
 // Search handles GET /search.
 func (a *HTTPAdapter) Search(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "Search"))
+	a.operations.Serve(c.Response(), c.Request(), "Search", a.serveSearch)
+	return nil
+}
+
+func (a *HTTPAdapter) serveSearch(w http.ResponseWriter, r *http.Request) {
 	opts := &SearchServiceRequestOptions{RawRequest: r}
 	if err := runtime.DecodeQueryString(r.URL.RawQuery, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false}, &opts.Filter); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "Search", ParamName: "filter", ParamLocation: "querystring", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.Search(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Search", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Search", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "Search", res)
-	return nil
 }
 
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {

@@ -604,12 +604,13 @@ const (
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -633,6 +634,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -666,8 +674,9 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
+	svc        ServiceInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -679,12 +688,16 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // PathStyles handles GET /path/{simple}/{label}/{matrix}/{list}.
 func (a *HTTPAdapter) PathStyles(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PathStyles"))
+	a.operations.Serve(w, r, "PathStyles", a.servePathStyles)
+}
+
+func (a *HTTPAdapter) servePathStyles(w http.ResponseWriter, r *http.Request) {
 	opts := &PathStylesServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PathStylesPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "simple")), runtime.Param{Name: "simple", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.Simple); err != nil {
@@ -718,7 +731,10 @@ func (a *HTTPAdapter) PathStyles(w http.ResponseWriter, r *http.Request) {
 
 // QueryStyles handles GET /query.
 func (a *HTTPAdapter) QueryStyles(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "QueryStyles"))
+	a.operations.Serve(w, r, "QueryStyles", a.serveQueryStyles)
+}
+
+func (a *HTTPAdapter) serveQueryStyles(w http.ResponseWriter, r *http.Request) {
 	opts := &QueryStylesServiceRequestOptions{RawRequest: r}
 	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.Query = &QueryStylesQuery{}
@@ -781,7 +797,10 @@ func (a *HTTPAdapter) QueryStyles(w http.ResponseWriter, r *http.Request) {
 
 // HeaderStyles handles GET /header.
 func (a *HTTPAdapter) HeaderStyles(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "HeaderStyles"))
+	a.operations.Serve(w, r, "HeaderStyles", a.serveHeaderStyles)
+}
+
+func (a *HTTPAdapter) serveHeaderStyles(w http.ResponseWriter, r *http.Request) {
 	opts := &HeaderStylesServiceRequestOptions{RawRequest: r}
 	opts.Headers = &HeaderStylesHeaders{}
 	if err := runtime.DecodeHeader(r.Header, runtime.Param{Name: "X-Tags", Style: runtime.StyleSimple, IsExplode: false, IsRequired: false, IsJSON: false}, &opts.Headers.XTags); err != nil {
@@ -815,7 +834,10 @@ func (a *HTTPAdapter) HeaderStyles(w http.ResponseWriter, r *http.Request) {
 
 // CookieStyles handles GET /cookie.
 func (a *HTTPAdapter) CookieStyles(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "CookieStyles"))
+	a.operations.Serve(w, r, "CookieStyles", a.serveCookieStyles)
+}
+
+func (a *HTTPAdapter) serveCookieStyles(w http.ResponseWriter, r *http.Request) {
 	opts := &CookieStylesServiceRequestOptions{RawRequest: r}
 	opts.Cookies = &CookieStylesCookies{}
 	if err := runtime.DecodeCookie(r.Cookies(), runtime.Param{Name: "session", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Cookies.Session); err != nil {
@@ -841,7 +863,10 @@ func (a *HTTPAdapter) CookieStyles(w http.ResponseWriter, r *http.Request) {
 
 // Search handles GET /search.
 func (a *HTTPAdapter) Search(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "Search"))
+	a.operations.Serve(w, r, "Search", a.serveSearch)
+}
+
+func (a *HTTPAdapter) serveSearch(w http.ResponseWriter, r *http.Request) {
 	opts := &SearchServiceRequestOptions{RawRequest: r}
 	if err := runtime.DecodeQueryString(r.URL.RawQuery, runtime.Param{Name: "filter", IsRequired: false, IsJSON: false}, &opts.Filter); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "Search", ParamName: "filter", ParamLocation: "querystring", Err: err})

@@ -265,7 +265,8 @@ A property of a JSON, form or multipart body gets its default the same way, see
 A handler first puts the name of its operation, `ListPets`, on the request's context. The service,
 a wrapper of it and the error handler read it with `runtime.OperationID(ctx)`.
 
-The router's middleware runs before the handler, so it does not see the name.
+The router's middleware runs before the handler, so it does not see the name. Operation
+middleware does, see [operation middleware](#operation-middleware).
 
 ### Reading the body
 
@@ -362,6 +363,7 @@ Options are set with `ServerOption` functions on the adapter and on the router a
 | Option | Sets |
 |---|---|
 | `WithMiddleware(mw...)` | `func(http.Handler) http.Handler` wrappers, outermost first |
+| `WithOperationMiddleware(mw...)` | the same wrappers around each operation, see [operation middleware](#operation-middleware) |
 | `WithErrorHandler(h)` | what writes failed requests, `DefaultErrorHandler{}` by default |
 | `WithJSONDecoder(fn)` | what reads JSON request bodies, `json.Unmarshal` by default |
 | `WithJSONEncoder(fn)` | what writes JSON response bodies and stream frames, `json.Marshal` by default |
@@ -629,6 +631,39 @@ wraps those routes only:
 
 A router can make a redirect on its own, for a trailing slash or a path it cleans. On gin,
 gorilla-mux, kratos, iris, fasthttp and hertz, that redirect is answered before the middleware.
+
+### Operation middleware
+
+`WithOperationMiddleware` takes the same `func(http.Handler) http.Handler` as `WithMiddleware`.
+It wraps each operation, once the operation's name is on the context:
+
+```go
+func logOperation(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		slog.InfoContext(r.Context(), "served", "operation", runtime.OperationID(r.Context()), "took", time.Since(start))
+	})
+}
+
+router := NewRouter(svc, WithOperationMiddleware(logOperation))
+```
+
+| | `WithMiddleware` | `WithOperationMiddleware` |
+|---|---|---|
+| Runs | before the router picks a route | after it, around one operation |
+| Sees the operation name | no | yes |
+| Wraps unknown paths | on a new router | no |
+| Wraps a 400 for a bad parameter or body | yes | yes |
+
+- Each middleware is called once, when the adapter is made. So it can hold a tracer or a counter.
+- It passes on the request it got, or one from `r.WithContext` with a context made from
+  `r.Context()`. A request with a context of its own panics with `httpserver.ErrContextLost`.
+- A middleware that wraps the writer keeps its `Flush`, or gives an `Unwrap` method. Otherwise the
+  frames of a stream are not flushed as they go.
+- On echo and kratos too, the operation gets the writer and the request the middleware passes on.
+
+For tracing and metrics, see [observability](observability.md).
 
 ### Handlers
 

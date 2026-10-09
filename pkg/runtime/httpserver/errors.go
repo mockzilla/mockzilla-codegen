@@ -11,4 +11,5 @@ var (
 	ErrNoResponse  = errors.New("the service returned no response")
 	ErrResponseCut = errors.New("response cut short")
 	ErrPanic       = errors.New("panic")
+	ErrContextLost = errors.New("a middleware passed on a request without the context it got")
 )

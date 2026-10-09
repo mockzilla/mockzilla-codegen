@@ -76,7 +76,9 @@ type AdapterView struct {
 	Rejects             []RejectView
 }
 
-// HandlerView is one handler method. ID is the operation name as a string literal. Bodies are
+// HandlerView is one handler method. ID is the operation name as a string literal. Serve is the
+// method that serves the operation inside the operation middleware, with its signature; Context
+// is the framework's context it takes first, when it reads path parameters from it. Bodies are
 // the media types the handler tells apart, each once and never an empty one; Patterns are the
 // keys that take the media types they match, application/*+json any JSON and a range such as
 // text/* its type; Wildcards holds the body that takes any other media type, when the operation
@@ -85,6 +87,9 @@ type AdapterView struct {
 type HandlerView struct {
 	Name           string
 	ID             string
+	Serve          string
+	ServeSignature string
+	Context        string
 	Method         string
 	Path           string
 	Options        string
@@ -125,10 +130,10 @@ type ParamView struct {
 }
 
 // BodyView is one media type of the request body. MediaType is quoted, in lower case and without
-// parameters; Case is the case of the body switch that takes it; OperationID is quoted; Target is the address of the options field; Type is the
-// struct a multipart form fills; Assign is the expression that turns text, data or file, the
-// decoded body, into the field's type; Return is the statement that leaves the handler. Check is
-// what the body is checked against before it is decoded, nil when it is not. Encoding is nil or the
+// parameters; Case is the case of the body switch that takes it; OperationID is quoted; Target is
+// the address of the options field; Type is the struct a multipart form fills; Assign is the
+// expression that turns text, data or file, the decoded body, into the field's type. Check is what
+// the body is checked against before it is decoded, nil when it is not. Encoding is nil or the
 // variable encoding, which EncodingLiteral sets.
 type BodyView struct {
 	Kind            string
@@ -148,18 +153,16 @@ type BodyView struct {
 	Target          string
 	Type            string
 	Assign          string
-	Return          string
 	Check           *PropView
 	Encoding        string
 	EncodingLiteral string
 }
 
-// bodyAt is what the bodies of one operation share: the operation, the statement that leaves its
-// handler, and the table its bodies are checked against.
+// bodyAt is what the bodies of one operation share: the operation and the table its bodies are
+// checked against.
 type bodyAt struct {
 	id         string
 	isRequired bool
-	ret        string
 	scope      *gocode.Scope
 	table      *presenceTable
 }
@@ -212,16 +215,22 @@ func adapterView(g *Generator, s *gocode.Scope) *AdapterView {
 }
 
 func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope, table *presenceTable) HandlerView {
+	h := g.opts.Framework.Handler(s)
 	v := HandlerView{
-		Name:    op.Name,
-		ID:      gocode.Quote(op.Name),
-		Method:  op.Spec.Method,
-		Path:    op.Spec.Path,
-		Options: s.Symbol(PartService, g.opts.Namer.ServiceRequestOptions(op.Name)),
+		Name:           op.Name,
+		ID:             gocode.Quote(op.Name),
+		Serve:          "serve" + op.Name,
+		ServeSignature: h.ServeSignature,
+		Method:         op.Spec.Method,
+		Path:           op.Spec.Path,
+		Options:        s.Symbol(PartService, g.opts.Namer.ServiceRequestOptions(op.Name)),
 	}
 	for _, p := range op.Params {
 		v.HasQuery = v.HasQuery || p.In == spec.InQuery
 		v.Groups = append(v.Groups, groupView(g, p, s))
+		if p.In == spec.InPath && h.Context != "" {
+			v.Context, v.ServeSignature = h.Context, h.ContextServeSignature
+		}
 	}
 	if qs := op.QueryString; qs != nil {
 		v.QueryString = &ParamView{
@@ -236,7 +245,7 @@ func handlerView(g *Generator, op *gomodel.Operation, s *gocode.Scope, table *pr
 	}
 
 	v.IsBodyRequired = op.Spec.Body != nil && op.Spec.Body.Required
-	at := bodyAt{id: v.ID, isRequired: v.IsBodyRequired, ret: g.opts.Framework.Handler(s).Return, scope: s, table: table}
+	at := bodyAt{id: v.ID, isRequired: v.IsBodyRequired, scope: s, table: table}
 	fields := operation.BodyFields(op.Bodies, g.opts.Namer)
 	var jsonPatterns, ranges []BodyView
 	seen := []string{""}
@@ -331,7 +340,6 @@ func bodyView(c gomodel.Content, field string, at bodyAt) BodyView {
 		IsRequired:  at.isRequired,
 		Field:       field,
 		Target:      gocode.AddressOf(gocode.Selector("opts", field)),
-		Return:      at.ret,
 	}
 	v.Case = bodyCase(operation.BaseMediaType(c.MediaType), v.Runtime)
 	t := operation.BodyType(c)

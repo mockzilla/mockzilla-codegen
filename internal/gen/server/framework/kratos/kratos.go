@@ -56,7 +56,7 @@ func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []frame
 
 // Handler is kratos's own shape, a handler of its context.
 func (Framework) Handler(s *gocode.Scope) framework.Handler {
-	return framework.ContextHandler(gocode.Selector(s.Import(gomodel.Import{Path: importPath, Alias: "khttp"}), "Context"))
+	return framework.ContextHandler(s, gocode.Selector(s.Import(gomodel.Import{Path: importPath, Alias: "khttp"}), "Context"))
 }
 
 func (Framework) PathParam(_ *gocode.Scope, name string) string {

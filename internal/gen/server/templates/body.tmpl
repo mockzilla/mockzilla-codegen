@@ -2,16 +2,16 @@
 		body, err := a.opts.Presence.JSON(r.Body, {{.Runtime}}.Prop{{template "server/prop.tmpl" .Check}})
 		if err != nil {
 			a.failBody(w, r, {{.OperationID}}, err)
-			{{.Return}}
+			return
 		}
 		if err = {{.Runtime}}.DecodeJSON(body, {{.Target}}, {{.IsRequired}}, a.opts.JSONDecoder); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			{{.Return}}
+			return
 		}
 {{- else if .IsJSON}}
 		if err := {{.Runtime}}.DecodeJSON(r.Body, {{.Target}}, {{.IsRequired}}, a.opts.JSONDecoder); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			{{.Return}}
+			return
 		}
 {{- else if and .IsForm .Check}}
 {{- with .EncodingLiteral}}
@@ -20,11 +20,11 @@
 		body, err := a.opts.Presence.Form(r.Body, {{.Runtime}}.Prop{{template "server/prop.tmpl" .Check}}, {{.Encoding}})
 		if err != nil {
 			a.failBody(w, r, {{.OperationID}}, err)
-			{{.Return}}
+			return
 		}
 		if err = {{.Runtime}}.DecodeForm(body, {{.Target}}, {{.IsRequired}}, {{.Encoding}}); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			{{.Return}}
+			return
 		}
 {{- else if .IsForm}}
 {{- with .EncodingLiteral}}
@@ -32,7 +32,7 @@
 {{- end}}
 		if err := {{.Runtime}}.DecodeForm(r.Body, {{.Target}}, {{.IsRequired}}, {{.Encoding}}); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			{{.Return}}
+			return
 		}
 {{- else if .IsMultipart}}
 {{- with .EncodingLiteral}}
@@ -41,38 +41,38 @@
 {{- with .Check}}
 		if err := a.opts.Presence.Multipart(r, {{.Runtime}}.Prop{{template "server/prop.tmpl" .}}, a.opts.MultipartMaxMemory, {{$.Encoding}}); err != nil {
 			a.failBody(w, r, {{$.OperationID}}, err)
-			{{$.Return}}
+			return
 		}
 {{- end}}
 		opts.{{.Field}} = &{{.Type}}{}
 		if err := {{.Runtime}}.DecodeMultipart(r, opts.{{.Field}}, a.opts.MultipartMaxMemory, {{.Encoding}}); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			{{.Return}}
+			return
 		}
 {{- else if .IsFile}}
 		file, err := {{.Runtime}}.DecodeFile(r, {{.IsRequired}})
 		if err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			{{.Return}}
+			return
 		}
 		opts.{{.Field}} = {{.Assign}}
 {{- else if .IsText}}
 		text, err := {{.Runtime}}.DecodeText(r.Body, {{.IsRequired}})
 		if err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			{{.Return}}
+			return
 		}
 		opts.{{.Field}} = {{.Assign}}
 {{- else if .IsValue}}
 		if err := {{.Runtime}}.DecodeTextValue(r.Body, {{.Target}}, {{.IsRequired}}); err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			{{.Return}}
+			return
 		}
 {{- else if .IsBytes}}
 		data, err := {{.Runtime}}.DecodeBytes(r.Body, {{.IsRequired}})
 		if err != nil {
 			a.failDecode(w, r, {{.OperationID}}, err)
-			{{.Return}}
+			return
 		}
 		opts.{{.Field}} = {{.Assign}}
 {{- end}}

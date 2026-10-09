@@ -22,19 +22,26 @@ func TestHTTPHandler(t *testing.T) {
 	f := &layout.File{Path: "/work/gen.go", Package: "api"}
 	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
 
-	assert.Equal(t, Handler{Signature: "(w http.ResponseWriter, r *http.Request)", Return: "return"}, HTTPHandler(s))
+	assert.Equal(t, Handler{Signature: "(w http.ResponseWriter, r *http.Request)", Writer: "w", Request: "r", ServeSignature: "(w http.ResponseWriter, r *http.Request)"}, HTTPHandler(s))
 	assert.Equal(t, `import "net/http"`, s.Imports.Decl())
 }
 
 func TestContextHandler(t *testing.T) {
 	t.Parallel()
 
+	f := &layout.File{Path: "/work/gen.go", Package: "api"}
+	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
+
 	assert.Equal(t, Handler{
-		Signature: "(c echo.Context) error",
-		Prologue:  "w, r := c.Response(), c.Request()",
-		Return:    "return nil",
-		Epilogue:  "return nil",
-	}, ContextHandler("echo.Context"))
+		Signature:             "(c echo.Context) error",
+		Writer:                "c.Response()",
+		Request:               "c.Request()",
+		Epilogue:              "return nil",
+		ServeSignature:        "(w http.ResponseWriter, r *http.Request)",
+		Context:               "c",
+		ContextServeSignature: "(c echo.Context, w http.ResponseWriter, r *http.Request)",
+	}, ContextHandler(s, "echo.Context"))
+	assert.Equal(t, `import "net/http"`, s.Imports.Decl())
 }
 
 func TestParams(t *testing.T) {

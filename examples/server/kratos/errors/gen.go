@@ -299,13 +299,14 @@ var bodyPresence = runtime.Presence{
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
-	Presence           runtime.PresenceChecker
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
+	Presence            runtime.PresenceChecker
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -330,6 +331,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -370,8 +378,9 @@ func WithPresence(p runtime.PresenceChecker) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
+	svc        ServiceInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -383,28 +392,34 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // GetPet handles GET /pets/{id}.
 func (a *HTTPAdapter) GetPet(c khttp.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetPet"))
+	a.operations.Serve(c.Response(), c.Request(), "GetPet", func(w http.ResponseWriter, r *http.Request) {
+		a.serveGetPet(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetPet(c khttp.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &GetPetServiceRequestOptions{RawRequest: r}
 	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.PathParams = &GetPetPathParams{}
 	if err := runtime.DecodePath(c.Vars().Get("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetPet", ParamName: "id", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 	opts.Query = &GetPetQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "fields", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Fields); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetPet", ParamName: "fields", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 	if err := opts.Validate(); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorValidation, OperationID: "GetPet", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.GetPet(r.Context(), opts)
@@ -412,50 +427,54 @@ func (a *HTTPAdapter) GetPet(c khttp.Context) error {
 		if e, ok := httpserver.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/problem+json")
 			a.opts.ErrorHandler.HandleError(w, r, 404, e)
-			return nil
+			return
 		}
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetPet", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetPet", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetPet", res)
-	return nil
 }
 
 // PutPet handles PUT /pets/{id}.
 func (a *HTTPAdapter) PutPet(c khttp.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PutPet"))
+	a.operations.Serve(c.Response(), c.Request(), "PutPet", func(w http.ResponseWriter, r *http.Request) {
+		a.servePutPet(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) servePutPet(c khttp.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &PutPetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PutPetPathParams{}
 	if err := runtime.DecodePath(c.Vars().Get("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "PutPet", ParamName: "id", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
 		body, err := a.opts.Presence.JSON(r.Body, runtime.Prop{Object: "Pet"})
 		if err != nil {
 			a.failBody(w, r, "PutPet", err)
-			return nil
+			return
 		}
 		if err = runtime.DecodeJSON(body, &opts.Body, true, a.opts.JSONDecoder); err != nil {
 			a.failDecode(w, r, "PutPet", err)
-			return nil
+			return
 		}
 	case "":
 		a.failDecode(w, r, "PutPet", runtime.ErrBodyEmpty)
-		return nil
+		return
 	default:
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "PutPet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return nil
+		return
 	}
 	if err := opts.Validate(); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorValidation, OperationID: "PutPet", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.PutPet(r.Context(), opts)
@@ -463,17 +482,16 @@ func (a *HTTPAdapter) PutPet(c khttp.Context) error {
 		if e, ok := httpserver.AsError[Problem](err); ok {
 			w.Header().Set("Content-Type", "application/problem+json")
 			a.opts.ErrorHandler.HandleError(w, r, 400, e)
-			return nil
+			return
 		}
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutPet", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutPet", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "PutPet", res)
-	return nil
 }
 
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {

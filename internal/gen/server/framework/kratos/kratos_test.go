@@ -93,12 +93,15 @@ func TestHandler(t *testing.T) {
 	s := gocode.NewScope(f, &layout.Layout{Files: []*layout.File{f}})
 
 	assert.Equal(t, framework.Handler{
-		Signature: "(c khttp.Context) error",
-		Prologue:  "w, r := c.Response(), c.Request()",
-		Return:    "return nil",
-		Epilogue:  "return nil",
+		Signature:             "(c khttp.Context) error",
+		Writer:                "c.Response()",
+		Request:               "c.Request()",
+		Epilogue:              "return nil",
+		ServeSignature:        "(w http.ResponseWriter, r *http.Request)",
+		Context:               "c",
+		ContextServeSignature: "(c khttp.Context, w http.ResponseWriter, r *http.Request)",
 	}, Framework{}.Handler(s))
-	assert.Equal(t, "import khttp \"github.com/go-kratos/kratos/v2/transport/http\"", s.Imports.Decl())
+	assert.Equal(t, "import (\n\t\"net/http\"\n\n\tkhttp \"github.com/go-kratos/kratos/v2/transport/http\"\n)", s.Imports.Decl())
 }
 
 func TestPathParam(t *testing.T) {

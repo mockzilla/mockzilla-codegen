@@ -71,6 +71,14 @@ func TestRouter(t *testing.T) {
 	servertest.Run(t, goframetest.Handler(t, NewRouter(&service{pets: map[int]Pet{}})), servertest.Basic("404 page not found\n"))
 }
 
+func TestOperationMiddleware(t *testing.T) {
+	t.Parallel()
+
+	servertest.OperationMiddleware(t, func(mw func(http.Handler) http.Handler) http.Handler {
+		return goframetest.Handler(t, NewRouter(&service{pets: map[int]Pet{}}, WithOperationMiddleware(mw)))
+	})
+}
+
 func TestMethodNotAllowed(t *testing.T) {
 	t.Parallel()
 

@@ -53,7 +53,7 @@ func (Framework) Conflicts(routes []framework.Route) ([]framework.Route, []frame
 
 // Handler is echo's own shape, a handler of its context.
 func (Framework) Handler(s *gocode.Scope) framework.Handler {
-	return framework.ContextHandler(gocode.Deref(gocode.Selector(s.Import(gomodel.Import{Path: importPath}), "Context")))
+	return framework.ContextHandler(s, gocode.Deref(gocode.Selector(s.Import(gomodel.Import{Path: importPath}), "Context")))
 }
 
 // PathParam unescapes the value, which echo cuts from the raw path when the request has one.

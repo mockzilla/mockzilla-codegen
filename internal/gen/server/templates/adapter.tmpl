@@ -20,14 +20,15 @@ var bodyPresence = {{.Runtime}}.Presence{
 {{end -}}
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func({{.HTTP}}.Handler) {{.HTTP}}.Handler
-	ErrorHandler       {{.HTTPServer}}.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func({{.HTTP}}.Handler) {{.HTTP}}.Handler
+	OperationMiddleware []func({{.HTTP}}.Handler) {{.HTTP}}.Handler
+	ErrorHandler        {{.HTTPServer}}.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 {{- if .Presence}}
-	Presence           {{.Runtime}}.PresenceChecker
+	Presence            {{.Runtime}}.PresenceChecker
 {{- end}}
 }
 
@@ -55,6 +56,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func({{.HTTP}}.Handler) {{.HTTP}}.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func({{.HTTP}}.Handler) {{.HTTP}}.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -97,8 +105,9 @@ func WithPresence(p {{.Runtime}}.PresenceChecker) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  {{.Service}}
-	opts *ServerOptions
+	svc        {{.Service}}
+	opts       *ServerOptions
+	operations {{.HTTPServer}}.Chain
 }
 
 type responseData interface {
@@ -110,16 +119,26 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc {{.Service}}, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: {{.HTTPServer}}.NewChain(o.OperationMiddleware...)}
 }
 {{- range $op := .Operations}}
 
 // {{.Name}} handles {{.Method}} {{.Path}}.
 func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
-{{- if $.Handler.Prologue}}
-	{{$.Handler.Prologue}}
+{{- if .Context}}
+	a.operations.Serve({{$.Handler.Writer}}, {{$.Handler.Request}}, {{.ID}}, func(w {{$.HTTP}}.ResponseWriter, r *{{$.HTTP}}.Request) {
+		a.{{.Serve}}({{.Context}}, w, r)
+	})
+{{- else}}
+	a.operations.Serve({{$.Handler.Writer}}, {{$.Handler.Request}}, {{.ID}}, a.{{.Serve}})
 {{- end}}
-	r = r.WithContext({{$.Runtime}}.WithOperationID(r.Context(), {{.ID}}))
+{{- if $.Handler.Epilogue}}
+	{{$.Handler.Epilogue}}
+{{- end}}
+}
+
+func (a *HTTPAdapter) {{.Serve}}{{.ServeSignature}} {
 	opts := &{{.Options}}{RawRequest: r}
 {{- if .HasQuery}}
 	query := {{$.Runtime}}.ParseQuery(r.URL.RawQuery)
@@ -129,14 +148,14 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 {{- range .Params}}
 	if err := {{$.Runtime}}.{{.Decoder}}({{.Source}}, {{$.Runtime}}.Param{Name: {{.Name}}, Style: {{$.Runtime}}.{{.Style}}, IsExplode: {{.IsExplode}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}{{with .Default}}, Default: {{.}}{{end}}}, {{.Target}}); err != nil {
 		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorParse, OperationID: {{$op.ID}}, ParamName: {{.Name}}, ParamLocation: {{.Location}}, Err: err})
-		{{$.Handler.Return}}
+		return
 	}
 {{- end}}
 {{- end}}
 {{- with .QueryString}}
 	if err := {{$.Runtime}}.DecodeQueryString({{.Source}}, {{$.Runtime}}.Param{Name: {{.Name}}, IsRequired: {{.IsRequired}}, IsJSON: {{.IsJSON}}{{with .Default}}, Default: {{.}}{{end}}}, {{.Target}}); err != nil {
 		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorParse, OperationID: {{$op.ID}}, ParamName: {{.Name}}, ParamLocation: {{.Location}}, Err: err})
-		{{$.Handler.Return}}
+		return
 	}
 {{- end}}
 {{- if .HasBody}}
@@ -148,7 +167,7 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 	case {{.Empty}}:
 {{- if .IsBodyRequired}}
 		a.failDecode(w, r, {{.ID}}, {{$.Runtime}}.ErrBodyEmpty)
-		{{$.Handler.Return}}
+		return
 {{- end}}
 {{- range .Patterns}}
 	case {{.Case}}:
@@ -159,14 +178,14 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 {{- template "server/body.tmpl" .}}
 {{- else}}
 		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorDecode, OperationID: {{.ID}}, Status: {{$.HTTP}}.StatusUnsupportedMediaType, Err: {{$.Runtime}}.ContentTypeError(contentType)})
-		{{$.Handler.Return}}
+		return
 {{- end}}
 	}
 {{- end}}
 {{- if $.IsRequestValidated}}
 	if err := opts.Validate(); err != nil {
 		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorValidation, OperationID: {{.ID}}, Err: err})
-		{{$.Handler.Return}}
+		return
 	}
 {{- end}}
 
@@ -176,20 +195,17 @@ func (a *HTTPAdapter) {{.Name}}{{$.Handler.Signature}} {
 		if e, ok := {{$.HTTPServer}}.AsError[{{.Type}}](err); ok {
 			w.Header().Set("Content-Type", {{.MediaType}})
 			a.opts.ErrorHandler.HandleError(w, r, {{.Status}}, e)
-			{{$.Handler.Return}}
+			return
 		}
 {{- end}}
 		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorService, OperationID: {{.ID}}, Err: err})
-		{{$.Handler.Return}}
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &{{$.HTTPServer}}.HandlerError{Kind: {{$.HTTPServer}}.ErrorService, OperationID: {{.ID}}, Err: {{$.HTTPServer}}.ErrNoResponse})
-		{{$.Handler.Return}}
+		return
 	}
 	a.write(w, r, {{.ID}}, res)
-{{- if $.Handler.Epilogue}}
-	{{$.Handler.Epilogue}}
-{{- end}}
 }
 {{- end}}
 
