@@ -169,12 +169,13 @@ const (
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -198,6 +199,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -231,8 +239,9 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  TodoInterface
-	opts *ServerOptions
+	svc        TodoInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -244,12 +253,16 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc TodoInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // ListTodos handles GET /todos.
 func (a *HTTPAdapter) ListTodos(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListTodos"))
+	a.operations.Serve(w, r, "ListTodos", a.serveListTodos)
+}
+
+func (a *HTTPAdapter) serveListTodos(w http.ResponseWriter, r *http.Request) {
 	opts := &ListTodosServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.ListTodos(r.Context(), opts)
@@ -266,7 +279,10 @@ func (a *HTTPAdapter) ListTodos(w http.ResponseWriter, r *http.Request) {
 
 // CreateTodo handles POST /todos.
 func (a *HTTPAdapter) CreateTodo(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreateTodo"))
+	a.operations.Serve(w, r, "CreateTodo", a.serveCreateTodo)
+}
+
+func (a *HTTPAdapter) serveCreateTodo(w http.ResponseWriter, r *http.Request) {
 	opts := &CreateTodoServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":

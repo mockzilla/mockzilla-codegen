@@ -165,12 +165,13 @@ const (
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -194,6 +195,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -227,8 +235,9 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
+	svc        ServiceInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -240,12 +249,16 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // AddTag handles POST /tags.
 func (a *HTTPAdapter) AddTag(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "AddTag"))
+	a.operations.Serve(w, r, "AddTag", a.serveAddTag)
+}
+
+func (a *HTTPAdapter) serveAddTag(w http.ResponseWriter, r *http.Request) {
 	opts := &AddTagServiceRequestOptions{RawRequest: r}
 	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.Query = &AddTagQuery{}

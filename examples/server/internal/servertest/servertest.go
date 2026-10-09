@@ -15,11 +15,14 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 )
 
 // Request is one request and the response it must get. Method is GET and WantStatus 200 when
@@ -299,4 +302,27 @@ func Multipart(t *testing.T, h http.Handler) {
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.JSONEq(t, `{"title":"Cat","file":"meow","name":"cat.txt","tags":["a","b"],"meta":{"text":"inner"}}`, rec.Body.String())
+}
+
+// OperationMiddleware checks that the middleware newRouter passes to WithOperationMiddleware is
+// built once and wraps each operation of the basic example, a request that fails to parse too.
+func OperationMiddleware(t *testing.T, newRouter func(mw func(http.Handler) http.Handler) http.Handler) {
+	t.Helper()
+
+	var built int
+	var seen []string
+	h := newRouter(func(next http.Handler) http.Handler {
+		built++
+		return http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			rec := httptest.NewRecorder()
+			next.ServeHTTP(rec, r)
+			seen = append(seen, runtime.OperationID(r.Context())+" "+strconv.Itoa(rec.Code))
+		})
+	})
+	for _, path := range []string{"/ping", "/pets/x", "/ping"} {
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, path, nil))
+	}
+
+	assert.Equal(t, 1, built, "the middleware is built once")
+	assert.Equal(t, []string{"Ping 200", "GetPet 400", "Ping 200"}, seen)
 }

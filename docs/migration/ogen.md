@@ -22,8 +22,10 @@ are built and tested.
   `WithJSONEncoder` on the server, take another library such as sonic.
 - A `uuid`, `uri` or `ipv4` format is a `string` checked by `Validate`, unless
   `models.format-types` names a type for it.
-- There is no security handler and no OpenTelemetry. A middleware checks credentials, and a
-  wrapped `http.Client` traces the client.
+- There is no security handler, and the generated code does not import OpenTelemetry. A
+  middleware checks credentials. `otelhttp` traces the server through `WithOperationMiddleware`,
+  with spans named after the operation as in ogen, and the client through `WithHTTPClient`
+  ([observability](../observability.md)).
 - The routes go on the router of `server.framework`. `std-http` is the standard library's
   `ServeMux`.
 

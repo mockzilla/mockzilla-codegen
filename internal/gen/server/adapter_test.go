@@ -44,7 +44,7 @@ func TestBodyView(t *testing.T) {
 	m := &gomodel.Model{Decls: []*gomodel.Decl{pet, blob, image}}
 	g, _ := New(m, allOptions())
 	view := func(v BodyView) BodyView {
-		v.Runtime, v.OperationID, v.IsRequired, v.Field, v.Target, v.Return = "runtime", `"Op"`, true, "Body", "&opts.Body", "return"
+		v.Runtime, v.OperationID, v.IsRequired, v.Field, v.Target = "runtime", `"Op"`, true, "Body", "&opts.Body"
 		if v.Case == "" {
 			v.Case = v.MediaType
 		}
@@ -170,7 +170,7 @@ func TestBodyView(t *testing.T) {
 			t.Parallel()
 
 			// bodyView imports into the scope, so each subtest has its own.
-			at := bodyAt{id: `"Op"`, isRequired: true, ret: "return", scope: fixture{m: m, g: g, cfg: scaffoldConfig}.scope(t, PartAdapter), table: newPresenceTable(nil, true, "runtime")}
+			at := bodyAt{id: `"Op"`, isRequired: true, scope: fixture{m: m, g: g, cfg: scaffoldConfig}.scope(t, PartAdapter), table: newPresenceTable(nil, true, "runtime")}
 
 			assert.Equal(t, tc.want, bodyView(tc.content, "Body", at))
 		})

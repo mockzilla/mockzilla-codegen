@@ -371,12 +371,13 @@ const (
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -400,6 +401,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -433,8 +441,9 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  PetsInterface
-	opts *ServerOptions
+	svc        PetsInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -446,131 +455,146 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc PetsInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // ListPets handles GET /pets.
 func (a *HTTPAdapter) ListPets(c khttp.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListPets"))
+	a.operations.Serve(c.Response(), c.Request(), "ListPets", a.serveListPets)
+	return nil
+}
+
+func (a *HTTPAdapter) serveListPets(w http.ResponseWriter, r *http.Request) {
 	opts := &ListPetsServiceRequestOptions{RawRequest: r}
 	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.Query = &ListPetsQuery{}
 	if err := runtime.DecodeQuery(query, runtime.Param{Name: "limit", Style: runtime.StyleForm, IsExplode: true, IsRequired: false, IsJSON: false}, &opts.Query.Limit); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "ListPets", ParamName: "limit", ParamLocation: "query", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.ListPets(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListPets", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListPets", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "ListPets", res)
-	return nil
 }
 
 // CreatePet handles POST /pets.
 func (a *HTTPAdapter) CreatePet(c khttp.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreatePet"))
+	a.operations.Serve(c.Response(), c.Request(), "CreatePet", a.serveCreatePet)
+	return nil
+}
+
+func (a *HTTPAdapter) serveCreatePet(w http.ResponseWriter, r *http.Request) {
 	opts := &CreatePetServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
 		if err := runtime.DecodeJSON(r.Body, &opts.Body, true, a.opts.JSONDecoder); err != nil {
 			a.failDecode(w, r, "CreatePet", err)
-			return nil
+			return
 		}
 	case "":
 		a.failDecode(w, r, "CreatePet", runtime.ErrBodyEmpty)
-		return nil
+		return
 	default:
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "CreatePet", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return nil
+		return
 	}
 
 	res, err := a.svc.CreatePet(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreatePet", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreatePet", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "CreatePet", res)
-	return nil
 }
 
 // GetPet handles GET /pets/{id}.
 func (a *HTTPAdapter) GetPet(c khttp.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetPet"))
+	a.operations.Serve(c.Response(), c.Request(), "GetPet", func(w http.ResponseWriter, r *http.Request) {
+		a.serveGetPet(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetPet(c khttp.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &GetPetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetPetPathParams{}
 	if err := runtime.DecodePath(c.Vars().Get("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "GetPet", ParamName: "id", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.GetPet(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetPet", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetPet", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetPet", res)
-	return nil
 }
 
 // DeletePet handles DELETE /pets/{id}.
 func (a *HTTPAdapter) DeletePet(c khttp.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "DeletePet"))
+	a.operations.Serve(c.Response(), c.Request(), "DeletePet", func(w http.ResponseWriter, r *http.Request) {
+		a.serveDeletePet(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveDeletePet(c khttp.Context, w http.ResponseWriter, r *http.Request) {
 	opts := &DeletePetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeletePetPathParams{}
 	if err := runtime.DecodePath(c.Vars().Get("id"), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorParse, OperationID: "DeletePet", ParamName: "id", ParamLocation: "path", Err: err})
-		return nil
+		return
 	}
 
 	res, err := a.svc.DeletePet(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "DeletePet", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "DeletePet", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "DeletePet", res)
-	return nil
 }
 
 // Ping handles GET /ping.
 func (a *HTTPAdapter) Ping(c khttp.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "Ping"))
+	a.operations.Serve(c.Response(), c.Request(), "Ping", a.servePing)
+	return nil
+}
+
+func (a *HTTPAdapter) servePing(w http.ResponseWriter, r *http.Request) {
 	opts := &PingServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.Ping(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Ping", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Ping", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "Ping", res)
-	return nil
 }
 
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {

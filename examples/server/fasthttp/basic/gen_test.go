@@ -72,6 +72,14 @@ func TestRouter(t *testing.T) {
 	servertest.Run(t, fasthttptest.Handler((NewRouter(&service{pets: map[int]Pet{}})).Handler), servertest.Basic("404 page not found\n"))
 }
 
+func TestOperationMiddleware(t *testing.T) {
+	t.Parallel()
+
+	servertest.OperationMiddleware(t, func(mw func(http.Handler) http.Handler) http.Handler {
+		return fasthttptest.Handler((NewRouter(&service{pets: map[int]Pet{}}, WithOperationMiddleware(mw))).Handler)
+	})
+}
+
 func TestMethodNotAllowed(t *testing.T) {
 	t.Parallel()
 

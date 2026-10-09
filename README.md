@@ -116,6 +116,7 @@ http.ListenAndServe(":8080", api.NewRouter(pets{}))
 | [Server](docs/server.md) | the service interface, the HTTP adapter, 14 routers, starter files |
 | [Client](docs/client.md) | one method per operation, envelopes, streams |
 | [MCP](docs/mcp.md) | MCP tools over the client |
+| [Observability](docs/observability.md) | tracing and metrics with OpenTelemetry, on server and client |
 | [Templates](docs/templates.md) | replacing template blocks, extra files from your own templates |
 | [Migration](docs/migration.md) | moving from another generator |
 

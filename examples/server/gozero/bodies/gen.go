@@ -672,12 +672,13 @@ const (
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -701,6 +702,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -734,8 +742,9 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
+	svc        ServiceInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -747,12 +756,16 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // PostJSON handles POST /json.
 func (a *HTTPAdapter) PostJSON(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostJSON"))
+	a.operations.Serve(w, r, "PostJSON", a.servePostJSON)
+}
+
+func (a *HTTPAdapter) servePostJSON(w http.ResponseWriter, r *http.Request) {
 	opts := &PostJSONServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
@@ -780,7 +793,10 @@ func (a *HTTPAdapter) PostJSON(w http.ResponseWriter, r *http.Request) {
 
 // GetForm handles GET /form.
 func (a *HTTPAdapter) GetForm(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetForm"))
+	a.operations.Serve(w, r, "GetForm", a.serveGetForm)
+}
+
+func (a *HTTPAdapter) serveGetForm(w http.ResponseWriter, r *http.Request) {
 	opts := &GetFormServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetForm(r.Context(), opts)
@@ -797,7 +813,10 @@ func (a *HTTPAdapter) GetForm(w http.ResponseWriter, r *http.Request) {
 
 // PostForm handles POST /form.
 func (a *HTTPAdapter) PostForm(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostForm"))
+	a.operations.Serve(w, r, "PostForm", a.servePostForm)
+}
+
+func (a *HTTPAdapter) servePostForm(w http.ResponseWriter, r *http.Request) {
 	opts := &PostFormServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/x-www-form-urlencoded":
@@ -827,7 +846,10 @@ func (a *HTTPAdapter) PostForm(w http.ResponseWriter, r *http.Request) {
 
 // GetQuote handles GET /quote.
 func (a *HTTPAdapter) GetQuote(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetQuote"))
+	a.operations.Serve(w, r, "GetQuote", a.serveGetQuote)
+}
+
+func (a *HTTPAdapter) serveGetQuote(w http.ResponseWriter, r *http.Request) {
 	opts := &GetQuoteServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetQuote(r.Context(), opts)
@@ -844,7 +866,10 @@ func (a *HTTPAdapter) GetQuote(w http.ResponseWriter, r *http.Request) {
 
 // GetCount handles GET /count.
 func (a *HTTPAdapter) GetCount(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetCount"))
+	a.operations.Serve(w, r, "GetCount", a.serveGetCount)
+}
+
+func (a *HTTPAdapter) serveGetCount(w http.ResponseWriter, r *http.Request) {
 	opts := &GetCountServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetCount(r.Context(), opts)
@@ -861,7 +886,10 @@ func (a *HTTPAdapter) GetCount(w http.ResponseWriter, r *http.Request) {
 
 // ListNotes handles GET /notes.
 func (a *HTTPAdapter) ListNotes(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListNotes"))
+	a.operations.Serve(w, r, "ListNotes", a.serveListNotes)
+}
+
+func (a *HTTPAdapter) serveListNotes(w http.ResponseWriter, r *http.Request) {
 	opts := &ListNotesServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.ListNotes(r.Context(), opts)
@@ -878,7 +906,10 @@ func (a *HTTPAdapter) ListNotes(w http.ResponseWriter, r *http.Request) {
 
 // Upload handles POST /upload.
 func (a *HTTPAdapter) Upload(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "Upload"))
+	a.operations.Serve(w, r, "Upload", a.serveUpload)
+}
+
+func (a *HTTPAdapter) serveUpload(w http.ResponseWriter, r *http.Request) {
 	opts := &UploadServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "multipart/form-data":
@@ -909,7 +940,10 @@ func (a *HTTPAdapter) Upload(w http.ResponseWriter, r *http.Request) {
 
 // PostText handles POST /text.
 func (a *HTTPAdapter) PostText(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostText"))
+	a.operations.Serve(w, r, "PostText", a.servePostText)
+}
+
+func (a *HTTPAdapter) servePostText(w http.ResponseWriter, r *http.Request) {
 	opts := &PostTextServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "text/plain":
@@ -946,7 +980,10 @@ func (a *HTTPAdapter) PostText(w http.ResponseWriter, r *http.Request) {
 
 // PutFile handles PUT /file.
 func (a *HTTPAdapter) PutFile(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PutFile"))
+	a.operations.Serve(w, r, "PutFile", a.servePutFile)
+}
+
+func (a *HTTPAdapter) servePutFile(w http.ResponseWriter, r *http.Request) {
 	opts := &PutFileServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "image/png":
@@ -978,7 +1015,10 @@ func (a *HTTPAdapter) PutFile(w http.ResponseWriter, r *http.Request) {
 
 // PostAny handles POST /any.
 func (a *HTTPAdapter) PostAny(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostAny"))
+	a.operations.Serve(w, r, "PostAny", a.servePostAny)
+}
+
+func (a *HTTPAdapter) servePostAny(w http.ResponseWriter, r *http.Request) {
 	opts := &PostAnyServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/xml":

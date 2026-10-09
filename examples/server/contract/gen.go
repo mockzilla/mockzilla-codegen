@@ -450,12 +450,13 @@ const (
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -479,6 +480,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -512,8 +520,9 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  PetsInterface
-	opts *ServerOptions
+	svc        PetsInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -525,12 +534,16 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc PetsInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // ListPets handles GET /pets.
 func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListPets"))
+	a.operations.Serve(w, r, "ListPets", a.serveListPets)
+}
+
+func (a *HTTPAdapter) serveListPets(w http.ResponseWriter, r *http.Request) {
 	opts := &ListPetsServiceRequestOptions{RawRequest: r}
 	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.Query = &ListPetsQuery{}
@@ -563,7 +576,10 @@ func (a *HTTPAdapter) ListPets(w http.ResponseWriter, r *http.Request) {
 
 // CreatePet handles POST /pets.
 func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreatePet"))
+	a.operations.Serve(w, r, "CreatePet", a.serveCreatePet)
+}
+
+func (a *HTTPAdapter) serveCreatePet(w http.ResponseWriter, r *http.Request) {
 	opts := &CreatePetServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
@@ -598,7 +614,10 @@ func (a *HTTPAdapter) CreatePet(w http.ResponseWriter, r *http.Request) {
 
 // DeletePet handles DELETE /pets/{id}.
 func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "DeletePet"))
+	a.operations.Serve(w, r, "DeletePet", a.serveDeletePet)
+}
+
+func (a *HTTPAdapter) serveDeletePet(w http.ResponseWriter, r *http.Request) {
 	opts := &DeletePetServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeletePetPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -620,7 +639,10 @@ func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
 
 // Upload handles POST /upload.
 func (a *HTTPAdapter) Upload(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "Upload"))
+	a.operations.Serve(w, r, "Upload", a.serveUpload)
+}
+
+func (a *HTTPAdapter) serveUpload(w http.ResponseWriter, r *http.Request) {
 	opts := &UploadServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "text/plain":
@@ -650,7 +672,10 @@ func (a *HTTPAdapter) Upload(w http.ResponseWriter, r *http.Request) {
 
 // GetPing handles GET /ping.
 func (a *HTTPAdapter) GetPing(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetPing"))
+	a.operations.Serve(w, r, "GetPing", a.serveGetPing)
+}
+
+func (a *HTTPAdapter) serveGetPing(w http.ResponseWriter, r *http.Request) {
 	opts := &GetPingServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetPing(r.Context(), opts)

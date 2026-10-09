@@ -3,7 +3,8 @@
 // Licensed under the MIT License, see LICENSE in the repository root. This copyright notice and
 // permission notice shall be included in all copies or substantial portions of the Software.
 
-// Package httpserver holds the errors, error handlers and response writing of a generated server.
+// Package httpserver holds the errors, error handlers, operation middleware and response writing
+// of a generated server.
 package httpserver
 
 import (

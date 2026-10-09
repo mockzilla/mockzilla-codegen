@@ -114,19 +114,38 @@ The `framework` package holds what the rules share:
 
 ```go
 type Handler struct {
-	Signature string // after the name: "(w http.ResponseWriter, r *http.Request)" or "(c echo.Context) error"
-	Prologue  string // binds w and r when the parameters are others: "w, r := c.Response(), c.Request()"
-	Return    string // leaves the handler early: "return" or "return nil"
-	Epilogue  string // ends the handler: "" or "return nil"
+	Signature             string // after the name: "(w http.ResponseWriter, r *http.Request)" or "(c echo.Context) error"
+	Writer                string // the handler's response writer: "w" or "c.Response()"
+	Request               string // the handler's request: "r" or "c.Request()"
+	Epilogue              string // ends the handler: "" or "return nil"
+	ServeSignature        string // the serve method's shape: "(w http.ResponseWriter, r *http.Request)"
+	Context               string // the framework's context: "" or "c"
+	ContextServeSignature string // the same, with Context first: "(c echo.Context, w http.ResponseWriter, ...)"
 }
 ```
 
-The adapter template writes every handler as `func (a *HTTPAdapter) Op<Signature> {`, then the
-prologue, then the decoding of the request, with `Return` on every early exit.
+The adapter template writes two methods per operation:
+
+```go
+func (a *HTTPAdapter) GetPet(c echo.Context) error {
+	a.operations.Serve(c.Response(), c.Request(), "GetPet", func(w http.ResponseWriter, r *http.Request) {
+		a.serveGetPet(c, w, r)
+	})
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetPet(c echo.Context, w http.ResponseWriter, r *http.Request) {
+	// decodes the request, calls the service, writes the response
+}
+```
+
+`Serve` runs the serve method inside the [operation middleware](server.md#operation-middleware).
+An operation without path parameters does not need the context, so its serve method takes
+`ServeSignature` and the handler passes `a.serveListPets` as it is.
 
 ### Names in a handler
 
-The body of a handler always names the response writer `w`, the request `r` and the framework's
+The serve method always names the response writer `w`, the request `r` and the framework's
 context `c`. So `PathParam` may use them.
 
 `PathParam` has to give the value unescaped once, whatever the router hands over. For a router that
@@ -135,8 +154,8 @@ cuts values from the raw path, use `runtime.UnescapePath`.
 ### Two shapes
 
 - A framework whose handlers are `http.HandlerFunc`s returns `framework.HTTPHandler(s)`.
-- A framework whose handlers take its context returns `framework.ContextHandler`, with the
-  context's type spelled through `s.Import`.
+- A framework whose handlers take its context returns `framework.ContextHandler(s, ctxType)`,
+  with the context's type spelled through `s.Import`.
 
 Handlers of the second kind read their errors from the error handler. They write every failed
 request themselves and return nil, so an operation answers the same under every framework.

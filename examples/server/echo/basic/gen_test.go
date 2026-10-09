@@ -69,6 +69,14 @@ func TestRouter(t *testing.T) {
 	servertest.Run(t, NewRouter(&service{pets: map[int]Pet{}}), servertest.Basic("{\"message\":\"Not Found\"}\n"))
 }
 
+func TestOperationMiddleware(t *testing.T) {
+	t.Parallel()
+
+	servertest.OperationMiddleware(t, func(mw func(http.Handler) http.Handler) http.Handler {
+		return NewRouter(&service{pets: map[int]Pet{}}, WithOperationMiddleware(mw))
+	})
+}
+
 func TestMethodNotAllowed(t *testing.T) {
 	t.Parallel()
 

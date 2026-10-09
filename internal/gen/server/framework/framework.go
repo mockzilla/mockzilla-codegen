@@ -46,15 +46,20 @@ type Conflict struct {
 }
 
 // Handler is the shape of the handlers the adapter gives a framework. Signature follows the
-// handler's name: its parameters, and its result when it has one. Prologue is the statement that
-// binds w and r, the response writer and the request, when the parameters are not those; Return
-// is the statement that leaves the handler early and Epilogue the one that ends it, both empty
-// when the handler needs none.
+// handler's name: its parameters, and its result when it has one. Writer and Request are the
+// response writer and the request the handler has; Epilogue is the statement that ends it, empty
+// when it needs none. ServeSignature is the shape of the method that serves an operation inside
+// the operation middleware, which takes w and r. Context is the framework's context, when the
+// handler has one; ContextServeSignature then takes it before w and r, for an operation that
+// reads its path parameters from it.
 type Handler struct {
-	Signature string
-	Prologue  string
-	Return    string
-	Epilogue  string
+	Signature             string
+	Writer                string
+	Request               string
+	Epilogue              string
+	ServeSignature        string
+	Context               string
+	ContextServeSignature string
 }
 
 // Framework is one HTTP framework a router is generated for.
@@ -143,18 +148,21 @@ func (c Colon) Pattern(path string) (string, error) {
 
 // HTTPHandler is the handler shape of an http.HandlerFunc.
 func HTTPHandler(s *gocode.Scope) Handler {
-	pkg := s.Import(gomodel.Import{Path: "net/http"})
-	params := []string{gocode.Param("w", gocode.Selector(pkg, "ResponseWriter")), gocode.Param("r", gocode.Deref(gocode.Selector(pkg, "Request")))}
-	return Handler{Signature: gocode.Signature(params, ""), Return: gocode.Return()}
+	signature := gocode.Signature(httpParams(s), "")
+	return Handler{Signature: signature, Writer: "w", Request: "r", ServeSignature: signature}
 }
 
 // ContextHandler is the shape of a handler that takes the router's context and returns nil.
-func ContextHandler(ctxType string) Handler {
+func ContextHandler(s *gocode.Scope, ctxType string) Handler {
+	c := gocode.Param("c", ctxType)
 	return Handler{
-		Signature: gocode.Signature([]string{gocode.Param("c", ctxType)}, "error"),
-		Prologue:  gocode.Define([]string{"w", "r"}, gocode.Call(gocode.Selector("c", "Response")), gocode.Call(gocode.Selector("c", "Request"))),
-		Return:    gocode.Return("nil"),
-		Epilogue:  gocode.Return("nil"),
+		Signature:             gocode.Signature([]string{c}, "error"),
+		Writer:                gocode.Call(gocode.Selector("c", "Response")),
+		Request:               gocode.Call(gocode.Selector("c", "Request")),
+		Epilogue:              gocode.Return("nil"),
+		ServeSignature:        gocode.Signature(httpParams(s), ""),
+		Context:               "c",
+		ContextServeSignature: gocode.Signature(append([]string{c}, httpParams(s)...), ""),
 	}
 }
 
@@ -376,4 +384,10 @@ func ranks(path string) []int {
 		}
 	}
 	return out
+}
+
+// httpParams are the parameters of an http.HandlerFunc, w and r.
+func httpParams(s *gocode.Scope) []string {
+	pkg := s.Import(gomodel.Import{Path: "net/http"})
+	return []string{gocode.Param("w", gocode.Selector(pkg, "ResponseWriter")), gocode.Param("r", gocode.Deref(gocode.Selector(pkg, "Request")))}
 }

@@ -671,12 +671,13 @@ const (
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -700,6 +701,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -733,8 +741,9 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
+	svc        ServiceInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -746,271 +755,293 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // PostJSON handles POST /json.
 func (a *HTTPAdapter) PostJSON(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostJSON"))
+	a.operations.Serve(c.Response(), c.Request(), "PostJSON", a.servePostJSON)
+	return nil
+}
+
+func (a *HTTPAdapter) servePostJSON(w http.ResponseWriter, r *http.Request) {
 	opts := &PostJSONServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
 		if err := runtime.DecodeJSON(r.Body, &opts.Body, false, a.opts.JSONDecoder); err != nil {
 			a.failDecode(w, r, "PostJSON", err)
-			return nil
+			return
 		}
 	case "":
 	default:
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "PostJSON", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return nil
+		return
 	}
 
 	res, err := a.svc.PostJSON(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostJSON", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostJSON", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "PostJSON", res)
-	return nil
 }
 
 // GetForm handles GET /form.
 func (a *HTTPAdapter) GetForm(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetForm"))
+	a.operations.Serve(c.Response(), c.Request(), "GetForm", a.serveGetForm)
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetForm(w http.ResponseWriter, r *http.Request) {
 	opts := &GetFormServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetForm(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetForm", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetForm", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetForm", res)
-	return nil
 }
 
 // PostForm handles POST /form.
 func (a *HTTPAdapter) PostForm(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostForm"))
+	a.operations.Serve(c.Response(), c.Request(), "PostForm", a.servePostForm)
+	return nil
+}
+
+func (a *HTTPAdapter) servePostForm(w http.ResponseWriter, r *http.Request) {
 	opts := &PostFormServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/x-www-form-urlencoded":
 		if err := runtime.DecodeForm(r.Body, &opts.Body, true, nil); err != nil {
 			a.failDecode(w, r, "PostForm", err)
-			return nil
+			return
 		}
 	case "":
 		a.failDecode(w, r, "PostForm", runtime.ErrBodyEmpty)
-		return nil
+		return
 	default:
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "PostForm", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return nil
+		return
 	}
 
 	res, err := a.svc.PostForm(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostForm", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostForm", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "PostForm", res)
-	return nil
 }
 
 // GetQuote handles GET /quote.
 func (a *HTTPAdapter) GetQuote(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetQuote"))
+	a.operations.Serve(c.Response(), c.Request(), "GetQuote", a.serveGetQuote)
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetQuote(w http.ResponseWriter, r *http.Request) {
 	opts := &GetQuoteServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetQuote(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetQuote", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetQuote", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetQuote", res)
-	return nil
 }
 
 // GetCount handles GET /count.
 func (a *HTTPAdapter) GetCount(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetCount"))
+	a.operations.Serve(c.Response(), c.Request(), "GetCount", a.serveGetCount)
+	return nil
+}
+
+func (a *HTTPAdapter) serveGetCount(w http.ResponseWriter, r *http.Request) {
 	opts := &GetCountServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.GetCount(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetCount", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "GetCount", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "GetCount", res)
-	return nil
 }
 
 // ListNotes handles GET /notes.
 func (a *HTTPAdapter) ListNotes(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListNotes"))
+	a.operations.Serve(c.Response(), c.Request(), "ListNotes", a.serveListNotes)
+	return nil
+}
+
+func (a *HTTPAdapter) serveListNotes(w http.ResponseWriter, r *http.Request) {
 	opts := &ListNotesServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.ListNotes(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListNotes", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListNotes", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "ListNotes", res)
-	return nil
 }
 
 // Upload handles POST /upload.
 func (a *HTTPAdapter) Upload(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "Upload"))
+	a.operations.Serve(c.Response(), c.Request(), "Upload", a.serveUpload)
+	return nil
+}
+
+func (a *HTTPAdapter) serveUpload(w http.ResponseWriter, r *http.Request) {
 	opts := &UploadServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "multipart/form-data":
 		opts.Body = &UploadRequestBody{}
 		if err := runtime.DecodeMultipart(r, opts.Body, a.opts.MultipartMaxMemory, nil); err != nil {
 			a.failDecode(w, r, "Upload", err)
-			return nil
+			return
 		}
 	case "":
 		a.failDecode(w, r, "Upload", runtime.ErrBodyEmpty)
-		return nil
+		return
 	default:
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "Upload", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return nil
+		return
 	}
 
 	res, err := a.svc.Upload(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Upload", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "Upload", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "Upload", res)
-	return nil
 }
 
 // PostText handles POST /text.
 func (a *HTTPAdapter) PostText(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostText"))
+	a.operations.Serve(c.Response(), c.Request(), "PostText", a.servePostText)
+	return nil
+}
+
+func (a *HTTPAdapter) servePostText(w http.ResponseWriter, r *http.Request) {
 	opts := &PostTextServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "text/plain":
 		text, err := runtime.DecodeText(r.Body, false)
 		if err != nil {
 			a.failDecode(w, r, "PostText", err)
-			return nil
+			return
 		}
 		opts.BodyText = runtime.Ptr(PostTextRequestBody(text))
 	case "application/octet-stream":
 		data, err := runtime.DecodeBytes(r.Body, false)
 		if err != nil {
 			a.failDecode(w, r, "PostText", err)
-			return nil
+			return
 		}
 		opts.BodyOctetStream = data
 	case "":
 	default:
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "PostText", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return nil
+		return
 	}
 
 	res, err := a.svc.PostText(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostText", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostText", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "PostText", res)
-	return nil
 }
 
 // PutFile handles PUT /file.
 func (a *HTTPAdapter) PutFile(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PutFile"))
+	a.operations.Serve(c.Response(), c.Request(), "PutFile", a.servePutFile)
+	return nil
+}
+
+func (a *HTTPAdapter) servePutFile(w http.ResponseWriter, r *http.Request) {
 	opts := &PutFileServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "image/png":
 		file, err := runtime.DecodeFile(r, true)
 		if err != nil {
 			a.failDecode(w, r, "PutFile", err)
-			return nil
+			return
 		}
 		opts.Body = runtime.Ptr(PutFileRequestBody(file))
 	case "":
 		a.failDecode(w, r, "PutFile", runtime.ErrBodyEmpty)
-		return nil
+		return
 	default:
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "PutFile", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return nil
+		return
 	}
 
 	res, err := a.svc.PutFile(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutFile", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PutFile", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "PutFile", res)
-	return nil
 }
 
 // PostAny handles POST /any.
 func (a *HTTPAdapter) PostAny(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PostAny"))
+	a.operations.Serve(c.Response(), c.Request(), "PostAny", a.servePostAny)
+	return nil
+}
+
+func (a *HTTPAdapter) servePostAny(w http.ResponseWriter, r *http.Request) {
 	opts := &PostAnyServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/xml":
 		text, err := runtime.DecodeText(r.Body, false)
 		if err != nil {
 			a.failDecode(w, r, "PostAny", err)
-			return nil
+			return
 		}
 		opts.BodyXML = runtime.Ptr(PostAnyXMLRequestBody(text))
 	case "text/xml":
 		text, err := runtime.DecodeText(r.Body, false)
 		if err != nil {
 			a.failDecode(w, r, "PostAny", err)
-			return nil
+			return
 		}
 		opts.BodyTextXML = runtime.Ptr(PostAnyXMLRequestBody2(text))
 	case "":
@@ -1018,7 +1049,7 @@ func (a *HTTPAdapter) PostAny(c echo.Context) error {
 		data, err := runtime.DecodeBytes(r.Body, false)
 		if err != nil {
 			a.failDecode(w, r, "PostAny", err)
-			return nil
+			return
 		}
 		opts.BodyAny = data
 	}
@@ -1026,14 +1057,13 @@ func (a *HTTPAdapter) PostAny(c echo.Context) error {
 	res, err := a.svc.PostAny(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostAny", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "PostAny", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "PostAny", res)
-	return nil
 }
 
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {

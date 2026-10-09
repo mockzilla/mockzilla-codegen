@@ -317,12 +317,13 @@ const (
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -346,6 +347,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -379,8 +387,9 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
+	svc        ServiceInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -392,12 +401,16 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // GetItem handles GET /items/{id}.
 func (a *HTTPAdapter) GetItem(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetItem"))
+	a.operations.Serve(w, r, "GetItem", a.serveGetItem)
+}
+
+func (a *HTTPAdapter) serveGetItem(w http.ResponseWriter, r *http.Request) {
 	opts := &GetItemServiceRequestOptions{RawRequest: r}
 	query := runtime.ParseQuery(r.URL.RawQuery)
 	opts.PathParams = &GetItemPathParams{}
@@ -430,7 +443,10 @@ func (a *HTTPAdapter) GetItem(w http.ResponseWriter, r *http.Request) {
 
 // PutItem handles PUT /items/{id}.
 func (a *HTTPAdapter) PutItem(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PutItem"))
+	a.operations.Serve(w, r, "PutItem", a.servePutItem)
+}
+
+func (a *HTTPAdapter) servePutItem(w http.ResponseWriter, r *http.Request) {
 	opts := &PutItemServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &PutItemPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -465,7 +481,10 @@ func (a *HTTPAdapter) PutItem(w http.ResponseWriter, r *http.Request) {
 
 // DeleteItem handles DELETE /items/{id}.
 func (a *HTTPAdapter) DeleteItem(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "DeleteItem"))
+	a.operations.Serve(w, r, "DeleteItem", a.serveDeleteItem)
+}
+
+func (a *HTTPAdapter) serveDeleteItem(w http.ResponseWriter, r *http.Request) {
 	opts := &DeleteItemServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &DeleteItemPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -487,7 +506,10 @@ func (a *HTTPAdapter) DeleteItem(w http.ResponseWriter, r *http.Request) {
 
 // Reset handles POST /internal/reset.
 func (a *HTTPAdapter) Reset(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "Reset"))
+	a.operations.Serve(w, r, "Reset", a.serveReset)
+}
+
+func (a *HTTPAdapter) serveReset(w http.ResponseWriter, r *http.Request) {
 	opts := &ResetServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.Reset(r.Context(), opts)

@@ -165,12 +165,13 @@ const (
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -194,6 +195,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -227,8 +235,9 @@ func WithMultipartMaxMemory(n int64) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  TodoInterface
-	opts *ServerOptions
+	svc        TodoInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -240,58 +249,63 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc TodoInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // ListTodos handles GET /todos.
 func (a *HTTPAdapter) ListTodos(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "ListTodos"))
+	a.operations.Serve(c.Response(), c.Request(), "ListTodos", a.serveListTodos)
+	return nil
+}
+
+func (a *HTTPAdapter) serveListTodos(w http.ResponseWriter, r *http.Request) {
 	opts := &ListTodosServiceRequestOptions{RawRequest: r}
 
 	res, err := a.svc.ListTodos(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListTodos", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "ListTodos", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "ListTodos", res)
-	return nil
 }
 
 // CreateTodo handles POST /todos.
 func (a *HTTPAdapter) CreateTodo(c echo.Context) error {
-	w, r := c.Response(), c.Request()
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreateTodo"))
+	a.operations.Serve(c.Response(), c.Request(), "CreateTodo", a.serveCreateTodo)
+	return nil
+}
+
+func (a *HTTPAdapter) serveCreateTodo(w http.ResponseWriter, r *http.Request) {
 	opts := &CreateTodoServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/json":
 		if err := runtime.DecodeJSON(r.Body, &opts.Body, true, a.opts.JSONDecoder); err != nil {
 			a.failDecode(w, r, "CreateTodo", err)
-			return nil
+			return
 		}
 	case "":
 		a.failDecode(w, r, "CreateTodo", runtime.ErrBodyEmpty)
-		return nil
+		return
 	default:
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorDecode, OperationID: "CreateTodo", Status: http.StatusUnsupportedMediaType, Err: runtime.ContentTypeError(contentType)})
-		return nil
+		return
 	}
 
 	res, err := a.svc.CreateTodo(r.Context(), opts)
 	if err != nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreateTodo", Err: err})
-		return nil
+		return
 	}
 	if res == nil {
 		a.fail(w, r, &httpserver.HandlerError{Kind: httpserver.ErrorService, OperationID: "CreateTodo", Err: httpserver.ErrNoResponse})
-		return nil
+		return
 	}
 	a.write(w, r, "CreateTodo", res)
-	return nil
 }
 
 func (a *HTTPAdapter) fail(w http.ResponseWriter, r *http.Request, err *httpserver.HandlerError) {

@@ -562,13 +562,14 @@ var bodyPresence = runtime.Presence{
 
 // ServerOptions is what the adapter and the router are set up with.
 type ServerOptions struct {
-	Router             any
-	Middleware         []func(http.Handler) http.Handler
-	ErrorHandler       httpserver.ErrorHandler
-	JSONDecoder        func(data []byte, v any) error
-	JSONEncoder        func(v any) ([]byte, error)
-	MultipartMaxMemory int64
-	Presence           runtime.PresenceChecker
+	Router              any
+	Middleware          []func(http.Handler) http.Handler
+	OperationMiddleware []func(http.Handler) http.Handler
+	ErrorHandler        httpserver.ErrorHandler
+	JSONDecoder         func(data []byte, v any) error
+	JSONEncoder         func(v any) ([]byte, error)
+	MultipartMaxMemory  int64
+	Presence            runtime.PresenceChecker
 }
 
 // ServerOption sets one field of ServerOptions.
@@ -593,6 +594,13 @@ func NewServerOptions(opts ...ServerOption) *ServerOptions {
 func WithMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
 	return func(o *ServerOptions) {
 		o.Middleware = append(o.Middleware, mw...)
+	}
+}
+
+// WithOperationMiddleware wraps each operation with mw, once its name is on the context.
+func WithOperationMiddleware(mw ...func(http.Handler) http.Handler) ServerOption {
+	return func(o *ServerOptions) {
+		o.OperationMiddleware = append(o.OperationMiddleware, mw...)
 	}
 }
 
@@ -633,8 +641,9 @@ func WithPresence(p runtime.PresenceChecker) ServerOption {
 
 // HTTPAdapter answers HTTP requests by calling the service.
 type HTTPAdapter struct {
-	svc  ServiceInterface
-	opts *ServerOptions
+	svc        ServiceInterface
+	opts       *ServerOptions
+	operations httpserver.Chain
 }
 
 type responseData interface {
@@ -646,12 +655,16 @@ type responseData interface {
 
 // NewHTTPAdapter returns the adapter of svc.
 func NewHTTPAdapter(svc ServiceInterface, opts ...ServerOption) *HTTPAdapter {
-	return &HTTPAdapter{svc: svc, opts: NewServerOptions(opts...)}
+	o := NewServerOptions(opts...)
+	return &HTTPAdapter{svc: svc, opts: o, operations: httpserver.NewChain(o.OperationMiddleware...)}
 }
 
 // SendParcel handles POST /parcels.
 func (a *HTTPAdapter) SendParcel(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "SendParcel"))
+	a.operations.Serve(w, r, "SendParcel", a.serveSendParcel)
+}
+
+func (a *HTTPAdapter) serveSendParcel(w http.ResponseWriter, r *http.Request) {
 	opts := &SendParcelServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "multipart/form-data":
@@ -700,7 +713,10 @@ func (a *HTTPAdapter) SendParcel(w http.ResponseWriter, r *http.Request) {
 
 // GetParcel handles GET /parcels/{id}.
 func (a *HTTPAdapter) GetParcel(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "GetParcel"))
+	a.operations.Serve(w, r, "GetParcel", a.serveGetParcel)
+}
+
+func (a *HTTPAdapter) serveGetParcel(w http.ResponseWriter, r *http.Request) {
 	opts := &GetParcelServiceRequestOptions{RawRequest: r}
 	opts.PathParams = &GetParcelPathParams{}
 	if err := runtime.DecodePath(runtime.UnescapePath(r, chi.URLParam(r, "id")), runtime.Param{Name: "id", Style: runtime.StyleSimple, IsExplode: false, IsRequired: true, IsJSON: false}, &opts.PathParams.ID); err != nil {
@@ -726,7 +742,10 @@ func (a *HTTPAdapter) GetParcel(w http.ResponseWriter, r *http.Request) {
 
 // PrintLabel handles POST /labels.
 func (a *HTTPAdapter) PrintLabel(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "PrintLabel"))
+	a.operations.Serve(w, r, "PrintLabel", a.servePrintLabel)
+}
+
+func (a *HTTPAdapter) servePrintLabel(w http.ResponseWriter, r *http.Request) {
 	opts := &PrintLabelServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/x-www-form-urlencoded":
@@ -766,7 +785,10 @@ func (a *HTTPAdapter) PrintLabel(w http.ResponseWriter, r *http.Request) {
 
 // CreateCustomer handles POST /customers.
 func (a *HTTPAdapter) CreateCustomer(w http.ResponseWriter, r *http.Request) {
-	r = r.WithContext(runtime.WithOperationID(r.Context(), "CreateCustomer"))
+	a.operations.Serve(w, r, "CreateCustomer", a.serveCreateCustomer)
+}
+
+func (a *HTTPAdapter) serveCreateCustomer(w http.ResponseWriter, r *http.Request) {
 	opts := &CreateCustomerServiceRequestOptions{RawRequest: r}
 	switch contentType := runtime.ContentType(r.Header); contentType {
 	case "application/x-www-form-urlencoded":
