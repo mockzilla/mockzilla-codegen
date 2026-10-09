@@ -75,6 +75,8 @@ func TestExported(t *testing.T) {
 		{name: "Leading digits before capitals", parts: []string{"2FA"}, want: "N2Fa"},
 		{name: "Leading digits before camel case", parts: []string{"404NotFound"}, want: "N404NotFound"},
 		{name: "Leading digit after a separator", parts: []string{"_3d"}, want: "N3d"},
+		{name: "Initialism after leading digits", parts: []string{"short_2url"}, want: "Short2URL"},
+		{name: "Plural initialism after leading digits", parts: []string{"3ids"}, want: "N3IDs"},
 		{name: "Decimal point between digits", parts: []string{"1.5"}, want: "N1Dot5"},
 		{name: "Version number", parts: []string{"v1.2.3"}, want: "V1Dot2Dot3"},
 		{name: "Dot after a letter is a separator", parts: []string{"a.1"}, want: "A1"},
@@ -134,6 +136,8 @@ func TestExportedWithExtraInitialisms(t *testing.T) {
 		{name: "Extra initialism", extra: []string{"PSP"}, in: "pspId", want: "PSPID"},
 		{name: "Extra initialism given in lower case is written upper case", extra: []string{"ssn"}, in: "SSN", want: "SSN"},
 		{name: "Extra initialism plural", extra: []string{"PSP"}, in: "PSPs", want: "PSPs"},
+		{name: "Extra initialism after leading digits", extra: []string{"DS"}, in: "force_3ds_flow", want: "Force3DSFlow"},
+		{name: "Extra initialism that starts with a digit", extra: []string{"3DS"}, in: "3ds", want: "N3DS"},
 		{name: "Empty extra is ignored", extra: []string{""}, in: "s", want: "S"},
 		{name: "Defaults stay with extras", extra: []string{"PSP"}, in: "url", want: "URL"},
 	}

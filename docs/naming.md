@@ -10,9 +10,9 @@ each rename.
 |---|---|---|
 | `client_address`, `client-address`, `client.address` | `ClientAddress` | Any character that is not a letter or a digit splits words, apart from the symbols below. |
 | `fooBar`, `HTTPServer` | `FooBar`, `HTTPServer` | A capital starts a word. An upper-case run ends before its last capital when a lower-case letter follows. |
-| `v2api`, `404NotFound` | `V2API`, `N404NotFound` | Digits stay with the word before them. A letter after them starts a new word. |
+| `v2api`, `404NotFound` | `V2API`, `N404NotFound` | Digits stay with the word before them. A letter after them starts a new word, unless the word starts with the digits: `1st` stays one word. |
 | `CLIENT_ADDRESS`, `SSN` | `ClientAddress`, `Ssn` | Every word is written with one capital, unless it is an initialism. |
-| `userId`, `urls`, `userIDs`, `id2` | `UserID`, `URLs`, `UserIDs`, `ID2` | Initialisms stay upper case, also with a plural `s` or trailing digits. |
+| `userId`, `urls`, `userIDs`, `id2`, `short_2url` | `UserID`, `URLs`, `UserIDs`, `ID2`, `Short2URL` | Initialisms stay upper case, also with a plural `s` or digits before or after them. |
 | `1st`, `200` | `N1st`, `N200` | A name that would start with a digit gets `N` in front. |
 | `+1`, `-1`, `-created_at`, `@type` | `Plus1`, `Minus1`, `MinusCreatedAt`, `AtType` | `+` and `@` become words anywhere, `-` only at the start. |
 | `1.5`, `v1.2` | `N1Dot5`, `V1Dot2` | A dot between two digits becomes `Dot`. |
@@ -39,7 +39,8 @@ naming:
 ```
 
 An initialism matches a whole word in any case: `Id`, `id` and `ID` all give `ID`. It does not
-match inside a word, so `userid` stays `Userid`.
+match inside a word, so `userid` stays `Userid`. Digits in front do not stop it: with `DS` listed,
+`force_3ds_flow` gives `Force3DSFlow`.
 
 ## Names for types without a name
 
