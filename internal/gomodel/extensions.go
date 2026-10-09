@@ -9,9 +9,12 @@ package gomodel
 
 import (
 	"fmt"
+	"go/token"
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/extension"
@@ -100,10 +103,15 @@ func (r *extReader) clash(p *spec.Parameter, name, outer, inner string) {
 	})
 }
 
-// goName is the Go name x-go-name asks for: as written with x-go-name-exact, else exported.
+// goName is the Go name x-go-name asks for, as written with its first letter upper unless exact.
 func (r *extReader) goName(set extension.Set, name string) string {
 	if name == "" || set.IsExactName {
 		return name
+	}
+
+	first, size := utf8.DecodeRuneInString(name)
+	if upper := string(unicode.ToUpper(first)) + name[size:]; token.IsExported(upper) {
+		return upper
 	}
 	return r.namer.Exported(name)
 }

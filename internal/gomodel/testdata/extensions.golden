@@ -1,6 +1,8 @@
 Customer struct models.types
   Identifier string json=id required yaml=id
   accountSecret *string json=secret omitempty jsonIgnored yaml=secret,omitempty
+  ThreeDSACSURL *string json=acs_url omitempty yaml=acs_url,omitempty
+  Note *string json=_note omitempty yaml=_note,omitempty
   Nickname string json=nickname omitempty yaml=nickname,omitempty
   Count *int json=count yaml=count
   Code *string json=code omitempty yaml=code,omitempty
@@ -40,6 +42,6 @@ op GetAccount GET /accounts/{id}
 warning extension-value 11:11 /paths/~1accounts~1{id}/get/parameters/3: x-go-extra-tags db of query parameter "sort" is "sort", and "order" in its schema; the parameter's is used
 warning extension-value 11:11 /paths/~1accounts~1{id}/get/parameters/3: x-go-name of query parameter "sort" is "SortBy", and "Order" in its schema; the parameter's is used
 warning extension-value 21:13 /components/parameters/Cursor: x-go-name of query parameter "cursor" is "After", and "Before" in its schema; the parameter's is used
-warning extension-unknown 69:11 /components/schemas/Account/properties/typo/x-go-nam: unknown extension x-go-nam; it is left out
-warning enum-name-unexported 76:7 /components/schemas/Shade/x-enum-names/0: x-enum-names "light" is unexported; it is used as written
-warning name-clash 93:16 /components/schemas/Renamed/properties/clash: "Validate" is reserved, renamed to "Validate2"
+warning extension-unknown 75:11 /components/schemas/Account/properties/typo/x-go-nam: unknown extension x-go-nam; it is left out
+warning enum-name-unexported 82:7 /components/schemas/Shade/x-enum-names/0: x-enum-names "light" is unexported; it is used as written
+warning name-clash 99:16 /components/schemas/Renamed/properties/clash: "Validate" is reserved, renamed to "Validate2"
