@@ -83,11 +83,6 @@ func TestParseErrors(t *testing.T) {
 		},
 		{name: "Not an OpenAPI document", src: "a: b\n", wantErr: provider.ErrParse},
 		{name: "Swagger 2.0", src: "swagger: '2.0'\ninfo: {title: t, version: '1'}\npaths: {}\n", wantErr: provider.ErrUnsupportedVersion},
-		{
-			name:    "Ref to nothing",
-			src:     minimalSpec + "components:\n  schemas:\n    A: {$ref: '#/components/schemas/Missing'}\n",
-			wantErr: provider.ErrParse,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -96,6 +91,67 @@ func TestParseErrors(t *testing.T) {
 			_, _, err := New().Parse(context.Background(), []byte(tt.src), provider.ParseOptions{File: "spec.yaml"})
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.ErrorContains(t, err, cmp.Or(tt.wantText, "spec.yaml"))
+		})
+	}
+}
+
+func TestParseUnresolvedRefs(t *testing.T) {
+	t.Parallel()
+
+	file := diag.Origin{File: "spec.yaml"}
+	tests := []struct {
+		name      string
+		src       string
+		wantDiags []diag.Diagnostic
+	}{
+		{
+			name: "Ref inside an example value",
+			src: "openapi: 3.1.0\ninfo: {title: t, version: '1'}\n" +
+				"paths:\n  /a:\n    get:\n      responses:\n        '200':\n          description: ok\n" +
+				"          content:\n            application/json:\n" +
+				"              examples:\n                many: {$ref: '#/components/examples/Many'}\n" +
+				"components:\n  examples:\n    One:\n      value: {id: 1}\n" +
+				"    Many:\n      value: {$ref: '#/components/examples/One/value'}\n",
+			wantDiags: []diag.Diagnostic{{
+				Severity: diag.Warning,
+				Code:     diag.CodeBuildIssue,
+				Origin:   file,
+				Message:  "cannot resolve reference `#/components/examples/One/value`, it's missing: $.components.examples['One'].value [18:15]",
+			}},
+		},
+		{
+			name: "Ref to nothing",
+			src:  minimalSpec + "components:\n  schemas:\n    A: {$ref: '#/components/schemas/Missing'}\n",
+			wantDiags: []diag.Diagnostic{
+				{
+					Severity: diag.Warning,
+					Code:     diag.CodeBuildIssue,
+					Origin:   file,
+					Message:  "cannot resolve reference `#/components/schemas/Missing`, it's missing: $.components.schemas['Missing'] [6:9]",
+				},
+				{
+					Severity: diag.Warning,
+					Code:     diag.CodeBuildIssue,
+					Origin:   file,
+					Message:  "component `#/components/schemas/Missing` does not exist in the specification",
+				},
+				{
+					Severity: diag.Error,
+					Code:     diag.CodeSchemaBuild,
+					Pointer:  "/components/schemas/Missing",
+					Origin:   diag.Origin{File: "spec.yaml", Line: 6, Col: 8},
+					Message:  "schema cannot be built: build schema failed: reference cannot be found: '#/components/schemas/Missing'",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, diags, err := New().Parse(context.Background(), []byte(tt.src), provider.ParseOptions{File: "spec.yaml"})
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantDiags, diags)
 		})
 	}
 }

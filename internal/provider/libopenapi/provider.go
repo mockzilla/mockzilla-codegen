@@ -17,6 +17,8 @@ import (
 
 	"github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi/datamodel"
+	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+	lowv3 "github.com/pb33f/libopenapi/datamodel/low/v3"
 
 	"github.com/mockzilla/mockzilla-codegen/internal/diag"
 	"github.com/mockzilla/mockzilla-codegen/internal/provider"
@@ -66,7 +68,8 @@ func (p *Provider) Parse(ctx context.Context, data []byte, opts provider.ParseOp
 		return nil, nil, err
 	}
 
-	d, err := libopenapi.NewDocumentWithConfiguration(data, p.config())
+	cfg := p.config()
+	d, err := libopenapi.NewDocumentWithConfiguration(data, cfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %s: %w", provider.ErrParse, syntaxAt(opts.File, data, err), err)
 	}
@@ -75,14 +78,11 @@ func (p *Provider) Parse(ctx context.Context, data []byte, opts provider.ParseOp
 		return nil, nil, fmt.Errorf("%w: %s", err, opts.File)
 	}
 
-	model, buildErr := d.BuildV3Model()
-	if model == nil {
-		return nil, nil, fmt.Errorf("%w: %s: %w", provider.ErrParse, opts.File, buildErr)
-	}
-
+	// BuildV3Model drops the whole model for one ref it cannot follow, like one inside an example value.
+	low, buildErr := lowv3.CreateDocumentFromConfig(d.GetSpecInfo(), cfg)
 	c := newConverter(version, opts)
-	c.buildIssues(buildErr, model.Index.GetCircularReferences())
-	doc = c.document(&model.Model)
+	c.buildIssues(buildErr, low.Index.GetCircularReferences())
+	doc = c.document(v3.NewDocument(low))
 	return doc, c.diags.List(), nil
 }
 

@@ -660,8 +660,10 @@ func (c *converter) rebuild(p *base.SchemaProxy, ptr string) *base.Schema {
 	lp := p.GoLow()
 	ctx, node, idx := lp.GetContext(), lp.GetValueNode(), lp.GetIndex()
 	if isRef, _, _ := utils.IsNodeRefValue(node); isRef {
-		// A spec with a $ref libopenapi cannot find has no model, so the target is there.
 		node, idx, _, ctx = lowmodel.LocateRefNodeWithContext(ctx, node, idx)
+	}
+	if node == nil {
+		return nil
 	}
 
 	kept := keywords{c: c, node: utils.NodeAlias(node), ptr: ptr}.buildable()
