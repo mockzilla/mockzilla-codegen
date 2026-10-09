@@ -33,6 +33,12 @@ components:
           x-go-name: accountSecret
           x-go-name-exact: true
           x-go-json-ignore: true
+        acs_url:
+          type: string
+          x-go-name: ThreeDSACSURL
+        _note:
+          type: string
+          x-go-name: _note
         nickname:
           type: string
           x-go-type-skip-optional-pointer: true

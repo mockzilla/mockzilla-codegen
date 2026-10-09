@@ -96,7 +96,10 @@ Two extensions set a name:
 
 - Both take part in clash resolution with the highest rank ([naming](naming.md#clashes)).
 - A name that still has to change gets a warning.
-- The name is exported unless `x-go-name-exact: true` is set.
+- The name is used as written, with its first letter upper case: `ThreeDSACSURL` stays
+  `ThreeDSACSURL`. `x-go-name-exact: true` keeps the first letter too, so the name can be
+  unexported. A name that is still not exported, such as `_note`, goes through the
+  [naming rules](naming.md).
 
 ## x-sensitive-data
 
