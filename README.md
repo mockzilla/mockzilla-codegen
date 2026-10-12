@@ -74,6 +74,14 @@ go tool mockzilla-codegen generate openapi.yaml -server chi   # and a chi server
 go tool mockzilla-codegen generate -c codegen.yaml            # what the config lists
 ```
 
+Already using [mockzilla](https://github.com/mockzilla/mockzilla) 2.11 or newer? It has this
+generator built in as `mockzilla generate`, with the same flags and config:
+
+```sh
+mockzilla generate openapi.yaml -server chi
+go mod tidy
+```
+
 ## Example
 
 This spec:
