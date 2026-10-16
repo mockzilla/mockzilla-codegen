@@ -42,6 +42,24 @@ type filter struct {
 	Tags []string `json:"tags,omitempty"`
 }
 
+// orNull is a nullable union of one string, null while nothing is set.
+type orNull struct {
+	String *string
+}
+
+func (o orNull) IsNull() bool {
+	return o.String == nil
+}
+
+func (o orNull) MarshalText() ([]byte, error) {
+	return []byte(*o.String), nil
+}
+
+func (o *orNull) UnmarshalText(text []byte) error {
+	o.String = new(string(text))
+	return nil
+}
+
 type upload struct {
 	Title string       `json:"title"`
 	File  runtime.File `json:"file"`
@@ -125,6 +143,24 @@ func TestRequestBuilder(t *testing.T) {
 			name: "A required query parameter that is nil",
 			build: func(b *RequestBuilder) {
 				b.QueryParam(nil, runtime.Param{Name: "needed", IsRequired: true})
+			},
+			wantErr: runtime.ErrParamMissing,
+		},
+		{
+			name: "A null value is left out when optional",
+			build: func(b *RequestBuilder) {
+				b.QueryParam(&orNull{}, runtime.Param{Name: "u", Style: runtime.StyleForm, IsExplode: true})
+				b.QueryParam(orNull{String: new("a")}, runtime.Param{Name: "v", Style: runtime.StyleForm, IsExplode: true})
+				b.HeaderParam(&orNull{}, runtime.Param{Name: "X-U", Style: runtime.StyleSimple})
+				b.CookieParam(runtime.Null[int](), runtime.Param{Name: "u", Style: runtime.StyleForm})
+			},
+			wantURL:    "http://api.test/v1/pets?v=a",
+			wantHeader: http.Header{"X-U": nil, "Cookie": nil},
+		},
+		{
+			name: "A required query parameter that is null",
+			build: func(b *RequestBuilder) {
+				b.QueryParam(&orNull{}, runtime.Param{Name: "needed", IsRequired: true})
 			},
 			wantErr: runtime.ErrParamMissing,
 		},

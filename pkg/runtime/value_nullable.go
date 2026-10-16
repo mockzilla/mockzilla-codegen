@@ -28,7 +28,15 @@ type nullableTarget interface {
 	target() reflect.Value
 }
 
-var nullableType = reflect.TypeFor[nullable]()
+// nuller is a value that can say it is null, such as a nullable union with no variant set.
+type nuller interface {
+	IsNull() bool
+}
+
+var (
+	nullableType = reflect.TypeFor[nullable]()
+	nullerType   = reflect.TypeFor[nuller]()
+)
 
 // Some returns a Nullable that holds v.
 func Some[T any](v T) Nullable[T] {
@@ -113,6 +121,12 @@ func (n *Nullable[T]) target() reflect.Value {
 	return reflect.ValueOf(n.value).Elem()
 }
 
+// HasValue reports whether v holds a value: not nil, not absent and not null.
+func HasValue(v any) bool {
+	_, ok := held(reflect.ValueOf(v))
+	return ok
+}
+
 // valueType is the type t holds behind pointers and Nullables.
 func valueType(t reflect.Type) reflect.Type {
 	for {
@@ -128,7 +142,7 @@ func valueType(t reflect.Type) reflect.Type {
 	}
 }
 
-// held is what v holds behind pointers, interfaces and Nullables, and false when that is nothing.
+// held is what v holds behind pointers, interfaces and Nullables, false when nothing or null.
 func held(v reflect.Value) (reflect.Value, bool) {
 	for {
 		switch {
@@ -146,6 +160,9 @@ func held(v reflect.Value) (reflect.Value, bool) {
 				return v, false
 			}
 			v = inner
+		case v.CanInterface() && v.Type().Implements(nullerType):
+			n, _ := v.Interface().(nuller)
+			return v, !n.IsNull()
 		default:
 			return v, true
 		}

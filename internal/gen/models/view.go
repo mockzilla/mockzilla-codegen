@@ -85,6 +85,7 @@ type ConstView struct {
 // the packages are imported under, JSON only when shared fields are decoded. IsText adds
 // MarshalText and UnmarshalText; Form, the form type, UnmarshalForm. Which is what decoding sets
 // in doc lines, Marshal the runtime func that writes the variants. IsDescribed uses Args instead.
+// IsNullable adds IsNull to a nullable union without shared fields, which writes null when unset.
 type UnionView struct {
 	Receiver    string
 	Runtime     string
@@ -96,6 +97,7 @@ type UnionView struct {
 	IsGrouped   bool
 	IsDescribed bool
 	IsText      bool
+	IsNullable  bool
 	HasUnion    bool
 	Variants    []VariantView
 	Args        []string
@@ -249,6 +251,8 @@ func unionView(d *gomodel.Decl, s *gocode.Scope) *UnionView {
 	if len(d.Struct.Fields) > 0 {
 		v.JSON = s.Import(gomodel.Import{Path: "encoding/json"})
 	}
+	isNotNullable := func(g *gomodel.Group) bool { return !g.IsNullable }
+	v.IsNullable = len(d.Struct.Fields) == 0 && !slices.ContainsFunc(u.Groups, isNotNullable)
 
 	var shared []string
 	for _, f := range d.Struct.Fields {

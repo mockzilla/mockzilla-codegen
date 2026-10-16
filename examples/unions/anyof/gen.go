@@ -134,6 +134,11 @@ func (s *Stamp) UnmarshalText(text []byte) error {
 	return runtime.UnmarshalUnionText(text, s.UnmarshalJSON)
 }
 
+// IsNull reports whether no variant is set, which is null.
+func (s Stamp) IsNull() bool {
+	return s.Time == nil && s.String == nil
+}
+
 // Code is any of Time or String.
 type Code struct {
 	Time   *time.Time `json:"-"`
