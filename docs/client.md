@@ -233,6 +233,7 @@ runs. The client never calls it for you.
 |---|---|
 | a whole group, such as `Query` | none of its parameters are sent |
 | a required parameter | `runtime.ErrParamMissing`, before anything is sent |
+| `null` in a parameter, such as a nullable union with no variant set | the same as nil: not sent, or `runtime.ErrParamMissing` when required. A URL or header has no `null` |
 | a path parameter | `runtime.ErrParamMissing`, even when the spec marks it optional |
 | an optional parameter without a pointer (`x-go-type-skip-optional-pointer`) | it is not sent while it holds its zero value |
 
@@ -248,8 +249,8 @@ These fail before anything is sent:
 - A cookie value with a byte a cookie cannot hold, such as `;` or `"`: `runtime.ErrParamValue`.
   net/http would drop the byte and only log it.
 
-An object leaves out a property that is nil, an empty list or map, and a zero value tagged
-`omitempty`.
+An object leaves out a property that is nil or `null`, an empty list or map, and a zero value
+tagged `omitempty`.
 
 A list or object inside an object:
 

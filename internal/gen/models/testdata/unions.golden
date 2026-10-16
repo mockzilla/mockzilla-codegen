@@ -126,6 +126,11 @@ func (s *Stamp) UnmarshalJSON(data []byte) error {
 	})
 }
 
+// IsNull reports whether no variant is set, which is null.
+func (s Stamp) IsNull() bool {
+	return s.Time == nil && s.Any == nil && s.Loop == nil
+}
+
 // ID is one of Int or String.
 type ID struct {
 	Int    *int    `json:"-"`

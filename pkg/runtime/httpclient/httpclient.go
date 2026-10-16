@@ -83,7 +83,7 @@ func (b *RequestBuilder) PathParam(v any, p runtime.Param) {
 }
 
 // QueryParam adds v to the query as p, see runtime.EncodeQuery. An optional p is left out when v
-// is nil or zero, a required one is an error when v is nil.
+// is nil, null or zero, a required one is an error when v is nil or null.
 func (b *RequestBuilder) QueryParam(v any, p runtime.Param) {
 	if b.err != nil || b.skip(v, p) {
 		return
@@ -258,9 +258,9 @@ func (b *RequestBuilder) Build(ctx context.Context, base *url.URL) (*http.Reques
 	return req, nil
 }
 
-// skip reports a value left out: nil, an error when p is required, or zero when p is optional.
+// skip reports a value left out: nil or null, an error when required, or zero when optional.
 func (b *RequestBuilder) skip(v any, p runtime.Param) bool {
-	if !isNil(v) {
+	if !isNil(v) && runtime.HasValue(v) {
 		return !p.IsRequired && validation.IsZero(v)
 	}
 	if p.IsRequired {

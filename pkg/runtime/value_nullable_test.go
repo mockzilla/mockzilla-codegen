@@ -25,6 +25,24 @@ type node struct {
 	Parent Nullable[node] `json:"parent,omitzero"`
 }
 
+// orNull is a nullable union of one string, null while nothing is set.
+type orNull struct {
+	String *string
+}
+
+func (o orNull) IsNull() bool {
+	return o.String == nil
+}
+
+func (o orNull) MarshalText() ([]byte, error) {
+	return []byte(*o.String), nil
+}
+
+func (o *orNull) UnmarshalText(text []byte) error {
+	o.String = new(string(text))
+	return nil
+}
+
 // patch is a body with a Nullable of each kind a form or a query carries.
 type patch struct {
 	Name    Nullable[string]  `json:"name,omitzero"`
@@ -142,6 +160,27 @@ func TestNullableParams(t *testing.T) {
 		Gone Nullable[int] `json:"X-Gone"`
 	}{Rate: Some(7), Gone: Null[int]()})
 	assert.Equal(t, http.Header{"X-Rate": {"7"}}, h)
+}
+
+func TestNullValueIsLeftOut(t *testing.T) {
+	t.Parallel()
+
+	assert.False(t, HasValue(nil))
+	assert.False(t, HasValue(Null[int]()))
+	assert.False(t, HasValue(&orNull{}))
+	assert.True(t, HasValue(orNull{String: new("a")}))
+
+	p := Param{Name: "u", Style: StyleForm, IsExplode: true}
+	null, err := EncodeQuery(&orNull{}, p)
+	require.NoError(t, err)
+	set, err := EncodeQuery(orNull{String: new("a")}, p)
+	require.NoError(t, err)
+	inObject, err := EncodeQuery(struct {
+		U orNull `json:"u"`
+		V string `json:"v"`
+	}{V: "b"}, Param{Name: "o", Style: StyleForm, IsExplode: true})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"", "u=a", "v=b"}, []string{null, set, inObject})
 }
 
 func TestNullableForm(t *testing.T) {

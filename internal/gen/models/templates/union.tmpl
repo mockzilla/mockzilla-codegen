@@ -82,4 +82,11 @@ func ({{.Receiver}} *{{$.Name}}) UnmarshalText(text []byte) error {
 	return {{.Runtime}}.UnmarshalUnionText(text, {{.Receiver}}.UnmarshalJSON)
 }
 {{- end}}
+{{- if .IsNullable}}
+
+// IsNull reports whether no variant is set, which is null.
+func ({{.Receiver}} {{$.Name}}) IsNull() bool {
+	return {{range $i, $v := .Variants}}{{if $i}} && {{end}}{{$.Union.Receiver}}.{{$v.Name}} == nil{{end}}
+}
+{{- end}}
 {{- end}}

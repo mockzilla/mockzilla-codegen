@@ -463,7 +463,8 @@ The methods follow the kind:
 - A `oneOf` with more than one variant set is an error.
 - An `anyOf` with several set merges objects, a later key replacing an earlier one. Otherwise it
   writes the first set variant.
-- Nothing set writes `null`.
+- Nothing set writes `null`. A nullable union without shared properties has `IsNull`, which
+  reports that.
 
 With a discriminator, `MarshalJSON` also writes the discriminator value.
 
